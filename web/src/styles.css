@@ -468,3 +468,4 @@ th.sortable:hover { color: var(--text); }
 .bell-issue { margin-top: 2px; }
 .bell-text { color: var(--text); background: var(--sunken); border-radius: 4px; padding: 4px 8px; margin: 4px 0; overflow-wrap: anywhere; }
 .bell-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 6px; }
+.disabled-block { opacity: .55; }

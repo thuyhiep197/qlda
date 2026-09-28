@@ -254,6 +254,26 @@ const migrations: string[] = [
    INSERT OR IGNORE INTO issue_watchers(issue_id, user_id) SELECT id, reporter_id FROM issues WHERE reporter_id IS NOT NULL;
    INSERT OR IGNORE INTO issue_watchers(issue_id, user_id) SELECT id, assignee_id FROM issues WHERE assignee_id IS NOT NULL;
    INSERT OR IGNORE INTO issue_watchers(issue_id, user_id) SELECT DISTINCT issue_id, author_id FROM comments;`,
+  // v6: workflow theo loại issue — tập trạng thái riêng cho từng loại; luồng chuyển riêng theo loại
+  // (issue_type = '' là luồng chung cho mọi loại chưa đặt luồng riêng)
+  `CREATE TABLE type_statuses (
+     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     issue_type TEXT NOT NULL,
+     status_id INTEGER NOT NULL REFERENCES statuses(id) ON DELETE CASCADE,
+     PRIMARY KEY (project_id, issue_type, status_id)
+   );
+   CREATE TABLE transitions_v6 (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     issue_type TEXT NOT NULL DEFAULT '',
+     from_status_id INTEGER NOT NULL REFERENCES statuses(id) ON DELETE CASCADE,
+     to_status_id INTEGER NOT NULL REFERENCES statuses(id) ON DELETE CASCADE,
+     UNIQUE (project_id, issue_type, from_status_id, to_status_id)
+   );
+   INSERT INTO transitions_v6(project_id, issue_type, from_status_id, to_status_id)
+     SELECT project_id, '', from_status_id, to_status_id FROM transitions;
+   DROP TABLE transitions;
+   ALTER TABLE transitions_v6 RENAME TO transitions;`,
 ];
 
 export function migrate() {

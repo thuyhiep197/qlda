@@ -7,6 +7,7 @@
  */
 import { all, get, tx } from './db.ts';
 import { createIssue } from './issues.ts';
+import { isStatusAllowed } from './workflow.ts';
 import { badRequest, forbidden, type AuthUser, type Permission } from './permissions.ts';
 
 export interface ImportRow {
@@ -149,7 +150,12 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
     if (str(r.status)) {
       const key = fold(r.status);
       const id = statusBy.get(key) ?? (STATUS_ALIASES[key] ? firstOf(STATUS_ALIASES[key]) : undefined);
-      if (id) data.status_id = id;
+      if (id) {
+        data.status_id = id;
+        if (type && !isStatusAllowed(projectId, type, id)) {
+          res.warnings.push(`Trạng thái "${str(r.status)}" không thuộc workflow của loại này, dùng trạng thái cùng nhóm`);
+        }
+      }
       else res.warnings.push(`Trạng thái "${str(r.status)}" không có trong dự án, dùng trạng thái đầu tiên`);
     }
 

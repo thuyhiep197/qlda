@@ -53,7 +53,7 @@ docker compose up -d --build
 | Scrum | Backlog kéo thả để xếp thứ tự và đưa vào sprint; tạo, bắt đầu, sửa, hoàn thành sprint (chuyển issue chưa xong sang backlog hoặc sprint sau); board sprint đang chạy |
 | Kanban | Board liên tục, giới hạn WIP theo cột, tự ẩn issue đã xong quá 14 ngày |
 | Board | Kéo thả đổi trạng thái; lọc theo người, epic, loại, nhãn; phân làn theo người thực hiện hoặc epic |
-| Workflow | Thêm, sửa, xóa, sắp xếp trạng thái; nhóm trạng thái (Cần làm / Đang thực hiện / Hoàn thành); bật kiểm soát luồng chuyển bằng ma trận Từ → Tới |
+| Workflow | Dự án → Cài đặt → **Trạng thái & workflow**: (1) kho trạng thái — thêm, sửa, sắp xếp, xóa, nhóm Cần làm / Đang thực hiện / Hoàn thành, giới hạn WIP; (2) **trạng thái theo loại issue** — mỗi loại (Epic, Story, Task, Bug, Sub-task) chọn các trạng thái được dùng, issue đang ở trạng thái bị bỏ được chuyển sang trạng thái cùng nhóm sau khi xác nhận; (3) **luồng chuyển** — bật kiểm soát, ma trận Từ → Tới cho luồng chung và luồng riêng từng loại. Áp dụng khi tạo issue, đổi trạng thái, đổi loại, kéo thả trên bảng và nhập Excel |
 | Nhập từ Excel | Tab Backlog / Danh sách issue → **Nhập từ Excel**: tải file mẫu (có sẵn ô chọn), nhập file .xlsx hoặc CSV xuất từ Jira; xem trước kết quả kiểm tra từng dòng, nhập theo nguyên tắc tất cả hoặc không (có thể bỏ qua dòng lỗi); tự nối Epic → Story/Task/Bug → Sub-task; tối đa 1000 dòng/lần. Quyền: Nhập issue hàng loạt |
 | Tìm kiếm | Lọc theo dự án, loại, trạng thái, người, ưu tiên, sprint, nhãn, từ khóa; bộ lọc lưu trên URL để chia sẻ; xuất CSV mở bằng Excel |
 | Roadmap | Timeline các epic theo tháng, tiến độ từng epic |

@@ -112,7 +112,10 @@ export interface Project {
   workflow_strict: number;
   statuses: Status[];
   members: Member[];
-  transitions: { from_status_id: number; to_status_id: number }[];
+  /** Luồng chuyển; issue_type = '' là luồng chung */
+  transitions: { issue_type: string; from_status_id: number; to_status_id: number }[];
+  /** Loại issue → trạng thái được dùng (loại không có trong đây dùng mọi trạng thái) */
+  type_statuses: Partial<Record<IssueType, number[]>>;
   active_sprint: Sprint | null;
   labels: string[];
   permissions: string[];
@@ -172,8 +175,8 @@ export interface IssueDetail extends Issue {
   history: HistoryItem[];
   can_edit: boolean;
   permissions: string[];
-  workflow_strict: boolean;
-  transitions: { from_status_id: number; to_status_id: number }[];
+  /** Trạng thái có thể chuyển tới (đã tính workflow của loại issue), gồm trạng thái hiện tại */
+  next_status_ids: number[];
   watchers: { id: number; username: string; full_name: string }[];
   watching: boolean;
 }

@@ -9,6 +9,7 @@ import {
   type IssueFilter,
 } from '../issues.ts';
 import { handleMentions, notify, unwatch, watch, watchers } from '../notify.ts';
+import { canTransition, typeStatuses } from '../workflow.ts';
 import { badRequest, canEditIssue, forbidden, notFound, requirePerm, requireProjectAccess } from '../permissions.ts';
 
 const r = Router();
@@ -54,7 +55,10 @@ r.get('/:key', (req, res) => {
       FROM issue_links l JOIN issues i ON i.id = l.source_id JOIN statuses s ON s.id = i.status_id WHERE l.target_id = ?`, row.id, row.id);
   const history = all(`SELECT h.*, u.full_name AS user_name FROM issue_history h LEFT JOIN users u ON u.id = h.user_id
     WHERE h.issue_id = ? ORDER BY h.created_at DESC, h.id DESC LIMIT 200`, row.id);
-  const transitions = all('SELECT from_status_id, to_status_id FROM transitions WHERE project_id = ?', row.project_id);
+  // Trạng thái có thể chuyển tới (theo workflow của loại issue và luồng chuyển), gồm cả trạng thái hiện tại
+  const next_status_ids = typeStatuses(row.project_id, row.type)
+    .filter((s) => canTransition(row.project_id, row.type, row.status_id, s.id)).map((s) => s.id);
+  if (!next_status_ids.includes(row.status_id)) next_status_ids.unshift(row.status_id);
   const watcherList = all(`SELECT u.id, u.username, u.full_name FROM issue_watchers w JOIN users u ON u.id = w.user_id
     WHERE w.issue_id = ? AND u.is_active = 1 ORDER BY u.full_name`, row.id);
   res.json({
@@ -62,8 +66,7 @@ r.get('/:key', (req, res) => {
     watchers: watcherList, watching: watcherList.some((w) => w.id === req.user.id),
     can_edit: canEditIssue(req.user, perms, row),
     permissions: [...perms],
-    workflow_strict: !!get('SELECT workflow_strict FROM projects WHERE id = ?', row.project_id)?.workflow_strict,
-    transitions,
+    next_status_ids,
   });
 });
 

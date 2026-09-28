@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { api, qs, queryClient, refreshAll } from '../api';
 import { can, useIssueModal, useSprints } from '../hooks';
 import type { Issue, Status } from '../types';
-import { fmtDate, isOverdue, today } from '../util';
+import { canMove, fmtDate, isOverdue, today } from '../util';
 import { Avatar, Empty, PriorityIcon, Spinner, toastError, TypeIcon } from '../components/ui';
 import { FilterBar, useFilters } from '../components/FilterBar';
 import { EpicTag } from '../components/IssueRow';
@@ -55,8 +55,7 @@ export default function Board() {
   const statuses = project.statuses;
   const visible = apply(issues).filter((i) => showSub || i.type !== 'subtask');
 
-  const allowed = (from: number, to: number) => from === to || !project.workflow_strict ||
-    project.transitions.some((t) => t.from_status_id === from && t.to_status_id === to);
+  const allowed = (issue: Issue, to: number) => canMove(project, issue.type, issue.status_id, to);
 
   // Nhóm theo làn (swimlane)
   let lanes: { key: string; title: React.ReactNode; items: Issue[] }[];
@@ -80,7 +79,7 @@ export default function Board() {
   }
 
   const onDragOverCard = (e: DragEvent, lane: string, status: Status, index: number) => {
-    if (!drag || !allowed(drag.status_id, status.id)) return;
+    if (!drag || !allowed(drag, status.id)) return;
     e.preventDefault();
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -133,7 +132,7 @@ export default function Board() {
         </select>
       </FilterBar>
 
-      <div className="board" style={{ gridTemplateColumns: `repeat(${statuses.length}, minmax(220px, 1fr))` }}>
+      <div className="board" style={{ gridTemplateColumns: `repeat(${statuses.length}, minmax(180px, 1fr))` }}>
         {statuses.map((s) => {
           const count = visible.filter((i) => i.status_id === s.id).length;
           const over = s.wip_limit != null && count > s.wip_limit;
@@ -148,7 +147,7 @@ export default function Board() {
           <Lane key={lane.key} lane={lane} statuses={statuses} group={group}>
             {statuses.map((s) => {
               const cards = lane.items.filter((i) => i.status_id === s.id);
-              const blocked = drag && !allowed(drag.status_id, s.id);
+              const blocked = drag && !allowed(drag, s.id);
               const isTarget = drop?.lane === lane.key && drop.status === s.id;
               return (
                 <div key={s.id} className={`board-col ${blocked ? 'blocked' : ''} ${isTarget ? 'drop-active' : ''}`}

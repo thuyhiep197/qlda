@@ -1,4 +1,4 @@
-import type { Category, IssueType, Priority } from './types';
+import type { Category, IssueType, Priority, Project, Status } from './types';
 
 export const TYPE_LABELS: Record<IssueType, string> = {
   epic: 'Epic', story: 'Story', task: 'Task', bug: 'Bug', subtask: 'Sub-task',
@@ -61,3 +61,17 @@ export const addDays = (d: string, n: number) => new Date(new Date(`${d}T00:00:0
 
 export const isOverdue = (i: { due_date: string | null; status_category: Category }) =>
   !!i.due_date && i.status_category !== 'done' && i.due_date < today();
+
+/** Trạng thái loại issue được dùng (theo workflow của dự án), theo thứ tự cột. */
+export function statusesFor(project: Project, type: IssueType): Status[] {
+  const ids = project.type_statuses?.[type];
+  return ids?.length ? project.statuses.filter((s) => ids.includes(s.id)) : project.statuses;
+}
+
+/** Có được chuyển issue loại `type` từ trạng thái `from` sang `to` không (giống kiểm tra ở server). */
+export function canMove(project: Project, type: IssueType, from: number, to: number): boolean {
+  if (!statusesFor(project, type).some((s) => s.id === to)) return false;
+  if (from === to || !project.workflow_strict) return true;
+  const scope = project.transitions.some((t) => t.issue_type === type) ? type : '';
+  return project.transitions.some((t) => t.issue_type === scope && t.from_status_id === from && t.to_status_id === to);
+}

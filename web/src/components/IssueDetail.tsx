@@ -81,9 +81,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
     } catch (e) { toastError(e); }
   };
 
-  const allowedStatuses = project?.statuses.filter((s) =>
-    s.id === issue.status_id || !issue.workflow_strict ||
-    issue.transitions.some((t) => t.from_status_id === issue.status_id && t.to_status_id === s.id)) ?? [];
+  // Trạng thái hợp lệ theo workflow của loại issue và luồng chuyển (server đã tính sẵn)
+  const allowedStatuses = project?.statuses.filter((s) => issue.next_status_ids.includes(s.id)) ?? [];
 
   const addComment = async (e: FormEvent) => {
     e.preventDefault();

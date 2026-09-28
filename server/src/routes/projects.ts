@@ -3,6 +3,7 @@ import { all, get, localDate, now, run, tx } from '../db.ts';
 import { requireAdmin } from '../auth.ts';
 import { addHistory } from '../issues.ts';
 import { runImport } from '../importer.ts';
+import { mapStatusForType, projectStatuses, workflowConfig } from '../workflow.ts';
 import {
   accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission,
 } from '../permissions.ts';
@@ -73,7 +74,7 @@ r.get('/:key', (req, res) => {
       COALESCE(u.default_role_id, pm.role_id) AS role_id, r.name AS role_name
     FROM project_members pm JOIN users u ON u.id = pm.user_id JOIN roles r ON r.id = COALESCE(u.default_role_id, pm.role_id)
     WHERE pm.project_id = ? ORDER BY u.full_name`, project.id);
-  const transitions = all('SELECT from_status_id, to_status_id FROM transitions WHERE project_id = ?', project.id);
+  const { transitions, type_statuses } = workflowConfig(project.id);
   const activeSprint = get("SELECT * FROM sprints WHERE project_id = ? AND state = 'active'", project.id) ?? null;
   const lead = get('SELECT id, full_name FROM users WHERE id = ?', project.lead_id) ?? null;
   const labels = new Set<string>();
@@ -81,7 +82,7 @@ r.get('/:key', (req, res) => {
     row.labels.split(',').forEach((l) => l && labels.add(l));
   }
   res.json({
-    ...project, lead, statuses, members, transitions, active_sprint: activeSprint,
+    ...project, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprint,
     labels: [...labels].sort(), permissions: [...perms],
   });
 });
@@ -176,32 +177,89 @@ r.delete('/:key/statuses/:id', (req, res) => {
     if (inUse) {
       const target = get('SELECT * FROM statuses WHERE id = ? AND project_id = ?', Number(req.query.moveTo), project.id);
       if (!target || target.id === s.id) throw badRequest(`Có ${inUse} issue đang ở trạng thái này, hãy chọn trạng thái để chuyển sang`);
-      for (const i of all('SELECT id FROM issues WHERE status_id = ?', s.id)) {
-        addHistory(i.id, req.user.id, 'status', s.id, target.id, s.name, target.name);
+      run('DELETE FROM type_statuses WHERE status_id = ?', s.id);
+      for (const i of all<{ id: number; type: string }>('SELECT id, type FROM issues WHERE status_id = ?', s.id)) {
+        // Trạng thái đích phải thuộc workflow của loại issue; nếu không thì lấy trạng thái cùng nhóm
+        const to = get('SELECT * FROM statuses WHERE id = ?', mapStatusForType(project.id, i.type, target.id))!;
+        addHistory(i.id, req.user.id, 'status', s.id, to.id, s.name, to.name);
+        run(`UPDATE issues SET status_id = ?, resolved_at = CASE WHEN ? = 'done' THEN COALESCE(resolved_at, ?) ELSE NULL END WHERE id = ?`,
+          to.id, to.category, now(), i.id);
       }
-      run('UPDATE issues SET status_id = ?, resolved_at = CASE WHEN ? = \'done\' THEN COALESCE(resolved_at, ?) ELSE NULL END WHERE status_id = ?',
-        target.id, target.category, now(), s.id);
     }
     run('DELETE FROM statuses WHERE id = ?', s.id);
   });
   res.json({ ok: true });
 });
 
+const ISSUE_TYPE_KEYS = ['epic', 'story', 'task', 'bug', 'subtask'];
+
+/**
+ * Luồng chuyển trạng thái. issue_type = '' là luồng chung; truyền một loại issue để đặt luồng riêng cho loại đó,
+ * kèm use_default = true để bỏ luồng riêng (quay về luồng chung).
+ */
 r.put('/:key/workflow', (req, res) => {
   const { project } = loadProject(req, 'project.admin');
+  const scope = String(req.body?.issue_type ?? '');
+  if (scope && !ISSUE_TYPE_KEYS.includes(scope)) throw badRequest('Loại issue không hợp lệ');
   const list: { from_status_id: number; to_status_id: number }[] = req.body?.transitions || [];
   const valid = new Set(all('SELECT id FROM statuses WHERE project_id = ?', project.id).map((s) => s.id));
   tx(() => {
-    run('UPDATE projects SET workflow_strict = ? WHERE id = ?', !!req.body?.strict, project.id);
-    run('DELETE FROM transitions WHERE project_id = ?', project.id);
+    if (req.body?.strict !== undefined) run('UPDATE projects SET workflow_strict = ? WHERE id = ?', !!req.body.strict, project.id);
+    if (req.body?.transitions === undefined && !req.body?.use_default) return;
+    run('DELETE FROM transitions WHERE project_id = ? AND issue_type = ?', project.id, scope);
+    if (scope && req.body?.use_default) return;
     for (const t of list) {
       const f = Number(t.from_status_id), to = Number(t.to_status_id);
       if (f !== to && valid.has(f) && valid.has(to)) {
-        run('INSERT OR IGNORE INTO transitions(project_id, from_status_id, to_status_id) VALUES (?,?,?)', project.id, f, to);
+        run('INSERT OR IGNORE INTO transitions(project_id, issue_type, from_status_id, to_status_id) VALUES (?,?,?,?)', project.id, scope, f, to);
       }
     }
   });
   res.json({ ok: true });
+});
+
+/**
+ * Tập trạng thái của một loại issue. status_ids = null → dùng toàn bộ trạng thái của dự án.
+ * Issue đang ở trạng thái bị bỏ sẽ được chuyển sang trạng thái cùng nhóm; dry_run = true chỉ trả về kế hoạch chuyển.
+ */
+r.put('/:key/type-statuses', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const type = String(req.body?.issue_type || '');
+  if (!ISSUE_TYPE_KEYS.includes(type)) throw badRequest('Loại issue không hợp lệ');
+  const all_ = projectStatuses(project.id);
+  const raw = req.body?.status_ids;
+  const ids: number[] | null = raw === null ? null : Array.isArray(raw) ? [...new Set(raw.map(Number))] : null;
+  if (ids) {
+    if (!ids.length) throw badRequest('Loại issue phải dùng ít nhất một trạng thái');
+    if (ids.some((id) => !all_.some((s) => s.id === id))) throw badRequest('Trạng thái không hợp lệ');
+  }
+  const keep = ids ? all_.filter((s) => ids.includes(s.id)) : all_;
+  const pick = (from: { category: string }) => keep.find((s) => s.category === from.category) ?? keep.find((s) => s.category === 'todo') ?? keep[0];
+  // Kế hoạch chuyển trạng thái cho issue đang ở trạng thái bị bỏ
+  const affected = all<{ id: number; status_id: number }>('SELECT id, status_id FROM issues WHERE project_id = ? AND type = ?', project.id, type)
+    .filter((i) => !keep.some((s) => s.id === i.status_id));
+  const moves = new Map<string, { from: string; to: string; count: number }>();
+  for (const i of affected) {
+    const from = all_.find((s) => s.id === i.status_id)!;
+    const to = pick(from);
+    const k = `${from.id}-${to.id}`;
+    moves.set(k, { from: from.name, to: to.name, count: (moves.get(k)?.count ?? 0) + 1 });
+  }
+  if (req.body?.dry_run) { res.json({ moves: [...moves.values()] }); return; }
+  tx(() => {
+    run('DELETE FROM type_statuses WHERE project_id = ? AND issue_type = ?', project.id, type);
+    if (ids && ids.length < all_.length) {
+      for (const id of ids) run('INSERT INTO type_statuses(project_id, issue_type, status_id) VALUES (?,?,?)', project.id, type, id);
+    }
+    for (const i of affected) {
+      const from = all_.find((s) => s.id === i.status_id)!;
+      const to = pick(from);
+      addHistory(i.id, req.user.id, 'status', from.id, to.id, from.name, to.name);
+      run(`UPDATE issues SET status_id = ?, resolved_at = CASE WHEN ? = 'done' THEN COALESCE(resolved_at, ?) ELSE NULL END WHERE id = ?`,
+        to.id, to.category, now(), i.id);
+    }
+  });
+  res.json({ ok: true, moves: [...moves.values()] });
 });
 
 // ---------------------------------------------------------------------------

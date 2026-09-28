@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { all, get, now, run, tx, UPLOAD_DIR } from './db.ts';
 import { handleMentions, notify, watch, watchers } from './notify.ts';
+import { canTransition, initialStatus, isStatusAllowed, mapStatusForType } from './workflow.ts';
 import {
   accessibleProjectIds, badRequest, canEditIssue, forbidden, notFound,
   type AuthUser, type Permission,
@@ -10,6 +11,7 @@ import {
 export const ISSUE_TYPES = ['epic', 'story', 'task', 'bug', 'subtask'] as const;
 export const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest'] as const;
 const STANDARD_TYPES = ['story', 'task', 'bug'];
+const TYPE_NAMES: Record<string, string> = { epic: 'Epic', story: 'Story', task: 'Task', bug: 'Bug', subtask: 'Sub-task' };
 
 export interface IssueRow {
   id: number;
@@ -233,12 +235,8 @@ function checkSprint(projectId: number, sprintId: unknown): number | null {
   return sp.id;
 }
 
-export function checkTransition(projectId: number, fromId: number, toId: number) {
-  if (fromId === toId) return;
-  const p = get('SELECT workflow_strict FROM projects WHERE id = ?', projectId);
-  if (!p?.workflow_strict) return;
-  const ok = get('SELECT 1 FROM transitions WHERE project_id = ? AND from_status_id = ? AND to_status_id = ?', projectId, fromId, toId);
-  if (!ok) throw badRequest(`Workflow không cho phép chuyển từ "${statusName(fromId)}" sang "${statusName(toId)}"`);
+export function checkTransition(projectId: number, type: string, fromId: number, toId: number) {
+  if (!canTransition(projectId, type, fromId, toId)) throw badRequest(`Workflow không cho phép chuyển từ "${statusName(fromId)}" sang "${statusName(toId)}"`);
 }
 
 function nextRank(projectId: number) {
@@ -264,13 +262,11 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     if (assigneeId && !isMember(projectId, assigneeId)) throw badRequest('Người được giao không thuộc dự án');
     if (assigneeId && assigneeId !== user.id && !perms.has('issue.assign')) throw forbidden('Bạn không có quyền giao việc cho người khác');
 
-    let statusId: number;
-    if (data.status_id) statusId = checkStatus(projectId, data.status_id).id;
-    else {
-      const first = get('SELECT id FROM statuses WHERE project_id = ? ORDER BY (category <> \'todo\'), position LIMIT 1', projectId);
-      if (!first) throw badRequest('Dự án chưa cấu hình trạng thái');
-      statusId = first.id;
-    }
+    // Trạng thái theo workflow của loại issue; nếu được chỉ định sẵn (VD tạo nhanh trên một cột board)
+    // mà loại này không dùng trạng thái đó thì quy về trạng thái hợp lệ cùng nhóm
+    const first = initialStatus(projectId, type);
+    if (!first) throw badRequest('Dự án chưa cấu hình trạng thái');
+    const statusId = data.status_id ? mapStatusForType(projectId, type, checkStatus(projectId, data.status_id).id) : first;
 
     let sprintId: number | null = null;
     if (type === 'subtask' && parentId) sprintId = get('SELECT sprint_id FROM issues WHERE id = ?', parentId)?.sprint_id ?? null;
@@ -387,15 +383,25 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         }
       }
     }
-    if (has('status_id') && Number(data.status_id) !== issue.status_id) {
-      if (!perms.has('issue.transition')) throw forbidden('Bạn không có quyền chuyển trạng thái');
-      const s = checkStatus(issue.project_id, data.status_id);
-      checkTransition(issue.project_id, issue.status_id, s.id);
+    const effType = (sets.type as string | undefined) ?? issue.type;
+    const applyStatus = (s: { id: number; category: string }) => {
       sets.status_id = s.id;
       const wasDone = get('SELECT category FROM statuses WHERE id = ?', issue.status_id)?.category === 'done';
       if (s.category === 'done' && !wasDone) sets.resolved_at = now();
       if (s.category !== 'done') sets.resolved_at = null;
       history.push(['status', issue.status_id, s.id, statusName(issue.status_id), statusName(s.id)]);
+    };
+    if (has('status_id') && Number(data.status_id) !== issue.status_id) {
+      if (!perms.has('issue.transition')) throw forbidden('Bạn không có quyền chuyển trạng thái');
+      const s = checkStatus(issue.project_id, data.status_id);
+      if (!isStatusAllowed(issue.project_id, effType, s.id)) {
+        throw badRequest(`Trạng thái "${statusName(s.id)}" không dùng cho loại ${TYPE_NAMES[effType] ?? effType}`);
+      }
+      checkTransition(issue.project_id, effType, issue.status_id, s.id);
+      applyStatus(s);
+    } else if (sets.type && !isStatusAllowed(issue.project_id, effType, issue.status_id)) {
+      // Đổi loại issue mà trạng thái hiện tại không có trong workflow của loại mới → chuyển sang trạng thái cùng nhóm
+      applyStatus(checkStatus(issue.project_id, mapStatusForType(issue.project_id, effType, issue.status_id)));
     }
     if (has('rank')) {
       if (!perms.has('sprint.manage') && !canEdit) throw forbidden('Bạn không có quyền sắp xếp');
