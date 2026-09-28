@@ -432,3 +432,4 @@ th.sortable:hover { color: var(--text); }
 .import-table thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
 .import-table tr.row-error td { background: #fff4f3; }
 @media (max-width: 800px) { .import-steps { grid-template-columns: 1fr; } }
+.filter-bar select { max-width: 280px; text-overflow: ellipsis; }

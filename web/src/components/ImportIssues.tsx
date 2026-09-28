@@ -28,50 +28,94 @@ const COLUMNS: { key: Key; header: string; width: number; note: string }[] = [
   { key: 'due_date', header: 'Hạn hoàn thành', width: 15, note: 'Dạng ngày/tháng/năm.' },
 ];
 
-const ALIASES: Record<Key, string[]> = {
+/** Cột nguồn: các khóa gửi lên server, cộng thêm cột chỉ dùng ở bước đọc file (STT kiểu WBS, người phối hợp). */
+type SrcKey = Key | 'wbs' | 'collab';
+
+const ALIASES: Record<SrcKey, string[]> = {
   ref: ['ma dong', 'ma tam', 'id', 'issue id', 'issue key'],
   type: ['loai', 'loai issue', 'issue type', 'type'],
-  summary: ['tieu de', 'summary', 'ten issue', 'ten cong viec'],
-  description: ['mo ta', 'description', 'chi tiet'],
+  summary: ['tieu de', 'summary', 'dau viec', 'ten dau viec', 'cong viec', 'ten cong viec', 'ten chuc nang', 'chuc nang',
+    'hang muc', 'noi dung cong viec', 'ten issue'],
+  description: ['mo ta', 'description', 'chi tiet', 'ghi chu', 'ghi chu / tl lien quan', 'ghi chu/tl lien quan', 'ghi chu / tai lieu lien quan'],
   parent: ['issue cha', 'cha', 'thuoc epic', 'epic', 'parent', 'parent id', 'parent key', 'epic link', 'custom field (epic link)', 'parent summary'],
   priority: ['do uu tien', 'uu tien', 'priority'],
-  assignee: ['nguoi thuc hien', 'nguoi duoc giao', 'phu trach', 'assignee'],
-  story_points: ['story point', 'story points', 'sp', 'diem', 'custom field (story points)', 'custom field (story point estimate)'],
+  assignee: ['nguoi thuc hien', 'nguoi phu trach', 'nguoi duoc giao', 'phu trach', 'assignee'],
+  story_points: ['story point', 'story points', 'sp', 'diem', 'so ngay lv', 'so ngay lam viec', 'so ngay cong',
+    'custom field (story points)', 'custom field (story point estimate)'],
   sprint: ['sprint'],
   status: ['trang thai', 'status'],
   labels: ['nhan', 'labels', 'label', 'tag'],
-  start_date: ['ngay bat dau', 'start date', 'custom field (start date)'],
-  due_date: ['han hoan thanh', 'han', 'due date', 'deadline', 'ngay het han'],
+  start_date: ['ngay bat dau', 'bat dau', 'tu ngay', 'start date', 'custom field (start date)'],
+  due_date: ['han hoan thanh', 'ket thuc', 'ngay ket thuc', 'den ngay', 'han', 'due date', 'deadline', 'ngay het han'],
+  wbs: ['stt', 'tt', 'so tt', 'wbs', 'ma wbs'],
+  collab: ['nguoi phoi hop', 'phoi hop'],
 };
 
-const fold = (v: unknown) => String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const fold = (v: unknown) => String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/đ/g, 'd').replace(/\s+/g, ' ');
 
 type Row = Partial<Record<Key, string>> & { row: number };
+type SrcRow = Partial<Record<SrcKey, string>> & { row: number };
+
+const isHeaderRow = (r: string[]) => r.some((c) => ALIASES.summary.includes(fold(c)));
+
+/**
+ * Kế hoạch dạng WBS đánh số theo cột STT: I, II… = Epic (mô-đun); 1, 2… = Story thuộc Epic đang xét;
+ * 1.1, 5.3… = Sub-task của Story cùng số đầu trong Epic đó. Chỉ áp dụng khi file không có cột Loại / Issue cha.
+ */
+function applyWbs(rows: SrcRow[]) {
+  const roman = /^[IVXLCDM]+$/i;
+  let epic = '';
+  for (const r of rows) {
+    const code = (r.wbs ?? '').replace(/\.$/, '').trim();
+    if (!code) continue;
+    if (roman.test(code)) {
+      epic = code.toUpperCase();
+      r.type = 'Epic';
+      r.ref = epic;
+      delete r.story_points; // Epic không tính point, tiến độ lấy từ các Story con
+    } else if (/^\d+$/.test(code)) {
+      r.type = 'Story';
+      r.ref = `${epic}.${code}`;
+      if (epic) r.parent = epic;
+    } else if (/^\d+(\.\d+)+$/.test(code)) {
+      r.type = 'Sub-task';
+      r.ref = `${epic}.${code}`;
+      r.parent = `${epic}.${code.split('.')[0]}`;
+    }
+  }
+}
 
 /** Quy bảng (dòng tiêu đề + dữ liệu) về các dòng theo khóa chuẩn. */
 function mapTable(table: string[][]): Row[] {
-  const headerIdx = table.slice(0, 10).findIndex((r) => r.some((c) => ALIASES.summary.includes(fold(c))));
-  if (headerIdx < 0) throw new Error('Không tìm thấy dòng tiêu đề cột. File cần có cột "Tiêu đề" (hoặc "Summary" nếu xuất từ Jira).');
-  const header = table[headerIdx].map(fold);
-  // Mỗi khóa → các cột khớp, theo thứ tự ưu tiên của ALIASES
-  const cols = {} as Record<Key, number[]>;
-  for (const key of Object.keys(ALIASES) as Key[]) {
-    cols[key] = ALIASES[key].flatMap((a) => header.map((h, i) => (h === a ? i : -1)).filter((i) => i >= 0));
+  const headerIdx = table.slice(0, 15).findIndex(isHeaderRow);
+  if (headerIdx < 0) {
+    throw new Error('Không tìm thấy dòng tiêu đề cột. File cần có cột "Tiêu đề" hoặc "Đầu việc" (hoặc "Summary" nếu xuất từ Jira).');
   }
-  const rows: Row[] = [];
+  const header = table[headerIdx].map(fold);
+  // Mỗi khóa → các cột khớp, theo thứ tự ưu tiên của ALIASES; một cột chỉ dùng cho một khóa
+  const used = new Set<number>();
+  const cols = {} as Record<SrcKey, number[]>;
+  for (const key of Object.keys(ALIASES) as SrcKey[]) {
+    cols[key] = ALIASES[key].flatMap((a) => header.map((h, i) => (h === a && !used.has(i) ? i : -1)).filter((i) => i >= 0));
+    cols[key].forEach((i) => used.add(i));
+  }
+  const rows: SrcRow[] = [];
   table.slice(headerIdx + 1).forEach((r, n) => {
-    const row: Row = { row: headerIdx + n + 2 };
-    for (const key of Object.keys(cols) as Key[]) {
+    const row: SrcRow = { row: headerIdx + n + 2 };
+    for (const key of Object.keys(cols) as SrcKey[]) {
       const values = cols[key].map((i) => (r[i] ?? '').trim()).filter(Boolean);
       if (!values.length) continue;
       // Jira xuất nhiều cột Labels/Sprint trùng tên: gộp nhãn, lấy sprint gần nhất
       row[key] = key === 'labels' ? values.join(',') : key === 'sprint' ? values[values.length - 1] : values[0];
     }
-    const hasData = (Object.keys(row) as (keyof Row)[]).some((k) => k !== 'row');
-    if (hasData) rows.push(row);
+    if (row.summary || row.type || row.parent) rows.push(row);
   });
-  return rows;
+  if (cols.wbs.length && !cols.type.length && !cols.parent.length) applyWbs(rows);
+  return rows.map(({ wbs: _wbs, collab, ...r }) => {
+    if (collab) r.description = [r.description, `Người phối hợp: ${collab}`].filter(Boolean).join('\n\n');
+    return r;
+  });
 }
 
 function cellText(v: any): string {
@@ -91,24 +135,34 @@ async function loadExcel() {
   return mod.default ?? mod;
 }
 
-async function readXlsx(file: File): Promise<string[][]> {
+interface Sheet { name: string; table: string[][] }
+
+/** Đọc mọi sheet đang hiện trong file; chỉ giữ các sheet có dòng tiêu đề cột nhận ra được. */
+async function readXlsx(file: File): Promise<Sheet[]> {
   const ExcelJS = await loadExcel();
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(await file.arrayBuffer());
-  const ws = wb.getWorksheet('Issue') ?? wb.worksheets.find((w: any) => w.state !== 'hidden' && w.name !== 'Hướng dẫn') ?? wb.worksheets[0];
-  if (!ws) throw new Error('File Excel không có sheet nào');
-  const table: string[][] = [];
-  ws.eachRow({ includeEmpty: true }, (row: any, n: number) => {
-    const cells: string[] = [];
-    row.eachCell({ includeEmpty: true }, (cell: any, c: number) => { cells[c - 1] = cellText(cell.value); });
-    table[n - 1] = cells;
-  });
-  return Array.from(table, (r) => r ?? []);
+  const sheets: Sheet[] = [];
+  for (const ws of wb.worksheets) {
+    if (ws.state && ws.state !== 'visible') continue;
+    const table: string[][] = [];
+    ws.eachRow({ includeEmpty: true }, (row: any, n: number) => {
+      const cells: string[] = [];
+      row.eachCell({ includeEmpty: true }, (cell: any, c: number) => { cells[c - 1] = cellText(cell.value); });
+      table[n - 1] = cells;
+    });
+    const t = Array.from(table, (r) => r ?? []);
+    if (t.slice(0, 15).some(isHeaderRow)) sheets.push({ name: ws.name, table: t });
+  }
+  if (!sheets.length) throw new Error('Không sheet nào có dòng tiêu đề cột nhận ra được (cần cột "Tiêu đề" hoặc "Đầu việc").');
+  // Ưu tiên sheet "Issue" của file mẫu
+  sheets.sort((a, b) => Number(b.name === 'Issue') - Number(a.name === 'Issue'));
+  return sheets;
 }
 
 /** Đọc CSV (dấu phẩy, chấm phẩy hoặc tab), hỗ trợ ô có ngoặc kép và xuống dòng trong ô. */
 function parseCsv(text: string): string[][] {
-  text = text.replace(/^\uFEFF/, '');
+  text = text.replace(/^﻿/, '');
   const firstLine = text.slice(0, text.indexOf('\n') > 0 ? text.indexOf('\n') : text.length);
   const delim = [',', ';', '\t'].sort((a, b) => firstLine.split(b).length - firstLine.split(a).length)[0];
   const rows: string[][] = [];
@@ -130,10 +184,10 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-async function readFile(file: File): Promise<Row[]> {
+async function readFile(file: File): Promise<Sheet[]> {
   const name = file.name.toLowerCase();
-  if (name.endsWith('.xlsx')) return mapTable(await readXlsx(file));
-  if (name.endsWith('.csv') || name.endsWith('.txt')) return mapTable(parseCsv(await file.text()));
+  if (name.endsWith('.xlsx')) return readXlsx(file);
+  if (name.endsWith('.csv') || name.endsWith('.txt')) return [{ name: file.name, table: parseCsv(await file.text()) }];
   if (name.endsWith('.xls')) throw new Error('File .xls (Excel 97-2003) chưa được hỗ trợ. Mở bằng Excel rồi lưu lại dạng .xlsx.');
   throw new Error('Chỉ nhận file .xlsx hoặc .csv');
 }
@@ -242,19 +296,35 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
   const [error, setError] = useState('');
   const [skipErrors, setSkipErrors] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [sheets, setSheets] = useState<Sheet[]>([]);
+  const [sheetName, setSheetName] = useState('');
 
-  const pick = async (file?: File) => {
-    if (!file) return;
-    setError(''); setRes(null); setFileName(file.name); setBusy('Đang đọc và kiểm tra file…');
+  /** Quy sheet đã chọn về các dòng rồi gửi server kiểm tra (xem trước). */
+  const preview = async (sheet: Sheet) => {
+    setError(''); setRes(null); setSkipErrors(false); setBusy('Đang kiểm tra dữ liệu…');
     try {
-      const parsed = await readFile(file);
-      if (!parsed.length) throw new Error('File không có dòng dữ liệu nào');
+      const parsed = mapTable(sheet.table);
+      if (!parsed.length) throw new Error(`Sheet "${sheet.name}" không có dòng dữ liệu nào`);
       setRows(parsed);
       setRes(await api.post<ImportResponse>(`/projects/${project.key}/import`, { rows: parsed, commit: false }));
     } catch (e) {
       setRows([]); setError(errMsg(e));
     } finally {
       setBusy('');
+    }
+  };
+
+  const pick = async (file?: File) => {
+    if (!file) return;
+    setError(''); setRes(null); setSheets([]); setFileName(file.name); setBusy('Đang đọc file…');
+    try {
+      const found = await readFile(file);
+      setSheets(found);
+      setSheetName(found[0].name);
+      await preview(found[0]);
+    } catch (e) {
+      setRows([]); setError(errMsg(e)); setBusy('');
+    } finally {
       if (fileRef.current) fileRef.current.value = '';
     }
   };
@@ -315,6 +385,19 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
           </div>
         )}
 
+        {sheets.length > 1 && !done && (
+          <label className="row gap-sm">
+            <b>Sheet cần nhập:</b>
+            <select value={sheetName} disabled={!!busy} onChange={(e) => {
+              setSheetName(e.target.value);
+              const s = sheets.find((x) => x.name === e.target.value);
+              if (s) preview(s);
+            }}>
+              {sheets.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+            </select>
+            <span className="muted small">File có {sheets.length} sheet dữ liệu</span>
+          </label>
+        )}
         {busy && <div className="row gap-sm"><Spinner /> <span className="muted">{busy}</span></div>}
         {error && <div className="form-error">{error}</div>}
 
