@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useMe } from './hooks';
-import { Spinner, Toaster } from './components/ui';
+import { Spinner, Toaster, TooltipLayer } from './components/ui';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
@@ -48,6 +48,7 @@ export default function App() {
         </Route>
       </Routes>
       <Toaster />
+      <TooltipLayer />
     </>
   );
 }

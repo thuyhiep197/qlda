@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, qs, refreshAll } from '../api';
 import { can, useProject, useProjects, useSprints } from '../hooks';
 import type { Issue, IssueType, Priority } from '../types';
-import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS } from '../util';
+import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
 import { Modal, toast, toastError, TypeIcon } from './ui';
 
 const TYPE_HINTS: Record<IssueType, string> = {
@@ -103,7 +103,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
           <span>Loại issue *</span>
           <div className="type-picker" role="radiogroup" aria-label="Loại issue">
             {types.map((t) => (
-              <button type="button" key={t} role="radio" aria-checked={type === t} title={TYPE_HINTS[t]}
+              <button type="button" key={t} role="radio" aria-checked={type === t} data-tip={typeTip(t)}
                 className={`type-option ${type === t ? 'active' : ''}`}
                 onClick={() => { setType(t); setParent(''); }}>
                 <TypeIcon type={t} size={18} /> {TYPE_LABELS[t]}

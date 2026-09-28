@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import type { Category, IssueType, Priority } from '../types';
-import { colorOf, initials, PRIORITY_LABELS, TYPE_LABELS } from '../util';
+import { colorOf, initials, PRIORITY_LABELS, typeTip } from '../util';
 
 // ---------------------------------------------------------------------------
 // Biểu tượng
@@ -21,8 +21,7 @@ export function TypeIcon({ type, size = 16 }: { type: IssueType; size?: number }
     subtask: <><rect x="4.5" y="4.5" width="4" height="4" rx=".5" stroke="#fff" fill="none" /><rect x="7.5" y="7.5" width="4" height="4" rx=".5" fill="#fff" /></>,
   };
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-label={TYPE_LABELS[type]} className="type-icon">
-      <title>{TYPE_LABELS[type]}</title>
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-label={typeTip(type)} role="img" className="type-icon" data-tip={typeTip(type)}>
       <rect width="16" height="16" rx="3" fill={c} />
       {paths[type]}
     </svg>
@@ -157,5 +156,68 @@ export function Toaster() {
     <div className="toaster">
       {list.map((t) => <div key={t.id} className={`toast toast-${t.tone}`}>{t.text}</div>)}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tooltip: phần tử nào có thuộc tính data-tip sẽ hiện chú thích khi rê chuột hoặc focus bằng bàn phím.
+// Hiển thị ở một lớp nổi cố định nên không bị cắt bởi khung cuộn/cửa sổ; tự đổi lên trên khi sát mép dưới.
+// ---------------------------------------------------------------------------
+export function TooltipLayer() {
+  const [tip, setTip] = useState<{ text: string; rect: DOMRect } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; arrowX: number; above: boolean } | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let current: Element | null = null;
+    const show = (el: Element | null) => {
+      if (el === current) return;
+      current = el;
+      const text = el?.getAttribute('data-tip');
+      setTip(el && text ? { text, rect: el.getBoundingClientRect() } : null);
+    };
+    const find = (t: EventTarget | null) => (t instanceof Element ? t.closest('[data-tip]') : null);
+    const over = (e: Event) => show(find(e.target));
+    const hide = () => show(null);
+    document.addEventListener('mouseover', over);
+    document.addEventListener('focusin', over);
+    document.addEventListener('focusout', hide);
+    document.addEventListener('mousedown', hide);
+    document.addEventListener('scroll', hide, true);
+    window.addEventListener('blur', hide);
+    return () => {
+      document.removeEventListener('mouseover', over);
+      document.removeEventListener('focusin', over);
+      document.removeEventListener('focusout', hide);
+      document.removeEventListener('mousedown', hide);
+      document.removeEventListener('scroll', hide, true);
+      window.removeEventListener('blur', hide);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!tip || !box.current) { setPos(null); return; }
+    const { width, height } = box.current.getBoundingClientRect();
+    const r = tip.rect;
+    const cx = r.left + r.width / 2;
+    const left = Math.min(Math.max(cx - width / 2, 8), window.innerWidth - width - 8);
+    const above = r.bottom + 8 + height > window.innerHeight - 8;
+    setPos({ left, top: above ? r.top - 8 - height : r.bottom + 8, arrowX: Math.min(Math.max(cx, left + 10), left + width - 10), above });
+  }, [tip]);
+
+  if (!tip) return null;
+  return (
+    <>
+      <div ref={box} className="tooltip-layer" role="tooltip"
+        style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: -9999 }}>{tip.text}</div>
+      {pos && (
+        <div className="tooltip-arrow" style={{
+          left: pos.arrowX - 5,
+          top: pos.above ? pos.top + (box.current?.offsetHeight ?? 0) : pos.top - 10,
+          borderTopColor: pos.above ? '#172b4d' : 'transparent',
+          borderBottomColor: pos.above ? 'transparent' : '#172b4d',
+        }} />
+      )}
+    </>
   );
 }

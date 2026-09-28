@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
 import { useMe, useUsersBasic } from '../hooks';
 import type { Category, IssueType, Status } from '../types';
-import { CATEGORY_LABELS, statusesFor, TYPE_LABELS } from '../util';
+import { CATEGORY_LABELS, statusesFor, TYPE_LABELS, typeTip } from '../util';
 import { Avatar, Modal, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
 
@@ -146,15 +146,6 @@ function Members() {
 
 const WF_TYPES: IssueType[] = ['epic', 'story', 'task', 'bug', 'subtask'];
 
-/** Giải thích ngắn từng loại issue, dùng cho tooltip ở màn cấu hình workflow. */
-const TYPE_TIPS: Record<IssueType, string> = {
-  epic: 'nhóm lớn (mô-đun) chứa nhiều Story/Task/Bug, hiển thị trên Roadmap.',
-  story: 'chức năng nhìn từ phía người dùng, thường có tiêu chí chấp nhận.',
-  task: 'đầu việc cần làm (kỹ thuật, tài liệu, cấu hình...).',
-  bug: 'lỗi cần sửa, thường qua bước kiểm thử lại trước khi đóng.',
-  subtask: 'việc nhỏ nằm dưới một Story/Task/Bug, đi theo sprint của issue cha.',
-};
-
 function Workflow() {
   const project = useProjectCtx();
   const [newName, setNewName] = useState('');
@@ -289,8 +280,7 @@ function TypeStatuses() {
               <th>Trạng thái</th>
               {WF_TYPES.map((t) => (
                 <th key={t} className="center">
-                  <span className="row gap-xs" style={{ justifyContent: 'center' }} tabIndex={0}
-                    data-tip={`${TYPE_LABELS[t]}: ${TYPE_TIPS[t]}\n\nTick các trạng thái mà ${TYPE_LABELS[t]} được dùng. Bỏ tick = ${TYPE_LABELS[t]} không thể ở trạng thái đó (cột tương ứng trên bảng bị khóa khi kéo).`}>
+                  <span className="row gap-xs" style={{ justifyContent: 'center' }} data-tip={typeTip(t)}>
                     <TypeIcon type={t} /> {TYPE_LABELS[t]}
                   </span>
                 </th>
@@ -396,17 +386,13 @@ function Transitions() {
         <span>Bật kiểm soát: chỉ cho phép các bước chuyển được đánh dấu</span>
       </label>
       {!strict && <p className="muted small">Đang tắt: issue được chuyển tự do giữa các trạng thái thuộc loại của nó. Vẫn có thể soạn luồng trước rồi bật sau.</p>}
-      <div className="tabs tabs-sm tabs-tip mt-sm">
-        <button className={scope === '' ? 'active' : ''} onClick={() => setScope('')} data-tip-align="left"
-          data-tip={`Luồng chuyển mặc định của dự án.\nÁp dụng cho mọi loại issue chưa đặt luồng riêng${
-            WF_TYPES.some((t) => !hasOwn(t)) ? ` (hiện tại: ${WF_TYPES.filter((t) => !hasOwn(t)).map((t) => TYPE_LABELS[t]).join(', ')})` : ''}.\nVD: Cần làm → Đang làm → Hoàn thành.`}>
+      <div className="tabs tabs-sm mt-sm">
+        <button className={scope === '' ? 'active' : ''} onClick={() => setScope('')}
+          data-tip="Luồng chung: Luồng chuyển mặc định cho các loại chưa có luồng riêng">
           Luồng chung
         </button>
         {WF_TYPES.map((t) => (
-          <button key={t} className={scope === t ? 'active' : ''} onClick={() => setScope(t)}
-            data-tip={`${TYPE_LABELS[t]}: ${TYPE_TIPS[t]}\n\n${hasOwn(t)
-              ? `Đang dùng LUỒNG RIÊNG (dấu •).`
-              : 'Đang dùng Luồng chung. Tick "dùng luồng chuyển riêng" để đặt các bước riêng cho loại này.'}\nDùng ${statusesFor(project, t).length}/${project.statuses.length} trạng thái (chọn ở mục 2).`}>
+          <button key={t} className={scope === t ? 'active' : ''} onClick={() => setScope(t)} data-tip={typeTip(t)}>
             <span className="row gap-xs"><TypeIcon type={t} size={14} /> {TYPE_LABELS[t]}{hasOwn(t) ? ' •' : ''}</span>
           </button>
         ))}

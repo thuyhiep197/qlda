@@ -75,3 +75,13 @@ export function canMove(project: Project, type: IssueType, from: number, to: num
   const scope = project.transitions.some((t) => t.issue_type === type) ? type : '';
   return project.transitions.some((t) => t.issue_type === scope && t.from_status_id === from && t.to_status_id === to);
 }
+
+/** Giải thích ngắn từng loại issue, hiển thị ở tooltip mọi nơi có biểu tượng loại issue. */
+export const TYPE_TIPS: Record<IssueType, string> = {
+  epic: 'Nhóm công việc lớn (mô-đun)',
+  story: 'Chức năng',
+  task: 'Công việc',
+  bug: 'Lỗi',
+  subtask: 'Việc con',
+};
+export const typeTip = (t: IssueType) => `${TYPE_LABELS[t]}: ${TYPE_TIPS[t]}`;
