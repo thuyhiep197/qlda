@@ -16,15 +16,15 @@ const COLUMNS: { key: Key; header: string; width: number; note: string }[] = [
   { key: 'ref', header: 'Mã dòng', width: 10, note: 'Không bắt buộc. Mã tự đặt (VD: E1, S1) để các dòng khác trỏ tới làm issue cha.' },
   { key: 'type', header: 'Loại', width: 11, note: 'Epic, Story, Task, Bug hoặc Sub-task. Bỏ trống = Task.' },
   { key: 'summary', header: 'Tiêu đề', width: 45, note: 'Bắt buộc, tối đa 255 ký tự.' },
-  { key: 'description', header: 'Mô tả', width: 45, note: 'Không bắt buộc. Hỗ trợ Markdown, xuống dòng trong ô bằng Alt+Enter.' },
+  { key: 'description', header: 'Mô tả', width: 45, note: 'Không bắt buộc. Hỗ trợ định dạng văn bản, xuống dòng trong ô bằng Alt+Enter.' },
   { key: 'parent', header: 'Issue cha', width: 16, note: 'Story/Task/Bug: Epic chứa nó. Sub-task (bắt buộc): Story/Task/Bug chứa nó. Ghi Mã dòng trong file, mã issue đã có (VD: QLTB-12) hoặc đúng tiêu đề.' },
   { key: 'priority', header: 'Độ ưu tiên', width: 13, note: 'Khẩn cấp, Cao, Trung bình, Thấp, Rất thấp. Bỏ trống = Trung bình.' },
   { key: 'assignee', header: 'Người thực hiện', width: 28, note: 'Tên đăng nhập, email hoặc họ tên của thành viên dự án.' },
-  { key: 'story_points', header: 'Story point', width: 11, note: 'Số, VD: 1, 2, 3, 5, 8.' },
+  { key: 'story_points', header: 'Điểm ước lượng', width: 15, note: 'Điểm ước lượng (story point), là số. VD: 1, 2, 3, 5, 8.' },
   { key: 'sprint', header: 'Sprint', width: 18, note: 'Tên sprint chưa đóng. Bỏ trống = Backlog. Không áp dụng cho Epic và Sub-task.' },
   { key: 'status', header: 'Trạng thái', width: 14, note: 'Tên trạng thái của dự án. Bỏ trống = trạng thái đầu tiên.' },
   { key: 'labels', header: 'Nhãn', width: 18, note: 'Nhiều nhãn cách nhau bằng dấu phẩy.' },
-  { key: 'start_date', header: 'Ngày bắt đầu', width: 14, note: 'Dạng ngày/tháng/năm, VD 01/10/2026. Thường dùng cho Epic (Roadmap).' },
+  { key: 'start_date', header: 'Ngày bắt đầu', width: 14, note: 'Dạng ngày/tháng/năm, VD 01/10/2026. Thường dùng cho Epic (Lộ trình).' },
   { key: 'due_date', header: 'Hạn hoàn thành', width: 15, note: 'Dạng ngày/tháng/năm.' },
 ];
 
@@ -40,7 +40,7 @@ const ALIASES: Record<SrcKey, string[]> = {
   parent: ['issue cha', 'cha', 'thuoc epic', 'epic', 'parent', 'parent id', 'parent key', 'epic link', 'custom field (epic link)', 'parent summary'],
   priority: ['do uu tien', 'uu tien', 'priority'],
   assignee: ['nguoi thuc hien', 'nguoi phu trach', 'nguoi duoc giao', 'phu trach', 'assignee'],
-  story_points: ['story point', 'story points', 'sp', 'diem', 'so ngay lv', 'so ngay lam viec', 'so ngay cong',
+  story_points: ['diem uoc luong', 'story point', 'story points', 'sp', 'diem', 'so ngay lv', 'so ngay lam viec', 'so ngay cong',
     'custom field (story points)', 'custom field (story point estimate)'],
   sprint: ['sprint'],
   status: ['trang thai', 'status'],
@@ -254,7 +254,7 @@ async function downloadTemplate(project: Project, sprintNames: string[]) {
     'Nhập dữ liệu ở sheet "Issue", mỗi dòng một issue. Có thể xóa các dòng ví dụ.',
     'Thứ tự dòng không quan trọng: issue cha luôn được tạo trước issue con.',
     'Khi nhập, tool hiển thị bảng xem trước; chỉ nhập khi anh/chị bấm xác nhận. Có lỗi thì không nhập dòng nào.',
-    'Cũng có thể nhập trực tiếp file CSV xuất từ Jira (Filters → Export → CSV).',
+    'Cũng có thể nhập trực tiếp file Excel (CSV) xuất từ Jira (Filters → Export → CSV).',
   ]) guide.addRow({ h: '•', n: line });
 
   const buf = await wb.xlsx.writeBuffer();
@@ -279,7 +279,7 @@ export function ImportButton({ project }: { project: Project }) {
   if (!can(project.permissions, 'issue.import')) return null;
   return (
     <>
-      <button className="btn btn-sm" onClick={() => setOpen(true)} title="Nhập issue hàng loạt từ file Excel hoặc CSV (Jira)">⬆ Nhập từ Excel</button>
+      <button className="btn btn-sm" onClick={() => setOpen(true)} title="Nhập issue hàng loạt từ file Excel hoặc Excel (CSV) xuất từ Jira">⬆ Nhập từ Excel</button>
       {open && <ImportIssuesModal project={project} onClose={() => setOpen(false)} />}
     </>
   );

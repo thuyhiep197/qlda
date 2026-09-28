@@ -33,7 +33,7 @@ export function StartSprintModal({ project, sprint, onClose, mode = 'start' }: {
       <button className="btn btn-primary" form="sprint-form">{mode === 'start' ? 'Bắt đầu' : 'Lưu'}</button>
     </>}>
       <form id="sprint-form" onSubmit={submit} className="stack">
-        {mode === 'start' && <p className="muted">Sprint có {sprint.issue_count ?? 0} issue · {sprint.points ?? 0} story point.</p>}
+        {mode === 'start' && <p className="muted">Sprint có {sprint.issue_count ?? 0} issue · {sprint.points ?? 0} điểm ước lượng.</p>}
         <label className="field"><span>Tên sprint *</span><input value={name} onChange={(e) => setName(e.target.value)} required /></label>
         <div className="field"><span>Thời lượng</span>
           <div className="row gap-xs">{[1, 2, 3, 4].map((w) => <button type="button" key={w} className="btn btn-sm" onClick={() => setWeeks(w)}>{w} tuần</button>)}</div>

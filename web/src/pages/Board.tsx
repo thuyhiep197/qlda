@@ -217,7 +217,7 @@ function Card({ issue, onOpen, dragging }: { issue: Issue; onOpen: () => void; d
         {issue.due_date && <span className={`small ${isOverdue(issue) ? 'overdue' : issue.due_date === today() ? 'warn' : 'muted'}`}>📅 {fmtDate(issue.due_date).slice(0, 5)}</span>}
         <div className="spacer" />
         <PriorityIcon priority={issue.priority} />
-        {issue.story_points != null && <span className="points">{issue.story_points}</span>}
+        {issue.story_points != null && <span className="points" data-tip="Điểm ước lượng">{issue.story_points}</span>}
         <Avatar name={issue.assignee_name} size={24} />
       </div>
     </div>

@@ -20,7 +20,7 @@ export function IssueLine({ issue, onOpen }: { issue: Issue; onOpen: () => void 
       {issue.due_date && <span className={`small ${isOverdue(issue) ? 'overdue' : 'muted'}`}>{fmtDate(issue.due_date)}</span>}
       <StatusBadge name={issue.status_name} category={issue.status_category} />
       <PriorityIcon priority={issue.priority} />
-      <span className="points" title="Story point">{issue.story_points ?? '-'}</span>
+      <span className="points" data-tip="Điểm ước lượng">{issue.story_points ?? '-'}</span>
       <Avatar name={issue.assignee_name} size={24} />
     </div>
   );

@@ -136,7 +136,7 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
     if (str(r.story_points)) {
       const n = Number(str(r.story_points).replace(',', '.'));
       if (Number.isFinite(n) && n >= 0 && n <= 1000) data.story_points = n;
-      else res.warnings.push(`Story point "${str(r.story_points)}" không hợp lệ, bỏ qua`);
+      else res.warnings.push(`Điểm ước lượng "${str(r.story_points)}" không hợp lệ, bỏ qua`);
     }
 
     if (str(r.labels)) data.labels = str(r.labels).split(/[,;]/).map((x) => x.trim()).filter(Boolean);

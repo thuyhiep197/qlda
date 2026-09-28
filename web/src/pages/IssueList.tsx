@@ -42,7 +42,7 @@ export default function IssueList() {
       ['Trạng thái', (i) => i.status_name], ['Độ ưu tiên', (i) => PRIORITY_LABELS[i.priority]],
       ['Người thực hiện', (i) => i.assignee_name], ['Người tạo', (i) => i.reporter_name],
       ['Epic/Issue cha', (i) => i.parent_key ? `${i.parent_key} ${i.parent_summary}` : ''], ['Sprint', (i) => i.sprint_name],
-      ['Story point', (i) => i.story_points], ['Nhãn', (i) => i.labels.join(', ')], ['Hạn', (i) => i.due_date],
+      ['Điểm ước lượng', (i) => i.story_points], ['Nhãn', (i) => i.labels.join(', ')], ['Hạn', (i) => i.due_date],
       ['Ngày tạo', (i) => i.created_at.slice(0, 10)], ['Ngày hoàn thành', (i) => i.resolved_at?.slice(0, 10)],
     ];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -131,7 +131,7 @@ export default function IssueList() {
                 <Th k="priority">Ưu tiên</Th>
                 <th>Người thực hiện</th>
                 {project?.type !== 'kanban' && <th>Sprint</th>}
-                <th className="num">SP</th>
+                <th className="num" data-tip="Điểm ước lượng (story point)">Điểm</th>
                 <Th k="due">Hạn</Th>
                 <Th k="created">Ngày tạo</Th>
                 <Th k="updated">Cập nhật</Th>

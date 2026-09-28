@@ -12,7 +12,7 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 };
 export const FIELD_LABELS: Record<string, string> = {
   created: 'đã tạo issue', summary: 'Tiêu đề', description: 'Mô tả', type: 'Loại', priority: 'Độ ưu tiên',
-  story_points: 'Story point', labels: 'Nhãn', start_date: 'Ngày bắt đầu', due_date: 'Hạn hoàn thành',
+  story_points: 'Điểm ước lượng', labels: 'Nhãn', start_date: 'Ngày bắt đầu', due_date: 'Hạn hoàn thành',
   assignee: 'Người thực hiện', parent: 'Issue cha', sprint: 'Sprint', status: 'Trạng thái',
   attachment: 'Tệp đính kèm', link: 'Liên kết',
 };

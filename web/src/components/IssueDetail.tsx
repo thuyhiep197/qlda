@@ -195,7 +195,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             {editDesc ? (
               <div className="stack">
                 <MentionTextarea rows={10} autoFocus value={desc} onChange={setDesc} members={project?.members ?? []} issueKey={issue.key}
-                  placeholder="Hỗ trợ Markdown: **đậm**, - danh sách, `code`, [link](url)" />
+                  placeholder="Định dạng văn bản: **đậm**, - danh sách, `mã`, [liên kết](url)" />
                 <div className="row gap-xs">
                   <button className="btn btn-primary" onClick={async () => { await save({ description: desc }); setEditDesc(false); }}>Lưu</button>
                   <button className="btn" onClick={() => setEditDesc(false)}>Hủy</button>
@@ -222,7 +222,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                     <span className="issue-key">{c.key}</span>
                     <span className={`ellipsis grow ${c.status_category === 'done' ? 'done-text' : ''}`}>{c.summary}</span>
                     <PriorityIcon priority={c.priority} />
-                    {c.story_points != null && <span className="points">{c.story_points}</span>}
+                    {c.story_points != null && <span className="points" data-tip="Điểm ước lượng">{c.story_points}</span>}
                     <Avatar name={c.assignee_name} size={22} />
                     <StatusBadge name={c.status_name} category={c.status_category} />
                   </div>
@@ -423,7 +423,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             </>}
 
             {issue.type !== 'epic' && <>
-              <div className="prop-label">Story point</div>
+              <div className="prop-label">Điểm ước lượng</div>
               <InlineText type="number" value={issue.story_points != null ? String(issue.story_points) : ''} disabled={!canEdit}
                 placeholder="—" onSave={(v) => save({ story_points: v === '' ? null : Number(v) })} />
             </>}

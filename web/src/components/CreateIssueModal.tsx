@@ -10,7 +10,7 @@ const TYPE_HINTS: Record<IssueType, string> = {
   story: 'Chức năng nhìn từ phía người dùng, thường có tiêu chí chấp nhận',
   task: 'Đầu việc cần làm (kỹ thuật, tài liệu, cấu hình...)',
   bug: 'Lỗi cần sửa',
-  epic: 'Nhóm lớn chứa nhiều Story/Task/Bug, hiển thị trên Roadmap',
+  epic: 'Nhóm lớn chứa nhiều Story/Task/Bug, hiển thị trên Lộ trình',
   subtask: 'Việc nhỏ nằm dưới một Story, Task hoặc Bug',
 };
 import { LabelsInput } from './fields';
@@ -118,7 +118,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
           <input autoFocus value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={255} required />
         </label>
         <label className="field span-2">
-          <span>Mô tả <small className="muted">(hỗ trợ Markdown)</small></span>
+          <span>Mô tả <small className="muted">(hỗ trợ định dạng văn bản)</small></span>
           <MentionTextarea rows={6} value={description} onChange={setDescription} members={project?.members ?? []} />
         </label>
         {type !== 'epic' && (
@@ -154,7 +154,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         )}
         {type !== 'epic' && (
           <label className="field">
-            <span>Story point</span>
+            <span>Điểm ước lượng</span>
             <input type="number" min={0} step={0.5} value={points} onChange={(e) => setPoints(e.target.value)} />
           </label>
         )}

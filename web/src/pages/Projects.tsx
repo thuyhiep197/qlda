@@ -108,11 +108,11 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
           <div className="choice-cards">
             <label className={`choice ${type === 'scrum' ? 'active' : ''}`}>
               <input type="radio" checked={type === 'scrum'} onChange={() => setType('scrum')} />
-              <b>Scrum</b><span className="muted small">Làm việc theo sprint, có backlog, burndown, velocity</span>
+              <b>Scrum</b><span className="muted small">Làm việc theo sprint, có backlog, biểu đồ khối lượng còn lại, năng suất sprint</span>
             </label>
             <label className={`choice ${type === 'kanban' ? 'active' : ''}`}>
               <input type="radio" checked={type === 'kanban'} onChange={() => setType('kanban')} />
-              <b>Kanban</b><span className="muted small">Luồng công việc liên tục, giới hạn WIP</span>
+              <b>Kanban</b><span className="muted small">Luồng công việc liên tục, giới hạn việc đang thực hiện</span>
             </label>
           </div>
         </div>

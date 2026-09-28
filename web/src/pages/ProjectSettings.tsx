@@ -14,7 +14,7 @@ export default function ProjectSettings() {
       <div className="tabs tabs-sm">
         <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>Thông tin chung</button>
         <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>Thành viên & vai trò</button>
-        <button className={tab === 'workflow' ? 'active' : ''} onClick={() => setTab('workflow')}>Trạng thái & workflow</button>
+        <button className={tab === 'workflow' ? 'active' : ''} onClick={() => setTab('workflow')}>Trạng thái & quy trình</button>
       </div>
       {tab === 'general' && <General />}
       {tab === 'members' && <Members />}
@@ -180,9 +180,9 @@ function Workflow() {
     <div className="stack">
       <div className="card">
         <h3>1. Kho trạng thái của dự án (các cột trên bảng)</h3>
-        <p className="muted small">Nhóm trạng thái quyết định cách tính tiến độ: <b>Hoàn thành</b> được tính là đã xong trong burndown, velocity và báo cáo. Giới hạn WIP cảnh báo khi cột có quá nhiều issue.</p>
+        <p className="muted small">Nhóm trạng thái quyết định cách tính tiến độ: <b>Hoàn thành</b> được tính là đã xong trong biểu đồ khối lượng còn lại, năng suất sprint và báo cáo. Giới hạn việc đang thực hiện cảnh báo khi cột có quá nhiều issue.</p>
         <table className="table">
-          <thead><tr><th style={{ width: 70 }}>Thứ tự</th><th>Tên trạng thái</th><th>Nhóm</th><th>Giới hạn WIP</th><th>Dùng cho</th><th /></tr></thead>
+          <thead><tr><th style={{ width: 70 }}>Thứ tự</th><th>Tên trạng thái</th><th>Nhóm</th><th data-tip="Số issue tối đa nên có cùng lúc ở trạng thái này (WIP limit)">Giới hạn việc đang thực hiện</th><th>Dùng cho</th><th /></tr></thead>
           <tbody>
             {statuses.map((s, i) => (
               <tr key={s.id}>

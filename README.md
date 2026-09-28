@@ -51,13 +51,13 @@ docker compose up -d --build
 | Trao đổi | Bình luận Markdown; gõ **@** để nhắc thành viên dự án; **dán ảnh (Ctrl+V)** hoặc kéo thả ảnh/tệp vào bình luận, mô tả (ảnh hiện ngay trong nội dung, tự lưu vào tệp đính kèm); **Người theo dõi** (tự thêm người tạo, người được giao, người bình luận, người được @nhắc; ai cũng tự Theo dõi/Bỏ theo dõi) |
 | Thông báo | Chuông trên thanh trên cùng (tự làm mới 30 giây): được @nhắc, được giao việc, issue đang theo dõi có bình luận mới hoặc đổi trạng thái. Bấm để mở đúng issue; đánh dấu đã đọc. Thông báo đã đọc tự xóa sau 90 ngày |
 | Scrum | Backlog kéo thả để xếp thứ tự và đưa vào sprint; tạo, bắt đầu, sửa, hoàn thành sprint (chuyển issue chưa xong sang backlog hoặc sprint sau); board sprint đang chạy |
-| Kanban | Board liên tục, giới hạn WIP theo cột, tự ẩn issue đã xong quá 14 ngày |
+| Kanban | Board liên tục, giới hạn việc đang thực hiện (WIP) theo cột, tự ẩn issue đã xong quá 14 ngày |
 | Board | Kéo thả đổi trạng thái; lọc theo người, epic, loại, nhãn; phân làn theo người thực hiện hoặc epic |
-| Workflow | Dự án → Cài đặt → **Trạng thái & workflow**: (1) kho trạng thái — thêm, sửa, sắp xếp, xóa, nhóm Cần làm / Đang thực hiện / Hoàn thành, giới hạn WIP; (2) **trạng thái theo loại issue** — mỗi loại (Epic, Story, Task, Bug, Sub-task) chọn các trạng thái được dùng, issue đang ở trạng thái bị bỏ được chuyển sang trạng thái cùng nhóm sau khi xác nhận; (3) **luồng chuyển** — bật kiểm soát, ma trận Từ → Tới cho luồng chung và luồng riêng từng loại. Áp dụng khi tạo issue, đổi trạng thái, đổi loại, kéo thả trên bảng và nhập Excel |
+| Workflow | Dự án → Cài đặt → **Trạng thái & quy trình**: (1) kho trạng thái — thêm, sửa, sắp xếp, xóa, nhóm Cần làm / Đang thực hiện / Hoàn thành, giới hạn việc đang thực hiện; (2) **trạng thái theo loại issue** — mỗi loại (Epic, Story, Task, Bug, Sub-task) chọn các trạng thái được dùng, issue đang ở trạng thái bị bỏ được chuyển sang trạng thái cùng nhóm sau khi xác nhận; (3) **luồng chuyển** — bật kiểm soát, ma trận Từ → Tới cho luồng chung và luồng riêng từng loại. Áp dụng khi tạo issue, đổi trạng thái, đổi loại, kéo thả trên bảng và nhập Excel |
 | Nhập từ Excel | Tab Backlog / Danh sách issue → **Nhập từ Excel**: tải file mẫu (có sẵn ô chọn), nhập file .xlsx hoặc CSV xuất từ Jira; xem trước kết quả kiểm tra từng dòng, nhập theo nguyên tắc tất cả hoặc không (có thể bỏ qua dòng lỗi); tự nối Epic → Story/Task/Bug → Sub-task; tối đa 1000 dòng/lần. Quyền: Nhập issue hàng loạt |
 | Tìm kiếm | Lọc theo dự án, loại, trạng thái, người, ưu tiên, sprint, nhãn, từ khóa; bộ lọc lưu trên URL để chia sẻ; xuất CSV mở bằng Excel |
-| Roadmap | Timeline các epic theo tháng, tiến độ từng epic |
-| Báo cáo | Burndown sprint (theo point hoặc số issue), Velocity, tổng quan (theo trạng thái, loại, ưu tiên, người thực hiện), xu hướng tạo mới/hoàn thành, danh sách quá hạn |
+| Lộ trình (Roadmap) | Timeline các epic theo tháng, tiến độ từng epic |
+| Báo cáo | Biểu đồ khối lượng còn lại (burndown) theo điểm ước lượng hoặc số issue, Năng suất sprint (velocity), tổng quan (theo trạng thái, loại, ưu tiên, người thực hiện), xu hướng tạo mới/hoàn thành, danh sách quá hạn |
 | Trang chủ | Việc của tôi, số liệu cá nhân, hoạt động gần đây, dự án của tôi |
 
 ### Ma trận quyền mặc định

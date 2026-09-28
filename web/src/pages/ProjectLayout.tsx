@@ -16,7 +16,7 @@ export default function ProjectLayout() {
     ...(project.type === 'scrum' ? [['backlog', 'Backlog']] : []),
     ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban'],
     ['issues', 'Danh sách issue'],
-    ['roadmap', 'Roadmap'],
+    ['roadmap', 'Lộ trình'],
     ['reports', 'Báo cáo'],
     ...(can(project.permissions, 'project.admin') ? [['settings', 'Cài đặt']] : []),
   ];

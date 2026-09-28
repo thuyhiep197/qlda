@@ -29,7 +29,7 @@ export default function Reports() {
   const project = useProjectCtx();
   const [tab, setTab] = useState(project.type === 'scrum' ? 'burndown' : 'summary');
   const tabs = [
-    ...(project.type === 'scrum' ? [['burndown', 'Burndown sprint'], ['velocity', 'Velocity']] : []),
+    ...(project.type === 'scrum' ? [['burndown', 'Khối lượng còn lại'], ['velocity', 'Năng suất sprint']] : []),
     ['summary', 'Tổng quan dự án'],
   ];
   return (
@@ -162,7 +162,7 @@ function Burndown() {
           {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}{s.state === 'active' ? ' (đang chạy)' : ''}</option>)}
         </select>
         <select value={unit} onChange={(e) => setUnit(e.target.value as 'points' | 'issues')}>
-          <option value="points">Theo story point</option>
+          <option value="points">Theo điểm ước lượng</option>
           <option value="issues">Theo số issue</option>
         </select>
       </div>
@@ -178,7 +178,7 @@ function Burndown() {
           </LineChart>
         </ResponsiveContainer>
       )}
-      <p className="muted small">Burndown tính từ lịch sử thay đổi trạng thái và sprint của từng issue (không tính sub-task). Issue thêm vào giữa sprint làm đường "Còn lại" đi lên.</p>
+      <p className="muted small">Biểu đồ khối lượng còn lại (burndown) tính từ lịch sử thay đổi trạng thái và sprint của từng issue (không tính sub-task). Issue thêm vào giữa sprint làm đường "Còn lại" đi lên.</p>
     </div>
   );
 }
@@ -194,7 +194,7 @@ function Velocity() {
   const avg = data.reduce((a, s) => a + (s.completed_points || 0), 0) / data.length;
   return (
     <div className="card">
-      <p>Velocity trung bình: <b>{avg.toFixed(1)}</b> story point / sprint ({data.length} sprint gần nhất)</p>
+      <p>Năng suất trung bình: <b>{avg.toFixed(1)}</b> điểm ước lượng / sprint ({data.length} sprint gần nhất)</p>
       <ResponsiveContainer width="100%" height={360}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -204,7 +204,7 @@ function Velocity() {
         </BarChart>
       </ResponsiveContainer>
       <table className="table compact">
-        <thead><tr><th>Sprint</th><th className="num">SP cam kết</th><th className="num">SP hoàn thành</th><th className="num">Issue cam kết</th><th className="num">Issue hoàn thành</th><th className="num">Tỷ lệ</th></tr></thead>
+        <thead><tr><th>Sprint</th><th className="num">Điểm cam kết</th><th className="num">Điểm hoàn thành</th><th className="num">Issue cam kết</th><th className="num">Issue hoàn thành</th><th className="num">Tỷ lệ</th></tr></thead>
         <tbody>{data.map((s) => (
           <tr key={s.name}><td>{s.name}</td><td className="num">{s.committed_points}</td><td className="num">{s.completed_points}</td>
             <td className="num">{s.committed_issues}</td><td className="num">{s.completed_issues}</td>

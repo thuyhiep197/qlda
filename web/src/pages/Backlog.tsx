@@ -109,9 +109,9 @@ export default function Backlog() {
               {sprint?.start_date && <span className="muted small">{fmtDate(sprint.start_date)} – {fmtDate(sprint.end_date)}</span>}
               <span className="muted small">({all.length} issue)</span>
               <div className="spacer" />
-              <span className="pts pts-todo" title="Cần làm">{sum('todo')}</span>
-              <span className="pts pts-inprogress" title="Đang thực hiện">{sum('inprogress')}</span>
-              <span className="pts pts-done" title="Hoàn thành">{sum('done')}</span>
+              <span className="pts pts-todo" data-tip="Tổng điểm ước lượng: Cần làm">{sum('todo')}</span>
+              <span className="pts pts-inprogress" data-tip="Tổng điểm ước lượng: Đang thực hiện">{sum('inprogress')}</span>
+              <span className="pts pts-done" data-tip="Tổng điểm ước lượng: Hoàn thành">{sum('done')}</span>
               {sprint && canSprint && sprint.state === 'future' && (
                 <button className="btn btn-sm" disabled={hasActive || all.length === 0}
                   title={hasActive ? 'Đang có sprint chạy' : all.length === 0 ? 'Sprint chưa có issue' : ''}

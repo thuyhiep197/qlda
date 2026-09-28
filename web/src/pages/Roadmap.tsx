@@ -92,7 +92,7 @@ export default function Roadmap() {
                 <div key={e.id} className="roadmap-cell timeline-row">
                   {r ? (
                     <div className="bar" onClick={() => open(e.key)}
-                      title={`${e.summary}\n${fmtDate(r[0])} – ${fmtDate(r[1])}\n${e.done}/${e.total} issue · ${e.done_points}/${e.points} SP`}
+                      title={`${e.summary}\n${fmtDate(r[0])} – ${fmtDate(r[1])}\n${e.done}/${e.total} issue · ${e.done_points}/${e.points} điểm`}
                       style={{ left: `${pct(t(r[0]))}%`, width: `max(12px, ${pct(t(r[1]) + DAY) - pct(t(r[0]))}%)`, background: `${color}33`, borderColor: color }}>
                       <div className="bar-fill" style={{ width: `${pctDone}%`, background: color }} />
                     </div>

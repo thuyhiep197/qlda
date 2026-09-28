@@ -192,7 +192,7 @@ function checkDate(v: unknown, label: string): string | null {
 function checkPoints(v: unknown): number | null {
   if (v === null || v === '' || v === undefined) return null;
   const n = Number(v);
-  if (!Number.isFinite(n) || n < 0 || n > 1000) throw badRequest('Story point không hợp lệ');
+  if (!Number.isFinite(n) || n < 0 || n > 1000) throw badRequest('Điểm ước lượng không hợp lệ');
   return n;
 }
 
@@ -236,7 +236,7 @@ function checkSprint(projectId: number, sprintId: unknown): number | null {
 }
 
 export function checkTransition(projectId: number, type: string, fromId: number, toId: number) {
-  if (!canTransition(projectId, type, fromId, toId)) throw badRequest(`Workflow không cho phép chuyển từ "${statusName(fromId)}" sang "${statusName(toId)}"`);
+  if (!canTransition(projectId, type, fromId, toId)) throw badRequest(`Quy trình không cho phép chuyển từ "${statusName(fromId)}" sang "${statusName(toId)}"`);
 }
 
 function nextRank(projectId: number) {
