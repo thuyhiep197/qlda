@@ -64,7 +64,7 @@ type SrcRow = Partial<Record<SrcKey, string>> & { row: number };
 const isHeaderRow = (r: string[]) => r.some((c) => ALIASES.summary.includes(fold(c)));
 
 /**
- * Kế hoạch dạng WBS đánh số theo cột STT: I, II… = Epic (mô-đun); 1, 2… = Story thuộc Epic đang xét;
+ * Kế hoạch dạng WBS đánh số theo cột STT: I, II… = Epic (mô-đun); 1, 2… = Story thuộc Epic đang xét; M1, M2… = mốc (Task);
  * 1.1, 5.3… = Sub-task của Story cùng số đầu trong Epic đó. Chỉ áp dụng khi file không có cột Loại / Issue cha.
  */
 function applyWbs(rows: SrcRow[]) {
@@ -86,6 +86,12 @@ function applyWbs(rows: SrcRow[]) {
       r.type = 'Sub-task';
       r.ref = `${epic}.${code}`;
       r.parent = `${epic}.${code.split('.')[0]}`;
+    } else if (/^M\d+$/i.test(code)) {
+      // Mốc quan trọng (M1, M2…): Task thuộc giai đoạn đang xét, gắn nhãn "mốc" để lọc
+      r.type = 'Task';
+      r.ref = code.toUpperCase();
+      if (epic) r.parent = epic;
+      r.labels = [r.labels, 'mốc'].filter(Boolean).join(',');
     }
   }
 }
