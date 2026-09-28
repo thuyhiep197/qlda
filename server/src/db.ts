@@ -219,6 +219,8 @@ const migrations: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // v2: thu hồi phiên đăng nhập cũ khi đổi/cấp lại mật khẩu
+  `ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 export function migrate() {

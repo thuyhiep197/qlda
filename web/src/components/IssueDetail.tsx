@@ -273,7 +273,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               {issue.attachments.length === 0 && <div className="muted small">Kéo thả tệp vào đây để đính kèm</div>}
               {issue.attachments.map((a) => (
                 <div key={a.id} className="attachment">
-                  {a.mime?.startsWith('image/')
+                  {/^image\/(png|jpe?g|gif|webp|bmp)$/.test(a.mime || '')
                     ? <img src={`/api/issues/attachments/${a.id}?inline=1`} alt={a.filename} />
                     : <div className="file-icon">{a.filename.split('.').pop()?.toUpperCase().slice(0, 4)}</div>}
                   <div className="attachment-info">

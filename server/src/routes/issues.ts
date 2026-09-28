@@ -157,10 +157,11 @@ r.get('/attachments/:id', (req, res) => {
   const { a } = loadAttachment(req.user, Number(req.params.id));
   const file = path.join(UPLOAD_DIR, a.stored_name);
   if (!fs.existsSync(file)) throw notFound('Tệp không còn tồn tại trên máy chủ');
-  const inline = req.query.inline === '1' && /^image\//.test(a.mime || '');
+  // Chỉ hiển thị trực tiếp ảnh raster; SVG/HTML luôn tải về để tránh chạy mã độc
+  const inline = req.query.inline === '1' && /^image\/(png|jpe?g|gif|webp|bmp)$/.test(a.mime || '');
   res.setHeader('Content-Type', a.mime || 'application/octet-stream');
   res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(a.filename)}`);
-  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
   fs.createReadStream(file).pipe(res);
 });
 

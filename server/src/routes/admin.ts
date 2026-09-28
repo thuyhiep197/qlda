@@ -61,7 +61,7 @@ r.post('/users/:id/reset-password', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   if (!get('SELECT 1 FROM users WHERE id = ?', id)) throw notFound();
   const password = validatePassword(req.body?.password);
-  run('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?', hashPassword(password), id);
+  run('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(password), id);
   res.json({ ok: true });
 });
 

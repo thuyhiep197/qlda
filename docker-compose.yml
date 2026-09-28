@@ -1,12 +1,37 @@
+# QLDA chạy sau Caddy: Caddy tự xin và gia hạn chứng chỉ HTTPS (Let's Encrypt) cho DOMAIN trong .env.
+# Yêu cầu: bản ghi DNS A của DOMAIN trỏ về IP public của server; mở cổng 80 và 443.
 services:
   qlda:
     build: .
     image: qlda:latest
     container_name: qlda
     restart: unless-stopped
-    ports:
-      - "3001:3001"
     env_file:
       - .env
+    environment:
+      - COOKIE_SECURE=true
     volumes:
-      - ./data:/data        # CSDL, tệp đính kèm, bản sao lưu
+      - ./data:/data                  # CSDL, tệp đính kèm, bản sao lưu
+    ports:
+      - "127.0.0.1:3001:3001"         # chỉ truy cập nội bộ server (kiểm tra/khẩn cấp)
+
+  caddy:
+    image: caddy:2
+    container_name: qlda-caddy
+    restart: unless-stopped
+    depends_on:
+      - qlda
+    env_file:
+      - .env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data              # chứng chỉ SSL
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -39,7 +39,8 @@ export function validatePassword(password: unknown): string {
 }
 
 export function issueToken(res: Response, userId: number) {
-  const token = jwt.sign({ uid: userId }, secret(), { expiresIn: `${TOKEN_DAYS}d` });
+  const tv = get<{ token_version: number }>('SELECT token_version FROM users WHERE id = ?', userId)?.token_version ?? 0;
+  const token = jwt.sign({ uid: userId, tv }, secret(), { expiresIn: `${TOKEN_DAYS}d` });
   res.cookie(COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -59,16 +60,18 @@ declare global {
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const token = req.cookies?.[COOKIE];
   if (!token) throw new HttpError(401, 'Chưa đăng nhập');
-  let uid: number;
+  let uid: number, tv: number;
   try {
-    uid = (jwt.verify(token, secret()) as { uid: number }).uid;
+    ({ uid, tv = 0 } = jwt.verify(token, secret()) as { uid: number; tv?: number });
   } catch {
     throw new HttpError(401, 'Phiên đăng nhập đã hết hạn');
   }
-  const user = get<AuthUser & { is_active: number }>(
-    'SELECT id, username, full_name, email, is_admin, is_active, must_change_password FROM users WHERE id = ?', uid,
+  const user = get<AuthUser & { is_active: number; token_version: number }>(
+    'SELECT id, username, full_name, email, is_admin, is_active, must_change_password, token_version FROM users WHERE id = ?', uid,
   );
   if (!user || !user.is_active) throw new HttpError(401, 'Tài khoản không tồn tại hoặc đã bị khóa');
+  if (user.token_version !== tv) throw new HttpError(401, 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại');
+  delete (user as { token_version?: number }).token_version;
   req.user = user;
   next();
 }

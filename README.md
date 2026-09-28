@@ -20,18 +20,18 @@ Yêu cầu: **Node.js 24** trở lên.
 
 Sau khi sửa mã nguồn giao diện, chạy `build-lai.bat` (hoặc `npm run build`) rồi khởi động lại.
 
-## 2. Triển khai lên server bằng Docker
+## 2. Triển khai lên server bằng Docker (có tên miền + HTTPS)
+
+Xem hướng dẫn đầy đủ trong **[TRIEN-KHAI.md](TRIEN-KHAI.md)**. Tóm tắt:
 
 ```bash
-cp .env.example .env      # sửa ADMIN_PASSWORD, COOKIE_SECURE...
+cp .env.example .env      # điền DOMAIN, ADMIN_USERNAME, ADMIN_FULLNAME, ADMIN_PASSWORD
 docker compose up -d --build
 ```
 
-- Truy cập: `http://<ip-server>:3001`
-- Toàn bộ dữ liệu nằm trong thư mục `./data` trên server (CSDL `qlda.db`, `uploads/`, `backups/`). **Chỉ cần sao lưu thư mục này.**
-- Cập nhật phiên bản: chép mã nguồn mới lên server rồi chạy `docker compose up -d --build`. CSDL tự nâng cấp schema khi khởi động.
-- Chuyển dữ liệu đã nhập thử từ máy cá nhân lên server: tắt tool, chép thư mục `data/` lên server, rồi khởi động container.
-- Nếu truy cập qua HTTPS (Nginx/Caddy làm reverse proxy), đặt `COOKIE_SECURE=true`.
+- Gói Docker gồm ứng dụng và Caddy. Caddy tự cấp chứng chỉ HTTPS cho `DOMAIN`, với điều kiện DNS đã trỏ về server và đã mở cổng 80/443.
+- Toàn bộ dữ liệu nằm trong `./data` trên server. **Chỉ cần sao lưu thư mục này.**
+- Cập nhật phiên bản: `docker compose up -d --build`. CSDL tự nâng cấp schema khi khởi động.
 
 ## 3. Sao lưu
 
