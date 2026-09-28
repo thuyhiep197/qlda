@@ -6,7 +6,7 @@
  *  - chế độ nhập (commit = true): có dòng lỗi thì rollback toàn bộ, không nhập dở dang.
  */
 import { all, get, tx } from './db.ts';
-import { createIssue } from './issues.ts';
+import { createIssue, parseDuration } from './issues.ts';
 import { isStatusAllowed } from './workflow.ts';
 import { badRequest, forbidden, type AuthUser, type Permission } from './permissions.ts';
 
@@ -25,6 +25,8 @@ export interface ImportRow {
   labels?: string;
   start_date?: string;
   due_date?: string;
+  version?: string;
+  original_estimate?: string;
 }
 
 export interface ImportResult {
@@ -100,6 +102,8 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
   };
   const sprints = all<{ id: number; name: string; state: string }>('SELECT id, name, state FROM sprints WHERE project_id = ?', projectId);
   const sprintBy = new Map(sprints.map((s) => [fold(s.name), s]));
+  const versions = all<{ id: number; name: string; status: string }>('SELECT id, name, status FROM versions WHERE project_id = ?', projectId);
+  const versionBy = new Map(versions.map((v) => [fold(v.name), v]));
 
   // Bước 1: chuẩn hóa từng dòng
   const results: ImportResult[] = [];
@@ -159,6 +163,16 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
       else res.warnings.push(`Trạng thái "${str(r.status)}" không có trong dự án, dùng trạng thái đầu tiên`);
     }
 
+    if (str(r.version)) {
+      const v = versionBy.get(fold(r.version));
+      if (!v) res.warnings.push(`Không có phiên bản "${str(r.version)}" trong dự án, để trống`);
+      else if (v.status === 'archived') res.warnings.push(`Phiên bản "${str(r.version)}" đã lưu trữ, để trống`);
+      else data.version_id = v.id;
+    }
+    if (str(r.original_estimate)) {
+      // Chỉ kiểm tra ở đây; giữ nguyên chuỗi để createIssue đổi sang phút đúng một lần
+      try { parseDuration(str(r.original_estimate)); data.original_estimate = str(r.original_estimate); } catch { res.warnings.push(`Ước lượng thời gian "${str(r.original_estimate)}" không hợp lệ, bỏ qua`); }
+    }
     if (res.sprint) {
       const sp = sprintBy.get(fold(res.sprint));
       if (type === 'epic' || type === 'subtask') res.warnings.push(`${type === 'epic' ? 'Epic' : 'Sub-task'} không gán sprint trực tiếp, bỏ qua cột Sprint`);

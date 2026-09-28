@@ -49,6 +49,9 @@ export function notify(userIds: Iterable<number>, actorId: number, issueId: numb
   const ts = now();
   for (const id of new Set(userIds)) {
     if (id === actorId) continue;
+    // Tôn trọng cài đặt cá nhân: người dùng có thể tắt từng loại thông báo
+    const pref = get<{ p: string }>('SELECT preferences p FROM users WHERE id = ?', id)?.p;
+    try { if (pref && JSON.parse(pref)?.notify?.[type] === false) continue; } catch { /* cài đặt hỏng → vẫn thông báo */ }
     run('INSERT INTO notifications(user_id, actor_id, issue_id, type, text, created_at) VALUES (?,?,?,?,?,?)',
       id, actorId, issueId, type, snippet(text), ts);
   }

@@ -6,8 +6,8 @@ import {
 import { api } from '../api';
 import { useIssueModal, useSprints } from '../hooks';
 import type { Issue, IssueType, Priority } from '../types';
-import { fmtDate, PRIORITY_LABELS, TYPE_LABELS } from '../util';
-import { Empty, Spinner } from '../components/ui';
+import { addDays as addDaysStr, fmtDate, fmtHours, PRIORITY_LABELS, today as todayStr, TYPE_LABELS } from '../util';
+import { Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui';
 import { IssueLine } from '../components/IssueRow';
 import { useProjectCtx } from './ProjectLayout';
 
@@ -29,8 +29,9 @@ export default function Reports() {
   const project = useProjectCtx();
   const [tab, setTab] = useState(project.type === 'scrum' ? 'burndown' : 'summary');
   const tabs = [
-    ...(project.type === 'scrum' ? [['burndown', 'Khối lượng còn lại'], ['velocity', 'Năng suất sprint']] : []),
+    ...(project.type === 'scrum' ? [['burndown', 'Khối lượng còn lại'], ['sprint', 'Báo cáo sprint'], ['velocity', 'Năng suất sprint']] : []),
     ['summary', 'Tổng quan dự án'],
+    ['worklog', 'Giờ công'],
   ];
   return (
     <div className="page-pad">
@@ -39,7 +40,9 @@ export default function Reports() {
       </div>
       {tab === 'summary' && <SummaryReport />}
       {tab === 'burndown' && <Burndown />}
+      {tab === 'sprint' && <SprintReport />}
       {tab === 'velocity' && <Velocity />}
+      {tab === 'worklog' && <Timesheet />}
     </div>
   );
 }
@@ -211,6 +214,186 @@ function Velocity() {
             <td className="num">{s.committed_points ? Math.round((s.completed_points / s.committed_points) * 100) : 0}%</td></tr>
         ))}</tbody>
       </table>
+    </div>
+  );
+}
+
+interface SprintReportItem {
+  id: number; key: string; type: IssueType; summary: string; story_points: number | null; priority: Priority;
+  status_name: string; status_category: 'todo' | 'inprogress' | 'done'; assignee_name: string | null; added: boolean;
+}
+interface SprintReportData {
+  sprint: { name: string; start_date: string; end_date: string; state: string; goal: string | null; completed_at: string | null };
+  completed: SprintReportItem[]; not_completed: SprintReportItem[]; removed: SprintReportItem[];
+  totals: { committed_points: number | null; completed_points: number; not_completed_points: number; added_points: number; removed_points: number };
+}
+
+/** Báo cáo sprint như Jira: việc đã xong, chưa xong, thêm vào giữa sprint (*), bị rút khỏi sprint. */
+function SprintReport() {
+  const project = useProjectCtx();
+  const { open } = useIssueModal();
+  const { data: sprints } = useSprints(project.key, 'active,closed');
+  const [sel, setSel] = useState<number | null>(null);
+  const sprintId = sel ?? sprints?.[0]?.id;
+  const { data, isLoading } = useQuery<SprintReportData>({
+    queryKey: ['sprint-report', project.key, sprintId],
+    queryFn: () => api.get(`/reports/projects/${project.key}/sprint-report?sprint=${sprintId}`),
+    enabled: !!sprintId,
+  });
+  if (!sprints) return <Spinner />;
+  if (!sprints.length) return <Empty title="Chưa có sprint nào đã bắt đầu" />;
+  const Section = ({ title, items, tone }: { title: string; items: SprintReportItem[]; tone: string }) => (
+    <div className="card">
+      <h3>{title} <span className="muted small">({items.length} issue · {items.reduce((a, i) => a + (i.story_points || 0), 0)} điểm)</span></h3>
+      {!items.length ? <div className="muted small">Không có</div> : (
+        <table className="table compact">
+          <thead><tr><th style={{ width: 24 }} /><th>Mã</th><th>Tiêu đề</th><th>Người thực hiện</th><th>Trạng thái</th><th className="num">Điểm</th></tr></thead>
+          <tbody>
+            {items.map((i) => (
+              <tr key={i.id} className="clickable" onClick={() => open(i.key)}>
+                <td><TypeIcon type={i.type} /></td>
+                <td className="nowrap"><span className="issue-key">{i.key}</span>{i.added && <span className={`added-mark ${tone}`} data-tip="Được thêm vào sau khi sprint đã bắt đầu"> *</span>}</td>
+                <td>{i.summary}</td>
+                <td className="small">{i.assignee_name || 'Chưa giao'}</td>
+                <td><StatusBadge name={i.status_name} category={i.status_category} /></td>
+                <td className="num">{i.story_points ?? ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+  return (
+    <div className="stack">
+      <div className="row gap-sm">
+        <select value={sprintId} onChange={(e) => setSel(Number(e.target.value))}>
+          {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}{s.state === 'active' ? ' (đang chạy)' : ''}</option>)}
+        </select>
+        {data && <span className="muted small">{fmtDate(data.sprint.start_date)} – {fmtDate(data.sprint.end_date)}{data.sprint.completed_at ? ` · đóng ${fmtDate(data.sprint.completed_at)}` : ' · đang chạy'}</span>}
+      </div>
+      {isLoading || !data ? <Spinner /> : (
+        <>
+          {data.sprint.goal && <div className="muted">🎯 Mục tiêu: {data.sprint.goal}</div>}
+          <div className="stat-cards">
+            <div className="stat-card"><div className="stat-num">{data.totals.committed_points ?? '—'}</div><div>Điểm cam kết lúc bắt đầu</div></div>
+            <div className="stat-card"><div className="stat-num">{data.totals.completed_points}</div><div>Điểm đã hoàn thành</div></div>
+            <div className="stat-card"><div className="stat-num">{data.totals.not_completed_points}</div><div>Điểm chưa hoàn thành</div></div>
+            <div className="stat-card"><div className="stat-num">{data.totals.added_points}</div><div>Điểm thêm giữa sprint</div></div>
+            <div className="stat-card"><div className="stat-num">{data.totals.removed_points}</div><div>Điểm bị rút khỏi sprint</div></div>
+          </div>
+          <Section title="Đã hoàn thành" items={data.completed} tone="ok" />
+          <Section title={data.sprint.state === 'closed' ? 'Chưa hoàn thành (đã chuyển khỏi sprint khi đóng)' : 'Chưa hoàn thành'} items={data.not_completed} tone="warn" />
+          <Section title="Bị rút khỏi sprint trong lúc chạy" items={data.removed} tone="bad" />
+          <p className="muted small">Dấu <b>*</b>: issue được thêm vào sau khi sprint bắt đầu. Không tính sub-task.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+interface TimesheetData {
+  from: string; to: string;
+  rows: { id: number; work_date: string; minutes: number; comment: string | null; user_id: number; user_name: string; key: string; summary: string; type: IssueType }[];
+  totals: { original: number; remaining: number; spent: number };
+}
+
+/** Giờ công: bảng người × ngày trong khoảng thời gian, tổng theo issue. */
+function Timesheet() {
+  const project = useProjectCtx();
+  const { open } = useIssueModal();
+  const [to, setTo] = useState(todayStr());
+  const [from, setFrom] = useState(addDaysStr(todayStr(), -13));
+  const { data, isLoading } = useQuery<TimesheetData>({
+    queryKey: ['timesheet', project.key, from, to],
+    queryFn: () => api.get(`/reports/projects/${project.key}/worklogs?from=${from}&to=${to}`),
+  });
+  const days: string[] = [];
+  for (let d = from; d <= to && days.length < 62; d = addDaysStr(d, 1)) days.push(d);
+  const users = new Map<number, string>();
+  const cell = new Map<string, number>();
+  const byIssue = new Map<string, { summary: string; type: IssueType; minutes: number }>();
+  for (const r of data?.rows ?? []) {
+    users.set(r.user_id, r.user_name);
+    cell.set(`${r.user_id}|${r.work_date}`, (cell.get(`${r.user_id}|${r.work_date}`) || 0) + r.minutes);
+    const it = byIssue.get(r.key) ?? { summary: r.summary, type: r.type, minutes: 0 };
+    it.minutes += r.minutes;
+    byIssue.set(r.key, it);
+  }
+  const userTotal = (u: number) => days.reduce((a, d) => a + (cell.get(`${u}|${d}`) || 0), 0);
+  const dayTotal = (d: string) => [...users.keys()].reduce((a, u) => a + (cell.get(`${u}|${d}`) || 0), 0);
+  const total = [...users.keys()].reduce((a, u) => a + userTotal(u), 0);
+  const weekend = (d: string) => [0, 6].includes(new Date(`${d}T00:00:00`).getDay());
+  const exportCsv = () => {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [['Ngày', 'Người', 'Mã issue', 'Tiêu đề', 'Số giờ', 'Nội dung'].map(esc).join(',')];
+    for (const r of data?.rows ?? []) lines.push([r.work_date, r.user_name, r.key, r.summary, r.minutes / 60, r.comment].map(esc).join(','));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = `gio-cong-${project.key}-${from}-${to}.csv`;
+    a.click();
+  };
+  return (
+    <div className="stack">
+      <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
+        <label className="row gap-xs">Từ <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /></label>
+        <label className="row gap-xs">đến <input type="date" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} /></label>
+        <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -6)); setTo(todayStr()); }}>7 ngày</button>
+        <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -29)); setTo(todayStr()); }}>30 ngày</button>
+        <div className="spacer" />
+        <button className="btn btn-sm" disabled={!data?.rows.length} onClick={exportCsv}>⬇ Xuất Excel (CSV)</button>
+      </div>
+      {isLoading || !data ? <Spinner /> : (
+        <>
+          <div className="stat-cards">
+            <div className="stat-card"><div className="stat-num">{fmtHours(total)}</div><div>Giờ ghi trong khoảng đã chọn</div></div>
+            <div className="stat-card"><div className="stat-num">{fmtHours(data.totals.spent)}</div><div>Tổng giờ đã ghi của dự án</div></div>
+            <div className="stat-card"><div className="stat-num">{fmtHours(data.totals.original)}</div><div>Tổng ước lượng của dự án</div></div>
+            <div className="stat-card"><div className="stat-num">{fmtHours(data.totals.remaining)}</div><div>Tổng thời gian còn lại</div></div>
+          </div>
+          {!users.size ? <Empty title="Chưa có ai ghi giờ trong khoảng thời gian này"><p className="muted">Mở issue → ⏱ Ghi thời gian.</p></Empty> : (
+            <>
+              <div className="card">
+                <h3>Giờ công theo người và ngày</h3>
+                <div className="table-wrap">
+                  <table className="table compact timesheet">
+                    <thead>
+                      <tr><th>Người</th>{days.map((d) => <th key={d} className={`num ${weekend(d) ? 'weekend' : ''}`}>{d.slice(8, 10)}/{d.slice(5, 7)}</th>)}<th className="num">Tổng</th></tr>
+                    </thead>
+                    <tbody>
+                      {[...users.entries()].map(([u, name]) => (
+                        <tr key={u}>
+                          <td className="nowrap">{name}</td>
+                          {days.map((d) => { const m = cell.get(`${u}|${d}`); return <td key={d} className={`num ${weekend(d) ? 'weekend' : ''}`}>{m ? fmtHours(m) : ''}</td>; })}
+                          <td className="num"><b>{fmtHours(userTotal(u))}</b></td>
+                        </tr>
+                      ))}
+                      <tr className="group-row">
+                        <td>Tổng</td>
+                        {days.map((d) => <td key={d} className="num">{dayTotal(d) ? fmtHours(dayTotal(d)) : ''}</td>)}
+                        <td className="num">{fmtHours(total)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="card">
+                <h3>Giờ công theo issue</h3>
+                <table className="table compact">
+                  <thead><tr><th style={{ width: 24 }} /><th>Mã</th><th>Tiêu đề</th><th className="num">Số giờ</th></tr></thead>
+                  <tbody>
+                    {[...byIssue.entries()].sort((a, b) => b[1].minutes - a[1].minutes).map(([k, v]) => (
+                      <tr key={k} className="clickable" onClick={() => open(k)}>
+                        <td><TypeIcon type={v.type} /></td><td className="issue-key">{k}</td><td>{v.summary}</td><td className="num">{fmtHours(v.minutes)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }

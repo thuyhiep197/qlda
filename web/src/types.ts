@@ -9,6 +9,12 @@ export interface Me {
   email: string | null;
   is_admin: number;
   must_change_password: number;
+  phone?: string | null;
+  job_title?: string | null;
+  role_name?: string | null;
+  created_at?: string;
+  last_login_at?: string | null;
+  preferences?: { theme?: 'light' | 'dark' | 'system'; notify?: Partial<Record<'mention' | 'assigned' | 'comment' | 'status', boolean>> };
 }
 
 export interface UserBasic {
@@ -156,6 +162,12 @@ export interface Issue {
   updated_at: string;
   child_count: number;
   child_done: number;
+  version_id: number | null;
+  version_name: string | null;
+  version_status: string | null;
+  original_estimate: number | null;
+  remaining_estimate: number | null;
+  time_spent: number;
 }
 
 export interface HistoryItem {
@@ -179,4 +191,43 @@ export interface IssueDetail extends Issue {
   next_status_ids: number[];
   watchers: { id: number; username: string; full_name: string }[];
   watching: boolean;
+}
+
+export interface Version {
+  id: number;
+  project_id: number;
+  name: string;
+  description: string | null;
+  start_date: string | null;
+  release_date: string | null;
+  status: 'unreleased' | 'released' | 'archived';
+  released_at: string | null;
+  issue_count: number;
+  done_count: number;
+  inprogress_count: number;
+  points: number;
+  done_points: number;
+}
+
+export interface Worklog {
+  id: number;
+  issue_id: number;
+  user_id: number;
+  user_name: string;
+  work_date: string;
+  minutes: number;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface SavedFilter {
+  id: number;
+  user_id: number;
+  owner_name: string;
+  project_id: number | null;
+  project_key: string | null;
+  project_name: string | null;
+  name: string;
+  query: string;
+  shared: number;
 }

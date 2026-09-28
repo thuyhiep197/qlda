@@ -214,8 +214,8 @@ export function TooltipLayer() {
         <div className="tooltip-arrow" style={{
           left: pos.arrowX - 5,
           top: pos.above ? pos.top + (box.current?.offsetHeight ?? 0) : pos.top - 10,
-          borderTopColor: pos.above ? '#172b4d' : 'transparent',
-          borderBottomColor: pos.above ? 'transparent' : '#172b4d',
+          borderTopColor: pos.above ? 'var(--tooltip-bg)' : 'transparent',
+          borderBottomColor: pos.above ? 'transparent' : 'var(--tooltip-bg)',
         }} />
       )}
     </>

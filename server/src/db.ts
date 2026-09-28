@@ -274,6 +274,49 @@ const migrations: string[] = [
      SELECT project_id, '', from_status_id, to_status_id FROM transitions;
    DROP TABLE transitions;
    ALTER TABLE transitions_v6 RENAME TO transitions;`,
+  // v7: ghi thời gian làm việc, phiên bản phát hành, bộ lọc đã lưu
+  `ALTER TABLE issues ADD COLUMN original_estimate INTEGER;   -- phút
+   ALTER TABLE issues ADD COLUMN remaining_estimate INTEGER;  -- phút
+   CREATE TABLE worklogs (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+     user_id INTEGER NOT NULL REFERENCES users(id),
+     work_date TEXT NOT NULL,
+     minutes INTEGER NOT NULL CHECK (minutes > 0),
+     comment TEXT,
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     updated_at TEXT
+   );
+   CREATE INDEX idx_worklogs_issue ON worklogs(issue_id);
+   CREATE INDEX idx_worklogs_user_date ON worklogs(user_id, work_date);
+   CREATE TABLE versions (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     description TEXT,
+     start_date TEXT,
+     release_date TEXT,
+     status TEXT NOT NULL DEFAULT 'unreleased' CHECK (status IN ('unreleased','released','archived')),
+     released_at TEXT,
+     position INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     UNIQUE (project_id, name)
+   );
+   ALTER TABLE issues ADD COLUMN version_id INTEGER REFERENCES versions(id) ON DELETE SET NULL;
+   CREATE INDEX idx_issues_version ON issues(version_id);
+   CREATE TABLE saved_filters (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     user_id INTEGER NOT NULL REFERENCES users(id),
+     project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     query TEXT NOT NULL,
+     shared INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   -- Cài đặt cá nhân: giao diện sáng/tối, thông báo muốn nhận (JSON); thông tin liên hệ
+   ALTER TABLE users ADD COLUMN preferences TEXT NOT NULL DEFAULT '{}';
+   ALTER TABLE users ADD COLUMN phone TEXT;
+   ALTER TABLE users ADD COLUMN job_title TEXT;`,
 ];
 
 export function migrate() {

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs, refreshAll } from '../api';
-import { can, useProject, useProjects, useSprints } from '../hooks';
+import { can, useProject, useProjects, useSprints, useVersions } from '../hooks';
 import type { Issue, IssueType, Priority } from '../types';
 import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
 import { Modal, toast, toastError, TypeIcon } from './ui';
@@ -31,6 +31,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
   }, [projects, key]);
   const { data: project } = useProject(key || undefined);
   const { data: sprints } = useSprints(key || undefined, 'future,active');
+  const { data: versions } = useVersions(key || undefined);
 
   const [type, setType] = useState<IssueType>(defaults?.type || 'story');
   const [summary, setSummary] = useState('');
@@ -43,6 +44,8 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
   const [labels, setLabels] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [estimate, setEstimate] = useState('');
+  const [version, setVersion] = useState('');
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -64,6 +67,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         sprint_id: type === 'epic' || type === 'subtask' ? null : sprint || null,
         status_id: defaults?.status_id,
         story_points: points || null, labels, start_date: startDate || null, due_date: dueDate || null,
+        original_estimate: type !== 'epic' && estimate.trim() ? estimate : null, version_id: type !== 'subtask' && version ? Number(version) : null,
       });
       toast(`Đã tạo ${issue.key}`);
       await refreshAll();
@@ -95,7 +99,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
       <form id="create-issue" onSubmit={submit} className="form-grid">
         <label className="field span-2">
           <span>Dự án *</span>
-          <select value={key} onChange={(e) => { setKey(e.target.value); setParent(''); setSprint(''); setAssignee(''); }}>
+          <select value={key} onChange={(e) => { setKey(e.target.value); setParent(''); setSprint(''); setAssignee(''); setVersion(''); }}>
             {projects?.map((p) => <option key={p.key} value={p.key}>{p.name} ({p.key})</option>)}
           </select>
         </label>
@@ -158,15 +162,28 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
             <input type="number" min={0} step={0.5} value={points} onChange={(e) => setPoints(e.target.value)} />
           </label>
         )}
-        {type === 'epic' && (
+        {type !== 'epic' && (
+          <label className="field" data-tip="1d = 8 giờ, 1w = 5 ngày; số không đơn vị là giờ">
+            <span>Ước lượng thời gian</span>
+            <input value={estimate} onChange={(e) => setEstimate(e.target.value)} placeholder="VD: 2d, 4h 30m" />
+          </label>
+        )}
+        {type !== 'subtask' && (versions?.some((v) => v.status === 'unreleased') ?? false) && (
           <label className="field">
-            <span>Ngày bắt đầu</span>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <span>Phiên bản phát hành</span>
+            <select value={version} onChange={(e) => setVersion(e.target.value)}>
+              <option value="">— Không có —</option>
+              {versions?.filter((v) => v.status === 'unreleased').map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
           </label>
         )}
         <label className="field">
+          <span>Ngày bắt đầu</span>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </label>
+        <label className="field">
           <span>Hạn hoàn thành</span>
-          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <input type="date" value={dueDate} min={startDate || undefined} onChange={(e) => setDueDate(e.target.value)} />
         </label>
         <div className="field span-2">
           <span>Nhãn</span>

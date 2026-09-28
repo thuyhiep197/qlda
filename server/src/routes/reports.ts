@@ -6,7 +6,9 @@ import { loadProject } from './projects.ts';
 
 const r = Router();
 
-const day = (d: Date) => d.toISOString().slice(0, 10);
+/** 00:00 giờ địa phương của ngày YYYY-MM-DD (máy chủ chạy TZ=Asia/Ho_Chi_Minh). */
+const dayStart = (d: string) => new Date(`${d}T00:00:00`);
+const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
 
 // ---------------------------------------------------------------------------
 // Trang chủ
@@ -61,16 +63,21 @@ r.get('/projects/:key/summary', (req, res) => {
     GROUP BY i.assignee_id ORDER BY (todo + inprogress) DESC`, pid);
 
   const days = Math.min(Math.max(Number(req.query.days) || 30, 7), 180);
-  const since = new Date(Date.now() - (days - 1) * 86400_000);
-  const created = all(`SELECT substr(created_at,1,10) d, COUNT(*) c FROM issues
-    WHERE project_id = ? AND type <> 'epic' AND created_at >= ? GROUP BY d`, pid, day(since));
-  const resolved = all(`SELECT substr(resolved_at,1,10) d, COUNT(*) c FROM issues
-    WHERE project_id = ? AND type <> 'epic' AND resolved_at >= ? GROUP BY d`, pid, day(since));
-  const cMap = new Map(created.map((x) => [x.d, x.c]));
-  const rMap = new Map(resolved.map((x) => [x.d, x.c]));
+  // Nhóm theo ngày giờ Việt Nam (múi giờ máy chủ), không theo UTC
+  const firstDay = addDays(localDate(), -(days - 1));
+  const since = dayStart(firstDay).toISOString();
+  const count = (col: 'created_at' | 'resolved_at') => {
+    const m = new Map<string, number>();
+    for (const x of all<{ t: string }>(`SELECT ${col} t FROM issues WHERE project_id = ? AND type <> 'epic' AND ${col} >= ?`, pid, since)) {
+      const d = localDate(new Date(x.t));
+      m.set(d, (m.get(d) || 0) + 1);
+    }
+    return m;
+  };
+  const cMap = count('created_at'), rMap = count('resolved_at');
   const trend = [];
   for (let i = 0; i < days; i++) {
-    const d = day(new Date(since.getTime() + i * 86400_000));
+    const d = addDays(firstDay, i);
     trend.push({ date: d, created: cMap.get(d) || 0, resolved: rMap.get(d) || 0 });
   }
   const today = localDate();
@@ -135,21 +142,20 @@ r.get('/projects/:key/burndown', (req, res) => {
     return { points, issues };
   };
 
-  const startTs = sprint.started_at || `${sprint.start_date}T00:00:00.000Z`;
+  // Mốc ngày theo giờ Việt Nam: một ngày tính từ 00:00 đến 23:59 giờ địa phương
+  const startTs = sprint.started_at || dayStart(sprint.start_date).toISOString();
   const endLimit = sprint.completed_at || new Date().toISOString();
-  const start = new Date(`${sprint.start_date}T00:00:00Z`);
-  const end = new Date(`${sprint.end_date}T00:00:00Z`);
-  const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400_000));
+  const totalDays = Math.max(1, Math.round((Date.parse(`${sprint.end_date}T00:00:00Z`) - Date.parse(`${sprint.start_date}T00:00:00Z`)) / 86400_000));
   const initial = remainingAt(startTs);
   const series = [{ date: sprint.start_date, ideal: initial.points, remaining: initial.points, remaining_issues: initial.issues }];
   for (let i = 1; i <= totalDays; i++) {
-    const d = new Date(start.getTime() + i * 86400_000);
-    const eod = new Date(d.getTime() + 86400_000 - 1).toISOString();
+    const d = addDays(sprint.start_date, i);
+    const eod = new Date(dayStart(addDays(d, 1)).getTime() - 1).toISOString();
     const t = eod < endLimit ? eod : endLimit;
-    const past = new Date(d.getTime()).toISOString() <= endLimit;
+    const past = dayStart(d).toISOString() <= endLimit;
     const rem = past ? remainingAt(t) : null;
     series.push({
-      date: day(d),
+      date: d,
       ideal: Math.max(0, +(initial.points * (1 - i / totalDays)).toFixed(2)),
       remaining: rem ? rem.points : (null as any),
       remaining_issues: rem ? rem.issues : (null as any),
@@ -173,7 +179,80 @@ r.get('/projects/:key/roadmap', (req, res) => {
       (SELECT MAX(sp.end_date) FROM issues c JOIN sprints sp ON sp.id = c.sprint_id WHERE c.parent_id = e.id) AS sprint_end
     FROM issues e JOIN statuses s ON s.id = e.status_id LEFT JOIN users u ON u.id = e.assignee_id
     WHERE e.project_id = ? AND e.type = 'epic' ORDER BY e.rank, e.id`, project.id);
-  res.json(epics);
+  // Issue con của từng epic (mở rộng trên lộ trình như Jira Timeline)
+  const children = all(`
+    SELECT c.id, c.key, c.type, c.summary, c.parent_id, c.start_date, c.due_date, c.story_points,
+      u.full_name AS assignee_name, s.name AS status_name, s.category AS status_category,
+      sp.start_date AS sprint_start, sp.end_date AS sprint_end, sp.name AS sprint_name
+    FROM issues c JOIN issues e ON e.id = c.parent_id AND e.type = 'epic'
+    JOIN statuses s ON s.id = c.status_id LEFT JOIN users u ON u.id = c.assignee_id LEFT JOIN sprints sp ON sp.id = c.sprint_id
+    WHERE e.project_id = ? ORDER BY c.rank, c.id`, project.id);
+  const byEpic = new Map<number, any[]>();
+  for (const c of children) byEpic.set(c.parent_id, [...(byEpic.get(c.parent_id) || []), c]);
+  res.json(epics.map((e) => ({ ...e, children: byEpic.get(e.id) || [] })));
+});
+
+/**
+ * Báo cáo sprint (Sprint report của Jira): việc đã xong, chưa xong, thêm vào giữa sprint, bị rút khỏi sprint.
+ * Dựng lại từ lịch sử trường sprint; không tính sub-task.
+ */
+r.get('/projects/:key/sprint-report', (req, res) => {
+  const { project } = loadProject(req);
+  const sprint = get("SELECT * FROM sprints WHERE id = ? AND project_id = ? AND state <> 'future'", Number(req.query.sprint), project.id);
+  if (!sprint) throw notFound('Không tìm thấy sprint');
+  const sid = String(sprint.id);
+  const started = sprint.started_at || dayStart(sprint.start_date).toISOString();
+  const ended = sprint.completed_at || new Date().toISOString();
+  const rows = all(`SELECT i.id, i.key, i.type, i.summary, i.story_points, i.sprint_id, i.priority,
+      s.name AS status_name, s.category AS status_category, u.full_name AS assignee_name
+    FROM issues i JOIN statuses s ON s.id = i.status_id LEFT JOIN users u ON u.id = i.assignee_id
+    WHERE i.project_id = ? AND i.type <> 'subtask' AND (i.sprint_id = ? OR i.id IN (
+      SELECT issue_id FROM issue_history WHERE field = 'sprint' AND (old_value = ? OR new_value = ?)))`, project.id, sprint.id, sid, sid);
+  const hist = rows.length ? all(`SELECT issue_id, old_value, new_value, created_at FROM issue_history
+    WHERE field = 'sprint' AND issue_id IN (${rows.map((x) => x.id).join(',')}) ORDER BY created_at, id`) : [];
+  const completedAt = sprint.completed_at;
+  const out = { completed: [] as any[], not_completed: [] as any[], removed: [] as any[], added_ids: [] as number[] };
+  for (const i of rows) {
+    const h = hist.filter((x) => x.issue_id === i.id);
+    // Được thêm vào sau khi sprint bắt đầu
+    const added = h.some((x) => x.new_value === sid && x.created_at > started);
+    // Bị rút khỏi sprint trong lúc chạy (không tính lúc hoàn thành sprint tự chuyển việc dở đi)
+    const lastOut = [...h].reverse().find((x) => x.old_value === sid);
+    const movedAtCompletion = lastOut && completedAt && Math.abs(Date.parse(lastOut.created_at) - Date.parse(completedAt)) < 5000;
+    const item = { ...i, added };
+    if (added) out.added_ids.push(i.id);
+    if (String(i.sprint_id) === sid) {
+      (i.status_category === 'done' ? out.completed : out.not_completed).push(item);
+    } else if (movedAtCompletion) {
+      out.not_completed.push(item);
+    } else if (lastOut && lastOut.created_at > started && lastOut.created_at <= ended) {
+      out.removed.push(item);
+    }
+  }
+  const sum = (list: any[]) => list.reduce((a, x) => a + (x.story_points || 0), 0);
+  res.json({
+    sprint,
+    completed: out.completed, not_completed: out.not_completed, removed: out.removed,
+    totals: {
+      committed_points: sprint.committed_points, completed_points: sum(out.completed), not_completed_points: sum(out.not_completed),
+      added_points: sum(rows.filter((x) => out.added_ids.includes(x.id))), removed_points: sum(out.removed),
+    },
+  });
+});
+
+/** Giờ công: các lần ghi giờ của dự án trong khoảng ngày (mặc định 30 ngày gần nhất). */
+r.get('/projects/:key/worklogs', (req, res) => {
+  const { project } = loadProject(req);
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to)) ? String(req.query.to) : localDate();
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from)) ? String(req.query.from) : addDays(to, -29);
+  const rows = all(`SELECT w.id, w.work_date, w.minutes, w.comment, w.user_id, u.full_name AS user_name,
+      i.key, i.summary, i.type
+    FROM worklogs w JOIN issues i ON i.id = w.issue_id JOIN users u ON u.id = w.user_id
+    WHERE i.project_id = ? AND w.work_date BETWEEN ? AND ? ORDER BY w.work_date, u.full_name`, project.id, from, to);
+  const est = get(`SELECT COALESCE(SUM(original_estimate), 0) AS original, COALESCE(SUM(remaining_estimate), 0) AS remaining,
+      (SELECT COALESCE(SUM(w.minutes), 0) FROM worklogs w JOIN issues i2 ON i2.id = w.issue_id WHERE i2.project_id = ?) AS spent
+    FROM issues WHERE project_id = ?`, project.id, project.id);
+  res.json({ from, to, rows, totals: est });
 });
 
 export default r;

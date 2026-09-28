@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { api, errMsg, refreshAll } from '../api';
-import { can, useIssueModal, useSprints } from '../hooks';
+import { can, useIssueModal, useSprints, useVersions } from '../hooks';
 import type { IssueType, Project } from '../types';
 import { TYPE_LABELS } from '../util';
 import { Modal, Spinner, toast, TypeIcon } from './ui';
@@ -10,7 +10,7 @@ import { Modal, Spinner, toast, TypeIcon } from './ui';
 // Hỗ trợ file mẫu của QLDA và file CSV xuất từ Jira.
 // ---------------------------------------------------------------------------
 type Key = 'ref' | 'type' | 'summary' | 'description' | 'parent' | 'priority' | 'assignee' | 'story_points'
-  | 'sprint' | 'status' | 'labels' | 'start_date' | 'due_date';
+  | 'sprint' | 'status' | 'labels' | 'start_date' | 'due_date' | 'version' | 'original_estimate';
 
 const COLUMNS: { key: Key; header: string; width: number; note: string }[] = [
   { key: 'ref', header: 'Mã dòng', width: 10, note: 'Không bắt buộc. Mã tự đặt (VD: E1, S1) để các dòng khác trỏ tới làm issue cha.' },
@@ -26,6 +26,8 @@ const COLUMNS: { key: Key; header: string; width: number; note: string }[] = [
   { key: 'labels', header: 'Nhãn', width: 18, note: 'Nhiều nhãn cách nhau bằng dấu phẩy.' },
   { key: 'start_date', header: 'Ngày bắt đầu', width: 14, note: 'Dạng ngày/tháng/năm, VD 01/10/2026. Thường dùng cho Epic (Lộ trình).' },
   { key: 'due_date', header: 'Hạn hoàn thành', width: 15, note: 'Dạng ngày/tháng/năm.' },
+  { key: 'original_estimate', header: 'Ước lượng thời gian', width: 18, note: 'VD: 2d (2 ngày = 16 giờ), 4h, 3h 30m. Số không đơn vị là giờ.' },
+  { key: 'version', header: 'Phiên bản', width: 16, note: 'Tên phiên bản phát hành đã tạo ở tab Phát hành. Bỏ trống = chưa gán.' },
 ];
 
 /** Cột nguồn: các khóa gửi lên server, cộng thêm cột chỉ dùng ở bước đọc file (STT kiểu WBS, người phối hợp). */
@@ -49,6 +51,8 @@ const ALIASES: Record<SrcKey, string[]> = {
   due_date: ['han hoan thanh', 'ket thuc', 'ngay ket thuc', 'den ngay', 'han', 'due date', 'deadline', 'ngay het han'],
   wbs: ['stt', 'tt', 'so tt', 'wbs', 'ma wbs'],
   collab: ['nguoi phoi hop', 'phoi hop'],
+  version: ['phien ban', 'phien ban phat hanh', 'dot ban giao', 'fix version/s', 'fix version', 'fix versions', 'release'],
+  original_estimate: ['uoc luong thoi gian', 'uoc luong', 'uoc luong (gio)', 'thoi gian uoc luong', 'original estimate', 'original estimate (h)'],
 };
 
 const fold = (v: unknown) => String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -112,6 +116,9 @@ function mapTable(table: string[][]): Row[] {
     if (row.summary || row.type || row.parent) rows.push(row);
   });
   if (cols.wbs.length && !cols.type.length && !cols.parent.length) applyWbs(rows);
+  for (const r of rows) {
+    if (r.original_estimate && /^\d+$/.test(r.original_estimate) && Number(r.original_estimate) >= 600) r.original_estimate = String(Number(r.original_estimate) / 3600);
+  }
   return rows.map(({ wbs: _wbs, collab, ...r }) => {
     if (collab) r.description = [r.description, `Người phối hợp: ${collab}`].filter(Boolean).join('\n\n');
     return r;
@@ -195,7 +202,7 @@ async function readFile(file: File): Promise<Sheet[]> {
 // ---------------------------------------------------------------------------
 // File mẫu
 // ---------------------------------------------------------------------------
-async function downloadTemplate(project: Project, sprintNames: string[]) {
+async function downloadTemplate(project: Project, sprintNames: string[], versionNames: string[] = []) {
   const ExcelJS = await loadExcel();
   const wb = new ExcelJS.Workbook();
   wb.creator = 'QLDA';
@@ -215,7 +222,7 @@ async function downloadTemplate(project: Project, sprintNames: string[]) {
   const year = new Date().getFullYear();
   ws.addRows([
     { ref: 'E1', type: 'Epic', summary: 'Quản lý danh mục thiết bị', description: 'Nhóm chức năng quản lý danh mục', priority: 'Cao', start_date: d(`${year}-10-01`), due_date: d(`${year}-11-30`) },
-    { ref: 'S1', type: 'Story', summary: 'Thêm mới thiết bị vào danh mục', description: 'Là cán bộ quản lý, tôi muốn thêm mới thiết bị để theo dõi tài sản.\n\nTiêu chí chấp nhận:\n- Nhập đủ mã, tên, số lượng\n- Không trùng mã', parent: 'E1', priority: 'Trung bình', assignee: who, story_points: 5, sprint, labels: 'danh-muc' },
+    { ref: 'S1', type: 'Story', summary: 'Thêm mới thiết bị vào danh mục', description: 'Là cán bộ quản lý, tôi muốn thêm mới thiết bị để theo dõi tài sản.\n\nTiêu chí chấp nhận:\n- Nhập đủ mã, tên, số lượng\n- Không trùng mã', parent: 'E1', priority: 'Trung bình', assignee: who, story_points: 5, sprint, labels: 'danh-muc', original_estimate: '2d', version: versionNames[0] ?? '' },
     { type: 'Sub-task', summary: 'Thiết kế màn hình thêm mới', parent: 'S1', assignee: who },
     { type: 'Task', summary: 'Viết tài liệu đặc tả danh mục', parent: 'E1', priority: 'Thấp', story_points: 2 },
     { type: 'Bug', summary: 'Cho phép nhập số lượng âm', parent: 'E1', priority: 'Khẩn cấp', due_date: d(`${year}-10-15`) },
@@ -231,6 +238,7 @@ async function downloadTemplate(project: Project, sprintNames: string[]) {
     ['assignee', project.members.map((m) => `${m.full_name} (${m.username})`)],
     ['sprint', project.type === 'scrum' ? sprintNames : []],
     ['status', project.statuses.map((s) => s.name)],
+    ['version', versionNames],
   ];
   listCols.forEach(([key, values], ci) => {
     if (!values.length) return;
@@ -288,6 +296,7 @@ export function ImportButton({ project }: { project: Project }) {
 function ImportIssuesModal({ project, onClose }: { project: Project; onClose: () => void }) {
   const { open } = useIssueModal();
   const { data: sprints } = useSprints(project.key, 'future,active');
+  const { data: versions } = useVersions(project.key);
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
@@ -346,7 +355,7 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
 
   const template = async () => {
     setBusy('Đang tạo file mẫu…');
-    try { await downloadTemplate(project, (sprints ?? []).map((s) => s.name)); } catch (e) { setError(errMsg(e)); } finally { setBusy(''); }
+    try { await downloadTemplate(project, (sprints ?? []).map((s) => s.name), (versions ?? []).filter((v) => v.status === 'unreleased').map((v) => v.name)); } catch (e) { setError(errMsg(e)); } finally { setBusy(''); }
   };
 
   const done = res?.committed;

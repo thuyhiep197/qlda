@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
-import type { Me, Project, ProjectSummary, Role, Sprint, UserBasic } from './types';
+import type { Me, Project, ProjectSummary, Role, Sprint, UserBasic, Version } from './types';
 
 export const useMe = () => useQuery<Me | null>({
   queryKey: ['me'],
@@ -25,6 +25,12 @@ export const useSprints = (key?: string, state?: string) => useQuery<Sprint[]>({
 });
 
 export const useUsersBasic = () => useQuery<UserBasic[]>({ queryKey: ['users-basic'], queryFn: () => api.get('/users/basic') });
+export const useVersions = (key?: string) => useQuery<Version[]>({
+  queryKey: ['versions', key],
+  queryFn: () => api.get(`/projects/${key}/versions`),
+  enabled: !!key,
+});
+
 export const useRoles = () => useQuery<Role[]>({ queryKey: ['roles'], queryFn: () => api.get('/roles') });
 
 /** Mở issue dạng cửa sổ nổi trên trang hiện tại thông qua tham số ?issue=KEY */

@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type FormEvent } from 'react';
+import { useEffect, useState, type DragEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs, queryClient, refreshAll } from '../api';
 import { can, useIssueModal, useSprints } from '../hooks';
@@ -10,6 +10,7 @@ import { IssueLine } from '../components/IssueRow';
 import { CompleteSprintModal, StartSprintModal } from '../components/SprintModals';
 import CreateIssueModal from '../components/CreateIssueModal';
 import { ImportButton } from '../components/ImportIssues';
+import { BulkBar, runBulk } from '../components/BulkBar';
 import { useProjectCtx } from './ProjectLayout';
 
 type Container = number | 'backlog';
@@ -33,6 +34,15 @@ export default function Backlog() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [startModal, setStartModal] = useState<{ sprint: Sprint; mode: 'start' | 'edit' } | null>(null);
   const [completeModal, setCompleteModal] = useState<Sprint | null>(null);
+  // Chọn nhiều issue (Ctrl/Shift + bấm, hoặc ô tick) để kéo cả nhóm hoặc sửa hàng loạt
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [anchor, setAnchor] = useState<number | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.modal')) setSelected(new Set()); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const canSprint = can(project.permissions, 'sprint.manage');
   const canCreate = can(project.permissions, 'issue.create');
@@ -42,6 +52,22 @@ export default function Backlog() {
   const visible = apply(issues);
   const listFor = (c: Container) => visible.filter((i) =>
     c === 'backlog' ? i.sprint_id == null && i.status_category !== 'done' : i.sprint_id === c);
+  const selectedIssues = issues.filter((i) => selected.has(i.id)).sort((a, b) => a.rank - b.rank);
+
+  const toggle = (i: Issue, list: Issue[], range: boolean) => {
+    const n = new Set(selected);
+    if (range && anchor !== null) {
+      const a = list.findIndex((x) => x.id === anchor), b = list.findIndex((x) => x.id === i.id);
+      if (a >= 0 && b >= 0) {
+        for (let k = Math.min(a, b); k <= Math.max(a, b); k++) n.add(list[k].id);
+        setSelected(n);
+        return;
+      }
+    }
+    n.has(i.id) ? n.delete(i.id) : n.add(i.id);
+    setSelected(n);
+    setAnchor(i.id);
+  };
 
   const onDragOverRow = (e: DragEvent, c: Container, index: number) => {
     if (!drag) return;
@@ -55,23 +81,32 @@ export default function Backlog() {
     const d = drag, target = drop;
     setDrag(null); setDrop(null);
     if (!d || !target || target.c !== c) return;
-    const list = listFor(c);
-    const without = list.filter((i) => i.id !== d.id);
-    let idx = target.index;
-    const oldIdx = list.findIndex((i) => i.id === d.id);
-    if (oldIdx >= 0 && oldIdx < idx) idx--;
-    const after = without[idx - 1], before = without[idx];
     const sprintId = c === 'backlog' ? null : c;
-    if (d.sprint_id === sprintId && oldIdx === idx) return;
-
-    // Cập nhật lạc quan để giao diện phản hồi ngay
-    const newRank = after && before ? (after.rank + before.rank) / 2 : after ? after.rank + 1000 : before ? before.rank - 1000 : d.rank;
-    queryClient.setQueryData<Issue[]>(issuesKey, (old) => old?.map((i) => i.id === d.id ? { ...i, sprint_id: sprintId, rank: newRank } : i)
-      .sort((a, b) => a.rank - b.rank));
+    // Kéo một issue đang nằm trong nhóm đã chọn → di chuyển cả nhóm, giữ thứ tự
+    const group = selected.has(d.id) && selected.size > 1 ? selectedIssues : [d];
+    const groupIds = new Set(group.map((g) => g.id));
+    const list = listFor(c);
+    // Vị trí thả tính trên danh sách đã bỏ các issue đang kéo
+    const before = list.slice(0, target.index).filter((i) => !groupIds.has(i.id));
+    const after = list.slice(target.index).filter((i) => !groupIds.has(i.id));
+    const prev = before[before.length - 1], next = after[0];
+    if (group.length === 1) {
+      const oldIdx = list.findIndex((i) => i.id === d.id);
+      if (d.sprint_id === sprintId && oldIdx >= 0 && list[oldIdx - 1]?.id === prev?.id && list[oldIdx + 1]?.id === next?.id) return;
+      const newRank = prev && next ? (prev.rank + next.rank) / 2 : prev ? prev.rank + 1000 : next ? next.rank - 1000 : d.rank;
+      queryClient.setQueryData<Issue[]>(issuesKey, (old) => old?.map((i) => i.id === d.id ? { ...i, sprint_id: sprintId, rank: newRank } : i)
+        .sort((a, b) => a.rank - b.rank));
+      try {
+        await api.post(`/issues/${d.key}/move`, { sprint_id: sprintId, after_id: prev?.id ?? null, before_id: next?.id ?? null });
+      } catch (e) { toastError(e); }
+      await refreshAll();
+      return;
+    }
     try {
-      await api.post(`/issues/${d.key}/move`, { sprint_id: sprintId, after_id: after?.id ?? null, before_id: before?.id ?? null });
+      await runBulk({ keys: group.map((g) => g.key), changes: { sprint_id: sprintId }, after_id: prev?.id ?? null, before_id: next?.id ?? null },
+        `Đã chuyển vào ${c === 'backlog' ? 'Backlog' : sprints.find((s) => s.id === c)?.name}`);
+      setSelected(new Set());
     } catch (e) { toastError(e); }
-    await refreshAll();
   };
 
   const createSprint = async () => {
@@ -85,12 +120,17 @@ export default function Backlog() {
 
   const hasActive = sprints.some((s) => s.state === 'active');
   const containers: { c: Container; sprint?: Sprint }[] = [...sprints.map((s) => ({ c: s.id as Container, sprint: s })), { c: 'backlog' }];
+  const dragGroup = drag && selected.has(drag.id) && selected.size > 1;
 
   return (
-    <div className="page-pad">
+    <div className={`page-pad ${selected.size ? 'has-selection' : ''}`}>
       <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
         <ImportButton project={project} />
       </FilterBar>
+      {selected.size > 0 && <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />}
+      {!selected.size && canSprint && (
+        <div className="muted small mb-sm">Mẹo: giữ <b>Ctrl</b> (hoặc <b>Shift</b> để chọn liên tiếp) rồi bấm vào issue — hoặc tick ô đầu dòng — để chọn nhiều issue, sau đó kéo cả nhóm vào sprint.</div>
+      )}
 
       {containers.map(({ c, sprint }) => {
         const list = listFor(c);
@@ -98,12 +138,21 @@ export default function Backlog() {
         const sum = (cat?: string) => all.filter((i) => !cat || i.status_category === cat).reduce((a, i) => a + (i.story_points || 0), 0);
         const key = String(c);
         const isCollapsed = collapsed[key];
+        const allSelected = list.length > 0 && list.every((i) => selected.has(i.id));
         return (
           <section key={key} className={`backlog-section ${drop?.c === c ? 'drop-active' : ''}`}
             onDragOver={(e) => { if (drag) { e.preventDefault(); if (drop?.c !== c) setDrop({ c, index: list.length }); } }}
             onDrop={(e) => { e.preventDefault(); onDrop(c); }}>
             <div className="backlog-head">
               <button className="icon-btn" onClick={() => setCollapsed({ ...collapsed, [key]: !isCollapsed })}>{isCollapsed ? '▸' : '▾'}</button>
+              {list.length > 0 && (
+                <input type="checkbox" checked={allSelected} data-tip={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả issue trong mục này'}
+                  onChange={() => {
+                    const n = new Set(selected);
+                    list.forEach((i) => (allSelected ? n.delete(i.id) : n.add(i.id)));
+                    setSelected(n);
+                  }} />
+              )}
               <b>{sprint ? sprint.name : 'Backlog'}</b>
               {sprint?.state === 'active' && <span className="lozenge lozenge-green">Đang chạy</span>}
               {sprint?.start_date && <span className="muted small">{fmtDate(sprint.start_date)} – {fmtDate(sprint.end_date)}</span>}
@@ -114,7 +163,7 @@ export default function Backlog() {
               <span className="pts pts-done" data-tip="Tổng điểm ước lượng: Hoàn thành">{sum('done')}</span>
               {sprint && canSprint && sprint.state === 'future' && (
                 <button className="btn btn-sm" disabled={hasActive || all.length === 0}
-                  title={hasActive ? 'Đang có sprint chạy' : all.length === 0 ? 'Sprint chưa có issue' : ''}
+                  data-tip={hasActive ? 'Đang có sprint chạy' : all.length === 0 ? 'Sprint chưa có issue' : undefined}
                   onClick={() => setStartModal({ sprint, mode: 'start' })}>Bắt đầu sprint</button>
               )}
               {sprint && canSprint && sprint.state === 'active' && (
@@ -132,16 +181,30 @@ export default function Backlog() {
                     {sprint ? 'Kéo issue từ Backlog vào đây để lên kế hoạch sprint' : 'Backlog trống'}
                   </div>
                 )}
-                {list.map((i, idx) => (
-                  <div key={i.id} draggable={canSprint}
-                    className={`drag-row ${drag?.id === i.id ? 'dragging' : ''}`}
-                    onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDrag(i); }}
-                    onDragEnd={() => { setDrag(null); setDrop(null); }}
-                    onDragOver={(e) => onDragOverRow(e, c, idx)}>
-                    {drop?.c === c && drop.index === idx && <div className="drop-line" />}
-                    <IssueLine issue={i} onOpen={() => open(i.key)} />
-                  </div>
-                ))}
+                {list.map((i, idx) => {
+                  const isSel = selected.has(i.id);
+                  return (
+                    <div key={i.id} draggable={canSprint}
+                      className={`drag-row ${isSel ? 'selected' : ''} ${drag?.id === i.id || (dragGroup && isSel) ? 'dragging' : ''}`}
+                      style={{ position: 'relative' }}
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        if (selected.has(i.id) && selected.size > 1) e.dataTransfer.setData('text/plain', `${selected.size} issue`);
+                        setDrag(i);
+                      }}
+                      onDragEnd={() => { setDrag(null); setDrop(null); }}
+                      onDragOver={(e) => onDragOverRow(e, c, idx)}
+                      onClickCapture={(e) => {
+                        if (e.ctrlKey || e.metaKey || e.shiftKey) { e.preventDefault(); e.stopPropagation(); toggle(i, list, e.shiftKey); }
+                      }}>
+                      {drop?.c === c && drop.index === idx && <div className="drop-line" />}
+                      <label className="row-check" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={isSel} onChange={(e) => toggle(i, list, (e.nativeEvent as MouseEvent).shiftKey)} aria-label={`Chọn ${i.key}`} />
+                      </label>
+                      <IssueLine issue={i} onOpen={() => open(i.key)} />
+                    </div>
+                  );
+                })}
                 {drop?.c === c && drop.index === list.length && list.length > 0 && <div className="drop-line" />}
               </div>
             )}

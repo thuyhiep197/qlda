@@ -55,9 +55,15 @@ docker compose up -d --build
 | Board | Kéo thả đổi trạng thái; lọc theo người, epic, loại, nhãn; phân làn theo người thực hiện hoặc epic |
 | Workflow | Dự án → Cài đặt → **Trạng thái & quy trình**: (1) kho trạng thái — thêm, sửa, sắp xếp, xóa, nhóm Cần làm / Đang thực hiện / Hoàn thành, giới hạn việc đang thực hiện; (2) **trạng thái theo loại issue** — mỗi loại (Epic, Story, Task, Bug, Sub-task) chọn các trạng thái được dùng, issue đang ở trạng thái bị bỏ được chuyển sang trạng thái cùng nhóm sau khi xác nhận; (3) **luồng chuyển** — bật kiểm soát, ma trận Từ → Tới cho luồng chung và luồng riêng từng loại. Áp dụng khi tạo issue, đổi trạng thái, đổi loại, kéo thả trên bảng và nhập Excel |
 | Nhập từ Excel | Tab Backlog / Danh sách issue → **Nhập từ Excel**: tải file mẫu (có sẵn ô chọn), nhập file .xlsx hoặc CSV xuất từ Jira; xem trước kết quả kiểm tra từng dòng, nhập theo nguyên tắc tất cả hoặc không (có thể bỏ qua dòng lỗi); tự nối Epic → Story/Task/Bug → Sub-task; tối đa 1000 dòng/lần. Quyền: Nhập issue hàng loạt |
+| Chọn nhiều & sửa hàng loạt | Backlog: Ctrl/Shift + bấm hoặc tick ô đầu dòng để chọn nhiều, kéo cả nhóm vào sprint (giữ thứ tự). Backlog và Danh sách issue: thanh thao tác hàng loạt — chuyển sprint, giao việc, đổi trạng thái/ưu tiên/phiên bản, thêm nhãn, xóa |
+| Ghi thời gian (Log work) | Ước lượng thời gian, ghi giờ đã làm theo ngày (tự trừ thời gian còn lại), nhật ký giờ trong issue; Báo cáo → Giờ công (người × ngày, theo issue, xuất Excel). 1d = 8 giờ, 1w = 5 ngày |
+| Phát hành (Release) | Tab Phát hành: tạo phiên bản (đợt bàn giao), gán issue, theo dõi tiến độ, phát hành (chuyển việc dở sang phiên bản sau), lưu trữ |
+| Nhân bản / chuyển dự án | Nhân bản issue (kèm sub-task); chuyển issue sang dự án khác (mã cũ vẫn mở được) |
+| Bộ lọc đã lưu | Danh sách issue → Bộ lọc đã lưu: lưu điều kiện tìm kiếm, chia sẻ cho thành viên dự án |
+| Cài đặt tài khoản | Hồ sơ (họ tên, chức danh, email, điện thoại), giao diện Sáng/Tối/Theo hệ thống (lưu theo tài khoản), bật/tắt từng loại thông báo, đổi mật khẩu, đăng xuất khỏi mọi thiết bị khác |
 | Tìm kiếm | Lọc theo dự án, loại, trạng thái, người, ưu tiên, sprint, nhãn, từ khóa; bộ lọc lưu trên URL để chia sẻ; xuất CSV mở bằng Excel |
-| Lộ trình (Roadmap) | Timeline các epic theo tháng, tiến độ từng epic |
-| Báo cáo | Biểu đồ khối lượng còn lại (burndown) theo điểm ước lượng hoặc số issue, Năng suất sprint (velocity), tổng quan (theo trạng thái, loại, ưu tiên, người thực hiện), xu hướng tạo mới/hoàn thành, danh sách quá hạn |
+| Lộ trình (Roadmap) | Timeline các epic theo tháng, mở rộng để xem các issue con (theo ngày bắt đầu – hạn hoặc theo sprint), tiến độ từng epic |
+| Báo cáo | Báo cáo sprint (xong / chưa xong / thêm giữa chừng / bị rút ra), Giờ công, Biểu đồ khối lượng còn lại (burndown) theo điểm ước lượng hoặc số issue, Năng suất sprint (velocity), tổng quan (theo trạng thái, loại, ưu tiên, người thực hiện), xu hướng tạo mới/hoàn thành, danh sách quá hạn |
 | Trang chủ | Việc của tôi, số liệu cá nhân, hoạt động gần đây, dự án của tôi |
 
 ### Ma trận quyền mặc định

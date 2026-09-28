@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { applyTheme } from './theme';
 import { useMe } from './hooks';
 import { Spinner, Toaster, TooltipLayer } from './components/ui';
 import Layout from './components/Layout';
@@ -17,9 +19,13 @@ import IssuePage from './pages/IssuePage';
 import AdminUsers from './pages/AdminUsers';
 import AdminRoles from './pages/AdminRoles';
 import Profile from './pages/Profile';
+import Releases from './pages/Releases';
 
 export default function App() {
   const { data: me, isLoading } = useMe();
+  // Giao diện sáng/tối theo cài đặt của tài khoản đang đăng nhập
+  const theme = me?.preferences?.theme;
+  useEffect(() => { if (me) applyTheme(theme); }, [me, theme]);
   if (isLoading) return <Spinner />;
   if (!me) return <><Login /><Toaster /></>;
   if (me.must_change_password) return <><ChangePassword forced /><Toaster /></>;
@@ -37,6 +43,7 @@ export default function App() {
             <Route path="board" element={<Board />} />
             <Route path="issues" element={<IssueList />} />
             <Route path="roadmap" element={<Roadmap />} />
+            <Route path="releases" element={<Releases />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<ProjectSettings />} />
           </Route>

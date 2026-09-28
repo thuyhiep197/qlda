@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react';
-import { NavLink, Outlet, useMatch, useNavigate } from 'react-router-dom';
-import { logout } from '../api';
+import { useEffect, useState, type FormEvent } from 'react';
+import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { api, logout, queryClient } from '../api';
+import { applyTheme } from '../theme';
 import { useIssueModal, useMe, useProjects } from '../hooks';
 import { Avatar } from './ui';
 import CreateIssueModal from './CreateIssueModal';
@@ -17,6 +18,16 @@ export default function Layout() {
   const [creating, setCreating] = useState(false);
   const [q, setQ] = useState('');
   const [menu, setMenu] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const location = useLocation();
+  useEffect(() => { setNavOpen(false); }, [location.pathname]);
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const toggleTheme = async () => {
+    const t = isDark ? 'light' : 'dark';
+    applyTheme(t);
+    setMenu(false);
+    try { await api.put('/auth/preferences', { theme: t }); await queryClient.invalidateQueries({ queryKey: ['me'] }); } catch { /* vẫn đổi trên máy này */ }
+  };
 
   const search = (e: FormEvent) => {
     e.preventDefault();
@@ -29,7 +40,8 @@ export default function Layout() {
 
 
   return (
-    <div className="app">
+    <div className={`app ${navOpen ? 'nav-open' : ''}`}>
+      {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} />}
       <aside className="sidebar">
         <NavLink to="/" className="brand">
           <img src="/favicon.svg" width={28} height={28} alt="" />
@@ -63,6 +75,7 @@ export default function Layout() {
 
       <div className="main">
         <header className="topbar">
+          <button className="icon-btn menu-btn" aria-label="Mở menu" onClick={() => setNavOpen(true)}>☰</button>
           <form onSubmit={search} className="search">
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm issue theo từ khóa hoặc mã (VD: DEMO-12)…" />
           </form>
@@ -80,8 +93,9 @@ export default function Layout() {
                   <b>{me?.full_name}</b>
                   <div className="muted small">@{me?.username}{me?.is_admin ? ' · Quản trị hệ thống' : ''}</div>
                 </div>
-                <button onClick={() => { setMenu(false); navigate('/profile'); }}>Hồ sơ & đổi mật khẩu</button>
-                <button onClick={logout}>Đăng xuất</button>
+                <button onClick={() => { setMenu(false); navigate('/profile'); }}>⚙️ Cài đặt tài khoản</button>
+                <button onClick={toggleTheme}>{isDark ? '☀️ Chuyển giao diện sáng' : '🌙 Chuyển giao diện tối'}</button>
+                <button onClick={logout}>↩ Đăng xuất</button>
               </div>
             )}
           </div>

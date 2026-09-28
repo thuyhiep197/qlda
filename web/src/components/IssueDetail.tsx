@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { can, useIssueModal, useMe, useProject, useSprints, useUsersBasic } from '../hooks';
-import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority } from '../types';
-import { FIELD_LABELS, fmtDate, fmtDateTime, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, TYPE_LABELS } from '../util';
-import { Avatar, Markdown, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
+import { can, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions } from '../hooks';
+import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, Worklog } from '../types';
+import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, today, TYPE_LABELS } from '../util';
+import { Avatar, Markdown, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
 
@@ -46,6 +46,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const { data: project } = useProject(issue?.project_key);
   const { data: allUsers } = useUsersBasic();
   const { data: sprints } = useSprints(issue?.project_key, 'future,active');
+  const { data: versions } = useVersions(issue?.project_key);
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', issue?.project_key],
     queryFn: () => api.get(`/issues${qs({ project: issue!.project_key, type: 'epic', sort: 'key' })}`),
@@ -54,7 +55,10 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
 
   const [editDesc, setEditDesc] = useState(false);
   const [desc, setDesc] = useState('');
-  const [tab, setTab] = useState<'comments' | 'history'>('comments');
+  const [tab, setTab] = useState<'comments' | 'worklog' | 'history'>('comments');
+  const [logging, setLogging] = useState(false);
+  const [cloning, setCloning] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [comment, setComment] = useState('');
   const [editingComment, setEditingComment] = useState<{ id: number; body: string } | null>(null);
   const [childText, setChildText] = useState('');
@@ -180,11 +184,20 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           <span className="row gap-xs"><TypeIcon type={issue.type} size={14} /> <Link to={`/browse/${issue.key}`}>{issue.key}</Link></span>
         </div>
         <div className="row gap-xs">
-          <button className="icon-btn" title="Sao chép liên kết" onClick={copyLink}>🔗</button>
-          {can(perms, 'issue.delete') && <button className="icon-btn" title="Xóa issue" onClick={deleteIssue}>🗑️</button>}
-          {onClose && <button className="icon-btn" title="Đóng" onClick={onClose}>✕</button>}
+          <button className="icon-btn" data-tip="Sao chép liên kết" onClick={copyLink}>🔗</button>
+          {can(perms, 'issue.create') && (
+            <button className="icon-btn" data-tip="Nhân bản issue" onClick={() => setCloning(true)}>⧉</button>
+          )}
+          {can(perms, 'issue.delete') && issue.type !== 'subtask' && (
+            <button className="icon-btn" data-tip="Chuyển sang dự án khác" onClick={() => setMoving(true)}>⇄</button>
+          )}
+          {can(perms, 'issue.delete') && <button className="icon-btn" data-tip="Xóa issue" onClick={deleteIssue}>🗑️</button>}
+          {onClose && <button className="icon-btn" data-tip="Đóng" onClick={onClose}>✕</button>}
         </div>
       </div>
+      {logging && <LogWorkModal issue={issue} onClose={() => setLogging(false)} />}
+      {cloning && <CloneModal issue={issue} onClose={() => setCloning(false)} onDone={(key) => { setCloning(false); open(key); }} />}
+      {moving && <MoveProjectModal issue={issue} onClose={() => setMoving(false)} onDone={(key) => { setMoving(false); open(key); }} />}
 
       <div className="issue-cols">
         <div className="issue-main">
@@ -301,8 +314,10 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           <section>
             <div className="tabs tabs-sm">
               <button className={tab === 'comments' ? 'active' : ''} onClick={() => setTab('comments')}>Bình luận ({issue.comments.length})</button>
+              <button className={tab === 'worklog' ? 'active' : ''} onClick={() => setTab('worklog')}>Nhật ký giờ ({fmtDuration(issue.time_spent) || '0h'})</button>
               <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>Lịch sử thay đổi</button>
             </div>
+            {tab === 'worklog' && <WorklogList issue={issue} meId={me?.id} isAdmin={can(perms, 'project.admin')} onLog={can(perms, 'issue.transition') ? () => setLogging(true) : undefined} />}
             {tab === 'comments' && (
               <div className="stack">
                 {can(perms, 'comment.create') && (
@@ -352,7 +367,11 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                     <Avatar name={h.user_name} size={22} />
                     <div>
                       <b>{h.user_name || 'Hệ thống'}</b>{' '}
-                      {h.field === 'created' ? 'đã tạo issue' : <>
+                      {h.field === 'created' ? 'đã tạo issue'
+                        : h.field === 'worklog' ? <>đã ghi <b>{h.new_label}</b> làm việc</>
+                        : h.field === 'cloned' ? <>đã tạo issue này bằng cách nhân bản <b>{h.new_label}</b></>
+                        : h.field === 'moved' ? <>đã chuyển issue từ <b>{h.old_label}</b> sang <b>{h.new_label}</b></>
+                        : <>
                         đã thay đổi <b>{FIELD_LABELS[h.field] || h.field}</b>
                         {h.field !== 'description' && <>: <span className="old">{fmtHist(h.field, h.old_label)}</span> → <span>{fmtHist(h.field, h.new_label)}</span></>}
                       </>}
@@ -433,10 +452,18 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               ? <LabelsInput value={issue.labels} onChange={(v) => save({ labels: v })} suggestions={project?.labels} />
               : <div>{issue.labels.map((l) => <span key={l} className="label-chip">{l}</span>)}{!issue.labels.length && <span className="muted">—</span>}</div>}
 
-            {issue.type === 'epic' && <>
-              <div className="prop-label">Ngày bắt đầu</div>
-              <input type="date" value={issue.start_date || ''} disabled={!canEdit} onChange={(e) => save({ start_date: e.target.value || null })} />
+            {issue.type !== 'subtask' && <>
+              <div className="prop-label" data-tip="Đợt bàn giao (Release) chứa issue này">Phiên bản</div>
+              <select value={issue.version_id ?? ''} disabled={!canEdit && !can(perms, 'sprint.manage')}
+                onChange={(e) => save({ version_id: e.target.value ? Number(e.target.value) : null })}>
+                <option value="">— Không có —</option>
+                {versions?.filter((v) => v.status === 'unreleased' || v.id === issue.version_id)
+                  .map((v) => <option key={v.id} value={v.id}>{v.name}{v.status === 'released' ? ' (đã phát hành)' : ''}</option>)}
+              </select>
             </>}
+
+            <div className="prop-label">Ngày bắt đầu</div>
+            <input type="date" value={issue.start_date || ''} disabled={!canEdit} onChange={(e) => save({ start_date: e.target.value || null })} />
 
             <div className="prop-label">Hạn hoàn thành</div>
             <div>
@@ -444,6 +471,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               {isOverdue(issue) && <div className="overdue small">Quá hạn</div>}
             </div>
           </div>
+
+          <TimeTracking issue={issue} canEdit={canEdit} canLog={can(perms, 'issue.transition')} onLog={() => setLogging(true)} save={save} />
 
           <Watchers issue={issue} members={project?.members ?? []} canManage={canEdit} meId={me?.id} />
 
@@ -504,5 +533,174 @@ function Watchers({ issue, members, canManage, meId }: {
         </select>
       ) : <a className="small" onClick={() => setAdding(true)}>+ Thêm người theo dõi</a>)}
     </div>
+  );
+}
+
+/** Theo dõi thời gian như Jira: ước lượng, đã làm, còn lại + thanh tiến độ. */
+function TimeTracking({ issue, canEdit, canLog, onLog, save }: {
+  issue: TIssueDetail; canEdit: boolean; canLog: boolean; onLog: () => void; save: (d: Record<string, unknown>) => Promise<void>;
+}) {
+  const spent = issue.time_spent || 0;
+  const remaining = issue.remaining_estimate ?? 0;
+  const total = Math.max(spent + remaining, issue.original_estimate ?? 0, 1);
+  const over = issue.original_estimate != null && spent + remaining > issue.original_estimate;
+  return (
+    <div className="timetrack">
+      <div className="row gap-xs">
+        <span className="prop-label grow" data-tip="Thời gian ước lượng, đã làm và còn lại. 1d = 8 giờ, 1w = 5 ngày">Theo dõi thời gian</span>
+        {canLog && <button className="btn btn-sm" onClick={onLog}>⏱ Ghi thời gian</button>}
+      </div>
+      <div className="tt-bar" data-tip={`Đã làm ${fmtDuration(spent) || '0h'} · Còn lại ${fmtDuration(remaining) || '0h'}`}>
+        <div className={over ? 'tt-spent over' : 'tt-spent'} style={{ width: `${(spent / total) * 100}%` }} />
+      </div>
+      <div className="tt-grid">
+        <span className="muted small">Ước lượng</span>
+        <InlineText value={fmtDuration(issue.original_estimate)} disabled={!canEdit} placeholder="Chưa ước lượng"
+          onSave={(v) => save({ original_estimate: v.trim() || null })} />
+        <span className="muted small">Đã làm</span>
+        <span>{fmtDuration(spent) || '0h'}</span>
+        <span className="muted small">Còn lại</span>
+        <InlineText value={issue.remaining_estimate != null ? fmtDuration(issue.remaining_estimate) : ''} disabled={!canEdit} placeholder="—"
+          onSave={(v) => save({ remaining_estimate: v.trim() || null })} />
+      </div>
+    </div>
+  );
+}
+
+function LogWorkModal({ issue, onClose }: { issue: TIssueDetail; onClose: () => void }) {
+  const [spent, setSpent] = useState('');
+  const [date, setDate] = useState(today());
+  const [comment, setComment] = useState('');
+  const [mode, setMode] = useState<'auto' | 'set' | 'keep'>('auto');
+  const [remaining, setRemaining] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.post(`/issues/${issue.key}/worklogs`, { time_spent: spent, work_date: date, comment, remaining: mode, remaining_value: remaining });
+      toast('Đã ghi thời gian');
+      await refreshAll();
+      onClose();
+    } catch (err) { toastError(err); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title={`Ghi thời gian · ${issue.key}`} onClose={onClose} footer={<>
+      <div className="spacer" />
+      <button className="btn" onClick={onClose}>Hủy</button>
+      <button className="btn btn-primary" form="logwork" disabled={busy || !spent.trim()}>Ghi</button>
+    </>}>
+      <form id="logwork" className="stack" onSubmit={submit}>
+        <div className="form-grid">
+          <label className="field"><span>Thời gian đã làm *</span>
+            <input autoFocus value={spent} onChange={(e) => setSpent(e.target.value)} placeholder="VD: 2h 30m, 1d, 45m" /></label>
+          <label className="field"><span>Ngày làm</span><input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} required /></label>
+        </div>
+        <div className="muted small">Cách ghi: <b>w</b> = tuần (5 ngày), <b>d</b> = ngày (8 giờ), <b>h</b> = giờ, <b>m</b> = phút. Ghi số không có đơn vị được hiểu là giờ.</div>
+        <div className="field"><span>Thời gian còn lại</span>
+          <label className="check"><input type="radio" checked={mode === 'auto'} onChange={() => setMode('auto')} /> Tự trừ vào thời gian còn lại
+            {issue.remaining_estimate != null && <span className="muted small"> (hiện còn {fmtDuration(issue.remaining_estimate) || '0h'})</span>}</label>
+          <label className="check"><input type="radio" checked={mode === 'set'} onChange={() => setMode('set')} /> Đặt lại thành
+            <input style={{ width: 120 }} value={remaining} disabled={mode !== 'set'} onChange={(e) => setRemaining(e.target.value)} placeholder="VD: 4h" /></label>
+          <label className="check"><input type="radio" checked={mode === 'keep'} onChange={() => setMode('keep')} /> Giữ nguyên</label>
+        </div>
+        <label className="field"><span>Nội dung công việc</span>
+          <textarea rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Đã làm gì trong khoảng thời gian này" /></label>
+      </form>
+    </Modal>
+  );
+}
+
+function WorklogList({ issue, meId, isAdmin, onLog }: { issue: TIssueDetail; meId?: number; isAdmin: boolean; onLog?: () => void }) {
+  const { data: logs } = useQuery<Worklog[]>({ queryKey: ['worklogs', issue.key, issue.time_spent], queryFn: () => api.get(`/issues/${issue.key}/worklogs`) });
+  const del = async (w: Worklog) => {
+    if (!confirm(`Xóa ${fmtDuration(w.minutes)} ghi ngày ${fmtDate(w.work_date)}?`)) return;
+    try { await api.del(`/issues/worklogs/${w.id}`); await refreshAll(); } catch (e) { toastError(e); }
+  };
+  if (!logs) return <Spinner />;
+  return (
+    <div className="stack">
+      {onLog && <div><button className="btn btn-sm" onClick={onLog}>⏱ Ghi thời gian</button></div>}
+      {!logs.length && <div className="muted small">Chưa ai ghi thời gian cho issue này.</div>}
+      {logs.map((w) => (
+        <div key={w.id} className="history-row">
+          <Avatar name={w.user_name} size={24} />
+          <div className="grow">
+            <b>{w.user_name}</b> đã làm <b>{fmtDuration(w.minutes)}</b> <span className="muted small">ngày {fmtDate(w.work_date)}</span>
+            {w.comment && <div className="small">{w.comment}</div>}
+          </div>
+          {(w.user_id === meId || isAdmin) && <button className="icon-btn" data-tip="Xóa lần ghi này" onClick={() => del(w)}>✕</button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CloneModal({ issue, onClose, onDone }: { issue: TIssueDetail; onClose: () => void; onDone: (key: string) => void }) {
+  const [summary, setSummary] = useState(`Bản sao - ${issue.summary}`.slice(0, 255));
+  const [subtasks, setSubtasks] = useState(issue.type !== 'epic' && issue.child_count > 0);
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post<{ key: string }>(`/issues/${issue.key}/clone`, { summary, include_subtasks: subtasks });
+      toast(`Đã nhân bản thành ${r.key}`);
+      await refreshAll();
+      onDone(r.key);
+    } catch (e) { toastError(e); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title={`Nhân bản ${issue.key}`} onClose={onClose} footer={<>
+      <div className="spacer" />
+      <button className="btn" onClick={onClose}>Hủy</button>
+      <button className="btn btn-primary" disabled={busy || !summary.trim()} onClick={submit}>Nhân bản</button>
+    </>}>
+      <div className="stack">
+        <label className="field"><span>Tiêu đề issue mới</span><input value={summary} maxLength={255} onChange={(e) => setSummary(e.target.value)} /></label>
+        {issue.type !== 'epic' && issue.child_count > 0 && (
+          <label className="check"><input type="checkbox" checked={subtasks} onChange={(e) => setSubtasks(e.target.checked)} /> Nhân bản cả {issue.child_count} sub-task</label>
+        )}
+        <p className="muted small">Issue mới giữ loại, mô tả, độ ưu tiên, người thực hiện, nhãn, điểm ước lượng, epic, sprint, phiên bản, ngày; bắt đầu ở trạng thái đầu tiên và được liên kết với {issue.key}. Bình luận, tệp đính kèm, nhật ký giờ không được sao chép.</p>
+      </div>
+    </Modal>
+  );
+}
+
+function MoveProjectModal({ issue, onClose, onDone }: { issue: TIssueDetail; onClose: () => void; onDone: (key: string) => void }) {
+  const { data: projects } = useProjects();
+  const others = projects?.filter((p) => p.key !== issue.project_key) ?? [];
+  const [target, setTarget] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!confirm(`Chuyển ${issue.key}${issue.child_count && issue.type !== 'epic' ? ` và ${issue.child_count} sub-task` : ''} sang dự án ${target}?`)) return;
+    setBusy(true);
+    try {
+      const r = await api.post<{ to: string }>(`/issues/${issue.key}/move-project`, { project_key: target });
+      toast(`Đã chuyển thành ${r.to}`);
+      await refreshAll();
+      onDone(r.to);
+    } catch (e) { toastError(e); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title={`Chuyển ${issue.key} sang dự án khác`} onClose={onClose} footer={<>
+      <div className="spacer" />
+      <button className="btn" onClick={onClose}>Hủy</button>
+      <button className="btn btn-primary" disabled={busy || !target} onClick={submit}>Chuyển</button>
+    </>}>
+      <div className="stack">
+        <label className="field"><span>Dự án đích</span>
+          <select value={target} onChange={(e) => setTarget(e.target.value)}>
+            <option value="" disabled>— Chọn dự án —</option>
+            {others.map((p) => <option key={p.key} value={p.key}>{p.name} ({p.key})</option>)}
+          </select></label>
+        <ul className="small muted">
+          <li>Issue nhận mã mới của dự án đích; mã cũ <b>{issue.key}</b> vẫn mở được.</li>
+          <li>Trạng thái chuyển sang trạng thái cùng nhóm của dự án đích; sprint, phiên bản, epic được bỏ trống.</li>
+          {issue.type === 'epic' && <li>Các issue con của epic ở lại dự án hiện tại và được tách khỏi epic.</li>}
+          {issue.type !== 'epic' && issue.child_count > 0 && <li>{issue.child_count} sub-task được chuyển theo.</li>}
+          <li>Bình luận, tệp đính kèm, nhật ký giờ, lịch sử được giữ nguyên.</li>
+        </ul>
+      </div>
+    </Modal>
   );
 }

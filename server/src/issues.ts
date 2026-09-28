@@ -35,6 +35,9 @@ export interface IssueRow {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
+  version_id: number | null;
+  original_estimate: number | null;
+  remaining_estimate: number | null;
 }
 
 const ISSUE_SELECT = `
@@ -43,6 +46,8 @@ SELECT i.*, p.key AS project_key, p.name AS project_name,
   a.full_name AS assignee_name, r.full_name AS reporter_name,
   par.key AS parent_key, par.summary AS parent_summary, par.type AS parent_type,
   sp.name AS sprint_name, sp.state AS sprint_state,
+  v.name AS version_name, v.status AS version_status,
+  (SELECT COALESCE(SUM(w.minutes), 0) FROM worklogs w WHERE w.issue_id = i.id) AS time_spent,
   (SELECT COUNT(*) FROM issues c WHERE c.parent_id = i.id) AS child_count,
   (SELECT COUNT(*) FROM issues c JOIN statuses cs ON cs.id = c.status_id
      WHERE c.parent_id = i.id AND cs.category = 'done') AS child_done
@@ -52,7 +57,8 @@ JOIN statuses s ON s.id = i.status_id
 LEFT JOIN users a ON a.id = i.assignee_id
 LEFT JOIN users r ON r.id = i.reporter_id
 LEFT JOIN issues par ON par.id = i.parent_id
-LEFT JOIN sprints sp ON sp.id = i.sprint_id`;
+LEFT JOIN sprints sp ON sp.id = i.sprint_id
+LEFT JOIN versions v ON v.id = i.version_id`;
 
 export function serialize(row: any) {
   return { ...row, labels: row.labels ? String(row.labels).split(',').filter(Boolean) : [] };
@@ -74,6 +80,8 @@ export interface IssueFilter {
   priority?: string;
   sprint?: string;
   parent?: string;
+  version?: string;
+  keys?: string;
   label?: string;
   q?: string;
   excludeSubtasks?: string;
@@ -127,6 +135,10 @@ export function listIssues(user: AuthUser, f: IssueFilter) {
   else if (f.sprint === 'open') where.push("(i.sprint_id IS NULL OR sp.state <> 'closed')");
   else if (f.sprint) { where.push('i.sprint_id = ?'); params.push(Number(f.sprint)); }
 
+  if (f.version === 'none') where.push('i.version_id IS NULL');
+  else if (f.version) { where.push('i.version_id = ?'); params.push(Number(f.version)); }
+  const keys = csv(f.keys).map((k) => k.toUpperCase());
+  if (keys.length) { where.push(`i.key IN (${placeholders(keys.length)})`); params.push(...keys); }
   if (f.parent === 'none') where.push('i.parent_id IS NULL');
   else if (f.parent) { where.push('i.parent_id = ?'); params.push(Number(f.parent)); }
 
@@ -172,6 +184,12 @@ export function addHistory(issueId: number, userId: number | null, field: string
 
 const statusName = (id: number | null) => (id ? get('SELECT name FROM statuses WHERE id = ?', id)?.name : null);
 const userName = (id: number | null) => (id ? get('SELECT full_name FROM users WHERE id = ?', id)?.full_name : null);
+const versionName = (id: number | null) => (id ? get('SELECT name FROM versions WHERE id = ?', id)?.name : null);
+export const fmtMinutes = (m: number | null | undefined) => {
+  if (m === null || m === undefined) return null;
+  const d = Math.floor(m / 480), h = Math.floor((m % 480) / 60), mm = m % 60;
+  return [d && `${d}d`, h && `${h}h`, mm && `${mm}m`].filter(Boolean).join(' ') || '0m';
+};
 const sprintName = (id: number | null) => (id ? get('SELECT name FROM sprints WHERE id = ?', id)?.name : null);
 const issueKey = (id: number | null) => (id ? get('SELECT key FROM issues WHERE id = ?', id)?.key : null);
 
@@ -227,6 +245,36 @@ function checkStatus(projectId: number, statusId: unknown) {
   return s;
 }
 
+/** Phiên bản phát hành thuộc dự án và chưa lưu trữ. */
+export function checkVersion(projectId: number, versionId: unknown): number | null {
+  if (versionId === null || versionId === undefined || versionId === '') return null;
+  const v = get<{ id: number; project_id: number; status: string }>('SELECT * FROM versions WHERE id = ?', Number(versionId));
+  if (!v || v.project_id !== projectId) throw badRequest('Phiên bản phát hành không hợp lệ');
+  if (v.status === 'archived') throw badRequest('Phiên bản đã lưu trữ, không gán thêm issue');
+  return v.id;
+}
+
+/**
+ * Thời lượng kiểu Jira → phút. Nhận "1w 2d 3h 30m", "2.5h", "90m" hoặc số (hiểu là giờ);
+ * 1 ngày = 8 giờ, 1 tuần = 5 ngày. Chuỗi rỗng/null → null.
+ */
+export function parseDuration(v: unknown, label = 'Thời gian'): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v) || v < 0) throw badRequest(`${label} không hợp lệ`);
+    return Math.round(v * 60);
+  }
+  const s = String(v).trim().toLowerCase().replace(/,/g, '.');
+  if (/^\d+(\.\d+)?$/.test(s)) return Math.round(Number(s) * 60);
+  const units: Record<string, number> = { w: 5 * 8 * 60, d: 8 * 60, h: 60, m: 1, t: 5 * 8 * 60, n: 8 * 60, g: 60, p: 1 };
+  let total = 0, matched = '';
+  for (const m of s.matchAll(/(\d+(?:\.\d+)?)\s*([wdhmtngp])[a-zà-ỹ]*/g)) { total += Number(m[1]) * units[m[2]]; matched += m[0]; }
+  if (!matched || s.replace(/\s+/g, '').length !== matched.replace(/\s+/g, '').length) {
+    throw badRequest(`${label} không hợp lệ. Dùng dạng 2h 30m, 1d (8 giờ), 1w (5 ngày) hoặc số giờ`);
+  }
+  return Math.round(total);
+}
+
 function checkSprint(projectId: number, sprintId: unknown): number | null {
   if (sprintId === null || sprintId === undefined || sprintId === '') return null;
   const sp = get('SELECT * FROM sprints WHERE id = ?', Number(sprintId));
@@ -276,14 +324,17 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     const p = get('SELECT key, issue_seq FROM projects WHERE id = ?', projectId)!;
     const ts = now();
     const status = get('SELECT category FROM statuses WHERE id = ?', statusId)!;
+    const estimate = parseDuration(data.original_estimate, 'Ước lượng thời gian');
     const { id } = run(
       `INSERT INTO issues(project_id, number, key, type, summary, description, status_id, priority, assignee_id,
-        reporter_id, parent_id, sprint_id, story_points, labels, start_date, due_date, rank, resolved_at, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        reporter_id, parent_id, sprint_id, story_points, labels, start_date, due_date, rank, resolved_at, created_at, updated_at,
+        version_id, original_estimate, remaining_estimate)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       projectId, p.issue_seq, `${p.key}-${p.issue_seq}`, type, summary, data.description || null, statusId, priority,
       assigneeId, user.id, parentId, sprintId, checkPoints(data.story_points), checkLabels(data.labels),
       checkDate(data.start_date, 'Ngày bắt đầu'), checkDate(data.due_date, 'Hạn hoàn thành'),
-      nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
+      data.rank !== undefined ? Number(data.rank) : nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
+      checkVersion(projectId, data.version_id), estimate, estimate,
     );
     addHistory(id, user.id, 'created', null, null);
     if (sprintId) addHistory(id, user.id, 'sprint', null, sprintId, null, sprintName(sprintId));
@@ -383,6 +434,32 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         }
       }
     }
+    if (has('version_id')) {
+      const v = checkVersion(issue.project_id, data.version_id);
+      if (v !== issue.version_id) {
+        if (!perms.has('sprint.manage') && !canEdit) throw forbidden('Bạn không có quyền đổi phiên bản phát hành');
+        sets.version_id = v;
+        history.push(['version', issue.version_id, v, versionName(issue.version_id), versionName(v)]);
+      }
+    }
+    if (has('original_estimate')) {
+      requireEdit();
+      const v = parseDuration(data.original_estimate, 'Ước lượng thời gian');
+      if (v !== issue.original_estimate) {
+        sets.original_estimate = v;
+        history.push(['original_estimate', issue.original_estimate, v, fmtMinutes(issue.original_estimate), fmtMinutes(v)]);
+        // Như Jira: chưa ghi giờ nào thì thời gian còn lại = ước lượng
+        if (!has('remaining_estimate') && !get('SELECT 1 FROM worklogs WHERE issue_id = ?', issue.id)) sets.remaining_estimate = v;
+      }
+    }
+    if (has('remaining_estimate')) {
+      requireEdit();
+      const v = parseDuration(data.remaining_estimate, 'Thời gian còn lại');
+      if (v !== issue.remaining_estimate) {
+        sets.remaining_estimate = v;
+        history.push(['remaining_estimate', issue.remaining_estimate, v, fmtMinutes(issue.remaining_estimate), fmtMinutes(v)]);
+      }
+    }
     const effType = (sets.type as string | undefined) ?? issue.type;
     const applyStatus = (s: { id: number; category: string }) => {
       sets.status_id = s.id;
@@ -451,7 +528,11 @@ export function deleteIssue(issue: IssueRow) {
 }
 
 export function getIssueRow(key: string) {
-  const row = get<IssueRow>('SELECT * FROM issues WHERE key = ?', key.toUpperCase());
+  const k = key.toUpperCase();
+  const row = get<IssueRow>('SELECT * FROM issues WHERE key = ?', k)
+    // Issue đã chuyển sang dự án khác: mã cũ vẫn mở được (như Jira)
+    ?? get<IssueRow>(`SELECT i.* FROM issue_history h JOIN issues i ON i.id = h.issue_id
+         WHERE h.field = 'moved' AND h.old_label = ? ORDER BY h.id DESC LIMIT 1`, k);
   if (!row) throw notFound('Không tìm thấy issue');
   return row;
 }

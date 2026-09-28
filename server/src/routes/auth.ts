@@ -49,7 +49,41 @@ r.post('/logout', (_req, res) => {
 });
 
 r.get('/me', requireAuth, (req, res) => {
-  res.json(req.user);
+  const extra = get<{ preferences: string; phone: string | null; job_title: string | null; created_at: string; last_login_at: string | null; role_name: string | null }>(
+    `SELECT u.preferences, u.phone, u.job_title, u.created_at, u.last_login_at, r.name AS role_name
+     FROM users u LEFT JOIN roles r ON r.id = u.default_role_id WHERE u.id = ?`, req.user.id)!;
+  let preferences = {};
+  try { preferences = JSON.parse(extra.preferences || '{}'); } catch { /* giữ mặc định */ }
+  res.json({ ...req.user, ...extra, preferences });
+});
+
+// ---------------------------------------------------------------------------
+// Cài đặt tài khoản cá nhân
+// ---------------------------------------------------------------------------
+const THEMES = ['light', 'dark', 'system'];
+const NOTIFY_TYPES = ['mention', 'assigned', 'comment', 'status'];
+
+/** Giao diện và loại thông báo muốn nhận. Chỉ ghi các khóa hợp lệ. */
+r.put('/preferences', requireAuth, (req, res) => {
+  const cur = JSON.parse(get<{ p: string }>('SELECT preferences p FROM users WHERE id = ?', req.user.id)!.p || '{}');
+  const b = req.body || {};
+  if (b.theme !== undefined) {
+    if (!THEMES.includes(b.theme)) throw new HttpError(400, 'Giao diện không hợp lệ');
+    cur.theme = b.theme;
+  }
+  if (b.notify !== undefined) {
+    cur.notify = { ...(cur.notify || {}) };
+    for (const t of NOTIFY_TYPES) if (typeof b.notify?.[t] === 'boolean') cur.notify[t] = b.notify[t];
+  }
+  run('UPDATE users SET preferences = ? WHERE id = ?', JSON.stringify(cur), req.user.id);
+  res.json({ ok: true, preferences: cur });
+});
+
+/** Đăng xuất khỏi mọi thiết bị khác (thu hồi mọi phiên cũ, giữ phiên hiện tại). */
+r.post('/logout-others', requireAuth, (req, res) => {
+  run('UPDATE users SET token_version = token_version + 1 WHERE id = ?', req.user.id);
+  issueToken(res, req.user.id);
+  res.json({ ok: true });
 });
 
 r.post('/change-password', requireAuth, (req, res) => {
@@ -67,7 +101,12 @@ r.post('/change-password', requireAuth, (req, res) => {
 r.patch('/profile', requireAuth, (req, res) => {
   const full_name = String(req.body?.full_name || '').trim();
   if (!full_name) throw new HttpError(400, 'Họ tên không được để trống');
-  run('UPDATE users SET full_name = ?, email = ? WHERE id = ?', full_name, req.body?.email || null, req.user.id);
+  const email = String(req.body?.email || '').trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'Email không hợp lệ');
+  const phone = String(req.body?.phone || '').trim();
+  if (phone && !/^[0-9+().\s-]{8,20}$/.test(phone)) throw new HttpError(400, 'Số điện thoại không hợp lệ');
+  run('UPDATE users SET full_name = ?, email = ?, phone = ?, job_title = ? WHERE id = ?',
+    full_name.slice(0, 100), email || null, phone || null, String(req.body?.job_title || '').trim().slice(0, 100) || null, req.user.id);
   res.json({ ok: true });
 });
 

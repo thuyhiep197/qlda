@@ -14,7 +14,8 @@ export const FIELD_LABELS: Record<string, string> = {
   created: 'đã tạo issue', summary: 'Tiêu đề', description: 'Mô tả', type: 'Loại', priority: 'Độ ưu tiên',
   story_points: 'Điểm ước lượng', labels: 'Nhãn', start_date: 'Ngày bắt đầu', due_date: 'Hạn hoàn thành',
   assignee: 'Người thực hiện', parent: 'Issue cha', sprint: 'Sprint', status: 'Trạng thái',
-  attachment: 'Tệp đính kèm', link: 'Liên kết',
+  attachment: 'Tệp đính kèm', link: 'Liên kết', version: 'Phiên bản', original_estimate: 'Ước lượng thời gian',
+  remaining_estimate: 'Thời gian còn lại', worklog: 'Ghi giờ', moved: 'Chuyển dự án', cloned: 'Nhân bản từ',
 };
 
 export function fmtDate(v?: string | null) {
@@ -85,3 +86,14 @@ export const TYPE_TIPS: Record<IssueType, string> = {
   subtask: 'Việc con',
 };
 export const typeTip = (t: IssueType) => `${TYPE_LABELS[t]}: ${TYPE_TIPS[t]}`;
+
+/** Phút → dạng Jira: 1d 2h 30m (1 ngày = 8 giờ). */
+export function fmtDuration(m: number | null | undefined): string {
+  if (m === null || m === undefined) return '';
+  if (m === 0) return '0h';
+  const d = Math.floor(m / 480), h = Math.floor((m % 480) / 60), mm = m % 60;
+  return [d && `${d}d`, h && `${h}h`, mm && `${mm}m`].filter(Boolean).join(' ');
+}
+
+/** Phút → số giờ gọn (VD 3.5h) cho bảng giờ công. */
+export const fmtHours = (m: number) => `${Math.round((m / 60) * 10) / 10}h`;
