@@ -418,3 +418,17 @@ th.sortable:hover { color: var(--text); }
 }
 .type-option:hover { background: var(--sunken); }
 .type-option.active { border-color: var(--primary); background: var(--primary-soft); font-weight: 600; }
+
+/* ---------- Nhập issue từ Excel ---------- */
+.import-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.import-step, .import-drop { border: 1px solid var(--border); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.import-drop { border: 2px dashed var(--border); cursor: pointer; align-items: center; justify-content: center; text-align: center; }
+.import-drop:hover, .import-drop.over { border-color: var(--primary); background: var(--primary-soft); }
+.import-summary { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-weight: 600; }
+.import-summary .ok, .import-table .ok { color: var(--success); }
+.import-summary .bad, .import-table .bad { color: var(--danger); }
+.import-summary .warn, .import-table .warn { color: var(--warn); }
+.import-table { max-height: 50vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; }
+.import-table thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.import-table tr.row-error td { background: #fff4f3; }
+@media (max-width: 800px) { .import-steps { grid-template-columns: 1fr; } }

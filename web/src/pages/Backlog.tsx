@@ -9,6 +9,7 @@ import { FilterBar, useFilters } from '../components/FilterBar';
 import { IssueLine } from '../components/IssueRow';
 import { CompleteSprintModal, StartSprintModal } from '../components/SprintModals';
 import CreateIssueModal from '../components/CreateIssueModal';
+import { ImportButton } from '../components/ImportIssues';
 import { useProjectCtx } from './ProjectLayout';
 
 type Container = number | 'backlog';
@@ -87,7 +88,9 @@ export default function Backlog() {
 
   return (
     <div className="page-pad">
-      <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics} />
+      <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
+        <ImportButton project={project} />
+      </FilterBar>
 
       {containers.map(({ c, sprint }) => {
         const list = listFor(c);

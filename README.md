@@ -52,6 +52,7 @@ docker compose up -d --build
 | Kanban | Board liên tục, giới hạn WIP theo cột, tự ẩn issue đã xong quá 14 ngày |
 | Board | Kéo thả đổi trạng thái; lọc theo người, epic, loại, nhãn; phân làn theo người thực hiện hoặc epic |
 | Workflow | Thêm, sửa, xóa, sắp xếp trạng thái; nhóm trạng thái (Cần làm / Đang thực hiện / Hoàn thành); bật kiểm soát luồng chuyển bằng ma trận Từ → Tới |
+| Nhập từ Excel | Tab Backlog / Danh sách issue → **Nhập từ Excel**: tải file mẫu (có sẵn ô chọn), nhập file .xlsx hoặc CSV xuất từ Jira; xem trước kết quả kiểm tra từng dòng, nhập theo nguyên tắc tất cả hoặc không (có thể bỏ qua dòng lỗi); tự nối Epic → Story/Task/Bug → Sub-task; tối đa 1000 dòng/lần. Quyền: Nhập issue hàng loạt |
 | Tìm kiếm | Lọc theo dự án, loại, trạng thái, người, ưu tiên, sprint, nhãn, từ khóa; bộ lọc lưu trên URL để chia sẻ; xuất CSV mở bằng Excel |
 | Roadmap | Timeline các epic theo tháng, tiến độ từng epic |
 | Báo cáo | Burndown sprint (theo point hoặc số issue), Velocity, tổng quan (theo trạng thái, loại, ưu tiên, người thực hiện), xu hướng tạo mới/hoàn thành, danh sách quá hạn |
@@ -69,6 +70,7 @@ docker compose up -d --build
 | Quản lý sprint, sắp xếp backlog | ✔ | ✔ | ✔ | | |
 | Quản trị dự án (thông tin, thành viên, workflow) | ✔ | | | | |
 | Xóa issue | ✔ | | | | |
+| Nhập issue hàng loạt từ Excel/CSV | ✔ | ✔ | ✔ | | |
 | Sửa/xóa bình luận, xóa tệp của người khác | ✔ | | | | |
 
 Vai trò chọn khi tạo tài khoản (mục **Người dùng**). Đổi vai trò thì quyền thay đổi ngay trên mọi dự án. Trong mỗi dự án chỉ cần thêm hoặc bỏ thành viên. Tài khoản BA Lead được bật **Quản trị hệ thống**, nên có toàn quyền trên mọi dự án, kể cả khi không được thêm làm thành viên. Người xem dành cho khách hàng hoặc lãnh đạo.

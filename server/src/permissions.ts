@@ -10,6 +10,7 @@ export const PERMISSIONS = [
   { key: 'issue.assign', group: 'Issue', label: 'Giao việc (đổi người thực hiện)' },
   { key: 'issue.transition', group: 'Issue', label: 'Chuyển trạng thái issue' },
   { key: 'issue.delete', group: 'Issue', label: 'Xóa issue' },
+  { key: 'issue.import', group: 'Issue', label: 'Nhập issue hàng loạt từ file Excel/CSV' },
   { key: 'comment.create', group: 'Bình luận & tệp', label: 'Bình luận' },
   { key: 'comment.delete_any', group: 'Bình luận & tệp', label: 'Sửa/xóa bình luận của người khác' },
   { key: 'attachment.create', group: 'Bình luận & tệp', label: 'Đính kèm tệp' },
@@ -29,13 +30,13 @@ export const DEFAULT_ROLES: { name: string; description: string; permissions: Pe
     name: 'BA',
     description: 'Kiêm PM, BA và Tester: quản lý backlog/sprint, giao việc, sửa mọi issue, kiểm thử',
     permissions: ['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition',
-      'comment.create', 'attachment.create'],
+      'issue.import', 'comment.create', 'attachment.create'],
   },
   {
     name: 'Techlead',
     description: 'Lập kế hoạch kỹ thuật, giao việc cho Dev, quản lý sprint',
     permissions: ['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition',
-      'comment.create', 'attachment.create'],
+      'issue.import', 'comment.create', 'attachment.create'],
   },
   {
     name: 'Dev',

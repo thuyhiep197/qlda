@@ -229,6 +229,9 @@ const migrations: string[] = [
      WHERE default_role_id IS NULL AND is_admin = 1;
    UPDATE project_members SET role_id = (SELECT u.default_role_id FROM users u WHERE u.id = project_members.user_id)
      WHERE (SELECT u.default_role_id FROM users u WHERE u.id = project_members.user_id) IS NOT NULL;`,
+  // v4: quyền mới "Nhập issue từ file" cho các vai trò đang được quản lý sprint/backlog
+  `UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'issue.import')
+     WHERE permissions LIKE '%"sprint.manage"%' AND permissions NOT LIKE '%"issue.import"%';`,
 ];
 
 export function migrate() {

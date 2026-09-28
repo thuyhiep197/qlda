@@ -6,6 +6,7 @@ import type { Issue } from '../types';
 import { CATEGORY_LABELS, fmtDate, isOverdue, PRIORITIES, PRIORITY_LABELS, TYPE_LABELS } from '../util';
 import { Avatar, Empty, PriorityIcon, Spinner, StatusBadge, TypeIcon } from '../components/ui';
 import { EpicTag } from '../components/IssueRow';
+import { ImportButton } from '../components/ImportIssues';
 
 const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'label', 'q', 'sort'] as const;
 
@@ -114,6 +115,7 @@ export default function IssueList() {
           <button className="btn btn-subtle btn-sm" onClick={() => setParams(routeKey ? {} : filter.project ? { project: filter.project } : {})}>Xóa lọc</button>}
         <div className="spacer" />
         <span className="muted small">{issues?.length ?? 0} issue</span>
+        {routeKey && project && <ImportButton project={project} />}
         <button className="btn btn-sm" onClick={exportCsv} disabled={!issues?.length}>⬇ Xuất CSV (Excel)</button>
       </div>
 

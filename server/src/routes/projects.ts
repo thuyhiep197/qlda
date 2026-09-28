@@ -2,6 +2,7 @@ import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
 import { requireAdmin } from '../auth.ts';
 import { addHistory } from '../issues.ts';
+import { runImport } from '../importer.ts';
 import {
   accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission,
 } from '../permissions.ts';
@@ -319,6 +320,14 @@ r.delete('/:key/sprints/:id', (req, res) => {
     run('DELETE FROM sprints WHERE id = ?', sprint.id);
   });
   res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Nhập issue từ file (xem trước: commit=false, nhập thật: commit=true)
+// ---------------------------------------------------------------------------
+r.post('/:key/import', (req, res) => {
+  const { project, perms } = loadProject(req);
+  res.json(runImport(req.user, project.id, perms, req.body?.rows, req.body?.commit === true));
 });
 
 export default r;
