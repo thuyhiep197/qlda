@@ -16,7 +16,7 @@ Yêu cầu: **Node.js 24** trở lên.
 - **Chế độ phát triển** (sửa code thì tự tải lại): `npm run dev`, mở http://localhost:5173
 - **Nạp dữ liệu mẫu** (dự án DEMO và 4 người dùng mẫu, mật khẩu `Demo@123`): `npm run seed:demo`
 
-Đăng nhập lần đầu: **admin / Admin@123**. Hệ thống bắt buộc đổi mật khẩu ngay lần đăng nhập đầu tiên.
+Đăng nhập lần đầu bằng tài khoản quản trị khai báo trong `.env` (`ADMIN_USERNAME`, `ADMIN_FULLNAME`, `ADMIN_PASSWORD`; mặc định **admin / Admin@123**). Tài khoản này chỉ được tạo khi CSDL còn trống. Hệ thống bắt buộc đổi mật khẩu ngay lần đăng nhập đầu tiên.
 
 Sau khi sửa mã nguồn giao diện, chạy `build-lai.bat` (hoặc `npm run build`) rồi khởi động lại.
 
@@ -45,7 +45,7 @@ docker compose up -d --build
 | Nhóm | Chức năng |
 |---|---|
 | Tài khoản | Admin tạo tài khoản, cấp mật khẩu tạm; bắt buộc đổi mật khẩu lần đầu; đặt lại mật khẩu; khóa/mở khóa; chống dò mật khẩu (khóa 15 phút sau 10 lần sai) |
-| Phân quyền | Quản trị hệ thống (toàn quyền) + **vai trò theo từng dự án**. 5 vai trò mặc định (PM, BA, Developer, Tester, Người xem); tạo thêm vai trò và tick chọn 12 quyền trên ma trận |
+| Phân quyền | Quản trị hệ thống (toàn quyền) + **vai trò theo từng dự án**. 5 vai trò mặc định (BA Lead, BA, Techlead, Dev, Người xem); tạo thêm vai trò và tick chọn 12 quyền trên ma trận |
 | Dự án | Scrum hoặc Kanban, mã dự án (VD `QLVB` → issue `QLVB-12`), trưởng dự án, thành viên, lưu trữ/khôi phục |
 | Issue | Epic, Story, Task, Bug, Sub-task; mô tả Markdown; độ ưu tiên; story point; nhãn; hạn hoàn thành; người thực hiện; issue cha; liên kết (chặn / liên quan / trùng); bình luận; tệp đính kèm (kéo thả, xem trước ảnh); lịch sử thay đổi đầy đủ |
 | Scrum | Backlog kéo thả để xếp thứ tự và đưa vào sprint; tạo, bắt đầu, sửa, hoàn thành sprint (chuyển issue chưa xong sang backlog hoặc sprint sau); board sprint đang chạy |
@@ -59,21 +59,19 @@ docker compose up -d --build
 
 ### Ma trận quyền mặc định
 
-| Quyền | PM | BA | Developer | Tester | Người xem |
+| Quyền | BA Lead | BA (kiêm PM, Tester) | Techlead | Dev | Người xem |
 |---|:-:|:-:|:-:|:-:|:-:|
-| Xem dự án | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Xem dự án, bình luận | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Tạo issue, chuyển trạng thái, đính kèm tệp | ✔ | ✔ | ✔ | ✔ | |
+| Sửa issue do mình tạo hoặc được giao | ✔ | ✔ | ✔ | ✔ | |
+| Sửa mọi issue | ✔ | ✔ | ✔ | | |
+| Giao việc cho người khác | ✔ | ✔ | ✔ | | |
+| Quản lý sprint, sắp xếp backlog | ✔ | ✔ | ✔ | | |
 | Quản trị dự án (thông tin, thành viên, workflow) | ✔ | | | | |
-| Quản lý sprint, sắp xếp backlog | ✔ | ✔ | | | |
-| Tạo issue | ✔ | ✔ | ✔ | ✔ | |
-| Sửa mọi issue | ✔ | ✔ | | | |
-| Sửa issue do mình tạo hoặc được giao | ✔ | | ✔ | ✔ | |
-| Giao việc cho người khác | ✔ | ✔ | | | |
-| Chuyển trạng thái | ✔ | ✔ | ✔ | ✔ | |
 | Xóa issue | ✔ | | | | |
-| Bình luận | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Sửa/xóa bình luận của người khác | ✔ | | | | |
-| Đính kèm tệp | ✔ | ✔ | ✔ | ✔ | |
-| Xóa tệp của người khác | ✔ | | | | |
+| Sửa/xóa bình luận, xóa tệp của người khác | ✔ | | | | |
+
+Tài khoản BA Lead được bật **Quản trị hệ thống**, nên có toàn quyền trên mọi dự án, kể cả khi không được thêm làm thành viên. Người xem dành cho khách hàng hoặc lãnh đạo.
 
 Quản trị hệ thống sửa được ma trận này tại **Vai trò & quyền**. Mọi quyền được kiểm tra ở phía server, không chỉ ẩn nút trên giao diện.
 

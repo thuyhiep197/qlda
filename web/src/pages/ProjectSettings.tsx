@@ -97,7 +97,7 @@ function Members() {
     <div className="card">
       <div className="card-head">
         <h3>Thành viên ({project.members.length})</h3>
-        <button className="btn btn-primary" onClick={() => { setAdding(true); setRoleId(String(roles?.find((r) => r.name === 'Developer')?.id ?? roles?.[0]?.id ?? '')); }}>+ Thêm thành viên</button>
+        <button className="btn btn-primary" onClick={() => { setAdding(true); setRoleId(String(roles?.find((r) => r.name === 'Dev')?.id ?? roles?.[0]?.id ?? '')); }}>+ Thêm thành viên</button>
       </div>
       <table className="table">
         <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Email</th><th>Vai trò trong dự án</th><th /></tr></thead>

@@ -84,9 +84,10 @@ export function ensureAdmin() {
   if (count > 0) return;
   const username = process.env.ADMIN_USERNAME || 'admin';
   const password = process.env.ADMIN_PASSWORD || 'Admin@123';
+  const fullName = process.env.ADMIN_FULLNAME || 'Quản trị hệ thống';
   run(
     'INSERT INTO users(username, full_name, password_hash, is_admin, must_change_password) VALUES (?, ?, ?, 1, 1)',
-    username, 'Quản trị hệ thống', hashPassword(password),
+    username, fullName, hashPassword(password),
   );
   console.log(`[auth] Đã tạo tài khoản quản trị mặc định: ${username} / ${password} (bắt buộc đổi mật khẩu khi đăng nhập lần đầu)`);
 }

@@ -19,10 +19,10 @@ if (get("SELECT 1 FROM projects WHERE key = 'DEMO'")) {
 
 const role = (name: string) => get('SELECT id FROM roles WHERE name = ?', name)!.id;
 const people = [
-  ['ba.lan', 'Nguyễn Thị Lan', 'Business Analyst'],
-  ['dev.minh', 'Trần Văn Minh', 'Developer'],
-  ['dev.hung', 'Lê Quốc Hùng', 'Developer'],
-  ['qa.thao', 'Phạm Thu Thảo', 'Tester'],
+  ['ba.lan', 'Nguyễn Thị Lan', 'BA'],
+  ['dev.minh', 'Trần Văn Minh', 'Dev'],
+  ['dev.hung', 'Lê Quốc Hùng', 'Dev'],
+  ['qa.thao', 'Phạm Thu Thảo', 'BA'],
 ];
 const ids: Record<string, number> = {};
 for (const [u, name] of people) {
@@ -34,7 +34,7 @@ const admin = get<AuthUser>('SELECT * FROM users WHERE is_admin = 1 ORDER BY id 
 const pid = run("INSERT INTO projects(key, name, description, type, lead_id) VALUES ('DEMO', 'Cổng dịch vụ công', 'Dự án mẫu để dùng thử', 'scrum', ?)", admin.id).id;
 [['Cần làm', 'todo'], ['Đang làm', 'inprogress'], ['Đang review', 'inprogress'], ['Kiểm thử', 'inprogress'], ['Hoàn thành', 'done']]
   .forEach(([n, c], i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', pid, n, c, i));
-run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', pid, admin.id, role('Quản lý dự án (PM)'));
+run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', pid, admin.id, role('BA Lead'));
 for (const [u, , r] of people) run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', pid, ids[u], role(r));
 
 const perms = new Set(ALL_PERMISSIONS);

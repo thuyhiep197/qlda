@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
-import { useMe, useUsersBasic } from '../hooks';
+import { useMe, useRoles, useUsersBasic } from '../hooks';
 import type { ProjectSummary } from '../types';
 import { colorOf } from '../util';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
@@ -78,6 +78,9 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const [type, setType] = useState<'scrum' | 'kanban'>('scrum');
   const [lead, setLead] = useState(String(me?.id ?? ''));
   const [description, setDescription] = useState('');
+  const { data: roles } = useRoles();
+  const [leadRole, setLeadRole] = useState('');
+  const leadRoleId = leadRole || String(roles?.find((r) => r.name === 'BA')?.id ?? roles?.[0]?.id ?? '');
 
   const suggestKey = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'D')
     .split(/\s+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
@@ -85,7 +88,7 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/projects', { name, key, type, lead_id: Number(lead), description });
+      await api.post('/projects', { name, key, type, lead_id: Number(lead), lead_role_id: Number(leadRoleId) || undefined, description });
       toast('Đã tạo dự án');
       await refreshAll();
       onClose();
@@ -116,10 +119,16 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
             </label>
           </div>
         </div>
-        <label className="field"><span>Trưởng dự án</span>
-          <select value={lead} onChange={(e) => setLead(e.target.value)}>
-            {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name} (@{u.username})</option>)}
-          </select></label>
+        <div className="form-grid">
+          <label className="field"><span>Trưởng dự án</span>
+            <select value={lead} onChange={(e) => setLead(e.target.value)}>
+              {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name} (@{u.username})</option>)}
+            </select></label>
+          <label className="field"><span>Vai trò của trưởng dự án</span>
+            <select value={leadRoleId} onChange={(e) => setLeadRole(e.target.value)}>
+              {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select></label>
+        </div>
         <label className="field"><span>Mô tả</span>
           <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
       </form>

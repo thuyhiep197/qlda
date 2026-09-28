@@ -59,8 +59,10 @@ r.post('/', requireAdmin, (req, res) => {
     const { id } = run('INSERT INTO projects(key, name, description, type, lead_id) VALUES (?,?,?,?,?)',
       key, name, b.description || null, type, leadId);
     DEFAULT_STATUSES.forEach(([n, c], i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', id, n, c, i));
-    const pmRole = get("SELECT id FROM roles WHERE permissions LIKE '%project.admin%' ORDER BY id LIMIT 1") ?? get('SELECT id FROM roles ORDER BY id LIMIT 1');
-    if (pmRole) run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, pmRole.id);
+    const leadRole = (b.lead_role_id && get('SELECT id FROM roles WHERE id = ?', Number(b.lead_role_id))) ||
+      get("SELECT id FROM roles WHERE permissions LIKE '%project.admin%' ORDER BY id LIMIT 1") ||
+      get('SELECT id FROM roles ORDER BY id LIMIT 1');
+    if (leadRole) run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, leadRole.id);
     return id;
   });
   res.status(201).json(get('SELECT * FROM projects WHERE id = ?', id));

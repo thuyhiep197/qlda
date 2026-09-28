@@ -21,29 +21,30 @@ export const ALL_PERMISSIONS = PERMISSIONS.map((p) => p.key) as Permission[];
 
 export const DEFAULT_ROLES: { name: string; description: string; permissions: Permission[] }[] = [
   {
-    name: 'Quản lý dự án (PM)',
-    description: 'Toàn quyền trong dự án',
+    name: 'BA Lead',
+    description: 'Toàn quyền trong dự án: quản trị dự án, xóa issue, xóa bình luận/tệp của người khác',
     permissions: ALL_PERMISSIONS,
   },
   {
-    name: 'Business Analyst',
-    description: 'Phân tích yêu cầu, quản lý backlog',
-    permissions: ['sprint.manage', 'issue.create', 'issue.edit', 'issue.assign', 'issue.transition',
+    name: 'BA',
+    description: 'Kiêm PM, BA và Tester: quản lý backlog/sprint, giao việc, sửa mọi issue, kiểm thử',
+    permissions: ['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition',
       'comment.create', 'attachment.create'],
   },
   {
-    name: 'Developer',
+    name: 'Techlead',
+    description: 'Lập kế hoạch kỹ thuật, giao việc cho Dev, quản lý sprint',
+    permissions: ['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition',
+      'comment.create', 'attachment.create'],
+  },
+  {
+    name: 'Dev',
     description: 'Thực hiện công việc được giao',
     permissions: ['issue.create', 'issue.edit_own', 'issue.transition', 'comment.create', 'attachment.create'],
   },
   {
-    name: 'Tester',
-    description: 'Kiểm thử, báo lỗi',
-    permissions: ['issue.create', 'issue.edit_own', 'issue.transition', 'comment.create', 'attachment.create'],
-  },
-  {
     name: 'Người xem',
-    description: 'Chỉ xem, được bình luận',
+    description: 'Khách hàng/lãnh đạo: chỉ xem và bình luận',
     permissions: ['comment.create'],
   },
 ];
