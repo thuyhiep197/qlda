@@ -4,7 +4,15 @@ import { api, qs, refreshAll } from '../api';
 import { can, useProject, useProjects, useSprints } from '../hooks';
 import type { Issue, IssueType, Priority } from '../types';
 import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS } from '../util';
-import { Modal, toast, toastError } from './ui';
+import { Modal, toast, toastError, TypeIcon } from './ui';
+
+const TYPE_HINTS: Record<IssueType, string> = {
+  story: 'Chức năng nhìn từ phía người dùng, thường có tiêu chí chấp nhận',
+  task: 'Đầu việc cần làm (kỹ thuật, tài liệu, cấu hình...)',
+  bug: 'Lỗi cần sửa',
+  epic: 'Nhóm lớn chứa nhiều Story/Task/Bug, hiển thị trên Roadmap',
+  subtask: 'Việc nhỏ nằm dưới một Story, Task hoặc Bug',
+};
 import { LabelsInput } from './fields';
 
 interface Props {
@@ -84,18 +92,25 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
       </>
     }>
       <form id="create-issue" onSubmit={submit} className="form-grid">
-        <label className="field">
+        <label className="field span-2">
           <span>Dự án *</span>
           <select value={key} onChange={(e) => { setKey(e.target.value); setParent(''); setSprint(''); setAssignee(''); }}>
             {projects?.map((p) => <option key={p.key} value={p.key}>{p.name} ({p.key})</option>)}
           </select>
         </label>
-        <label className="field">
+        <div className="field span-2">
           <span>Loại issue *</span>
-          <select value={type} onChange={(e) => { setType(e.target.value as IssueType); setParent(''); }}>
-            {types.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-          </select>
-        </label>
+          <div className="type-picker" role="radiogroup" aria-label="Loại issue">
+            {types.map((t) => (
+              <button type="button" key={t} role="radio" aria-checked={type === t} title={TYPE_HINTS[t]}
+                className={`type-option ${type === t ? 'active' : ''}`}
+                onClick={() => { setType(t); setParent(''); }}>
+                <TypeIcon type={t} size={18} /> {TYPE_LABELS[t]}
+              </button>
+            ))}
+          </div>
+          <small className="muted">{TYPE_HINTS[type]}</small>
+        </div>
         {project && !canCreate && <div className="form-error span-2">Bạn không có quyền tạo issue trong dự án này.</div>}
         <label className="field span-2">
           <span>Tiêu đề *</span>

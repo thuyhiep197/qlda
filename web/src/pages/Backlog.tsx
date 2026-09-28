@@ -8,6 +8,7 @@ import { Spinner, toast, toastError } from '../components/ui';
 import { FilterBar, useFilters } from '../components/FilterBar';
 import { IssueLine } from '../components/IssueRow';
 import { CompleteSprintModal, StartSprintModal } from '../components/SprintModals';
+import CreateIssueModal from '../components/CreateIssueModal';
 import { useProjectCtx } from './ProjectLayout';
 
 type Container = number | 'backlog';
@@ -161,7 +162,9 @@ export default function Backlog() {
 export function QuickCreate({ projectKey, sprintId, statusId, compact }: {
   projectKey: string; sprintId?: number | null; statusId?: number; compact?: boolean;
 }) {
+  const { open } = useIssueModal();
   const [active, setActive] = useState(false);
+  const [full, setFull] = useState(false);
   const [type, setType] = useState<IssueType>('story');
   const [summary, setSummary] = useState('');
   const submit = async (e: FormEvent) => {
@@ -173,14 +176,30 @@ export function QuickCreate({ projectKey, sprintId, statusId, compact }: {
       await refreshAll();
     } catch (err) { toastError(err); }
   };
-  if (!active) return <button className={`quick-create-btn ${compact ? 'compact' : ''}`} onClick={() => setActive(true)}>+ Tạo issue</button>;
+  const modal = full && (
+    <CreateIssueModal projectKey={projectKey} defaults={{ type, sprint_id: sprintId ?? null, status_id: statusId }}
+      onClose={() => setFull(false)} onCreated={(issue) => open(issue.key)} />
+  );
+  if (!active) {
+    return <>
+      <button className={`quick-create-btn ${compact ? 'compact' : ''}`} onClick={() => setActive(true)}>+ Tạo issue</button>
+      {modal}
+    </>;
+  }
   return (
-    <form className="quick-create" onSubmit={submit}>
-      <select value={type} onChange={(e) => setType(e.target.value as IssueType)}>
-        {(['story', 'task', 'bug'] as IssueType[]).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-      </select>
-      <input autoFocus value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Nhập tiêu đề rồi Enter (Esc để đóng)"
-        onKeyDown={(e) => { if (e.key === 'Escape') setActive(false); }} onBlur={() => !summary && setActive(false)} />
-    </form>
+    <>
+      {/* Chỉ đóng khi con trỏ rời hẳn khỏi dòng tạo nhanh (bấm ô chọn loại không làm đóng) */}
+      <form className="quick-create" onSubmit={submit}
+        onBlur={(e) => { if (!summary && !e.currentTarget.contains(e.relatedTarget as Node | null)) setActive(false); }}>
+        <select value={type} onChange={(e) => setType(e.target.value as IssueType)} title="Loại issue">
+          {(['story', 'task', 'bug'] as IssueType[]).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+        </select>
+        <input autoFocus value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Nhập tiêu đề rồi Enter (Esc để đóng)"
+          onKeyDown={(e) => { if (e.key === 'Escape') setActive(false); }} />
+        <button type="button" className="btn" title="Mở form đầy đủ: Epic, Sub-task, mô tả, người thực hiện..."
+          onClick={() => { setFull(true); setActive(false); }}>Chi tiết…</button>
+      </form>
+      {modal}
+    </>
   );
 }

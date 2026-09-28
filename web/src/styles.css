@@ -411,3 +411,10 @@ th.sortable:hover { color: var(--text); }
   .roadmap-left { width: 220px; }
 }
 .membership-chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 360px; }
+.type-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.type-option {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; cursor: pointer;
+  border: 2px solid var(--border); border-radius: 4px; background: var(--surface); font: inherit; color: var(--text);
+}
+.type-option:hover { background: var(--sunken); }
+.type-option.active { border-color: var(--primary); background: var(--primary-soft); font-weight: 600; }

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
@@ -10,6 +10,15 @@ import { InlineText, LabelsInput } from './fields';
 
 export default function IssueDetailModal({ issueKey }: { issueKey: string }) {
   const { close } = useIssueModal();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      // Esc trong ô nhập chỉ hủy thao tác sửa, không đóng cửa sổ
+      if (e.key === 'Escape' && !t.closest('input, textarea, select') && !document.querySelector('.modal-backdrop .modal:not(.modal-issue)')) close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [close]);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
       <div className="modal modal-issue" role="dialog" aria-modal="true">
