@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
-import { useMe, useRoles, useUsersBasic } from '../hooks';
+import { useMe, useUsersBasic } from '../hooks';
 import type { Category, Status } from '../types';
 import { CATEGORY_LABELS } from '../util';
 import { Avatar, Modal, StatusBadge, toast, toastError } from '../components/ui';
@@ -71,65 +71,58 @@ function Members() {
   const project = useProjectCtx();
   const { data: me } = useMe();
   const { data: users } = useUsersBasic();
-  const { data: roles } = useRoles();
   const [adding, setAdding] = useState(false);
   const [userIds, setUserIds] = useState<number[]>([]);
-  const [roleId, setRoleId] = useState('');
+  const [q, setQ] = useState('');
 
-  const changeRole = async (userId: number, role: string) => {
-    try { await api.patch(`/projects/${project.key}/members/${userId}`, { role_id: Number(role) }); toast('Đã đổi vai trò'); await refreshAll(); } catch (e) { toastError(e); }
-  };
   const remove = async (userId: number, name: string) => {
     if (!confirm(`Xóa ${name} khỏi dự án? Các issue đang giao cho người này vẫn được giữ nguyên.`)) return;
     try { await api.del(`/projects/${project.key}/members/${userId}`); await refreshAll(); } catch (e) { toastError(e); }
   };
   const add = async () => {
     try {
-      for (const id of userIds) await api.post(`/projects/${project.key}/members`, { user_id: id, role_id: Number(roleId) });
+      await api.post(`/projects/${project.key}/members`, { user_ids: userIds });
       toast(`Đã thêm ${userIds.length} thành viên`);
       setAdding(false); setUserIds([]);
       await refreshAll();
     } catch (e) { toastError(e); }
   };
-  const candidates = users?.filter((u) => !project.members.some((m) => m.id === u.id)) ?? [];
+  const candidates = (users?.filter((u) => !project.members.some((m) => m.id === u.id)) ?? [])
+    .filter((u) => !q || `${u.full_name} ${u.username} ${u.default_role_name || ''}`.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div className="card">
       <div className="card-head">
         <h3>Thành viên ({project.members.length})</h3>
-        <button className="btn btn-primary" onClick={() => { setAdding(true); setRoleId(String(roles?.find((r) => r.name === 'Dev')?.id ?? roles?.[0]?.id ?? '')); }}>+ Thêm thành viên</button>
+        <button className="btn btn-primary" onClick={() => setAdding(true)}>+ Thêm thành viên</button>
       </div>
       <table className="table">
-        <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Email</th><th>Vai trò trong dự án</th><th /></tr></thead>
+        <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Email</th><th>Vai trò</th><th /></tr></thead>
         <tbody>
           {project.members.map((m) => (
             <tr key={m.id}>
               <td><div className="row gap-sm"><Avatar name={m.full_name} size={26} /> {m.full_name} {!m.is_active && <span className="lozenge lozenge-red">Đã khóa</span>}</div></td>
               <td>@{m.username}</td>
               <td>{m.email}</td>
-              <td>
-                <select value={m.role_id} onChange={(e) => changeRole(m.id, e.target.value)}>
-                  {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-              </td>
-              <td className="num">{(m.id !== me?.id || me?.is_admin) && <button className="btn btn-subtle btn-sm" onClick={() => remove(m.id, m.full_name)}>Xóa</button>}</td>
+              <td><span className="lozenge lozenge-default">{m.role_name}</span></td>
+              <td className="num">{(m.id !== me?.id || me?.is_admin) && <button className="btn btn-subtle btn-sm" onClick={() => remove(m.id, m.full_name)}>Xóa khỏi dự án</button>}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="muted small">Quyền của từng vai trò do quản trị hệ thống cấu hình tại mục <b>Vai trò & quyền</b>. Quản trị hệ thống luôn có toàn quyền trên mọi dự án.</p>
+      <p className="muted small">
+        Thành viên dự án quyết định ai được vào dự án. Quyền của mỗi người lấy theo <b>vai trò của tài khoản</b>
+        {me?.is_admin ? <> (đổi ở mục <b>Người dùng</b>)</> : null}. Quản trị hệ thống luôn có toàn quyền trên mọi dự án.
+      </p>
 
       {adding && (
         <Modal title="Thêm thành viên" onClose={() => setAdding(false)} footer={<>
           <div className="spacer" />
           <button className="btn" onClick={() => setAdding(false)}>Hủy</button>
-          <button className="btn btn-primary" disabled={!userIds.length || !roleId} onClick={add}>Thêm {userIds.length || ''}</button>
+          <button className="btn btn-primary" disabled={!userIds.length} onClick={add}>Thêm {userIds.length || ''}</button>
         </>}>
           <div className="stack">
-            <label className="field"><span>Vai trò</span>
-              <select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-                {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select></label>
+            <input autoFocus placeholder="Tìm theo tên hoặc vai trò (VD: Dev)" value={q} onChange={(e) => setQ(e.target.value)} />
             <div className="field"><span>Chọn người dùng ({candidates.length} người chưa tham gia)</span>
               <div className="check-list">
                 {candidates.map((u) => (
@@ -137,9 +130,11 @@ function Members() {
                     <input type="checkbox" checked={userIds.includes(u.id)}
                       onChange={(e) => setUserIds(e.target.checked ? [...userIds, u.id] : userIds.filter((x) => x !== u.id))} />
                     <Avatar name={u.full_name} size={22} /> {u.full_name} <span className="muted small">@{u.username}</span>
+                    <span className="spacer" />
+                    {u.default_role_name ? <span className="lozenge lozenge-default">{u.default_role_name}</span> : <span className="small danger">Chưa có vai trò</span>}
                   </label>
                 ))}
-                {!candidates.length && <div className="muted small">Mọi người dùng đều đã là thành viên. Quản trị viên có thể tạo thêm tài khoản ở mục Người dùng.</div>}
+                {!candidates.length && <div className="muted small">Không còn người dùng nào để thêm. Quản trị viên có thể tạo thêm tài khoản ở mục Người dùng.</div>}
               </div>
             </div>
           </div>

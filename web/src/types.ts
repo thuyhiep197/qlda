@@ -15,6 +15,8 @@ export interface UserBasic {
   id: number;
   username: string;
   full_name: string;
+  default_role_id?: number | null;
+  default_role_name?: string | null;
 }
 
 export interface User extends UserBasic {
@@ -24,7 +26,17 @@ export interface User extends UserBasic {
   must_change_password: number;
   created_at: string;
   last_login_at: string | null;
-  project_count: number;
+  memberships: Membership[];
+  default_role_id: number | null;
+  default_role_name: string | null;
+}
+
+export interface Membership {
+  project_id: number;
+  project_key: string;
+  project_name: string;
+  role_id: number;
+  role_name: string;
 }
 
 export interface Role {

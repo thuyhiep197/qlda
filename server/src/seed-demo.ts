@@ -25,9 +25,9 @@ const people = [
   ['qa.thao', 'Phạm Thu Thảo', 'BA'],
 ];
 const ids: Record<string, number> = {};
-for (const [u, name] of people) {
+for (const [u, name, r] of people) {
   ids[u] = get('SELECT id FROM users WHERE username = ?', u)?.id ??
-    run('INSERT INTO users(username, full_name, password_hash) VALUES (?,?,?)', u, name, hashPassword('Demo@123')).id;
+    run('INSERT INTO users(username, full_name, password_hash, default_role_id) VALUES (?,?,?,?)', u, name, hashPassword('Demo@123'), role(r)).id;
 }
 const admin = get<AuthUser>('SELECT * FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1')!;
 

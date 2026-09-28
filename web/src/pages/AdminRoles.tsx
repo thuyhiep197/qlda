@@ -62,9 +62,8 @@ export default function AdminRoles() {
         <button className="btn btn-primary" disabled={!dirty.size} onClick={save}>Lưu thay đổi</button>
       </div>
       <p className="muted">
-        Mỗi thành viên dự án được gán <b>một vai trò</b> trong từng dự án. Một người có thể là PM ở dự án này nhưng là Người xem ở dự án khác.
-        Mọi thành viên đều được <b>xem</b> dự án; bảng dưới quy định các quyền thao tác.
-        Tài khoản <b>Quản trị hệ thống</b> có toàn quyền trên mọi dự án.
+        Mỗi tài khoản được gán <b>một vai trò</b> (BA, Dev, Techlead...) khi tạo ở mục <b>Người dùng</b>. Quyền của vai trò áp dụng trên
+        mọi dự án người đó được thêm vào; thành viên dự án chỉ quyết định ai được vào dự án. Tài khoản <b>Quản trị hệ thống</b> có toàn quyền trên mọi dự án.
       </p>
       <div className="table-wrap">
         <table className="table matrix roles-matrix">
@@ -75,7 +74,7 @@ export default function AdminRoles() {
                 <th key={r.id}>
                   <div className="role-head">
                     <a onClick={() => rename(r.id, r.name)} title="Đổi tên">{r.name}</a>
-                    <span className="muted small">{r.usage} thành viên</span>
+                    <span className="muted small">{r.usage} lượt sử dụng</span>
                     {r.usage === 0 && <a className="small danger" onClick={() => remove(r.id, r.name)}>Xóa</a>}
                   </div>
                 </th>

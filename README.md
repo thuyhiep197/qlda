@@ -45,7 +45,7 @@ docker compose up -d --build
 | Nhóm | Chức năng |
 |---|---|
 | Tài khoản | Admin tạo tài khoản, cấp mật khẩu tạm; bắt buộc đổi mật khẩu lần đầu; đặt lại mật khẩu; khóa/mở khóa; chống dò mật khẩu (khóa 15 phút sau 10 lần sai) |
-| Phân quyền | Quản trị hệ thống (toàn quyền) + **vai trò theo từng dự án**. 5 vai trò mặc định (BA Lead, BA, Techlead, Dev, Người xem); tạo thêm vai trò và tick chọn 12 quyền trên ma trận |
+| Phân quyền | Mỗi tài khoản có **một vai trò** (BA Lead, BA, Techlead, Dev, Người xem) quyết định quyền trên mọi dự án người đó tham gia; **thành viên dự án** quyết định ai được vào dự án. Quản trị hệ thống có toàn quyền. Tạo thêm vai trò và tick chọn 12 quyền trên ma trận |
 | Dự án | Scrum hoặc Kanban, mã dự án (VD `QLVB` → issue `QLVB-12`), trưởng dự án, thành viên, lưu trữ/khôi phục |
 | Issue | Epic, Story, Task, Bug, Sub-task; mô tả Markdown; độ ưu tiên; story point; nhãn; hạn hoàn thành; người thực hiện; issue cha; liên kết (chặn / liên quan / trùng); bình luận; tệp đính kèm (kéo thả, xem trước ảnh); lịch sử thay đổi đầy đủ |
 | Scrum | Backlog kéo thả để xếp thứ tự và đưa vào sprint; tạo, bắt đầu, sửa, hoàn thành sprint (chuyển issue chưa xong sang backlog hoặc sprint sau); board sprint đang chạy |
@@ -71,7 +71,7 @@ docker compose up -d --build
 | Xóa issue | ✔ | | | | |
 | Sửa/xóa bình luận, xóa tệp của người khác | ✔ | | | | |
 
-Tài khoản BA Lead được bật **Quản trị hệ thống**, nên có toàn quyền trên mọi dự án, kể cả khi không được thêm làm thành viên. Người xem dành cho khách hàng hoặc lãnh đạo.
+Vai trò chọn khi tạo tài khoản (mục **Người dùng**). Đổi vai trò thì quyền thay đổi ngay trên mọi dự án. Trong mỗi dự án chỉ cần thêm hoặc bỏ thành viên. Tài khoản BA Lead được bật **Quản trị hệ thống**, nên có toàn quyền trên mọi dự án, kể cả khi không được thêm làm thành viên. Người xem dành cho khách hàng hoặc lãnh đạo.
 
 Quản trị hệ thống sửa được ma trận này tại **Vai trò & quyền**. Mọi quyền được kiểm tra ở phía server, không chỉ ẩn nút trên giao diện.
 

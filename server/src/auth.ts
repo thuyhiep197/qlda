@@ -89,7 +89,8 @@ export function ensureAdmin() {
   const password = process.env.ADMIN_PASSWORD || 'Admin@123';
   const fullName = process.env.ADMIN_FULLNAME || 'Quản trị hệ thống';
   run(
-    'INSERT INTO users(username, full_name, password_hash, is_admin, must_change_password) VALUES (?, ?, ?, 1, 1)',
+    `INSERT INTO users(username, full_name, password_hash, is_admin, must_change_password, default_role_id)
+     VALUES (?, ?, ?, 1, 1, (SELECT id FROM roles WHERE permissions LIKE '%project.admin%' ORDER BY id LIMIT 1))`,
     username, fullName, hashPassword(password),
   );
   console.log(`[auth] Đã tạo tài khoản quản trị mặc định: ${username} / ${password} (bắt buộc đổi mật khẩu khi đăng nhập lần đầu)`);

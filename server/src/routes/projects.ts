@@ -3,7 +3,7 @@ import { all, get, localDate, now, run, tx } from '../db.ts';
 import { requireAdmin } from '../auth.ts';
 import { addHistory } from '../issues.ts';
 import {
-  accessibleProjectIds, badRequest, forbidden, notFound, requireProjectAccess, type Permission,
+  accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission,
 } from '../permissions.ts';
 
 const r = Router();
@@ -37,7 +37,7 @@ r.get('/', (req, res) => {
       (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id
         WHERE i.project_id = p.id AND s.category <> 'done') AS open_count,
       (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id) AS issue_count,
-      (SELECT r.name FROM project_members pm JOIN roles r ON r.id = pm.role_id
+      (SELECT r.name FROM project_members pm JOIN users mu ON mu.id = pm.user_id JOIN roles r ON r.id = COALESCE(mu.default_role_id, pm.role_id)
         WHERE pm.project_id = p.id AND pm.user_id = ?) AS my_role
     FROM projects p LEFT JOIN users u ON u.id = p.lead_id
     WHERE p.is_archived = ? ORDER BY p.name`, req.user.id, showArchived ? 1 : 0);
@@ -59,10 +59,7 @@ r.post('/', requireAdmin, (req, res) => {
     const { id } = run('INSERT INTO projects(key, name, description, type, lead_id) VALUES (?,?,?,?,?)',
       key, name, b.description || null, type, leadId);
     DEFAULT_STATUSES.forEach(([n, c], i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', id, n, c, i));
-    const leadRole = (b.lead_role_id && get('SELECT id FROM roles WHERE id = ?', Number(b.lead_role_id))) ||
-      get("SELECT id FROM roles WHERE permissions LIKE '%project.admin%' ORDER BY id LIMIT 1") ||
-      get('SELECT id FROM roles ORDER BY id LIMIT 1');
-    if (leadRole) run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, leadRole.id);
+    run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, accountRoleId(leadId));
     return id;
   });
   res.status(201).json(get('SELECT * FROM projects WHERE id = ?', id));
@@ -71,8 +68,9 @@ r.post('/', requireAdmin, (req, res) => {
 r.get('/:key', (req, res) => {
   const { project, perms } = loadProject(req);
   const statuses = all('SELECT * FROM statuses WHERE project_id = ? ORDER BY position, id', project.id);
-  const members = all(`SELECT u.id, u.username, u.full_name, u.email, u.is_active, pm.role_id, r.name AS role_name
-    FROM project_members pm JOIN users u ON u.id = pm.user_id JOIN roles r ON r.id = pm.role_id
+  const members = all(`SELECT u.id, u.username, u.full_name, u.email, u.is_active, u.is_admin,
+      COALESCE(u.default_role_id, pm.role_id) AS role_id, r.name AS role_name
+    FROM project_members pm JOIN users u ON u.id = pm.user_id JOIN roles r ON r.id = COALESCE(u.default_role_id, pm.role_id)
     WHERE pm.project_id = ? ORDER BY u.full_name`, project.id);
   const transitions = all('SELECT from_status_id, to_status_id FROM transitions WHERE project_id = ?', project.id);
   const activeSprint = get("SELECT * FROM sprints WHERE project_id = ? AND state = 'active'", project.id) ?? null;
@@ -111,23 +109,14 @@ r.post('/:key/archive', requireAdmin, (req, res) => {
 // ---------------------------------------------------------------------------
 r.post('/:key/members', (req, res) => {
   const { project } = loadProject(req, 'project.admin');
-  const userId = Number(req.body?.user_id);
-  const roleId = Number(req.body?.role_id);
-  if (!get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', userId)) throw badRequest('Người dùng không hợp lệ');
-  if (!get('SELECT 1 FROM roles WHERE id = ?', roleId)) throw badRequest('Vai trò không hợp lệ');
-  if (get('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', project.id, userId)) {
-    throw badRequest('Người dùng đã là thành viên dự án');
-  }
-  run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', project.id, userId, roleId);
+  const ids: number[] = (Array.isArray(req.body?.user_ids) ? req.body.user_ids : [req.body?.user_id]).map(Number);
+  tx(() => {
+    for (const userId of ids) {
+      if (!get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', userId)) throw badRequest('Người dùng không hợp lệ');
+      run('INSERT OR IGNORE INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', project.id, userId, accountRoleId(userId));
+    }
+  });
   res.status(201).json({ ok: true });
-});
-
-r.patch('/:key/members/:userId', (req, res) => {
-  const { project } = loadProject(req, 'project.admin');
-  const roleId = Number(req.body?.role_id);
-  if (!get('SELECT 1 FROM roles WHERE id = ?', roleId)) throw badRequest('Vai trò không hợp lệ');
-  run('UPDATE project_members SET role_id = ? WHERE project_id = ? AND user_id = ?', roleId, project.id, Number(req.params.userId));
-  res.json({ ok: true });
 });
 
 r.delete('/:key/members/:userId', (req, res) => {

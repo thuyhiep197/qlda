@@ -221,6 +221,14 @@ const migrations: string[] = [
   `,
   // v2: thu hồi phiên đăng nhập cũ khi đổi/cấp lại mật khẩu
   `ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;`,
+  // v3: vai trò chính của tài khoản (Dev, BA...), dùng làm mặc định khi thêm vào dự án
+  `ALTER TABLE users ADD COLUMN default_role_id INTEGER REFERENCES roles(id);
+   UPDATE users SET default_role_id = (SELECT pm.role_id FROM project_members pm WHERE pm.user_id = users.id
+     ORDER BY pm.created_at LIMIT 1) WHERE default_role_id IS NULL;
+   UPDATE users SET default_role_id = (SELECT id FROM roles WHERE permissions LIKE '%project.admin%' ORDER BY id LIMIT 1)
+     WHERE default_role_id IS NULL AND is_admin = 1;
+   UPDATE project_members SET role_id = (SELECT u.default_role_id FROM users u WHERE u.id = project_members.user_id)
+     WHERE (SELECT u.default_role_id FROM users u WHERE u.id = project_members.user_id) IS NOT NULL;`,
 ];
 
 export function migrate() {

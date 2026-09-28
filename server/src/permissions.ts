@@ -70,8 +70,11 @@ export interface AuthUser {
 /** Trả về tập quyền của user trong dự án, hoặc null nếu user không được truy cập dự án. */
 export function projectPermissions(user: AuthUser, projectId: number): Set<Permission> | null {
   if (user.is_admin) return new Set(ALL_PERMISSIONS);
+  // Quyền lấy theo vai trò của tài khoản; thành viên dự án chỉ quyết định có được vào dự án hay không
   const m = get<{ permissions: string }>(
-    `SELECT r.permissions FROM project_members pm JOIN roles r ON r.id = pm.role_id
+    `SELECT COALESCE(ur.permissions, r.permissions) AS permissions
+     FROM project_members pm JOIN users u ON u.id = pm.user_id
+     LEFT JOIN roles ur ON ur.id = u.default_role_id JOIN roles r ON r.id = pm.role_id
      WHERE pm.project_id = ? AND pm.user_id = ?`,
     projectId, user.id,
   );
@@ -95,6 +98,12 @@ export function requirePerm(user: AuthUser, projectId: number, perm: Permission)
 export function canEditIssue(user: AuthUser, perms: Set<Permission>, issue: { reporter_id: number | null; assignee_id: number | null }) {
   return perms.has('issue.edit') ||
     (perms.has('issue.edit_own') && (issue.reporter_id === user.id || issue.assignee_id === user.id));
+}
+
+/** Vai trò của tài khoản; tài khoản cũ chưa có vai trò thì lấy vai trò đầu tiên. */
+export function accountRoleId(userId: number): number {
+  return get<{ id: number }>('SELECT default_role_id AS id FROM users WHERE id = ? AND default_role_id IS NOT NULL', userId)?.id
+    ?? get<{ id: number }>('SELECT id FROM roles ORDER BY id LIMIT 1')!.id;
 }
 
 export function accessibleProjectIds(user: AuthUser): number[] | 'all' {
