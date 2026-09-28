@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { api, errMsg, queryClient } from '../api';
+import { api, errMsg, logout, queryClient } from '../api';
 import { toast } from '../components/ui';
 
 export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
@@ -42,10 +42,6 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
 }
 
 export default function ChangePassword({ forced }: { forced?: boolean }) {
-  const logout = async () => {
-    await api.post('/auth/logout');
-    queryClient.setQueryData(['me'], null);
-  };
   return (
     <div className="auth-page">
       <div className="auth-card">

@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { NavLink, Outlet, useMatch, useNavigate } from 'react-router-dom';
-import { api, queryClient } from '../api';
+import { logout } from '../api';
 import { useIssueModal, useMe, useProjects } from '../hooks';
 import { Avatar } from './ui';
 import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
+import NotificationBell from './NotificationBell';
 import { colorOf } from '../util';
 
 export default function Layout() {
@@ -26,12 +27,6 @@ export default function Layout() {
     setQ('');
   };
 
-  const logout = async () => {
-    await api.post('/auth/logout');
-    queryClient.clear();
-    queryClient.setQueryData(['me'], null);
-    navigate('/');
-  };
 
   return (
     <div className="app">
@@ -73,6 +68,7 @@ export default function Layout() {
           </form>
           <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Tạo issue</button>
           <div className="spacer" />
+          <NotificationBell />
           <div className="user-menu">
             <button className="user-btn" onClick={() => setMenu(!menu)}>
               <Avatar name={me?.full_name} size={30} />

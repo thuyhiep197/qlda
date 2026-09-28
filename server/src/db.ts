@@ -232,6 +232,28 @@ const migrations: string[] = [
   // v4: quyền mới "Nhập issue từ file" cho các vai trò đang được quản lý sprint/backlog
   `UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'issue.import')
      WHERE permissions LIKE '%"sprint.manage"%' AND permissions NOT LIKE '%"issue.import"%';`,
+  // v5: người theo dõi issue (watcher) và thông báo trong ứng dụng
+  `CREATE TABLE issue_watchers (
+     issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+     user_id INTEGER NOT NULL REFERENCES users(id),
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     PRIMARY KEY (issue_id, user_id)
+   );
+   CREATE INDEX idx_watchers_user ON issue_watchers(user_id);
+   CREATE TABLE notifications (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     user_id INTEGER NOT NULL REFERENCES users(id),
+     actor_id INTEGER REFERENCES users(id),
+     issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE,
+     type TEXT NOT NULL,
+     text TEXT,
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     read_at TEXT
+   );
+   CREATE INDEX idx_notifications_user ON notifications(user_id, created_at);
+   INSERT OR IGNORE INTO issue_watchers(issue_id, user_id) SELECT id, reporter_id FROM issues WHERE reporter_id IS NOT NULL;
+   INSERT OR IGNORE INTO issue_watchers(issue_id, user_id) SELECT id, assignee_id FROM issues WHERE assignee_id IS NOT NULL;
+   INSERT OR IGNORE INTO issue_watchers(issue_id, user_id) SELECT DISTINCT issue_id, author_id FROM comments;`,
 ];
 
 export function migrate() {

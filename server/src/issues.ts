@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { all, get, now, run, tx, UPLOAD_DIR } from './db.ts';
+import { handleMentions, notify, watch, watchers } from './notify.ts';
 import {
   accessibleProjectIds, badRequest, canEditIssue, forbidden, notFound,
   type AuthUser, type Permission,
@@ -290,6 +291,9 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     );
     addHistory(id, user.id, 'created', null, null);
     if (sprintId) addHistory(id, user.id, 'sprint', null, sprintId, null, sprintName(sprintId));
+    watch(id, [user.id, assigneeId]);
+    if (assigneeId) notify([assigneeId], user.id, id, 'assigned', summary);
+    handleMentions(id, projectId, user.id, data.description);
     return fetchIssue('id', id);
   });
 }
@@ -404,6 +408,15 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       const cols = Object.keys(sets);
       run(`UPDATE issues SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`, ...(cols.map((c) => sets[c]) as any[]), issue.id);
       for (const h of history) addHistory(issue.id, user.id, h[0], h[1], h[2], h[3], h[4]);
+
+      // Thông báo theo cách Jira: người được giao; người theo dõi khi đổi trạng thái; người được @nhắc trong mô tả
+      if (sets.assignee_id) {
+        watch(issue.id, [sets.assignee_id as number]);
+        notify([sets.assignee_id as number], user.id, issue.id, 'assigned', (sets.summary as string) ?? issue.summary);
+      }
+      const st = history.find((h) => h[0] === 'status');
+      if (st) notify(watchers(issue.id), user.id, issue.id, 'status', `${st[3]} → ${st[4]}`);
+      if (sets.description !== undefined) handleMentions(issue.id, issue.project_id, user.id, sets.description as string, issue.description);
     }
   });
   return fetchIssue('id', issue.id);

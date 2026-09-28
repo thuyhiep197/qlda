@@ -11,12 +11,16 @@ import adminRoutes from './routes/admin.ts';
 import projectRoutes from './routes/projects.ts';
 import issueRoutes from './routes/issues.ts';
 import reportRoutes from './routes/reports.ts';
+import notificationRoutes from './routes/notifications.ts';
+import { pruneNotifications } from './notify.ts';
 import { scheduleBackups } from './backup.ts';
 
 migrate();
 seedRoles();
 ensureAdmin();
 scheduleBackups();
+pruneNotifications();
+setInterval(pruneNotifications, 24 * 3600_000).unref();
 
 const app = express();
 app.disable('x-powered-by');
@@ -43,6 +47,7 @@ app.use('/api', adminRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/issues', issueRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'API không tồn tại')));
 
 // Giao diện web đã build (chế độ production)

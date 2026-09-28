@@ -3,11 +3,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import multer from 'multer';
-import { all, get, now, run, UPLOAD_DIR } from '../db.ts';
+import { all, get, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import {
   addHistory, createIssue, deleteIssue, fetchIssue, getIssueRow, listIssues, rankBetween, updateIssue,
   type IssueFilter,
 } from '../issues.ts';
+import { handleMentions, notify, unwatch, watch, watchers } from '../notify.ts';
 import { badRequest, canEditIssue, forbidden, notFound, requirePerm, requireProjectAccess } from '../permissions.ts';
 
 const r = Router();
@@ -54,8 +55,11 @@ r.get('/:key', (req, res) => {
   const history = all(`SELECT h.*, u.full_name AS user_name FROM issue_history h LEFT JOIN users u ON u.id = h.user_id
     WHERE h.issue_id = ? ORDER BY h.created_at DESC, h.id DESC LIMIT 200`, row.id);
   const transitions = all('SELECT from_status_id, to_status_id FROM transitions WHERE project_id = ?', row.project_id);
+  const watcherList = all(`SELECT u.id, u.username, u.full_name FROM issue_watchers w JOIN users u ON u.id = w.user_id
+    WHERE w.issue_id = ? AND u.is_active = 1 ORDER BY u.full_name`, row.id);
   res.json({
     ...issue, children, comments, attachments, links, history,
+    watchers: watcherList, watching: watcherList.some((w) => w.id === req.user.id),
     can_edit: canEditIssue(req.user, perms, row),
     permissions: [...perms],
     workflow_strict: !!get('SELECT workflow_strict FROM projects WHERE id = ?', row.project_id)?.workflow_strict,
@@ -97,8 +101,15 @@ r.post('/:key/comments', (req, res) => {
   requirePerm(req.user, row.project_id, 'comment.create');
   const body = String(req.body?.body || '').trim();
   if (!body) throw badRequest('Nội dung bình luận không được để trống');
-  const { id } = run('INSERT INTO comments(issue_id, author_id, body, created_at) VALUES (?,?,?,?)', row.id, req.user.id, body, now());
-  run('UPDATE issues SET updated_at = ? WHERE id = ?', now(), row.id);
+  const id = tx(() => {
+    const { id } = run('INSERT INTO comments(issue_id, author_id, body, created_at) VALUES (?,?,?,?)', row.id, req.user.id, body, now());
+    run('UPDATE issues SET updated_at = ? WHERE id = ?', now(), row.id);
+    // Người bình luận tự theo dõi; người được @nhắc nhận thông báo "nhắc đến", những người theo dõi khác nhận "bình luận"
+    watch(row.id, [req.user.id]);
+    const mentioned = new Set(handleMentions(row.id, row.project_id, req.user.id, body));
+    notify(watchers(row.id).filter((u) => !mentioned.has(u)), req.user.id, row.id, 'comment', body);
+    return id;
+  });
   res.status(201).json({ id });
 });
 
@@ -114,7 +125,10 @@ r.patch('/comments/:id', (req, res) => {
   const c = loadComment(req.user, Number(req.params.id));
   const body = String(req.body?.body || '').trim();
   if (!body) throw badRequest('Nội dung bình luận không được để trống');
-  run('UPDATE comments SET body = ?, updated_at = ? WHERE id = ?', body, now(), c.id);
+  tx(() => {
+    run('UPDATE comments SET body = ?, updated_at = ? WHERE id = ?', body, now(), c.id);
+    handleMentions(c.issue_id, c.project_id, req.user.id, body, c.body);
+  });
   res.json({ ok: true });
 });
 
@@ -133,14 +147,16 @@ r.post('/:key/attachments', upload.array('files'), (req, res) => {
   try {
     const row = getIssueRow(String(req.params.key));
     requirePerm(req.user, row.project_id, 'attachment.create');
+    const created: { id: number; filename: string; mime: string }[] = [];
     for (const f of files) {
       // multer đọc tên tệp theo latin1, chuyển về UTF-8 để giữ tiếng Việt
       const filename = Buffer.from(f.originalname, 'latin1').toString('utf8');
-      run('INSERT INTO attachments(issue_id, uploader_id, filename, stored_name, mime, size, created_at) VALUES (?,?,?,?,?,?,?)',
+      const { id } = run('INSERT INTO attachments(issue_id, uploader_id, filename, stored_name, mime, size, created_at) VALUES (?,?,?,?,?,?,?)',
         row.id, req.user.id, filename, f.filename, f.mimetype, f.size, now());
+      created.push({ id, filename, mime: f.mimetype });
       addHistory(row.id, req.user.id, 'attachment', null, filename);
     }
-    res.status(201).json({ ok: true });
+    res.status(201).json({ ok: true, attachments: created });
   } catch (e) {
     cleanup();
     throw e;
@@ -197,6 +213,32 @@ r.delete('/links/:id', (req, res) => {
   const perms = requireProjectAccess(req.user, l.project_id);
   if (!canEditIssue(req.user, perms, l)) throw forbidden();
   run('DELETE FROM issue_links WHERE id = ?', l.id);
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Người theo dõi: ai cũng tự theo dõi/bỏ theo dõi được; thêm/bớt người khác cần quyền sửa issue
+// ---------------------------------------------------------------------------
+r.post('/:key/watchers', (req, res) => {
+  const row = getIssueRow(String(req.params.key));
+  const perms = requireProjectAccess(req.user, row.project_id);
+  const userId = req.body?.user_id ? Number(req.body.user_id) : req.user.id;
+  if (userId !== req.user.id) {
+    if (!canEditIssue(req.user, perms, row)) throw forbidden('Bạn không có quyền thêm người theo dõi');
+    const ok = get(`SELECT 1 FROM users u WHERE u.id = ? AND u.is_active = 1 AND (u.is_admin = 1 OR EXISTS
+      (SELECT 1 FROM project_members pm WHERE pm.project_id = ? AND pm.user_id = u.id))`, userId, row.project_id);
+    if (!ok) throw badRequest('Người dùng không thuộc dự án');
+  }
+  watch(row.id, [userId]);
+  res.json({ ok: true });
+});
+
+r.delete('/:key/watchers/:userId', (req, res) => {
+  const row = getIssueRow(String(req.params.key));
+  const perms = requireProjectAccess(req.user, row.project_id);
+  const userId = Number(req.params.userId);
+  if (userId !== req.user.id && !canEditIssue(req.user, perms, row)) throw forbidden('Bạn không có quyền bỏ người theo dõi');
+  unwatch(row.id, userId);
   res.json({ ok: true });
 });
 

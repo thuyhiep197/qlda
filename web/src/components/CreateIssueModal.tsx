@@ -14,6 +14,7 @@ const TYPE_HINTS: Record<IssueType, string> = {
   subtask: 'Việc nhỏ nằm dưới một Story, Task hoặc Bug',
 };
 import { LabelsInput } from './fields';
+import { MentionTextarea } from './MentionTextarea';
 
 interface Props {
   projectKey?: string;
@@ -118,7 +119,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         </label>
         <label className="field span-2">
           <span>Mô tả <small className="muted">(hỗ trợ Markdown)</small></span>
-          <textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <MentionTextarea rows={6} value={description} onChange={setDescription} members={project?.members ?? []} />
         </label>
         {type !== 'epic' && (
           <label className="field span-2">

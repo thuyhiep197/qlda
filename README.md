@@ -48,6 +48,8 @@ docker compose up -d --build
 | Phân quyền | Mỗi tài khoản có **một vai trò** (BA Lead, BA, Techlead, Dev, Người xem) quyết định quyền trên mọi dự án người đó tham gia; **thành viên dự án** quyết định ai được vào dự án. Quản trị hệ thống có toàn quyền. Tạo thêm vai trò và tick chọn 12 quyền trên ma trận |
 | Dự án | Scrum hoặc Kanban, mã dự án (VD `QLVB` → issue `QLVB-12`), trưởng dự án, thành viên, lưu trữ/khôi phục |
 | Issue | Epic, Story, Task, Bug, Sub-task; mô tả Markdown; độ ưu tiên; story point; nhãn; hạn hoàn thành; người thực hiện; issue cha; liên kết (chặn / liên quan / trùng); bình luận; tệp đính kèm (kéo thả, xem trước ảnh); lịch sử thay đổi đầy đủ |
+| Trao đổi | Bình luận Markdown; gõ **@** để nhắc thành viên dự án; **dán ảnh (Ctrl+V)** hoặc kéo thả ảnh/tệp vào bình luận, mô tả (ảnh hiện ngay trong nội dung, tự lưu vào tệp đính kèm); **Người theo dõi** (tự thêm người tạo, người được giao, người bình luận, người được @nhắc; ai cũng tự Theo dõi/Bỏ theo dõi) |
+| Thông báo | Chuông trên thanh trên cùng (tự làm mới 30 giây): được @nhắc, được giao việc, issue đang theo dõi có bình luận mới hoặc đổi trạng thái. Bấm để mở đúng issue; đánh dấu đã đọc. Thông báo đã đọc tự xóa sau 90 ngày |
 | Scrum | Backlog kéo thả để xếp thứ tự và đưa vào sprint; tạo, bắt đầu, sửa, hoàn thành sprint (chuyển issue chưa xong sang backlog hoặc sprint sau); board sprint đang chạy |
 | Kanban | Board liên tục, giới hạn WIP theo cột, tự ẩn issue đã xong quá 14 ngày |
 | Board | Kéo thả đổi trạng thái; lọc theo người, epic, loại, nhãn; phân làn theo người thực hiện hoặc epic |

@@ -105,9 +105,28 @@ export function Modal({ title, onClose, children, footer, width = 560 }: {
 // Markdown
 // ---------------------------------------------------------------------------
 marked.setOptions({ breaks: true, gfm: true });
-export function Markdown({ text }: { text: string }) {
-  const html = useMemo(() => DOMPurify.sanitize(marked.parse(text, { async: false }) as string), [text]);
-  return <div className="md" dangerouslySetInnerHTML={{ __html: html }} />;
+const MENTION_RE = /(^|[\s(>])@([a-z0-9][a-z0-9._-]*[a-z0-9_-]|[a-z0-9])/gi;
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+/** Hiển thị Markdown; @tên_đăng_nhập của người dùng có thật được tô nổi bật bằng họ tên; bấm ảnh để xem cỡ lớn. */
+export function Markdown({ text, users }: { text: string; users?: { username: string; full_name: string }[] }) {
+  const html = useMemo(() => {
+    const byName = new Map((users ?? []).map((u) => [u.username.toLowerCase(), u.full_name]));
+    const withMentions = byName.size
+      ? text.replace(MENTION_RE, (m, pre: string, name: string) => {
+        const full = byName.get(name.toLowerCase());
+        return full ? `${pre}<span class="mention" title="@${escapeHtml(name)}">@${escapeHtml(full)}</span>` : m;
+      })
+      : text;
+    return DOMPurify.sanitize(marked.parse(withMentions, { async: false }) as string);
+  }, [text, users]);
+  return (
+    <div className="md" dangerouslySetInnerHTML={{ __html: html }}
+      onClick={(e) => {
+        const t = e.target as HTMLElement;
+        if (t.tagName === 'IMG') { e.stopPropagation(); window.open((t as HTMLImageElement).src, '_blank', 'noopener'); }
+      }} />
+  );
 }
 
 // ---------------------------------------------------------------------------

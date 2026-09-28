@@ -174,4 +174,6 @@ export interface IssueDetail extends Issue {
   permissions: string[];
   workflow_strict: boolean;
   transitions: { from_status_id: number; to_status_id: number }[];
+  watchers: { id: number; username: string; full_name: string }[];
+  watching: boolean;
 }

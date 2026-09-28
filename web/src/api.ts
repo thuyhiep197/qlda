@@ -52,4 +52,12 @@ export function refreshAll() {
   return queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
 }
 
+/** Đăng xuất rồi tải lại trang để xóa sạch dữ liệu của phiên cũ (an toàn khi dùng chung máy). */
+export async function logout() {
+  try { await request('POST', '/auth/logout', {}); } finally {
+    queryClient.clear();
+    window.location.assign('/');
+  }
+}
+
 export const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));

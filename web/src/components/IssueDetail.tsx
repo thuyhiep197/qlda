@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { can, useIssueModal, useMe, useProject, useSprints } from '../hooks';
+import { can, useIssueModal, useMe, useProject, useSprints, useUsersBasic } from '../hooks';
 import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority } from '../types';
 import { FIELD_LABELS, fmtDate, fmtDateTime, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, TYPE_LABELS } from '../util';
 import { Avatar, Markdown, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput } from './fields';
+import { MentionTextarea } from './MentionTextarea';
 
 export default function IssueDetailModal({ issueKey }: { issueKey: string }) {
   const { close } = useIssueModal();
@@ -43,6 +44,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
     queryFn: () => api.get(`/issues/${issueKey}`),
   });
   const { data: project } = useProject(issue?.project_key);
+  const { data: allUsers } = useUsersBasic();
   const { data: sprints } = useSprints(issue?.project_key, 'future,active');
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', issue?.project_key],
@@ -193,7 +195,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             <h4>Mô tả</h4>
             {editDesc ? (
               <div className="stack">
-                <textarea rows={10} autoFocus value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Hỗ trợ Markdown: **đậm**, - danh sách, `code`, [link](url)" />
+                <MentionTextarea rows={10} autoFocus value={desc} onChange={setDesc} members={project?.members ?? []} issueKey={issue.key}
+                  placeholder="Hỗ trợ Markdown: **đậm**, - danh sách, `code`, [link](url)" />
                 <div className="row gap-xs">
                   <button className="btn btn-primary" onClick={async () => { await save({ description: desc }); setEditDesc(false); }}>Lưu</button>
                   <button className="btn" onClick={() => setEditDesc(false)}>Hủy</button>
@@ -201,7 +204,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               </div>
             ) : (
               <div className={`desc ${canEdit ? 'editable' : ''}`} onClick={() => { if (canEdit) { setDesc(issue.description || ''); setEditDesc(true); } }}>
-                {issue.description ? <Markdown text={issue.description} /> : <span className="muted">{canEdit ? 'Bấm để thêm mô tả…' : 'Không có mô tả'}</span>}
+                {issue.description ? <Markdown text={issue.description} users={allUsers} /> : <span className="muted">{canEdit ? 'Bấm để thêm mô tả…' : 'Không có mô tả'}</span>}
               </div>
             )}
           </section>
@@ -307,7 +310,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                   <form onSubmit={addComment} className="comment-form">
                     <Avatar name={me?.full_name} size={30} />
                     <div className="grow stack">
-                      <textarea rows={comment ? 4 : 2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Viết bình luận… (Ctrl+Enter để gửi)"
+                      <MentionTextarea rows={comment ? 4 : 2} value={comment} onChange={setComment} members={project?.members ?? []} issueKey={issue.key}
+                        placeholder="Viết bình luận… (Ctrl+Enter để gửi)"
                         onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) addComment(e as any); }} />
                       {comment && <div><button className="btn btn-primary">Gửi</button></div>}
                     </div>
@@ -323,13 +327,14 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                       </div>
                       {editingComment?.id === c.id ? (
                         <div className="stack">
-                          <textarea rows={4} value={editingComment.body} onChange={(e) => setEditingComment({ id: c.id, body: e.target.value })} />
+                          <MentionTextarea rows={4} value={editingComment.body} onChange={(v) => setEditingComment({ id: c.id, body: v })}
+                            members={project?.members ?? []} issueKey={issue.key} />
                           <div className="row gap-xs">
                             <button className="btn btn-primary btn-sm" onClick={saveComment}>Lưu</button>
                             <button className="btn btn-sm" onClick={() => setEditingComment(null)}>Hủy</button>
                           </div>
                         </div>
-                      ) : <Markdown text={c.body} />}
+                      ) : <Markdown text={c.body} users={allUsers} />}
                       {(c.author_id === me?.id || can(perms, 'comment.delete_any')) && editingComment?.id !== c.id && (
                         <div className="comment-actions">
                           <a onClick={() => setEditingComment({ id: c.id, body: c.body })}>Sửa</a>
@@ -441,6 +446,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             </div>
           </div>
 
+          <Watchers issue={issue} members={project?.members ?? []} canManage={canEdit} meId={me?.id} />
+
           <div className="meta muted small">
             <div>Tạo: {fmtDateTime(issue.created_at)}</div>
             <div>Cập nhật: {fmtDateTime(issue.updated_at)}</div>
@@ -458,4 +465,45 @@ function fmtHist(field: string, v: string | null) {
   if (field === 'type') return TYPE_LABELS[v as IssueType] || v;
   if (field === 'due_date' || field === 'start_date') return fmtDate(v);
   return v;
+}
+
+/** Người theo dõi (Watcher) như Jira: nhận thông báo khi issue có bình luận mới hoặc đổi trạng thái. */
+function Watchers({ issue, members, canManage, meId }: {
+  issue: TIssueDetail; members: { id: number; full_name: string }[]; canManage: boolean; meId?: number;
+}) {
+  const [adding, setAdding] = useState(false);
+  const call = async (fn: () => Promise<unknown>) => {
+    try { await fn(); await refreshAll(); } catch (e) { toastError(e); }
+  };
+  const candidates = members.filter((m) => !issue.watchers.some((w) => w.id === m.id));
+  return (
+    <div className="watchers">
+      <div className="row gap-xs">
+        <span className="prop-label grow">Người theo dõi ({issue.watchers.length})</span>
+        <button className="btn btn-sm" onClick={() => call(() => (issue.watching
+          ? api.del(`/issues/${issue.key}/watchers/${meId}`)
+          : api.post(`/issues/${issue.key}/watchers`, {})))}>
+          {issue.watching ? '🔕 Bỏ theo dõi' : '👁 Theo dõi'}
+        </button>
+      </div>
+      <div className="watcher-list">
+        {issue.watchers.map((w) => (
+          <span key={w.id} className="watcher-chip" title={`@${w.username}`}>
+            <Avatar name={w.full_name} size={20} /> {w.full_name}
+            {canManage && w.id !== meId && (
+              <button title="Bỏ khỏi danh sách theo dõi" onClick={() => call(() => api.del(`/issues/${issue.key}/watchers/${w.id}`))}>×</button>
+            )}
+          </span>
+        ))}
+        {!issue.watchers.length && <span className="muted small">Chưa có ai theo dõi</span>}
+      </div>
+      {canManage && candidates.length > 0 && (adding ? (
+        <select autoFocus defaultValue="" onBlur={() => setAdding(false)}
+          onChange={(e) => { if (e.target.value) call(() => api.post(`/issues/${issue.key}/watchers`, { user_id: Number(e.target.value) })); setAdding(false); }}>
+          <option value="" disabled>— Chọn thành viên —</option>
+          {candidates.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+        </select>
+      ) : <a className="small" onClick={() => setAdding(true)}>+ Thêm người theo dõi</a>)}
+    </div>
+  );
 }
