@@ -469,3 +469,20 @@ th.sortable:hover { color: var(--text); }
 .bell-text { color: var(--text); background: var(--sunken); border-radius: 4px; padding: 4px 8px; margin: 4px 0; overflow-wrap: anywhere; }
 .bell-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 6px; }
 .disabled-block { opacity: .55; }
+
+/* ---------- Tooltip nhanh: thêm thuộc tính data-tip vào phần tử ---------- */
+[data-tip] { position: relative; }
+[data-tip]:hover::after, [data-tip]:focus-visible::after {
+  content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-50%);
+  background: #172b4d; color: #fff; font-size: 12px; font-weight: 400; line-height: 1.45; text-transform: none; letter-spacing: 0;
+  padding: 8px 10px; border-radius: 4px; width: max-content; max-width: 300px; white-space: pre-line; text-align: left;
+  z-index: 100; box-shadow: var(--shadow-lg); pointer-events: none;
+}
+[data-tip]:hover::before, [data-tip]:focus-visible::before {
+  content: ''; position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%);
+  border: 6px solid transparent; border-bottom-color: #172b4d; border-top: 0; z-index: 100; pointer-events: none;
+}
+.tabs.tabs-tip { overflow: visible; flex-wrap: wrap; }
+.table-wrap:has([data-tip]) { overflow: visible; }
+[data-tip-align="left"]:hover::after, [data-tip-align="left"]:focus-visible::after { left: 0; transform: none; }
+[data-tip-align="left"]:hover::before, [data-tip-align="left"]:focus-visible::before { left: 18px; transform: none; }
