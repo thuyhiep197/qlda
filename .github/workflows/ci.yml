@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  docker:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t qlda:ci .
+      - name: Smoke test /api/health
+        run: |
+          docker run -d --name qlda-ci -p 3001:3001 -e ADMIN_PASSWORD=Ci@12345678 qlda:ci
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:3001/api/health; then echo; exit 0; fi
+            sleep 2
+          done
+          docker logs qlda-ci
+          exit 1
