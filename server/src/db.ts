@@ -1,0 +1,240 @@
+import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite';
+import fs from 'node:fs';
+import path from 'node:path';
+
+export const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(import.meta.dirname, '../../data'));
+export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+export const db = new DatabaseSync(path.join(DATA_DIR, 'qlda.db'));
+db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+
+const cache = new Map<string, StatementSync>();
+function stmt(sql: string) {
+  let s = cache.get(sql);
+  if (!s) {
+    s = db.prepare(sql);
+    cache.set(sql, s);
+  }
+  return s;
+}
+
+type Param = SQLInputValue | undefined | boolean;
+const norm = (params: Param[]) =>
+  params.map((p) => (p === undefined ? null : typeof p === 'boolean' ? (p ? 1 : 0) : p)) as SQLInputValue[];
+
+export function all<T = any>(sql: string, ...params: Param[]): T[] {
+  return stmt(sql).all(...norm(params)).map((r) => ({ ...r })) as T[];
+}
+export function get<T = any>(sql: string, ...params: Param[]): T | undefined {
+  const r = stmt(sql).get(...norm(params));
+  return r ? ({ ...r } as T) : undefined;
+}
+export function run(sql: string, ...params: Param[]) {
+  const r = stmt(sql).run(...norm(params));
+  return { changes: Number(r.changes), id: Number(r.lastInsertRowid) };
+}
+
+let depth = 0;
+export function tx<T>(fn: () => T): T {
+  if (depth > 0) return fn();
+  depth++;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const r = fn();
+    db.exec('COMMIT');
+    return r;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  } finally {
+    depth--;
+  }
+}
+
+export const now = () => new Date().toISOString();
+/** Ngày hiện tại theo múi giờ máy chủ (TZ), dạng YYYY-MM-DD */
+export const localDate = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+
+// ---------------------------------------------------------------------------
+// Migrations: mỗi phần tử là một phiên bản schema, chạy tuần tự theo PRAGMA user_version.
+// Chỉ THÊM phần tử mới vào cuối mảng, không sửa các phần tử đã phát hành.
+// ---------------------------------------------------------------------------
+const TS = "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))";
+const migrations: string[] = [
+  `
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    full_name TEXT NOT NULL,
+    email TEXT,
+    password_hash TEXT NOT NULL,
+    is_admin INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    must_change_password INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT ${TS},
+    last_login_at TEXT
+  );
+
+  CREATE TABLE roles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    permissions TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT ${TS}
+  );
+
+  CREATE TABLE projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    type TEXT NOT NULL CHECK (type IN ('scrum','kanban')),
+    lead_id INTEGER REFERENCES users(id),
+    issue_seq INTEGER NOT NULL DEFAULT 0,
+    sprint_seq INTEGER NOT NULL DEFAULT 0,
+    workflow_strict INTEGER NOT NULL DEFAULT 0,
+    is_archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT ${TS}
+  );
+
+  CREATE TABLE project_members (
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    role_id INTEGER NOT NULL REFERENCES roles(id),
+    created_at TEXT NOT NULL DEFAULT ${TS},
+    PRIMARY KEY (project_id, user_id)
+  );
+
+  CREATE TABLE statuses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('todo','inprogress','done')),
+    position INTEGER NOT NULL DEFAULT 0,
+    wip_limit INTEGER
+  );
+
+  CREATE TABLE transitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    from_status_id INTEGER NOT NULL REFERENCES statuses(id) ON DELETE CASCADE,
+    to_status_id INTEGER NOT NULL REFERENCES statuses(id) ON DELETE CASCADE,
+    UNIQUE (from_status_id, to_status_id)
+  );
+
+  CREATE TABLE sprints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    goal TEXT,
+    state TEXT NOT NULL DEFAULT 'future' CHECK (state IN ('future','active','closed')),
+    start_date TEXT,
+    end_date TEXT,
+    started_at TEXT,
+    completed_at TEXT,
+    committed_points REAL,
+    completed_points REAL,
+    committed_issues INTEGER,
+    completed_issues INTEGER,
+    created_at TEXT NOT NULL DEFAULT ${TS}
+  );
+
+  CREATE TABLE issues (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    number INTEGER NOT NULL,
+    key TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL CHECK (type IN ('epic','story','task','bug','subtask')),
+    summary TEXT NOT NULL,
+    description TEXT,
+    status_id INTEGER NOT NULL REFERENCES statuses(id),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('highest','high','medium','low','lowest')),
+    assignee_id INTEGER REFERENCES users(id),
+    reporter_id INTEGER REFERENCES users(id),
+    parent_id INTEGER REFERENCES issues(id) ON DELETE SET NULL,
+    sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
+    story_points REAL,
+    labels TEXT,
+    start_date TEXT,
+    due_date TEXT,
+    rank REAL NOT NULL DEFAULT 0,
+    resolved_at TEXT,
+    created_at TEXT NOT NULL DEFAULT ${TS},
+    updated_at TEXT NOT NULL DEFAULT ${TS}
+  );
+  CREATE INDEX idx_issues_project ON issues(project_id, rank);
+  CREATE INDEX idx_issues_sprint ON issues(sprint_id);
+  CREATE INDEX idx_issues_parent ON issues(parent_id);
+  CREATE INDEX idx_issues_assignee ON issues(assignee_id);
+
+  CREATE TABLE comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    author_id INTEGER NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT ${TS},
+    updated_at TEXT
+  );
+  CREATE INDEX idx_comments_issue ON comments(issue_id);
+
+  CREATE TABLE attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    uploader_id INTEGER NOT NULL REFERENCES users(id),
+    filename TEXT NOT NULL,
+    stored_name TEXT NOT NULL,
+    mime TEXT,
+    size INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT ${TS}
+  );
+  CREATE INDEX idx_attachments_issue ON attachments(issue_id);
+
+  CREATE TABLE issue_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    field TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    old_label TEXT,
+    new_label TEXT,
+    created_at TEXT NOT NULL DEFAULT ${TS}
+  );
+  CREATE INDEX idx_history_issue ON issue_history(issue_id, created_at);
+  CREATE INDEX idx_history_time ON issue_history(created_at);
+
+  CREATE TABLE issue_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    target_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    type TEXT NOT NULL CHECK (type IN ('blocks','relates','duplicates')),
+    created_by INTEGER REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT ${TS},
+    UNIQUE (source_id, target_id, type)
+  );
+
+  CREATE TABLE settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
+];
+
+export function migrate() {
+  const current = Number((db.prepare('PRAGMA user_version').get() as any).user_version);
+  for (let v = current; v < migrations.length; v++) {
+    tx(() => {
+      db.exec(migrations[v]);
+      db.exec(`PRAGMA user_version = ${v + 1}`);
+    });
+    console.log(`[db] migrated to schema v${v + 1}`);
+  }
+}
+
+export function getSetting(key: string) {
+  return get<{ value: string }>('SELECT value FROM settings WHERE key = ?', key)?.value;
+}
+export function setSetting(key: string, value: string) {
+  run('INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
+}

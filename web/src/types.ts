@@ -1,0 +1,165 @@
+export type IssueType = 'epic' | 'story' | 'task' | 'bug' | 'subtask';
+export type Priority = 'highest' | 'high' | 'medium' | 'low' | 'lowest';
+export type Category = 'todo' | 'inprogress' | 'done';
+
+export interface Me {
+  id: number;
+  username: string;
+  full_name: string;
+  email: string | null;
+  is_admin: number;
+  must_change_password: number;
+}
+
+export interface UserBasic {
+  id: number;
+  username: string;
+  full_name: string;
+}
+
+export interface User extends UserBasic {
+  email: string | null;
+  is_admin: number;
+  is_active: number;
+  must_change_password: number;
+  created_at: string;
+  last_login_at: string | null;
+  project_count: number;
+}
+
+export interface Role {
+  id: number;
+  name: string;
+  description: string | null;
+  permissions: string[];
+  usage: number;
+}
+
+export interface PermissionDef {
+  key: string;
+  group: string;
+  label: string;
+}
+
+export interface Status {
+  id: number;
+  project_id: number;
+  name: string;
+  category: Category;
+  position: number;
+  wip_limit: number | null;
+}
+
+export interface Member extends UserBasic {
+  email: string | null;
+  is_active: number;
+  role_id: number;
+  role_name: string;
+}
+
+export interface Sprint {
+  id: number;
+  project_id: number;
+  name: string;
+  goal: string | null;
+  state: 'future' | 'active' | 'closed';
+  start_date: string | null;
+  end_date: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  committed_points: number | null;
+  completed_points: number | null;
+  issue_count?: number;
+  points?: number;
+  done_points?: number;
+}
+
+export interface ProjectSummary {
+  id: number;
+  key: string;
+  name: string;
+  description: string | null;
+  type: 'scrum' | 'kanban';
+  lead_id: number;
+  lead_name: string;
+  member_count: number;
+  open_count: number;
+  issue_count: number;
+  my_role: string | null;
+  is_archived: number;
+}
+
+export interface Project {
+  id: number;
+  key: string;
+  name: string;
+  description: string | null;
+  type: 'scrum' | 'kanban';
+  lead_id: number;
+  lead: { id: number; full_name: string } | null;
+  workflow_strict: number;
+  statuses: Status[];
+  members: Member[];
+  transitions: { from_status_id: number; to_status_id: number }[];
+  active_sprint: Sprint | null;
+  labels: string[];
+  permissions: string[];
+}
+
+export interface Issue {
+  id: number;
+  project_id: number;
+  project_key: string;
+  project_name: string;
+  number: number;
+  key: string;
+  type: IssueType;
+  summary: string;
+  description: string | null;
+  status_id: number;
+  status_name: string;
+  status_category: Category;
+  priority: Priority;
+  assignee_id: number | null;
+  assignee_name: string | null;
+  reporter_id: number | null;
+  reporter_name: string | null;
+  parent_id: number | null;
+  parent_key: string | null;
+  parent_summary: string | null;
+  parent_type: IssueType | null;
+  sprint_id: number | null;
+  sprint_name: string | null;
+  sprint_state: string | null;
+  story_points: number | null;
+  labels: string[];
+  start_date: string | null;
+  due_date: string | null;
+  rank: number;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  child_count: number;
+  child_done: number;
+}
+
+export interface HistoryItem {
+  id: number;
+  field: string;
+  old_label: string | null;
+  new_label: string | null;
+  created_at: string;
+  user_name: string | null;
+}
+
+export interface IssueDetail extends Issue {
+  children: (Pick<Issue, 'id' | 'key' | 'type' | 'summary' | 'priority' | 'story_points' | 'assignee_id' | 'assignee_name' | 'status_name' | 'status_category'>)[];
+  comments: { id: number; author_id: number; author_name: string; body: string; created_at: string; updated_at: string | null }[];
+  attachments: { id: number; filename: string; mime: string; size: number; created_at: string; uploader_id: number; uploader_name: string }[];
+  links: { id: number; type: string; direction: 'in' | 'out'; key: string; summary: string; issue_type: IssueType; status_name: string; status_category: Category }[];
+  history: HistoryItem[];
+  can_edit: boolean;
+  permissions: string[];
+  workflow_strict: boolean;
+  transitions: { from_status_id: number; to_status_id: number }[];
+}

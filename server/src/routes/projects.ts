@@ -1,0 +1,333 @@
+import { Router, type Request } from 'express';
+import { all, get, localDate, now, run, tx } from '../db.ts';
+import { requireAdmin } from '../auth.ts';
+import { addHistory } from '../issues.ts';
+import {
+  accessibleProjectIds, badRequest, forbidden, notFound, requireProjectAccess, type Permission,
+} from '../permissions.ts';
+
+const r = Router();
+
+export function loadProject(req: Request, perm?: Permission) {
+  const key = String(req.params.key || '').toUpperCase();
+  const project = get('SELECT * FROM projects WHERE key = ?', key);
+  if (!project) throw notFound('Không tìm thấy dự án');
+  const perms = requireProjectAccess(req.user, project.id);
+  if (perm && !perms.has(perm)) throw forbidden();
+  return { project, perms };
+}
+
+const DEFAULT_STATUSES: [string, string][] = [
+  ['Cần làm', 'todo'],
+  ['Đang làm', 'inprogress'],
+  ['Đang review', 'inprogress'],
+  ['Kiểm thử', 'inprogress'],
+  ['Hoàn thành', 'done'],
+];
+
+// ---------------------------------------------------------------------------
+// Dự án
+// ---------------------------------------------------------------------------
+r.get('/', (req, res) => {
+  const ids = accessibleProjectIds(req.user);
+  const showArchived = req.query.archived === '1' && req.user.is_admin;
+  const rows = all(`
+    SELECT p.*, u.full_name AS lead_name,
+      (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS member_count,
+      (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id
+        WHERE i.project_id = p.id AND s.category <> 'done') AS open_count,
+      (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id) AS issue_count,
+      (SELECT r.name FROM project_members pm JOIN roles r ON r.id = pm.role_id
+        WHERE pm.project_id = p.id AND pm.user_id = ?) AS my_role
+    FROM projects p LEFT JOIN users u ON u.id = p.lead_id
+    WHERE p.is_archived = ? ORDER BY p.name`, req.user.id, showArchived ? 1 : 0);
+  res.json(ids === 'all' ? rows : rows.filter((p) => ids.includes(p.id)));
+});
+
+r.post('/', requireAdmin, (req, res) => {
+  const b = req.body || {};
+  const key = String(b.key || '').trim().toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{1,9}$/.test(key)) throw badRequest('Mã dự án 2–10 ký tự, bắt đầu bằng chữ cái, chỉ gồm chữ in hoa và số');
+  if (get('SELECT 1 FROM projects WHERE key = ?', key)) throw badRequest('Mã dự án đã tồn tại');
+  const name = String(b.name || '').trim();
+  if (!name) throw badRequest('Tên dự án không được để trống');
+  const type = b.type === 'kanban' ? 'kanban' : 'scrum';
+  const leadId = b.lead_id ? Number(b.lead_id) : req.user.id;
+  if (!get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', leadId)) throw badRequest('Trưởng dự án không hợp lệ');
+
+  const id = tx(() => {
+    const { id } = run('INSERT INTO projects(key, name, description, type, lead_id) VALUES (?,?,?,?,?)',
+      key, name, b.description || null, type, leadId);
+    DEFAULT_STATUSES.forEach(([n, c], i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', id, n, c, i));
+    const pmRole = get("SELECT id FROM roles WHERE permissions LIKE '%project.admin%' ORDER BY id LIMIT 1") ?? get('SELECT id FROM roles ORDER BY id LIMIT 1');
+    if (pmRole) run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, pmRole.id);
+    return id;
+  });
+  res.status(201).json(get('SELECT * FROM projects WHERE id = ?', id));
+});
+
+r.get('/:key', (req, res) => {
+  const { project, perms } = loadProject(req);
+  const statuses = all('SELECT * FROM statuses WHERE project_id = ? ORDER BY position, id', project.id);
+  const members = all(`SELECT u.id, u.username, u.full_name, u.email, u.is_active, pm.role_id, r.name AS role_name
+    FROM project_members pm JOIN users u ON u.id = pm.user_id JOIN roles r ON r.id = pm.role_id
+    WHERE pm.project_id = ? ORDER BY u.full_name`, project.id);
+  const transitions = all('SELECT from_status_id, to_status_id FROM transitions WHERE project_id = ?', project.id);
+  const activeSprint = get("SELECT * FROM sprints WHERE project_id = ? AND state = 'active'", project.id) ?? null;
+  const lead = get('SELECT id, full_name FROM users WHERE id = ?', project.lead_id) ?? null;
+  const labels = new Set<string>();
+  for (const row of all<{ labels: string }>('SELECT DISTINCT labels FROM issues WHERE project_id = ? AND labels IS NOT NULL', project.id)) {
+    row.labels.split(',').forEach((l) => l && labels.add(l));
+  }
+  res.json({
+    ...project, lead, statuses, members, transitions, active_sprint: activeSprint,
+    labels: [...labels].sort(), permissions: [...perms],
+  });
+});
+
+r.patch('/:key', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const b = req.body || {};
+  const name = b.name !== undefined ? String(b.name).trim() : project.name;
+  if (!name) throw badRequest('Tên dự án không được để trống');
+  const type = b.type !== undefined ? (b.type === 'kanban' ? 'kanban' : 'scrum') : project.type;
+  const leadId = b.lead_id !== undefined ? Number(b.lead_id) : project.lead_id;
+  run('UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ? WHERE id = ?',
+    name, b.description !== undefined ? b.description || null : project.description, type, leadId, project.id);
+  res.json({ ok: true });
+});
+
+r.post('/:key/archive', requireAdmin, (req, res) => {
+  const project = get('SELECT * FROM projects WHERE key = ?', String(req.params.key).toUpperCase());
+  if (!project) throw notFound();
+  run('UPDATE projects SET is_archived = ? WHERE id = ?', req.body?.archived === false ? 0 : 1, project.id);
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Thành viên
+// ---------------------------------------------------------------------------
+r.post('/:key/members', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const userId = Number(req.body?.user_id);
+  const roleId = Number(req.body?.role_id);
+  if (!get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', userId)) throw badRequest('Người dùng không hợp lệ');
+  if (!get('SELECT 1 FROM roles WHERE id = ?', roleId)) throw badRequest('Vai trò không hợp lệ');
+  if (get('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', project.id, userId)) {
+    throw badRequest('Người dùng đã là thành viên dự án');
+  }
+  run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', project.id, userId, roleId);
+  res.status(201).json({ ok: true });
+});
+
+r.patch('/:key/members/:userId', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const roleId = Number(req.body?.role_id);
+  if (!get('SELECT 1 FROM roles WHERE id = ?', roleId)) throw badRequest('Vai trò không hợp lệ');
+  run('UPDATE project_members SET role_id = ? WHERE project_id = ? AND user_id = ?', roleId, project.id, Number(req.params.userId));
+  res.json({ ok: true });
+});
+
+r.delete('/:key/members/:userId', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const userId = Number(req.params.userId);
+  if (userId === req.user.id && !req.user.is_admin) throw badRequest('Không thể tự xóa mình khỏi dự án');
+  run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', project.id, userId);
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Trạng thái & workflow
+// ---------------------------------------------------------------------------
+const CATEGORIES = ['todo', 'inprogress', 'done'];
+
+r.post('/:key/statuses', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const name = String(req.body?.name || '').trim();
+  const category = String(req.body?.category || 'inprogress');
+  if (!name) throw badRequest('Tên trạng thái không được để trống');
+  if (!CATEGORIES.includes(category)) throw badRequest('Nhóm trạng thái không hợp lệ');
+  const pos = (get('SELECT MAX(position) m FROM statuses WHERE project_id = ?', project.id)?.m ?? -1) + 1;
+  const { id } = run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', project.id, name, category, pos);
+  res.status(201).json({ id });
+});
+
+r.put('/:key/statuses/order', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const ids: number[] = (req.body?.ids || []).map(Number);
+  tx(() => ids.forEach((id, i) => run('UPDATE statuses SET position = ? WHERE id = ? AND project_id = ?', i, id, project.id)));
+  res.json({ ok: true });
+});
+
+r.patch('/:key/statuses/:id', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const s = get('SELECT * FROM statuses WHERE id = ? AND project_id = ?', Number(req.params.id), project.id);
+  if (!s) throw notFound();
+  const name = req.body?.name !== undefined ? String(req.body.name).trim() : s.name;
+  const category = req.body?.category ?? s.category;
+  if (!name) throw badRequest('Tên trạng thái không được để trống');
+  if (!CATEGORIES.includes(category)) throw badRequest('Nhóm trạng thái không hợp lệ');
+  const wip = req.body?.wip_limit !== undefined ? (Number(req.body.wip_limit) > 0 ? Number(req.body.wip_limit) : null) : s.wip_limit;
+  run('UPDATE statuses SET name = ?, category = ?, wip_limit = ? WHERE id = ?', name, category, wip, s.id);
+  res.json({ ok: true });
+});
+
+r.delete('/:key/statuses/:id', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const s = get('SELECT * FROM statuses WHERE id = ? AND project_id = ?', Number(req.params.id), project.id);
+  if (!s) throw notFound();
+  if (get<{ c: number }>('SELECT COUNT(*) c FROM statuses WHERE project_id = ?', project.id)!.c <= 1) {
+    throw badRequest('Dự án phải có ít nhất một trạng thái');
+  }
+  const inUse = get<{ c: number }>('SELECT COUNT(*) c FROM issues WHERE status_id = ?', s.id)!.c;
+  tx(() => {
+    if (inUse) {
+      const target = get('SELECT * FROM statuses WHERE id = ? AND project_id = ?', Number(req.query.moveTo), project.id);
+      if (!target || target.id === s.id) throw badRequest(`Có ${inUse} issue đang ở trạng thái này, hãy chọn trạng thái để chuyển sang`);
+      for (const i of all('SELECT id FROM issues WHERE status_id = ?', s.id)) {
+        addHistory(i.id, req.user.id, 'status', s.id, target.id, s.name, target.name);
+      }
+      run('UPDATE issues SET status_id = ?, resolved_at = CASE WHEN ? = \'done\' THEN COALESCE(resolved_at, ?) ELSE NULL END WHERE status_id = ?',
+        target.id, target.category, now(), s.id);
+    }
+    run('DELETE FROM statuses WHERE id = ?', s.id);
+  });
+  res.json({ ok: true });
+});
+
+r.put('/:key/workflow', (req, res) => {
+  const { project } = loadProject(req, 'project.admin');
+  const list: { from_status_id: number; to_status_id: number }[] = req.body?.transitions || [];
+  const valid = new Set(all('SELECT id FROM statuses WHERE project_id = ?', project.id).map((s) => s.id));
+  tx(() => {
+    run('UPDATE projects SET workflow_strict = ? WHERE id = ?', !!req.body?.strict, project.id);
+    run('DELETE FROM transitions WHERE project_id = ?', project.id);
+    for (const t of list) {
+      const f = Number(t.from_status_id), to = Number(t.to_status_id);
+      if (f !== to && valid.has(f) && valid.has(to)) {
+        run('INSERT OR IGNORE INTO transitions(project_id, from_status_id, to_status_id) VALUES (?,?,?)', project.id, f, to);
+      }
+    }
+  });
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint
+// ---------------------------------------------------------------------------
+r.get('/:key/sprints', (req, res) => {
+  const { project } = loadProject(req);
+  const state = req.query.state ? String(req.query.state).split(',') : ['future', 'active', 'closed'];
+  const rows = all(`
+    SELECT sp.*,
+      (SELECT COUNT(*) FROM issues i WHERE i.sprint_id = sp.id AND i.type <> 'subtask') AS issue_count,
+      (SELECT COALESCE(SUM(i.story_points),0) FROM issues i WHERE i.sprint_id = sp.id AND i.type <> 'subtask') AS points,
+      (SELECT COALESCE(SUM(i.story_points),0) FROM issues i JOIN statuses s ON s.id = i.status_id
+        WHERE i.sprint_id = sp.id AND i.type <> 'subtask' AND s.category = 'done') AS done_points
+    FROM sprints sp WHERE sp.project_id = ?
+    ORDER BY CASE sp.state WHEN 'active' THEN 0 WHEN 'future' THEN 1 ELSE 2 END, sp.id`, project.id);
+  res.json(rows.filter((s) => state.includes(s.state)));
+});
+
+r.post('/:key/sprints', (req, res) => {
+  const { project } = loadProject(req, 'sprint.manage');
+  const id = tx(() => {
+    run('UPDATE projects SET sprint_seq = sprint_seq + 1 WHERE id = ?', project.id);
+    const seq = get('SELECT sprint_seq FROM projects WHERE id = ?', project.id)!.sprint_seq;
+    const name = String(req.body?.name || '').trim() || `${project.key} Sprint ${seq}`;
+    return run('INSERT INTO sprints(project_id, name, goal) VALUES (?,?,?)', project.id, name, req.body?.goal || null).id;
+  });
+  res.status(201).json(get('SELECT * FROM sprints WHERE id = ?', id));
+});
+
+function loadSprint(req: Request) {
+  const { project } = loadProject(req, 'sprint.manage');
+  const sprint = get('SELECT * FROM sprints WHERE id = ? AND project_id = ?', Number(req.params.id), project.id);
+  if (!sprint) throw notFound('Không tìm thấy sprint');
+  return { project, sprint };
+}
+
+function checkDate(v: unknown, label: string) {
+  if (!v) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(v))) throw badRequest(`${label} không hợp lệ`);
+  return String(v);
+}
+
+r.patch('/:key/sprints/:id', (req, res) => {
+  const { sprint } = loadSprint(req);
+  if (sprint.state === 'closed') throw badRequest('Sprint đã đóng, không thể sửa');
+  const b = req.body || {};
+  const name = b.name !== undefined ? String(b.name).trim() : sprint.name;
+  if (!name) throw badRequest('Tên sprint không được để trống');
+  const start = b.start_date !== undefined ? checkDate(b.start_date, 'Ngày bắt đầu') : sprint.start_date;
+  const end = b.end_date !== undefined ? checkDate(b.end_date, 'Ngày kết thúc') : sprint.end_date;
+  if (start && end && end < start) throw badRequest('Ngày kết thúc phải sau ngày bắt đầu');
+  run('UPDATE sprints SET name = ?, goal = ?, start_date = ?, end_date = ? WHERE id = ?',
+    name, b.goal !== undefined ? b.goal || null : sprint.goal, start, end, sprint.id);
+  res.json({ ok: true });
+});
+
+r.post('/:key/sprints/:id/start', (req, res) => {
+  const { project, sprint } = loadSprint(req);
+  if (sprint.state !== 'future') throw badRequest('Chỉ bắt đầu được sprint chưa chạy');
+  if (get("SELECT 1 FROM sprints WHERE project_id = ? AND state = 'active'", project.id)) {
+    throw badRequest('Dự án đang có sprint chạy, hãy hoàn thành sprint đó trước');
+  }
+  const b = req.body || {};
+  const start = checkDate(b.start_date, 'Ngày bắt đầu') || localDate();
+  const end = checkDate(b.end_date, 'Ngày kết thúc');
+  if (!end) throw badRequest('Cần chọn ngày kết thúc sprint');
+  if (end < start) throw badRequest('Ngày kết thúc phải sau ngày bắt đầu');
+  const stats = get(`SELECT COUNT(*) c, COALESCE(SUM(story_points),0) p FROM issues WHERE sprint_id = ? AND type <> 'subtask'`, sprint.id)!;
+  run(`UPDATE sprints SET state = 'active', name = ?, goal = ?, start_date = ?, end_date = ?, started_at = ?,
+       committed_points = ?, committed_issues = ? WHERE id = ?`,
+  String(b.name || sprint.name), b.goal !== undefined ? b.goal || null : sprint.goal, start, end, now(), stats.p, stats.c, sprint.id);
+  res.json({ ok: true });
+});
+
+r.post('/:key/sprints/:id/complete', (req, res) => {
+  const { project, sprint } = loadSprint(req);
+  if (sprint.state !== 'active') throw badRequest('Chỉ hoàn thành được sprint đang chạy');
+  const moveTo = req.body?.move_to;
+  tx(() => {
+    let target: number | null = null;
+    if (moveTo === 'new') {
+      run('UPDATE projects SET sprint_seq = sprint_seq + 1 WHERE id = ?', project.id);
+      const seq = get('SELECT sprint_seq FROM projects WHERE id = ?', project.id)!.sprint_seq;
+      target = run('INSERT INTO sprints(project_id, name) VALUES (?,?)', project.id, `${project.key} Sprint ${seq}`).id;
+    } else if (moveTo && moveTo !== 'backlog') {
+      const t = get("SELECT * FROM sprints WHERE id = ? AND project_id = ? AND state = 'future'", Number(moveTo), project.id);
+      if (!t) throw badRequest('Sprint đích không hợp lệ');
+      target = t.id;
+    }
+    const targetName = target ? get('SELECT name FROM sprints WHERE id = ?', target)!.name : null;
+    const ts = now();
+    const stats = get(`SELECT COUNT(*) c, COALESCE(SUM(i.story_points),0) p FROM issues i JOIN statuses s ON s.id = i.status_id
+      WHERE i.sprint_id = ? AND i.type <> 'subtask' AND s.category = 'done'`, sprint.id)!;
+    const open = all(`SELECT i.id FROM issues i JOIN statuses s ON s.id = i.status_id
+      LEFT JOIN issues par ON par.id = i.parent_id LEFT JOIN statuses ps ON ps.id = par.status_id
+      WHERE i.sprint_id = ? AND (s.category <> 'done' OR (i.type = 'subtask' AND ps.category <> 'done'))`, sprint.id);
+    for (const i of open) {
+      run('UPDATE issues SET sprint_id = ?, updated_at = ? WHERE id = ?', target, ts, i.id);
+      addHistory(i.id, req.user.id, 'sprint', sprint.id, target, sprint.name, targetName);
+    }
+    run(`UPDATE sprints SET state = 'closed', completed_at = ?, completed_points = ?, completed_issues = ? WHERE id = ?`,
+      ts, stats.p, stats.c, sprint.id);
+  });
+  res.json({ ok: true });
+});
+
+r.delete('/:key/sprints/:id', (req, res) => {
+  const { sprint } = loadSprint(req);
+  if (sprint.state !== 'future') throw badRequest('Chỉ xóa được sprint chưa bắt đầu');
+  tx(() => {
+    for (const i of all('SELECT id FROM issues WHERE sprint_id = ?', sprint.id)) {
+      addHistory(i.id, req.user.id, 'sprint', sprint.id, null, sprint.name, null);
+    }
+    run('UPDATE issues SET sprint_id = NULL WHERE sprint_id = ?', sprint.id);
+    run('DELETE FROM sprints WHERE id = ?', sprint.id);
+  });
+  res.json({ ok: true });
+});
+
+export default r;
