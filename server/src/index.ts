@@ -60,6 +60,8 @@ app.use('/api', (_req, _res, next) => next(new HttpError(404, 'API không tồn 
 const webDist = path.resolve(import.meta.dirname, '../../web/dist');
 if (fs.existsSync(webDist)) {
   app.use(express.static(webDist, { index: false, maxAge: '7d' }));
+  // Tệp build cũ không còn (sau khi triển khai bản mới) → trả 404, không trả index.html
+  app.use('/assets', (_req, res) => { res.status(404).end(); });
   app.get('/{*splat}', (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(webDist, 'index.html'));
