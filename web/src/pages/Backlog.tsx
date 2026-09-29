@@ -7,12 +7,12 @@ import { fmtDate, TYPE_LABELS } from '../util';
 import { Spinner, toast, toastError } from '../components/ui';
 import { FilterBar, useFilters } from '../components/FilterBar';
 import { IssueLine } from '../components/IssueRow';
-import { CompleteSprintModal, StartSprintModal } from '../components/SprintModals';
+import { CompleteSprintModal, SprintSeriesModal, StartSprintModal } from '../components/SprintModals';
 import CreateIssueModal from '../components/CreateIssueModal';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar, runBulk } from '../components/BulkBar';
 import { useProjectCtx } from './ProjectLayout';
-import { ChevronDown, ChevronRight, Plus, Target } from 'lucide-react';
+import { CalendarRange, ChevronDown, ChevronRight, Plus, Target } from 'lucide-react';
 
 type Container = number | 'backlog';
 
@@ -34,6 +34,7 @@ export default function Backlog() {
   const [drop, setDrop] = useState<{ c: Container; index: number } | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [startModal, setStartModal] = useState<{ sprint: Sprint; mode: 'start' | 'edit' } | null>(null);
+  const [series, setSeries] = useState(false);
   const [completeModal, setCompleteModal] = useState<Sprint | null>(null);
   // Chọn nhiều issue (Ctrl/Shift + bấm, hoặc ô tick) để kéo cả nhóm hoặc sửa hàng loạt
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -133,6 +134,7 @@ export default function Backlog() {
     <div className={`page-pad ${selected.size ? 'has-selection' : ''}`}>
       <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
         {canSprint && <button className="btn btn-sm btn-primary" onClick={createSprint}><Plus size={14} strokeWidth={2.5} /> Tạo sprint</button>}
+        {canSprint && sprints.length > 0 && <button className="btn btn-sm" onClick={() => setSeries(true)} data-tip="Tạo tiếp nhiều sprint theo độ dài và nhịp của các sprint đã có"><CalendarRange size={14} /> Tạo loạt sprint</button>}
         <ImportButton project={project} />
       </FilterBar>
       {selected.size > 0 && <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />}
@@ -222,6 +224,7 @@ export default function Backlog() {
       })}
 
       {startModal && <StartSprintModal project={project} sprint={startModal.sprint} mode={startModal.mode} onClose={() => setStartModal(null)} />}
+      {series && <SprintSeriesModal project={project} sprints={sprints} onClose={() => setSeries(false)} />}
       {completeModal && (
         <CompleteSprintModal project={project} sprint={completeModal}
           futureSprints={sprints.filter((s) => s.state === 'future')}

@@ -290,6 +290,35 @@ r.post('/:key/sprints', (req, res) => {
   res.status(201).json(get('SELECT * FROM sprints WHERE id = ?', id));
 });
 
+/** Ngày muộn nhất trong kế hoạch (hạn hoàn thành/ngày bắt đầu của issue) — mốc để tạo loạt sprint. */
+r.get('/:key/sprints/plan-end', (req, res) => {
+  const { project } = loadProject(req);
+  const row = get(`SELECT MAX(COALESCE(due_date, start_date)) AS d FROM issues WHERE project_id = ?`, project.id);
+  res.json({ plan_end: row?.d ?? null });
+});
+
+/** Tạo nhiều sprint một lần (theo quy luật người dùng đã xem trước). Tất cả hoặc không gì cả. */
+r.post('/:key/sprints/batch', (req, res) => {
+  const { project } = loadProject(req, 'sprint.manage');
+  const list = Array.isArray(req.body?.sprints) ? req.body.sprints : [];
+  if (!list.length) throw badRequest('Chưa có sprint nào để tạo');
+  if (list.length > 100) throw badRequest('Tối đa 100 sprint mỗi lần');
+  const rows = list.map((s: any, i: number) => {
+    const name = String(s?.name || '').trim();
+    if (!name) throw badRequest(`Sprint thứ ${i + 1}: thiếu tên`);
+    const start = checkDate(s.start_date, `Sprint "${name}": ngày bắt đầu`);
+    const end = checkDate(s.end_date, `Sprint "${name}": ngày kết thúc`);
+    if (start && end && end < start) throw badRequest(`Sprint "${name}": ngày kết thúc phải sau ngày bắt đầu`);
+    return { name, start, end, goal: s.goal ? String(s.goal) : null };
+  });
+  const ids = tx(() => rows.map((s: { name: string; start: string | null; end: string | null; goal: string | null }) => {
+    run('UPDATE projects SET sprint_seq = sprint_seq + 1 WHERE id = ?', project.id);
+    return run('INSERT INTO sprints(project_id, name, goal, start_date, end_date) VALUES (?,?,?,?,?)',
+      project.id, s.name, s.goal, s.start, s.end).id;
+  }));
+  res.status(201).json({ created: ids.length });
+});
+
 function loadSprint(req: Request) {
   const { project } = loadProject(req, 'sprint.manage');
   const sprint = get('SELECT * FROM sprints WHERE id = ? AND project_id = ?', Number(req.params.id), project.id);
