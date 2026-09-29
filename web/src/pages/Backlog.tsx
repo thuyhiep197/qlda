@@ -12,7 +12,7 @@ import CreateIssueModal from '../components/CreateIssueModal';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar, runBulk } from '../components/BulkBar';
 import { useProjectCtx } from './ProjectLayout';
-import { ChevronDown, ChevronRight, Target } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Target } from 'lucide-react';
 
 type Container = number | 'backlog';
 
@@ -111,7 +111,13 @@ export default function Backlog() {
   };
 
   const createSprint = async () => {
-    try { await api.post(`/projects/${project.key}/sprints`, {}); await refreshAll(); } catch (e) { toastError(e); }
+    try {
+      // Như Jira: tạo sprint rồi mở ngay hộp đặt tên, ngày bắt đầu/kết thúc, mục tiêu
+      const s = await api.post<Sprint>(`/projects/${project.key}/sprints`, {});
+      await refreshAll();
+      toast(`Đã tạo ${s.name}`);
+      setStartModal({ sprint: s, mode: 'edit' });
+    } catch (e) { toastError(e); }
   };
 
   const deleteSprint = async (s: Sprint) => {
@@ -126,6 +132,7 @@ export default function Backlog() {
   return (
     <div className={`page-pad ${selected.size ? 'has-selection' : ''}`}>
       <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
+        {canSprint && <button className="btn btn-sm btn-primary" onClick={createSprint}><Plus size={14} strokeWidth={2.5} /> Tạo sprint</button>}
         <ImportButton project={project} />
       </FilterBar>
       {selected.size > 0 && <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />}
@@ -172,7 +179,7 @@ export default function Backlog() {
               )}
               {sprint && canSprint && <button className="btn btn-subtle btn-sm" onClick={() => setStartModal({ sprint, mode: 'edit' })}>Sửa</button>}
               {sprint && canSprint && sprint.state === 'future' && <button className="btn btn-subtle btn-sm" onClick={() => deleteSprint(sprint)}>Xóa</button>}
-              {!sprint && canSprint && <button className="btn btn-sm" onClick={createSprint}>Tạo sprint</button>}
+              {!sprint && canSprint && <button className="btn btn-sm" onClick={createSprint}><Plus size={14} /> Tạo sprint</button>}
             </div>
             {sprint?.goal && !isCollapsed && <div className="sprint-goal muted small"><Target size={13} /> {sprint.goal}</div>}
             {!isCollapsed && (
