@@ -144,6 +144,7 @@ select { cursor: pointer; }
 .icon-btn {
   border: none; background: transparent; cursor: pointer; border-radius: 4px;
   min-width: 28px; height: 28px; font-size: 14px; color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .icon-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .icon-btn:disabled { opacity: .3; }
@@ -624,3 +625,24 @@ input.switch:checked::after { left: 18px; }
 .roadmap-cell.roadmap-child { height: 36px; background: var(--sunken); }
 .roadmap-left .roadmap-child { padding-left: 44px; }
 .bar.bar-child { height: 16px; }
+
+/* ---------- Icon (bộ Lucide) ---------- */
+.lucide { flex-shrink: 0; }
+.type-icon { display: inline-flex; align-items: center; justify-content: center; }
+.nav a .lucide { color: var(--muted); }
+.nav a.active .lucide, .nav a:hover .lucide { color: inherit; }
+.tabs a, .tabs button { display: inline-flex; align-items: center; gap: 6px; }
+.tabs a .lucide { opacity: .85; }
+.dropdown button { display: flex; align-items: center; gap: 10px; }
+.dropdown button .lucide { color: var(--muted); }
+.settings-nav button { display: flex; align-items: center; gap: 10px; }
+.search { position: relative; }
+.search .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.search input { padding-left: 32px; }
+.icon-text, span.ok, span.bad, span.warn, .sprint-goal { display: inline-flex; align-items: center; gap: 4px; }
+div.icon-text, div.sprint-goal { display: flex; }
+div.ok, div.bad, div.warn { display: flex; align-items: flex-start; gap: 4px; }
+div.bad .lucide, div.warn .lucide { margin-top: 3px; }
+.label-chip button { display: inline-flex; align-items: center; }
+.sort-caret { vertical-align: -2px; margin-left: 2px; }
+.issue-card .muted.small .lucide, .issue-card .small .lucide { vertical-align: -2px; }

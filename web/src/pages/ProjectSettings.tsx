@@ -6,6 +6,7 @@ import type { Category, IssueType, Status } from '../types';
 import { CATEGORY_LABELS, statusesFor, TYPE_LABELS, typeTip } from '../util';
 import { Avatar, Modal, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 
 export default function ProjectSettings() {
   const [tab, setTab] = useState<'general' | 'members' | 'workflow'>('general');
@@ -186,7 +187,7 @@ function Workflow() {
           <tbody>
             {statuses.map((s, i) => (
               <tr key={s.id}>
-                <td className="nowrap"><button className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)}>↑</button><button className="icon-btn" disabled={i === statuses.length - 1} onClick={() => move(i, 1)}>↓</button></td>
+                <td className="nowrap"><button className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Lên"><ArrowUp size={14} /></button><button className="icon-btn" disabled={i === statuses.length - 1} onClick={() => move(i, 1)} aria-label="Xuống"><ArrowDown size={14} /></button></td>
                 <td><input defaultValue={s.name} onBlur={(e) => e.target.value.trim() && e.target.value !== s.name && patch(s, { name: e.target.value })} /></td>
                 <td>
                   <select value={s.category} onChange={(e) => patch(s, { category: e.target.value as Category })}>

@@ -11,6 +11,7 @@ import { EpicTag } from '../components/IssueRow';
 import { CompleteSprintModal } from '../components/SprintModals';
 import { QuickCreate } from './Backlog';
 import { useProjectCtx } from './ProjectLayout';
+import { CalendarDays, ChevronDown, ChevronRight, CornerDownRight, SquareCheck, Target } from 'lucide-react';
 
 type Group = 'none' | 'assignee' | 'epic';
 
@@ -116,7 +117,7 @@ export default function Board() {
             <b>{sprint.name}</b>
             <span className="muted small"> · {fmtDate(sprint.start_date)} – {fmtDate(sprint.end_date)}</span>
             {daysLeft !== null && <span className={`small ${daysLeft < 0 ? 'overdue' : 'muted'}`}> · {daysLeft >= 0 ? `còn ${daysLeft} ngày` : `trễ ${-daysLeft} ngày`}</span>}
-            {sprint.goal && <div className="muted small">🎯 {sprint.goal}</div>}
+            {sprint.goal && <div className="muted small icon-text"><Target size={13} /> {sprint.goal}</div>}
           </div>
           <div className="spacer" />
           {can(project.permissions, 'sprint.manage') && <button className="btn" onClick={() => setCompleting(true)}>Hoàn thành sprint</button>}
@@ -194,7 +195,7 @@ function Lane({ lane, statuses, group, children }: {
   return (
     <>
       <div className="lane-head" style={{ gridColumn: `1 / span ${statuses.length}` }} onClick={() => setCollapsed(!collapsed)}>
-        {collapsed ? '▸' : '▾'} {lane.title} <span className="muted small">({lane.items.length} issue)</span>
+        {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />} {lane.title} <span className="muted small">({lane.items.length} issue)</span>
       </div>
       {!collapsed && children}
     </>
@@ -204,7 +205,7 @@ function Lane({ lane, statuses, group, children }: {
 function Card({ issue, onOpen, dragging }: { issue: Issue; onOpen: () => void; dragging: boolean }) {
   return (
     <div className={`card-issue ${dragging ? 'dragging' : ''}`} onClick={onOpen}>
-      {issue.type === 'subtask' && issue.parent_key && <div className="muted small ellipsis">↳ {issue.parent_key} {issue.parent_summary}</div>}
+      {issue.type === 'subtask' && issue.parent_key && <div className="muted small ellipsis"><CornerDownRight size={12} /> {issue.parent_key} {issue.parent_summary}</div>}
       <div className={`card-title ${issue.status_category === 'done' ? 'done-text' : ''}`}>{issue.summary}</div>
       <div className="card-tags">
         <EpicTag issue={issue} />
@@ -213,8 +214,8 @@ function Card({ issue, onOpen, dragging }: { issue: Issue; onOpen: () => void; d
       <div className="card-foot">
         <TypeIcon type={issue.type} />
         <span className="issue-key small">{issue.key}</span>
-        {issue.child_count > 0 && <span className="muted small nowrap" title="Sub-task hoàn thành">☑ {issue.child_done}/{issue.child_count}</span>}
-        {issue.due_date && <span className={`small ${isOverdue(issue) ? 'overdue' : issue.due_date === today() ? 'warn' : 'muted'}`}>📅 {fmtDate(issue.due_date).slice(0, 5)}</span>}
+        {issue.child_count > 0 && <span className="muted small nowrap" title="Sub-task hoàn thành"><SquareCheck size={12} /> {issue.child_done}/{issue.child_count}</span>}
+        {issue.due_date && <span className={`small ${isOverdue(issue) ? 'overdue' : issue.due_date === today() ? 'warn' : 'muted'} icon-text`}><CalendarDays size={12} /> {fmtDate(issue.due_date).slice(0, 5)}</span>}
         <div className="spacer" />
         <PriorityIcon priority={issue.priority} />
         {issue.story_points != null && <span className="points" data-tip="Điểm ước lượng">{issue.story_points}</span>}

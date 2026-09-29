@@ -8,6 +8,7 @@ import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
 import { colorOf } from '../util';
+import { FolderKanban, House, LogOut, Menu, Moon, Plus, Search, Settings, ShieldCheck, Sun, Users } from 'lucide-react';
 
 export default function Layout() {
   const { data: me } = useMe();
@@ -48,9 +49,9 @@ export default function Layout() {
           <span>QLDA</span>
         </NavLink>
         <nav className="nav">
-          <NavLink to="/" end>🏠 Trang chủ</NavLink>
-          <NavLink to="/projects">📁 Tất cả dự án</NavLink>
-          <NavLink to="/issues" end>🔎 Tìm kiếm issue</NavLink>
+          <NavLink to="/" end><House size={18} /> Trang chủ</NavLink>
+          <NavLink to="/projects"><FolderKanban size={18} /> Tất cả dự án</NavLink>
+          <NavLink to="/issues" end><Search size={18} /> Tìm kiếm issue</NavLink>
         </nav>
         <div className="nav-section">Dự án của tôi</div>
         <nav className="nav nav-projects">
@@ -66,8 +67,8 @@ export default function Layout() {
           <>
             <div className="nav-section">Quản trị hệ thống</div>
             <nav className="nav">
-              <NavLink to="/admin/users">👤 Người dùng</NavLink>
-              <NavLink to="/admin/roles">🛡️ Vai trò & quyền</NavLink>
+              <NavLink to="/admin/users"><Users size={18} /> Người dùng</NavLink>
+              <NavLink to="/admin/roles"><ShieldCheck size={18} /> Vai trò & quyền</NavLink>
             </nav>
           </>
         )}
@@ -75,11 +76,12 @@ export default function Layout() {
 
       <div className="main">
         <header className="topbar">
-          <button className="icon-btn menu-btn" aria-label="Mở menu" onClick={() => setNavOpen(true)}>☰</button>
+          <button className="icon-btn menu-btn" aria-label="Mở menu" onClick={() => setNavOpen(true)}><Menu size={20} /></button>
           <form onSubmit={search} className="search">
+            <Search size={16} className="search-icon" aria-hidden />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm issue theo từ khóa hoặc mã (VD: DEMO-12)…" />
           </form>
-          <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Tạo issue</button>
+          <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> Tạo issue</button>
           <div className="spacer" />
           <NotificationBell />
           <div className="user-menu">
@@ -93,9 +95,9 @@ export default function Layout() {
                   <b>{me?.full_name}</b>
                   <div className="muted small">@{me?.username}{me?.is_admin ? ' · Quản trị hệ thống' : ''}</div>
                 </div>
-                <button onClick={() => { setMenu(false); navigate('/profile'); }}>⚙️ Cài đặt tài khoản</button>
-                <button onClick={toggleTheme}>{isDark ? '☀️ Chuyển giao diện sáng' : '🌙 Chuyển giao diện tối'}</button>
-                <button onClick={logout}>↩ Đăng xuất</button>
+                <button onClick={() => { setMenu(false); navigate('/profile'); }}><Settings size={16} /> Cài đặt tài khoản</button>
+                <button onClick={toggleTheme}>{isDark ? <><Sun size={16} /> Chuyển giao diện sáng</> : <><Moon size={16} /> Chuyển giao diện tối</>}</button>
+                <button onClick={logout}><LogOut size={16} /> Đăng xuất</button>
               </div>
             )}
           </div>

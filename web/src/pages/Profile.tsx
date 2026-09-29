@@ -7,13 +7,14 @@ import { applyTheme, type ThemePref } from '../theme';
 import { fmtDateTime } from '../util';
 import { Avatar, toast, toastError } from '../components/ui';
 import { ChangePasswordForm } from './ChangePassword';
+import { Bell, Lock, Palette, UserRound, type LucideIcon } from 'lucide-react';
 
 type Tab = 'profile' | 'appearance' | 'notifications' | 'security';
-const TABS: [Tab, string][] = [
-  ['profile', 'Hồ sơ'],
-  ['appearance', 'Giao diện'],
-  ['notifications', 'Thông báo'],
-  ['security', 'Bảo mật'],
+const TABS: [Tab, string, LucideIcon][] = [
+  ['profile', 'Hồ sơ', UserRound],
+  ['appearance', 'Giao diện', Palette],
+  ['notifications', 'Thông báo', Bell],
+  ['security', 'Bảo mật', Lock],
 ];
 
 /** Cài đặt tài khoản cá nhân (như "Personal settings" của Jira). */
@@ -33,8 +34,8 @@ export default function Profile() {
       </div>
       <div className="settings-layout">
         <nav className="settings-nav">
-          {TABS.map(([k, label]) => (
-            <button key={k} className={tab === k ? 'active' : ''} onClick={() => setParams({ tab: k }, { replace: true })}>{label}</button>
+          {TABS.map(([k, label, Icon]) => (
+            <button key={k} className={tab === k ? 'active' : ''} onClick={() => setParams({ tab: k }, { replace: true })}><Icon size={16} /> {label}</button>
           ))}
         </nav>
         <div className="settings-body">
@@ -132,7 +133,7 @@ function NotificationsTab({ me }: { me: Me }) {
   };
   return (
     <div className="card stack">
-      <h3>Thông báo trên chuông 🔔</h3>
+      <h3>Thông báo trên chuông</h3>
       <p className="muted small">Chọn những thông báo muốn nhận. Tắt một loại thì chuông không báo loại đó nữa (các thông báo đã có vẫn giữ nguyên).</p>
       {NOTIFY.map((n) => (
         <label key={n.key} className="switch-row">

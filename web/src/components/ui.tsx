@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { Bookmark, Bug, Check, ChevronDown, ChevronsDown, ChevronsUp, ChevronUp, Equal, ListTree, UserRound, X, Zap, type LucideIcon } from 'lucide-react';
 import type { Category, IssueType, Priority } from '../types';
 import { colorOf, initials, PRIORITY_LABELS, typeTip } from '../util';
 
@@ -11,45 +12,38 @@ const TYPE_COLORS: Record<IssueType, string> = {
   epic: '#904ee2', story: '#63ba3c', task: '#4bade8', bug: '#e5493a', subtask: '#4bade8',
 };
 
+const TYPE_GLYPHS: Record<IssueType, LucideIcon> = {
+  epic: Zap, story: Bookmark, task: Check, bug: Bug, subtask: ListTree,
+};
+
+/** Biểu tượng loại issue: ô màu như Jira, hình vẽ theo bộ Lucide. */
 export function TypeIcon({ type, size = 16 }: { type: IssueType; size?: number }) {
-  const c = TYPE_COLORS[type];
-  const paths: Record<IssueType, ReactNode> = {
-    epic: <path d="M9.2 3 5 9h3l-1.2 4L11 7H8l1.2-4Z" fill="#fff" />,
-    story: <path d="M5.5 4h5v8l-2.5-2-2.5 2V4Z" fill="#fff" />,
-    task: <path d="m5 8.2 2 2 4-4.4" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
-    bug: <circle cx="8" cy="8" r="3" fill="#fff" />,
-    subtask: <><rect x="4.5" y="4.5" width="4" height="4" rx=".5" stroke="#fff" fill="none" /><rect x="7.5" y="7.5" width="4" height="4" rx=".5" fill="#fff" /></>,
-  };
+  const Glyph = TYPE_GLYPHS[type];
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-label={typeTip(type)} role="img" className="type-icon" data-tip={typeTip(type)}>
-      <rect width="16" height="16" rx="3" fill={c} />
-      {paths[type]}
-    </svg>
+    <span className="type-icon" role="img" aria-label={typeTip(type)} data-tip={typeTip(type)}
+      style={{ width: size, height: size, background: TYPE_COLORS[type], borderRadius: Math.max(3, size / 5) }}>
+      <Glyph size={Math.round(size * 0.72)} color="#fff" strokeWidth={type === 'task' ? 3 : 2.5} aria-hidden />
+    </span>
   );
 }
 
-const PRIO: Record<Priority, { color: string; d: string }> = {
-  highest: { color: '#c9372c', d: 'M3 9l5-5 5 5M3 13l5-5 5 5' },
-  high: { color: '#e2483d', d: 'M3 11l5-5 5 5' },
-  medium: { color: '#e2b203', d: 'M3 6h10M3 10h10' },
-  low: { color: '#1d7afc', d: 'M3 5l5 5 5-5' },
-  lowest: { color: '#1d7afc', d: 'M3 3l5 5 5-5M3 7l5 5 5-5' },
+const PRIO: Record<Priority, { color: string; Icon: LucideIcon }> = {
+  highest: { color: '#c9372c', Icon: ChevronsUp },
+  high: { color: '#e2483d', Icon: ChevronUp },
+  medium: { color: '#e2b203', Icon: Equal },
+  low: { color: '#1d7afc', Icon: ChevronDown },
+  lowest: { color: '#1d7afc', Icon: ChevronsDown },
 };
 
 export function PriorityIcon({ priority, size = 16 }: { priority: Priority; size?: number }) {
-  const p = PRIO[priority];
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" className="prio-icon">
-      <title>{PRIORITY_LABELS[priority]}</title>
-      <path d={p.d} stroke={p.color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  const { color, Icon } = PRIO[priority];
+  return <Icon size={size} color={color} strokeWidth={2.5} className="prio-icon" aria-label={PRIORITY_LABELS[priority]} data-tip={PRIORITY_LABELS[priority]} />;
 }
 
 export function Avatar({ name, size = 24 }: { name?: string | null; size?: number }) {
   if (!name) {
     return <span className="avatar avatar-empty" style={{ width: size, height: size }} title="Chưa giao">
-      <svg viewBox="0 0 16 16" width={size * 0.6} height={size * 0.6}><circle cx="8" cy="5.5" r="3" fill="currentColor" /><path d="M2 15c0-3.3 2.7-5 6-5s6 1.7 6 5" fill="currentColor" /></svg>
+      <UserRound size={Math.round(size * 0.62)} strokeWidth={2.2} aria-hidden />
     </span>;
   }
   return (
@@ -91,7 +85,7 @@ export function Modal({ title, onClose, children, footer, width = 560 }: {
       <div className="modal" style={{ width }} role="dialog" aria-modal="true">
         <div className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Đóng">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label="Đóng"><X size={18} /></button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}

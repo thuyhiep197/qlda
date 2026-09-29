@@ -10,6 +10,7 @@ import { addDays as addDaysStr, fmtDate, fmtHours, PRIORITY_LABELS, today as tod
 import { Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui';
 import { IssueLine } from '../components/IssueRow';
 import { useProjectCtx } from './ProjectLayout';
+import { Download, Target } from 'lucide-react';
 
 const C = { todo: '#8590a2', inprogress: '#1d7afc', done: '#22a06b', ideal: '#b3b9c4', remaining: '#c9372c', committed: '#b3b9c4', completed: '#22a06b' };
 const TYPE_COLORS: Record<string, string> = { epic: '#904ee2', story: '#63ba3c', task: '#4bade8', bug: '#e5493a', subtask: '#8fb8f6' };
@@ -115,7 +116,7 @@ function SummaryReport() {
 
       <div className="card">
         <h3>Issue quá hạn ({data.overdue.length})</h3>
-        {data.overdue.length === 0 ? <div className="muted small">Không có issue quá hạn 👍</div> :
+        {data.overdue.length === 0 ? <div className="muted small">Không có issue quá hạn</div> :
           <div className="issue-lines">{data.overdue.map((i) => <IssueLine key={i.id} issue={i} onOpen={() => open(i.key)} />)}</div>}
       </div>
 
@@ -274,7 +275,7 @@ function SprintReport() {
       </div>
       {isLoading || !data ? <Spinner /> : (
         <>
-          {data.sprint.goal && <div className="muted">🎯 Mục tiêu: {data.sprint.goal}</div>}
+          {data.sprint.goal && <div className="muted icon-text"><Target size={14} /> Mục tiêu: {data.sprint.goal}</div>}
           <div className="stat-cards">
             <div className="stat-card"><div className="stat-num">{data.totals.committed_points ?? '—'}</div><div>Điểm cam kết lúc bắt đầu</div></div>
             <div className="stat-card"><div className="stat-num">{data.totals.completed_points}</div><div>Điểm đã hoàn thành</div></div>
@@ -341,7 +342,7 @@ function Timesheet() {
         <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -6)); setTo(todayStr()); }}>7 ngày</button>
         <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -29)); setTo(todayStr()); }}>30 ngày</button>
         <div className="spacer" />
-        <button className="btn btn-sm" disabled={!data?.rows.length} onClick={exportCsv}>⬇ Xuất Excel (CSV)</button>
+        <button className="btn btn-sm" disabled={!data?.rows.length} onClick={exportCsv}><Download size={14} /> Xuất Excel (CSV)</button>
       </div>
       {isLoading || !data ? <Spinner /> : (
         <>
@@ -351,7 +352,7 @@ function Timesheet() {
             <div className="stat-card"><div className="stat-num">{fmtHours(data.totals.original)}</div><div>Tổng ước lượng của dự án</div></div>
             <div className="stat-card"><div className="stat-num">{fmtHours(data.totals.remaining)}</div><div>Tổng thời gian còn lại</div></div>
           </div>
-          {!users.size ? <Empty title="Chưa có ai ghi giờ trong khoảng thời gian này"><p className="muted">Mở issue → ⏱ Ghi thời gian.</p></Empty> : (
+          {!users.size ? <Empty title="Chưa có ai ghi giờ trong khoảng thời gian này"><p className="muted">Mở issue → Ghi thời gian.</p></Empty> : (
             <>
               <div className="card">
                 <h3>Giờ công theo người và ngày</h3>

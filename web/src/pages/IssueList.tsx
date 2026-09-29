@@ -9,6 +9,7 @@ import { Avatar, Empty, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastE
 import { EpicTag } from '../components/IssueRow';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar } from '../components/BulkBar';
+import { ChevronDown, Download, Star, X } from 'lucide-react';
 
 const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'parent', 'label', 'q', 'sort'] as const;
 
@@ -73,7 +74,7 @@ export default function IssueList() {
   };
 
   const Th = ({ k, children }: { k: string; children: React.ReactNode }) => (
-    <th className="sortable" onClick={() => set('sort', k)}>{children}{sort === k ? ' ▾' : ''}</th>
+    <th className="sortable" onClick={() => set('sort', k)}>{children}{sort === k ? <ChevronDown size={13} className="sort-caret" /> : null}</th>
   );
   const hasFilter = Object.keys(filter).some((k) => k !== 'project' && k !== 'sort');
   const selectedIssues = issues?.filter((i) => selected.has(i.id)) ?? [];
@@ -156,7 +157,7 @@ export default function IssueList() {
         <div className="spacer" />
         <span className="muted small">{issues?.length ?? 0} issue</span>
         {routeKey && project && <ImportButton project={project} />}
-        <button className="btn btn-sm" onClick={exportCsv} disabled={!issues?.length}>⬇ Xuất Excel (CSV)</button>
+        <button className="btn btn-sm" onClick={exportCsv} disabled={!issues?.length}><Download size={14} /> Xuất Excel (CSV)</button>
       </div>
 
       {selectedIssues.length > 0 && <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />}
@@ -239,7 +240,7 @@ function SavedFilters({ projectKey, routeScoped, current, apply }: {
   };
   return (
     <div className="saved-filters" ref={box}>
-      <button className="btn btn-sm" onClick={() => setOpen(!open)}>★ Bộ lọc đã lưu ▾</button>
+      <button className="btn btn-sm" onClick={() => setOpen(!open)}><Star size={14} /> Bộ lọc đã lưu <ChevronDown size={14} /></button>
       {open && (
         <div className="dropdown saved-filters-menu">
           {!list.length && <div className="muted small pad">Chưa có bộ lọc nào được lưu.</div>}
@@ -251,7 +252,7 @@ function SavedFilters({ projectKey, routeScoped, current, apply }: {
                   {f.project_key ? f.project_key : 'Mọi dự án'}{f.shared ? ' · chia sẻ' : ''}{f.user_id !== me?.id ? ` · của ${f.owner_name}` : ''}
                 </span>
               </button>
-              {(f.user_id === me?.id || me?.is_admin) && <button className="icon-btn" data-tip="Xóa bộ lọc" onClick={() => del(f)}>✕</button>}
+              {(f.user_id === me?.id || me?.is_admin) && <button className="icon-btn" data-tip="Xóa bộ lọc" onClick={() => del(f)}><X size={14} /></button>}
             </div>
           ))}
           <div className="dropdown-foot">

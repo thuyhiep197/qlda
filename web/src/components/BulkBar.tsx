@@ -4,6 +4,7 @@ import { can, useProject, useSprints, useVersions } from '../hooks';
 import type { Issue } from '../types';
 import { PRIORITIES, PRIORITY_LABELS } from '../util';
 import { toast } from './ui';
+import { Trash2 } from 'lucide-react';
 
 interface BulkResult { ok: number; failed: number; results: { key: string; ok: boolean; error?: string }[] }
 
@@ -82,7 +83,7 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
       <form className="row gap-xs" onSubmit={(e) => { e.preventDefault(); if (label.trim()) { act({ labels_add: [label.trim()] }, `Đã thêm nhãn "${label.trim()}"`); setLabel(''); } }}>
         <input className="bulk-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="+ Thêm nhãn" disabled={busy} />
       </form>
-      {(!project || can(perms, 'issue.delete')) && <button className="btn btn-sm btn-subtle danger" disabled={busy} onClick={del}>🗑 Xóa</button>}
+      {(!project || can(perms, 'issue.delete')) && <button className="btn btn-sm btn-subtle danger" disabled={busy} onClick={del}><Trash2 size={14} /> Xóa</button>}
       <div className="spacer" />
       {!single && <span className="muted small">Chọn issue cùng một dự án để chuyển sprint, giao việc, đổi trạng thái</span>}
       <button className="btn btn-sm" onClick={onClear}>Bỏ chọn</button>

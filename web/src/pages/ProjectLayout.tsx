@@ -3,6 +3,7 @@ import { can, useProject } from '../hooks';
 import type { Project } from '../types';
 import { colorOf } from '../util';
 import { Spinner } from '../components/ui';
+import { ChartColumn, ChartGantt, List, ListTodo, Rocket, Settings, SquareKanban, type LucideIcon } from 'lucide-react';
 
 export const useProjectCtx = () => useOutletContext<Project>();
 
@@ -12,14 +13,14 @@ export default function ProjectLayout() {
   if (isLoading) return <Spinner />;
   if (error || !project) return <div className="page"><h2>Không truy cập được dự án</h2><p className="muted">{error instanceof Error ? error.message : ''}</p></div>;
 
-  const tabs = [
-    ...(project.type === 'scrum' ? [['backlog', 'Backlog']] : []),
-    ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban'],
-    ['issues', 'Danh sách issue'],
-    ['roadmap', 'Lộ trình'],
-    ['releases', 'Phát hành'],
-    ['reports', 'Báo cáo'],
-    ...(can(project.permissions, 'project.admin') ? [['settings', 'Cài đặt']] : []),
+  const tabs: [string, string, LucideIcon][] = [
+    ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
+    ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban', SquareKanban],
+    ['issues', 'Danh sách issue', List],
+    ['roadmap', 'Lộ trình', ChartGantt],
+    ['releases', 'Phát hành', Rocket],
+    ['reports', 'Báo cáo', ChartColumn],
+    ...(can(project.permissions, 'project.admin') ? [['settings', 'Cài đặt', Settings] as [string, string, LucideIcon]] : []),
   ];
 
   return (
@@ -32,7 +33,7 @@ export default function ProjectLayout() {
         </div>
       </div>
       <nav className="tabs">
-        {tabs.map(([path, label]) => <NavLink key={path} to={`/p/${project.key}/${path}`}>{label}</NavLink>)}
+        {tabs.map(([path, label, Icon]) => <NavLink key={path} to={`/p/${project.key}/${path}`}><Icon size={16} /> {label}</NavLink>)}
       </nav>
       <Outlet context={project} />
     </div>

@@ -90,7 +90,7 @@ export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, 
       const res = await api.post<{ attachments: { id: number; filename: string; mime: string }[] }>(`/issues/${issueKey}/attachments`, fd);
       const md = res.attachments.map((a) => /^image\/(png|jpe?g|gif|webp|bmp)$/.test(a.mime)
         ? `![${a.filename}](/api/issues/attachments/${a.id}?inline=1)`
-        : `[📎 ${a.filename}](/api/issues/attachments/${a.id})`).join('\n');
+        : `[${a.filename}](/api/issues/attachments/${a.id})`).join('\n');
       onChange(latest.current.replace(token, md));
       await refreshAll();
     } catch (err) {

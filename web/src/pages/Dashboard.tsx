@@ -41,7 +41,7 @@ export default function Dashboard() {
                 <h3>Việc của tôi</h3>
                 <Link to="/issues?assignee=me&statusCategory=todo,inprogress" className="small">Xem tất cả</Link>
               </div>
-              {data.mine.length === 0 ? <Empty title="Không có việc nào đang chờ bạn 🎉" /> :
+              {data.mine.length === 0 ? <Empty title="Không có việc nào đang chờ bạn" /> :
                 <div className="issue-lines">{data.mine.map((i) => <IssueLine key={i.id} issue={i} onOpen={() => open(i.key)} />)}</div>}
             </div>
 

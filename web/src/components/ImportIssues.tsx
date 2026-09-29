@@ -4,6 +4,7 @@ import { can, useIssueModal, useSprints, useVersions } from '../hooks';
 import type { IssueType, Project } from '../types';
 import { TYPE_LABELS } from '../util';
 import { Modal, Spinner, toast, TypeIcon } from './ui';
+import { CircleCheck, CircleX, Download, TriangleAlert, Upload } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Cột trong file: khóa chuẩn gửi lên server ← các tên cột được chấp nhận (đã bỏ dấu, chữ thường).
@@ -293,7 +294,7 @@ export function ImportButton({ project }: { project: Project }) {
   if (!can(project.permissions, 'issue.import')) return null;
   return (
     <>
-      <button className="btn btn-sm" onClick={() => setOpen(true)} title="Nhập issue hàng loạt từ file Excel hoặc Excel (CSV) xuất từ Jira">⬆ Nhập từ Excel</button>
+      <button className="btn btn-sm" onClick={() => setOpen(true)} title="Nhập issue hàng loạt từ file Excel hoặc Excel (CSV) xuất từ Jira"><Upload size={14} /> Nhập từ Excel</button>
       {open && <ImportIssuesModal project={project} onClose={() => setOpen(false)} />}
     </>
   );
@@ -387,7 +388,7 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
             <div className="import-step">
               <b>1. Chuẩn bị file</b>
               <span className="muted small">Dùng file mẫu (có sẵn ô chọn Loại, Độ ưu tiên, Người thực hiện, Sprint, Trạng thái) hoặc file CSV xuất từ Jira.</span>
-              <div><button className="btn btn-sm" onClick={template} disabled={!!busy}>⬇ Tải file mẫu Excel</button></div>
+              <div><button className="btn btn-sm" onClick={template} disabled={!!busy}><Download size={14} /> Tải file mẫu Excel</button></div>
             </div>
             <div className={`import-drop ${dragOver ? 'over' : ''}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
@@ -419,11 +420,11 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
         {res && (
           <>
             <div className="import-summary">
-              {done ? <span className="ok">✔ Đã nhập thành công {res.created} issue.</span> : <>
+              {done ? <span className="ok"><CircleCheck size={15} /> Đã nhập thành công {res.created} issue.</span> : <>
                 <span>{res.results.length} dòng</span>
-                <span className="ok">✔ {res.valid} hợp lệ</span>
-                {res.errors > 0 && <span className="bad">✖ {res.errors} lỗi</span>}
-                {res.warnings > 0 && <span className="warn">⚠ {res.warnings} cảnh báo</span>}
+                <span className="ok"><CircleCheck size={15} /> {res.valid} hợp lệ</span>
+                {res.errors > 0 && <span className="bad"><CircleX size={15} /> {res.errors} lỗi</span>}
+                {res.warnings > 0 && <span className="warn"><TriangleAlert size={15} /> {res.warnings} cảnh báo</span>}
                 {res.errors > 0 && <span className="muted small">Sửa các dòng lỗi trong file rồi chọn lại file, hoặc tick "Bỏ qua dòng lỗi".</span>}
               </>}
             </div>
@@ -441,9 +442,9 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
                       <td className="small">{r.sprint}</td>
                       <td className="small">
                         {r.key && <a onClick={() => { onClose(); open(r.key!); }}>{r.key}</a>}
-                        {r.errors.map((m, i) => <div key={i} className="bad">✖ {m}</div>)}
-                        {r.warnings.map((m, i) => <div key={i} className="warn">⚠ {m}</div>)}
-                        {!r.key && !r.errors.length && !r.warnings.length && <span className="ok">✔ Hợp lệ</span>}
+                        {r.errors.map((m, i) => <div key={i} className="bad"><CircleX size={13} /> {m}</div>)}
+                        {r.warnings.map((m, i) => <div key={i} className="warn"><TriangleAlert size={13} /> {m}</div>)}
+                        {!r.key && !r.errors.length && !r.warnings.length && <span className="ok"><CircleCheck size={13} /> Hợp lệ</span>}
                       </td>
                     </tr>
                   ))}

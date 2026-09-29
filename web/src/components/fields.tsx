@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { X } from 'lucide-react';
 
 /** Ô nhập nhãn: gõ rồi Enter hoặc dấu phẩy để thêm. */
 export function LabelsInput({ value, onChange, suggestions = [] }: {
@@ -18,7 +19,7 @@ export function LabelsInput({ value, onChange, suggestions = [] }: {
   return (
     <div className="labels-input">
       {value.map((l) => (
-        <span key={l} className="label-chip">{l}<button type="button" onClick={() => onChange(value.filter((x) => x !== l))}>×</button></span>
+        <span key={l} className="label-chip">{l}<button type="button" onClick={() => onChange(value.filter((x) => x !== l))} aria-label="Bỏ nhãn"><X size={12} /></button></span>
       ))}
       <input value={text} list={listId} onChange={(e) => setText(e.target.value)} onKeyDown={onKey}
         onBlur={() => text && add(text)} placeholder={value.length ? '' : 'Nhập nhãn rồi Enter'} />

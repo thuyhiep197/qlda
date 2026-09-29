@@ -8,6 +8,7 @@ import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PR
 import { Avatar, Markdown, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
+import { ArrowRightLeft, Copy, Eye, EyeOff, Link as LinkIcon, Timer, Trash2, X } from 'lucide-react';
 
 export default function IssueDetailModal({ issueKey }: { issueKey: string }) {
   const { close } = useIssueModal();
@@ -184,15 +185,15 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           <span className="row gap-xs"><TypeIcon type={issue.type} size={14} /> <Link to={`/browse/${issue.key}`}>{issue.key}</Link></span>
         </div>
         <div className="row gap-xs">
-          <button className="icon-btn" data-tip="Sao chép liên kết" onClick={copyLink}>🔗</button>
+          <button className="icon-btn" data-tip="Sao chép liên kết" onClick={copyLink}><LinkIcon size={16} /></button>
           {can(perms, 'issue.create') && (
-            <button className="icon-btn" data-tip="Nhân bản issue" onClick={() => setCloning(true)}>⧉</button>
+            <button className="icon-btn" data-tip="Nhân bản issue" onClick={() => setCloning(true)}><Copy size={16} /></button>
           )}
           {can(perms, 'issue.delete') && issue.type !== 'subtask' && (
-            <button className="icon-btn" data-tip="Chuyển sang dự án khác" onClick={() => setMoving(true)}>⇄</button>
+            <button className="icon-btn" data-tip="Chuyển sang dự án khác" onClick={() => setMoving(true)}><ArrowRightLeft size={16} /></button>
           )}
-          {can(perms, 'issue.delete') && <button className="icon-btn" data-tip="Xóa issue" onClick={deleteIssue}>🗑️</button>}
-          {onClose && <button className="icon-btn" data-tip="Đóng" onClick={onClose}>✕</button>}
+          {can(perms, 'issue.delete') && <button className="icon-btn" data-tip="Xóa issue" onClick={deleteIssue}><Trash2 size={16} /></button>}
+          {onClose && <button className="icon-btn" data-tip="Đóng" onClick={onClose}><X size={18} /></button>}
         </div>
       </div>
       {logging && <LogWorkModal issue={issue} onClose={() => setLogging(false)} />}
@@ -278,7 +279,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                 {canEdit && <button className="icon-btn" title="Gỡ liên kết" onClick={async (e) => {
                   e.stopPropagation();
                   try { await api.del(`/issues/links/${l.id}`); await refreshAll(); } catch (err) { toastError(err); }
-                }}>✕</button>}
+                }}><X size={14} /></button>}
               </div>
             ))}
           </section>
@@ -305,7 +306,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                     <div className="muted small">{fmtSize(a.size)} · {a.uploader_name}</div>
                   </div>
                   {(a.uploader_id === me?.id || can(perms, 'attachment.delete_any')) &&
-                    <button className="icon-btn" title="Xóa" onClick={() => deleteAttachment(a.id, a.filename)}>✕</button>}
+                    <button className="icon-btn" title="Xóa" onClick={() => deleteAttachment(a.id, a.filename)}><X size={14} /></button>}
                 </div>
               ))}
             </div>
@@ -511,7 +512,7 @@ function Watchers({ issue, members, canManage, meId }: {
         <button className="btn btn-sm" onClick={() => call(() => (issue.watching
           ? api.del(`/issues/${issue.key}/watchers/${meId}`)
           : api.post(`/issues/${issue.key}/watchers`, {})))}>
-          {issue.watching ? '🔕 Bỏ theo dõi' : '👁 Theo dõi'}
+          {issue.watching ? <><EyeOff size={14} /> Bỏ theo dõi</> : <><Eye size={14} /> Theo dõi</>}
         </button>
       </div>
       <div className="watcher-list">
@@ -519,7 +520,7 @@ function Watchers({ issue, members, canManage, meId }: {
           <span key={w.id} className="watcher-chip" title={`@${w.username}`}>
             <Avatar name={w.full_name} size={20} /> {w.full_name}
             {canManage && w.id !== meId && (
-              <button title="Bỏ khỏi danh sách theo dõi" onClick={() => call(() => api.del(`/issues/${issue.key}/watchers/${w.id}`))}>×</button>
+              <button title="Bỏ khỏi danh sách theo dõi" onClick={() => call(() => api.del(`/issues/${issue.key}/watchers/${w.id}`))}><X size={12} /></button>
             )}
           </span>
         ))}
@@ -548,7 +549,7 @@ function TimeTracking({ issue, canEdit, canLog, onLog, save }: {
     <div className="timetrack">
       <div className="row gap-xs">
         <span className="prop-label grow" data-tip="Thời gian ước lượng, đã làm và còn lại. 1d = 8 giờ, 1w = 5 ngày">Theo dõi thời gian</span>
-        {canLog && <button className="btn btn-sm" onClick={onLog}>⏱ Ghi thời gian</button>}
+        {canLog && <button className="btn btn-sm" onClick={onLog}><Timer size={14} /> Ghi thời gian</button>}
       </div>
       <div className="tt-bar" data-tip={`Đã làm ${fmtDuration(spent) || '0h'} · Còn lại ${fmtDuration(remaining) || '0h'}`}>
         <div className={over ? 'tt-spent over' : 'tt-spent'} style={{ width: `${(spent / total) * 100}%` }} />
@@ -620,7 +621,7 @@ function WorklogList({ issue, meId, isAdmin, onLog }: { issue: TIssueDetail; meI
   if (!logs) return <Spinner />;
   return (
     <div className="stack">
-      {onLog && <div><button className="btn btn-sm" onClick={onLog}>⏱ Ghi thời gian</button></div>}
+      {onLog && <div><button className="btn btn-sm" onClick={onLog}><Timer size={14} /> Ghi thời gian</button></div>}
       {!logs.length && <div className="muted small">Chưa ai ghi thời gian cho issue này.</div>}
       {logs.map((w) => (
         <div key={w.id} className="history-row">
@@ -629,7 +630,7 @@ function WorklogList({ issue, meId, isAdmin, onLog }: { issue: TIssueDetail; meI
             <b>{w.user_name}</b> đã làm <b>{fmtDuration(w.minutes)}</b> <span className="muted small">ngày {fmtDate(w.work_date)}</span>
             {w.comment && <div className="small">{w.comment}</div>}
           </div>
-          {(w.user_id === meId || isAdmin) && <button className="icon-btn" data-tip="Xóa lần ghi này" onClick={() => del(w)}>✕</button>}
+          {(w.user_id === meId || isAdmin) && <button className="icon-btn" data-tip="Xóa lần ghi này" onClick={() => del(w)}><X size={14} /></button>}
         </div>
       ))}
     </div>

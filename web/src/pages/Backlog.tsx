@@ -12,6 +12,7 @@ import CreateIssueModal from '../components/CreateIssueModal';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar, runBulk } from '../components/BulkBar';
 import { useProjectCtx } from './ProjectLayout';
+import { ChevronDown, ChevronRight, Target } from 'lucide-react';
 
 type Container = number | 'backlog';
 
@@ -144,7 +145,7 @@ export default function Backlog() {
             onDragOver={(e) => { if (drag) { e.preventDefault(); if (drop?.c !== c) setDrop({ c, index: list.length }); } }}
             onDrop={(e) => { e.preventDefault(); onDrop(c); }}>
             <div className="backlog-head">
-              <button className="icon-btn" onClick={() => setCollapsed({ ...collapsed, [key]: !isCollapsed })}>{isCollapsed ? '▸' : '▾'}</button>
+              <button className="icon-btn" onClick={() => setCollapsed({ ...collapsed, [key]: !isCollapsed })}>{isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}</button>
               {list.length > 0 && (
                 <input type="checkbox" checked={allSelected} data-tip={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả issue trong mục này'}
                   onChange={() => {
@@ -173,7 +174,7 @@ export default function Backlog() {
               {sprint && canSprint && sprint.state === 'future' && <button className="btn btn-subtle btn-sm" onClick={() => deleteSprint(sprint)}>Xóa</button>}
               {!sprint && canSprint && <button className="btn btn-sm" onClick={createSprint}>Tạo sprint</button>}
             </div>
-            {sprint?.goal && !isCollapsed && <div className="sprint-goal muted small">🎯 {sprint.goal}</div>}
+            {sprint?.goal && !isCollapsed && <div className="sprint-goal muted small"><Target size={13} /> {sprint.goal}</div>}
             {!isCollapsed && (
               <div className="issue-lines">
                 {list.length === 0 && (

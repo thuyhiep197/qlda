@@ -6,6 +6,7 @@ import type { Category, IssueType } from '../types';
 import { colorOf, fmtDate, today } from '../util';
 import { Avatar, Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 
 interface Child {
   id: number; key: string; type: IssueType; summary: string; start_date: string | null; due_date: string | null;
@@ -84,9 +85,9 @@ export default function Roadmap() {
     <div className="page-pad">
       <div className="row gap-sm mb-sm">
         <button className="btn btn-sm" onClick={() => setExpanded(allOpen ? new Set() : new Set(epics.map((e) => e.id)))}>
-          {allOpen ? '▾ Thu gọn tất cả' : '▸ Mở rộng tất cả'}
+          {allOpen ? <><ChevronsDownUp size={14} /> Thu gọn tất cả</> : <><ChevronsUpDown size={14} /> Mở rộng tất cả</>}
         </button>
-        <span className="muted small">Bấm ▸ để xem các issue trong epic. Thanh thời gian lấy theo ngày bắt đầu – hạn hoàn thành, nếu thiếu thì theo sprint.</span>
+        <span className="muted small">Bấm mũi tên cạnh epic để xem các issue trong epic. Thanh thời gian lấy theo ngày bắt đầu – hạn hoàn thành, nếu thiếu thì theo sprint.</span>
       </div>
       <div className="roadmap">
         <div className="roadmap-left">
@@ -98,7 +99,7 @@ export default function Roadmap() {
               return (
                 <div key={`e${e.id}`} className="roadmap-cell" onClick={() => open(e.key)}>
                   <button className="icon-btn" disabled={!e.children.length} data-tip={e.children.length ? `${e.children.length} issue con` : 'Chưa có issue con'}
-                    onClick={(ev) => { ev.stopPropagation(); toggle(e.id); }}>{expanded.has(e.id) ? '▾' : '▸'}</button>
+                    onClick={(ev) => { ev.stopPropagation(); toggle(e.id); }}>{expanded.has(e.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
                   <TypeIcon type="epic" />
                   <div className="grow ellipsis">
                     <div className="ellipsis"><span className="issue-key">{e.key}</span> {e.summary}</div>

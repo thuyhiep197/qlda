@@ -5,6 +5,7 @@ import { useIssueModal, useUsersBasic } from '../hooks';
 import type { IssueType } from '../types';
 import { timeAgo } from '../util';
 import { Avatar, TypeIcon } from './ui';
+import { Bell } from 'lucide-react';
 
 interface Notification {
   id: number;
@@ -66,9 +67,7 @@ export default function NotificationBell() {
   return (
     <div className="bell" ref={box}>
       <button className="bell-btn" onClick={() => setShow(!show)} title="Thông báo" aria-label={`Thông báo, ${unread} chưa đọc`}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
-        </svg>
+        <Bell size={20} />
         {unread > 0 && <span className="bell-badge">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {show && (
