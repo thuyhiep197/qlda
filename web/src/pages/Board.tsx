@@ -46,7 +46,8 @@ export default function Board() {
     return (
       <div className="page-pad">
         <Empty title="Chưa có sprint nào đang chạy">
-          <p className="muted">Vào <Link to={`/p/${project.key}/backlog`}>Backlog</Link> để lên kế hoạch và bắt đầu sprint.</p>
+          <p className="muted">Lên kế hoạch ở Backlog: tạo sprint, kéo issue vào rồi bấm <b>Bắt đầu sprint</b>.</p>
+          <Link className="btn btn-primary" to={`/p/${project.key}/backlog`}>Đi tới Backlog</Link>
         </Empty>
       </div>
     );

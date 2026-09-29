@@ -45,15 +45,25 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
     try { const r = await runBulk({ keys, delete: true }, 'Đã xóa'); if (r.ok) onClear(); } finally { setBusy(false); }
   };
   const perms = project?.permissions;
+  // Như Jira: chọn issue rồi đưa vào sprint có sẵn, Backlog, hoặc tạo sprint mới chứa luôn các issue này
+  const toSprint = async (v: string) => {
+    if (v !== 'new') return act({ sprint_id: v === 'backlog' ? null : Number(v) }, 'Đã chuyển sprint');
+    setBusy(true);
+    try {
+      const s = await api.post<{ id: number; name: string }>(`/projects/${single}/sprints`, {});
+      await runBulk({ keys, changes: { sprint_id: s.id } }, `Đã tạo ${s.name}, chuyển vào`);
+    } catch (e) { toast(e instanceof Error ? e.message : String(e), 'error'); } finally { setBusy(false); }
+  };
 
   return (
     <div className="bulk-bar" role="toolbar" aria-label="Thao tác hàng loạt">
       <b>Đã chọn {keys.length} issue</b>
       {project?.type === 'scrum' && (
-        <select value="" disabled={busy} onChange={(e) => act({ sprint_id: e.target.value === 'backlog' ? null : Number(e.target.value) }, 'Đã chuyển sprint')}>
+        <select value="" disabled={busy} onChange={(e) => toSprint(e.target.value)}>
           <option value="" disabled>Chuyển vào sprint…</option>
           <option value="backlog">Backlog</option>
           {sprints?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.state === 'active' ? ' (đang chạy)' : ''}</option>)}
+          {can(perms, 'sprint.manage') && <option value="new">+ Sprint mới</option>}
         </select>
       )}
       {project && (
