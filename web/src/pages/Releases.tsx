@@ -6,6 +6,7 @@ import type { Version } from '../types';
 import { fmtDate, isOverdue, today } from '../util';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
+import { DateInput } from '../components/fields';
 
 const STATUS: Record<Version['status'], [string, string]> = {
   unreleased: ['Chưa phát hành', 'default'],
@@ -109,8 +110,8 @@ function VersionModal({ version, onClose }: { version: Version | null; onClose: 
       <form id="version-form" className="stack" onSubmit={submit}>
         <label className="field"><span>Tên phiên bản *</span><input autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder="VD: v1.0, Nghiệm thu đợt 1" /></label>
         <div className="form-grid">
-          <label className="field"><span>Ngày bắt đầu</span><input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></label>
-          <label className="field"><span>Ngày phát hành dự kiến</span><input type="date" value={release} min={start || undefined} onChange={(e) => setRelease(e.target.value)} /></label>
+          <label className="field"><span>Ngày bắt đầu</span><DateInput value={start} onChange={setStart} /></label>
+          <label className="field"><span>Ngày phát hành dự kiến</span><DateInput value={release} min={start || undefined} onChange={setRelease} /></label>
         </div>
         <label className="field"><span>Mô tả</span><textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
       </form>

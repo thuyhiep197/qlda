@@ -3,6 +3,7 @@ import { api, refreshAll } from '../api';
 import type { Project, Sprint } from '../types';
 import { addDays, today } from '../util';
 import { Modal, toast, toastError } from './ui';
+import { DateInput } from './fields';
 
 export function StartSprintModal({ project, sprint, onClose, mode = 'start' }: {
   project: Project; sprint: Sprint; onClose: () => void; mode?: 'start' | 'edit';
@@ -39,8 +40,8 @@ export function StartSprintModal({ project, sprint, onClose, mode = 'start' }: {
           <div className="row gap-xs">{[1, 2, 3, 4].map((w) => <button type="button" key={w} className="btn btn-sm" onClick={() => setWeeks(w)}>{w} tuần</button>)}</div>
         </div>
         <div className="form-grid">
-          <label className="field"><span>Ngày bắt đầu *</span><input type="date" value={start} onChange={(e) => setStart(e.target.value)} required /></label>
-          <label className="field"><span>Ngày kết thúc *</span><input type="date" value={end} min={start} onChange={(e) => setEnd(e.target.value)} required /></label>
+          <label className="field"><span>Ngày bắt đầu *</span><DateInput value={start} onChange={setStart} required /></label>
+          <label className="field"><span>Ngày kết thúc *</span><DateInput value={end} min={start} onChange={setEnd} required /></label>
         </div>
         <label className="field"><span>Mục tiêu sprint</span><textarea rows={3} value={goal} onChange={(e) => setGoal(e.target.value)} /></label>
       </form>

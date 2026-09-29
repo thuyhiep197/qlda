@@ -11,6 +11,7 @@ import { Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui';
 import { IssueLine } from '../components/IssueRow';
 import { useProjectCtx } from './ProjectLayout';
 import { Download, Target } from 'lucide-react';
+import { DateInput } from '../components/fields';
 
 const C = { todo: '#8590a2', inprogress: '#1d7afc', done: '#22a06b', ideal: '#b3b9c4', remaining: '#c9372c', committed: '#b3b9c4', completed: '#22a06b' };
 const TYPE_COLORS: Record<string, string> = { epic: '#904ee2', story: '#63ba3c', task: '#4bade8', bug: '#e5493a', subtask: '#8fb8f6' };
@@ -337,8 +338,8 @@ function Timesheet() {
   return (
     <div className="stack">
       <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
-        <label className="row gap-xs">Từ <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /></label>
-        <label className="row gap-xs">đến <input type="date" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} /></label>
+        <label className="row gap-xs">Từ <DateInput value={from} max={to} onChange={(v) => v && setFrom(v)} /></label>
+        <label className="row gap-xs">đến <DateInput value={to} min={from} onChange={(v) => v && setTo(v)} /></label>
         <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -6)); setTo(todayStr()); }}>7 ngày</button>
         <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -29)); setTo(todayStr()); }}>30 ngày</button>
         <div className="spacer" />

@@ -646,3 +646,12 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .label-chip button { display: inline-flex; align-items: center; }
 .sort-caret { vertical-align: -2px; margin-left: 2px; }
 .issue-card .muted.small .lucide, .issue-card .small .lucide { vertical-align: -2px; }
+
+/* ---------- Ô nhập ngày dd/mm/yyyy ---------- */
+.date-input { position: relative; display: inline-flex; align-items: center; min-width: 150px; }
+.field .date-input, .props .date-input { width: 100%; }
+.date-input input[type="text"] { width: 100%; padding-right: 34px; }
+.date-input.invalid input[type="text"] { border-color: var(--danger); }
+.date-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: none; background: none; color: var(--muted); cursor: pointer; padding: 4px; border-radius: 4px; display: inline-flex; }
+.date-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.date-native { position: absolute; left: 0; bottom: 0; width: 100%; height: 0; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }

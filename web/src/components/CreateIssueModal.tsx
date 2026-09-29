@@ -13,7 +13,7 @@ const TYPE_HINTS: Record<IssueType, string> = {
   epic: 'Nhóm lớn chứa nhiều Story/Task/Bug, hiển thị trên Lộ trình',
   subtask: 'Việc nhỏ nằm dưới một Story, Task hoặc Bug',
 };
-import { LabelsInput } from './fields';
+import { LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
 
 interface Props {
@@ -179,11 +179,11 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         )}
         <label className="field">
           <span>Ngày bắt đầu</span>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <DateInput value={startDate} onChange={setStartDate} />
         </label>
         <label className="field">
           <span>Hạn hoàn thành</span>
-          <input type="date" value={dueDate} min={startDate || undefined} onChange={(e) => setDueDate(e.target.value)} />
+          <DateInput value={dueDate} min={startDate || undefined} onChange={setDueDate} />
         </label>
         <div className="field span-2">
           <span>Nhãn</span>

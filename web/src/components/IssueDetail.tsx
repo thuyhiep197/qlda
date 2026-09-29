@@ -6,7 +6,7 @@ import { can, useIssueModal, useMe, useProject, useProjects, useSprints, useUser
 import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, Worklog } from '../types';
 import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, today, TYPE_LABELS } from '../util';
 import { Avatar, Markdown, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
-import { InlineText, LabelsInput } from './fields';
+import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
 import { ArrowRightLeft, Copy, Eye, EyeOff, Link as LinkIcon, Timer, Trash2, X } from 'lucide-react';
 
@@ -464,11 +464,11 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             </>}
 
             <div className="prop-label">Ngày bắt đầu</div>
-            <input type="date" value={issue.start_date || ''} disabled={!canEdit} onChange={(e) => save({ start_date: e.target.value || null })} />
+            <DateInput value={issue.start_date} disabled={!canEdit} onChange={(v) => save({ start_date: v || null })} />
 
             <div className="prop-label">Hạn hoàn thành</div>
             <div>
-              <input type="date" value={issue.due_date || ''} disabled={!canEdit} onChange={(e) => save({ due_date: e.target.value || null })} />
+              <DateInput value={issue.due_date} disabled={!canEdit} onChange={(v) => save({ due_date: v || null })} />
               {isOverdue(issue) && <div className="overdue small">Quá hạn</div>}
             </div>
           </div>
@@ -595,7 +595,7 @@ function LogWorkModal({ issue, onClose }: { issue: TIssueDetail; onClose: () => 
         <div className="form-grid">
           <label className="field"><span>Thời gian đã làm *</span>
             <input autoFocus value={spent} onChange={(e) => setSpent(e.target.value)} placeholder="VD: 2h 30m, 1d, 45m" /></label>
-          <label className="field"><span>Ngày làm</span><input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} required /></label>
+          <label className="field"><span>Ngày làm</span><DateInput value={date} max={today()} onChange={setDate} required /></label>
         </div>
         <div className="muted small">Cách ghi: <b>w</b> = tuần (5 ngày), <b>d</b> = ngày (8 giờ), <b>h</b> = giờ, <b>m</b> = phút. Ghi số không có đơn vị được hiểu là giờ.</div>
         <div className="field"><span>Thời gian còn lại</span>
