@@ -86,6 +86,20 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
     } catch (e) { toastError(e); }
   };
 
+  // Như Jira: sub-task "Chuyển thành issue" (thuộc Epic của issue cha cũ); issue "Chuyển thành sub-task" (chọn issue cha)
+  const changeType = async (type: IssueType) => {
+    if (type !== 'subtask') {
+      if (issue.type === 'subtask' && !confirm(`Chuyển ${issue.key} thành ${TYPE_LABELS[type]}? Issue sẽ tách khỏi ${issue.parent_key} và thuộc Epic của issue đó (nếu có).`)) return;
+      return save({ type });
+    }
+    const key = prompt('Chuyển thành Sub-task — nhập mã issue cha (Story/Task/Bug), VD: QLTB-12')?.trim().toUpperCase();
+    if (!key) return;
+    try {
+      const parent = await api.get<Issue>(`/issues/${key}`);
+      await save({ type, parent_id: parent.id });
+    } catch (e) { toastError(e); }
+  };
+
   // Trạng thái hợp lệ theo workflow của loại issue và luồng chuyển (server đã tính sẵn)
   const allowedStatuses = project?.statuses.filter((s) => issue.next_status_ids.includes(s.id)) ?? [];
 
@@ -407,10 +421,12 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             <div className="prop-label">Người tạo</div>
             <div className="row gap-xs"><Avatar name={issue.reporter_name} size={22} /> {issue.reporter_name}</div>
 
-            {['story', 'task', 'bug'].includes(issue.type) && <>
+            {issue.type !== 'epic' && <>
               <div className="prop-label">Loại</div>
-              <select value={issue.type} disabled={!canEdit} onChange={(e) => save({ type: e.target.value as IssueType })}>
-                {(['story', 'task', 'bug'] as IssueType[]).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+              <select value={issue.type} disabled={!canEdit} onChange={(e) => changeType(e.target.value as IssueType)}>
+                {(['story', 'task', 'bug', 'subtask'] as IssueType[]).map((t) => <option key={t} value={t}>
+                  {t === issue.type ? TYPE_LABELS[t] : issue.type === 'subtask' ? `Chuyển thành ${TYPE_LABELS[t]}` : t === 'subtask' ? 'Chuyển thành Sub-task…' : TYPE_LABELS[t]}
+                </option>)}
               </select>
             </>}
 
