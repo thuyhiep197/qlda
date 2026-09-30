@@ -612,13 +612,24 @@ export function syncEpicStatus(epicId: number | null | undefined, actorId: numbe
     ?? projectStatuses(epic.project_id).find((x) => x.category === target);
   if (!s) return;
   const ts = now();
-  run('UPDATE issues SET status_id = ?, resolved_at = ?, updated_at = ? WHERE id = ?', s.id, target === 'done' ? ts : null, ts, epic.id);
+  run('UPDATE issues SET status_id = ?, resolved_at = ?, updated_at = ? WHERE id = ?', s.id, target === 'done' ? epicDoneAt(epic.id) ?? ts : null, ts, epic.id);
   addHistory(epic.id, actorId, 'status', epic.status_id, s.id, statusName(epic.status_id), `${s.name} (tự động)`);
   if (actorId) notify(watchers(epic.id), actorId, epic.id, 'status', `${statusName(epic.status_id)} → ${s.name} (tự động theo các issue bên trong)`);
 }
 /** Đồng bộ mọi Epic — chạy khi khởi động (dữ liệu cũ, hoặc trạng thái bị đổi ngoài luồng thông thường). */
+/** Ngày Epic hoàn thành = lúc việc bên trong cuối cùng hoàn thành (không phải lúc hệ thống đồng bộ). */
+function epicDoneAt(epicId: number) {
+  return get<{ t: string | null }>(`SELECT MAX(resolved_at) t FROM issues WHERE parent_id = ? AND type IN ${WORK_TYPES}`, epicId)?.t ?? null;
+}
 export function syncAllEpics() {
   for (const e of all<{ id: number }>("SELECT id FROM issues WHERE type = 'epic'")) tx(() => syncEpicStatus(e.id, null));
+  // Sửa ngày hoàn thành của Epic đã tự chuyển Hoàn thành trước đây (từng lấy nhầm thời điểm đồng bộ)
+  for (const e of all<{ id: number; resolved_at: string | null }>(`SELECT i.id, i.resolved_at FROM issues i JOIN statuses s ON s.id = i.status_id
+    WHERE i.type = 'epic' AND s.category = 'done'`)) {
+    if (!epicWorkCount(e.id)) continue;
+    const t = epicDoneAt(e.id);
+    if (t && t !== e.resolved_at) run('UPDATE issues SET resolved_at = ? WHERE id = ?', t, e.id);
+  }
 }
 
 export function getIssueRow(key: string) {

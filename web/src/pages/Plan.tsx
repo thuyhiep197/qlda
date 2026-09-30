@@ -43,7 +43,8 @@ const days = (a: string, b: string) => Math.round((t(b) - t(a)) / DAY);
 function evaluate(r: Row, today: string) {
   const i = r.issue;
   if (i.status_category === 'done') {
-    const doneDay = i.resolved_at ? i.resolved_at.slice(0, 10) : null;
+    // Ngày hoàn thành theo giờ máy người xem (Việt Nam), không cắt chuỗi UTC
+    const doneDay = i.resolved_at ? new Date(new Date(i.resolved_at).getTime() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10) : null;
     r.health = r.end && doneDay && doneDay > r.end ? 'done_late' : 'done';
     r.note = r.health === 'done_late' ? `Xong ${fmtDate(doneDay)}, trễ ${days(r.end!, doneDay!)} ngày` : doneDay ? `Xong ${fmtDate(doneDay)}` : '';
     return;
@@ -126,8 +127,12 @@ export default function Plan() {
 
   const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở cấp giai đoạn
   const [health, setHealth] = useState<Health | ''>('');
-  const [person, setPerson] = useState('');
   const [q, setQ] = useState('');
+  const [assignee, setAssignee] = useState('');
+  const [owner, setOwner] = useState('');
+  const [epic, setEpic] = useState('');
+  const [type, setType] = useState('');
+  const [status, setStatus] = useState('');
 
   if (isLoading || !issues) return <Spinner />;
   if (!tree.length) return <div className="page-pad"><Empty title="Dự án chưa có kế hoạch"><p className="muted">Tạo Epic (giai đoạn) và các đầu việc, hoặc nhập kế hoạch từ Excel ở Backlog.</p></Empty></div>;
@@ -141,15 +146,25 @@ export default function Plan() {
   const collapseAll = () => setExpanded(new Set());
 
   // Lọc: giữ việc khớp và toàn bộ nhánh cha của nó; khi đang lọc thì mở sẵn các nhánh
-  const filtering = !!(health || person || q);
+  // Giai đoạn chỉ giới hạn phạm vi (không tính là đang lọc chi tiết); Loại áp cho đầu việc (việc con đi theo đầu việc)
+  const rowFilter = !!(health || q || assignee || owner || status);
+  const filtering = rowFilter || !!type;
+  const clearFilters = () => { setHealth(''); setQ(''); setAssignee(''); setOwner(''); setEpic(''); setType(''); setStatus(''); };
   const match = (r: Row) => (!health || r.health === health)
-    && (!person || r.issue.assignee_name === person || r.owner === person)
+    && (!assignee || (assignee === '-' ? !r.issue.assignee_name && r.level > 0 : r.issue.assignee_name === assignee))
+    && (!owner || r.owner === owner)
+    && (!status || r.issue.status_name === status)
     && (!q || `${r.issue.key} ${r.issue.summary}`.toLowerCase().includes(q.toLowerCase()));
   const visibleTree = (rows: Row[]): Row[] => rows.flatMap((r) => {
+    if (type && r.level === 1 && r.issue.type !== type) return [];
     const kids = visibleTree(r.children);
-    return match(r) || kids.length ? [{ ...r, children: kids }] : [];
+    if (kids.length) return [{ ...r, children: kids }];
+    // Giai đoạn chỉ còn hiện khi có việc bên trong khớp (trừ khi chỉ lọc theo người phụ trách/đánh giá… của chính giai đoạn)
+    if (r.level === 0 && type) return [];
+    return rowFilter && match(r) ? [{ ...r, children: [] }] : !rowFilter && r.level > 0 ? [{ ...r, children: [] }] : [];
   });
-  const shown = filtering ? visibleTree(tree) : tree;
+  const scope = epic ? tree.filter((e) => String(e.issue.id) === epic) : tree;
+  const shown = filtering ? visibleTree(scope) : scope;
   const lines: Row[] = [];
   const walk = (rows: Row[]) => rows.forEach((r) => { lines.push(r); if (filtering || isOpen(r)) walk(r.children); });
   walk(shown);
@@ -162,7 +177,11 @@ export default function Plan() {
 
   const counts = (lvl: number) => all.filter((r) => r.level === lvl && r.issue.id > 0).length;
   const hCount = (h: Health) => all.filter((r) => r.level > 0 && r.health === h).length;
-  const people = [...new Set(all.flatMap((r) => [r.issue.assignee_name, r.owner]).filter(Boolean) as string[])].sort();
+  const uniq = (v: (string | null | undefined)[]) => [...new Set(v.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'vi'));
+  const assignees = uniq(all.filter((r) => r.level > 0).map((r) => r.issue.assignee_name));
+  const owners = uniq(all.map((r) => r.owner));
+  const statuses = project.statuses.map((x) => x.name).filter((n) => all.some((r) => r.issue.status_name === n));
+  const types = (['story', 'task', 'bug'] as const).filter((t) => all.some((r) => r.level === 1 && r.issue.type === t));
 
   const exportExcel = async () => {
     const mod: any = await import('exceljs');
@@ -215,11 +234,33 @@ export default function Plan() {
 
       <div className="filter-bar">
         <input className="filter-search" placeholder="Tìm công việc…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select value={person} onChange={(e) => setPerson(e.target.value)}>
-          <option value="">Mọi người (thực hiện/phụ trách)</option>
-          {people.map((p) => <option key={p} value={p}>{p}</option>)}
+        <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={assignee ? 'filter-on' : ''}>
+          <option value="">Người thực hiện</option>
+          <option value="-">— Chưa giao —</option>
+          {assignees.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
-        {filtering && <button className="btn btn-subtle btn-sm" onClick={() => { setHealth(''); setPerson(''); setQ(''); }}>Xóa lọc</button>}
+        <select value={owner} onChange={(e) => setOwner(e.target.value)} className={owner ? 'filter-on' : ''}>
+          <option value="">Người phụ trách</option>
+          {owners.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select value={epic} onChange={(e) => setEpic(e.target.value)} className={epic ? 'filter-on' : ''}>
+          <option value="">Giai đoạn (Epic)</option>
+          {tree.map((e) => <option key={e.issue.id} value={e.issue.id}>{e.issue.summary}</option>)}
+        </select>
+        <select value={type} onChange={(e) => setType(e.target.value)} className={type ? 'filter-on' : ''}>
+          <option value="">Loại (Story/Task…)</option>
+          {types.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+        </select>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={status ? 'filter-on' : ''}>
+          <option value="">Trạng thái</option>
+          {statuses.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <select value={health} onChange={(e) => setHealth(e.target.value as Health | '')} className={health ? 'filter-on' : ''}>
+          <option value="">Đánh giá</option>
+          {(Object.keys(HEALTH) as Health[]).map((h) => <option key={h} value={h}>{HEALTH[h].label}</option>)}
+        </select>
+        {(filtering || epic) && <button className="btn btn-subtle btn-sm" onClick={clearFilters}>Xóa lọc</button>}
+        {(filtering || epic) && <span className="muted small">{flatten(shown).filter((r) => r.level > 0).length} việc khớp</span>}
         <div className="spacer" />
         {!filtering && <>
           <button className="btn btn-sm" onClick={expandAll}><ChevronsUpDown size={14} /> Mở hết</button>
