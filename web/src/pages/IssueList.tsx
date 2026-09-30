@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
 import { useIssueModal, useMe, useProject, useProjects, useSprints, useVersions } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
-import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, TYPE_LABELS } from '../util';
+import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS } from '../util';
 import { Avatar, Empty, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
 import { EpicTag } from '../components/IssueRow';
 import { ImportButton } from '../components/ImportIssues';
@@ -57,7 +57,7 @@ export default function IssueList() {
       ['Trạng thái', (i) => i.status_name], ['Độ ưu tiên', (i) => PRIORITY_LABELS[i.priority]],
       ['Người thực hiện', (i) => i.assignee_name], ['Người tạo', (i) => i.reporter_name],
       ['Epic/Issue cha', (i) => i.parent_key ? `${i.parent_key} ${i.parent_summary}` : ''], ['Sprint', (i) => i.sprint_name],
-      ['Phiên bản', (i) => i.version_name], ['Điểm ước lượng', (i) => i.story_points], ['Nhãn', (i) => i.labels.join(', ')],
+      ...(RELEASES_ENABLED ? [['Phiên bản', (i: Issue) => i.version_name] as [string, (i: Issue) => unknown]] : []), ['Điểm ước lượng', (i) => i.story_points], ['Nhãn', (i) => i.labels.join(', ')],
       ['Ngày bắt đầu', (i) => i.start_date], ['Hạn', (i) => i.due_date],
       ['Ước lượng (giờ)', (i) => (i.original_estimate != null ? i.original_estimate / 60 : '')],
       ['Đã làm (giờ)', (i) => (i.time_spent ? i.time_spent / 60 : '')],

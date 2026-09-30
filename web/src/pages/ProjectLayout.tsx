@@ -1,15 +1,20 @@
+import { useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useOutletContext, useParams } from 'react-router-dom';
-import { can, useProject } from '../hooks';
+import { can, useProject, useProjects } from '../hooks';
 import type { Project } from '../types';
-import { colorOf } from '../util';
+import { colorOf, RELEASES_ENABLED } from '../util';
 import { Spinner } from '../components/ui';
 import { ChartColumn, LayoutDashboard, ChartGantt, List, ListTodo, Rocket, Settings, SquareKanban, type LucideIcon } from 'lucide-react';
+
+const LAST_PROJECT = 'qlda:last-project';
 
 export const useProjectCtx = () => useOutletContext<Project>();
 
 export default function ProjectLayout() {
   const { key } = useParams();
   const { data: project, error, isLoading } = useProject(key?.toUpperCase());
+  // Nhớ dự án đang xem để lần đăng nhập sau mở thẳng vào đây
+  useEffect(() => { if (project) try { localStorage.setItem(LAST_PROJECT, project.key); } catch { /* bỏ qua */ } }, [project?.key]);
   if (isLoading) return <Spinner />;
   if (error || !project) return <div className="page"><h2>Không truy cập được dự án</h2><p className="muted">{error instanceof Error ? error.message : ''}</p></div>;
 
@@ -19,7 +24,7 @@ export default function ProjectLayout() {
     ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban', SquareKanban],
     ['issues', 'Danh sách issue', List],
     ['roadmap', 'Lộ trình', ChartGantt],
-    ['releases', 'Phát hành', Rocket],
+    ...(RELEASES_ENABLED ? [['releases', 'Phát hành', Rocket] as [string, string, LucideIcon]] : []),
     ['reports', 'Báo cáo', ChartColumn],
     ...(can(project.permissions, 'project.admin') ? [['settings', 'Cài đặt', Settings] as [string, string, LucideIcon]] : []),
   ];
@@ -39,6 +44,16 @@ export default function ProjectLayout() {
       <Outlet context={project} />
     </div>
   );
+}
+
+/** Sau khi đăng nhập: mở dự án xem gần nhất (hoặc dự án đầu tiên của tôi); chưa có dự án thì về Trang chủ. */
+export function Landing() {
+  const { data: projects, isLoading } = useProjects();
+  if (isLoading || !projects) return <Spinner />;
+  let last: string | null = null;
+  try { last = localStorage.getItem(LAST_PROJECT); } catch { /* bỏ qua */ }
+  const target = projects.find((p) => p.key === last) ?? projects[0];
+  return <Navigate to={target ? `/p/${target.key}/dashboard` : '/home'} replace />;
 }
 
 export function ProjectHome() {

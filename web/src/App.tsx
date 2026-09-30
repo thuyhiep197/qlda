@@ -8,7 +8,7 @@ import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
-import ProjectLayout, { ProjectHome } from './pages/ProjectLayout';
+import ProjectLayout, { Landing, ProjectHome } from './pages/ProjectLayout';
 import Backlog from './pages/Backlog';
 import Board from './pages/Board';
 import IssueList from './pages/IssueList';
@@ -21,6 +21,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminRoles from './pages/AdminRoles';
 import Profile from './pages/Profile';
 import Releases from './pages/Releases';
+import { RELEASES_ENABLED } from './util';
 
 export default function App() {
   const { data: me, isLoading } = useMe();
@@ -35,7 +36,8 @@ export default function App() {
     <>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Landing />} />
+          <Route path="home" element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
           <Route path="issues" element={<IssueList />} />
           <Route path="p/:key" element={<ProjectLayout />}>
@@ -45,7 +47,7 @@ export default function App() {
             <Route path="board" element={<Board />} />
             <Route path="issues" element={<IssueList />} />
             <Route path="roadmap" element={<Roadmap />} />
-            <Route path="releases" element={<Releases />} />
+            {RELEASES_ENABLED && <Route path="releases" element={<Releases />} />}
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<ProjectSettings />} />
           </Route>

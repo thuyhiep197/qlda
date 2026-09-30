@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { api, errMsg, refreshAll } from '../api';
 import { can, useIssueModal, useSprints, useVersions } from '../hooks';
 import type { IssueType, Project } from '../types';
-import { TYPE_LABELS } from '../util';
+import { RELEASES_ENABLED, TYPE_LABELS } from '../util';
 import { Modal, Spinner, toast, TypeIcon } from './ui';
 import { CircleCheck, CircleX, Download, TriangleAlert, Upload } from 'lucide-react';
 
@@ -13,7 +13,7 @@ import { CircleCheck, CircleX, Download, TriangleAlert, Upload } from 'lucide-re
 type Key = 'ref' | 'type' | 'summary' | 'description' | 'parent' | 'priority' | 'assignee' | 'story_points'
   | 'sprint' | 'status' | 'labels' | 'start_date' | 'due_date' | 'version' | 'original_estimate';
 
-const COLUMNS: { key: Key; header: string; width: number; note: string }[] = [
+const ALL_COLUMNS: { key: Key; header: string; width: number; note: string }[] = [
   { key: 'ref', header: 'Mã dòng', width: 10, note: 'Không bắt buộc. Mã tự đặt (VD: E1, S1) để các dòng khác trỏ tới làm issue cha.' },
   { key: 'type', header: 'Loại', width: 11, note: 'Epic, Story, Task, Bug hoặc Sub-task. Bỏ trống = Task.' },
   { key: 'summary', header: 'Tiêu đề', width: 45, note: 'Bắt buộc, tối đa 255 ký tự.' },
@@ -30,6 +30,7 @@ const COLUMNS: { key: Key; header: string; width: number; note: string }[] = [
   { key: 'original_estimate', header: 'Ước lượng thời gian', width: 18, note: 'VD: 2d (2 ngày = 16 giờ), 4h, 3h 30m. Số không đơn vị là giờ.' },
   { key: 'version', header: 'Phiên bản', width: 16, note: 'Tên phiên bản phát hành đã tạo ở tab Phát hành. Bỏ trống = chưa gán.' },
 ];
+const COLUMNS = ALL_COLUMNS.filter((c) => RELEASES_ENABLED || c.key !== 'version');
 
 /** Cột nguồn: các khóa gửi lên server, cộng thêm cột chỉ dùng ở bước đọc file (STT kiểu WBS, người phối hợp). */
 type SrcKey = Key | 'wbs' | 'collab';
@@ -52,7 +53,7 @@ const ALIASES: Record<SrcKey, string[]> = {
   due_date: ['han hoan thanh', 'ket thuc', 'ngay ket thuc', 'den ngay', 'han', 'due date', 'deadline', 'ngay het han'],
   wbs: ['stt', 'tt', 'so tt', 'wbs', 'ma wbs'],
   collab: ['nguoi phoi hop', 'phoi hop'],
-  version: ['phien ban', 'phien ban phat hanh', 'dot ban giao', 'fix version/s', 'fix version', 'fix versions', 'release'],
+  version: RELEASES_ENABLED ? ['phien ban', 'phien ban phat hanh', 'dot ban giao', 'fix version/s', 'fix version', 'fix versions', 'release'] : [],
   original_estimate: ['uoc luong thoi gian', 'uoc luong', 'uoc luong (gio)', 'thoi gian uoc luong', 'original estimate', 'original estimate (h)'],
 };
 
@@ -252,6 +253,7 @@ async function downloadTemplate(project: Project, sprintNames: string[], version
     const letter = String.fromCharCode(65 + ci);
     values.forEach((v, ri) => { lists.getCell(`${letter}${ri + 1}`).value = v; });
     const col = COLUMNS.findIndex((c) => c.key === key) + 1;
+    if (!col) return;
     for (let r = 2; r <= 500; r++) {
       ws.getCell(r, col).dataValidation = {
         type: 'list', allowBlank: true, showErrorMessage: key !== 'assignee',

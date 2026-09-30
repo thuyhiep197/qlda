@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
+import { RELEASES_ENABLED } from './util';
 import type { Me, Project, ProjectSummary, Role, Sprint, UserBasic, Version } from './types';
 
 export const useMe = () => useQuery<Me | null>({
@@ -28,7 +29,7 @@ export const useUsersBasic = () => useQuery<UserBasic[]>({ queryKey: ['users-bas
 export const useVersions = (key?: string) => useQuery<Version[]>({
   queryKey: ['versions', key],
   queryFn: () => api.get(`/projects/${key}/versions`),
-  enabled: !!key,
+  enabled: RELEASES_ENABLED && !!key,
 });
 
 export const useRoles = () => useQuery<Role[]>({ queryKey: ['roles'], queryFn: () => api.get('/roles') });

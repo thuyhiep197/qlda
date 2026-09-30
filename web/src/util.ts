@@ -1,5 +1,8 @@
 import type { Category, IssueType, Priority, Project, Status } from './types';
 
+/** Chức năng Phát hành (phiên bản): đang tắt theo yêu cầu. Dữ liệu phía server vẫn giữ nguyên; đổi thành true để bật lại. */
+export const RELEASES_ENABLED = false;
+
 export const TYPE_LABELS: Record<IssueType, string> = {
   epic: 'Epic', story: 'Story', task: 'Task', bug: 'Bug', subtask: 'Sub-task',
 };

@@ -49,7 +49,7 @@ export default function Layout() {
           <span>QLDA</span>
         </NavLink>
         <nav className="nav">
-          <NavLink to="/" end><House size={18} /> Trang chủ</NavLink>
+          <NavLink to="/home"><House size={18} /> Trang chủ</NavLink>
           <NavLink to="/projects"><FolderKanban size={18} /> Tất cả dự án</NavLink>
           <NavLink to="/issues" end><Search size={18} /> Tìm kiếm issue</NavLink>
         </nav>

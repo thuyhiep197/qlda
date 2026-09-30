@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
 import { can, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions } from '../hooks';
 import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, Worklog } from '../types';
-import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, today, TYPE_LABELS } from '../util';
+import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
 import { Avatar, Markdown, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
@@ -469,7 +469,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               ? <LabelsInput value={issue.labels} onChange={(v) => save({ labels: v })} suggestions={project?.labels} />
               : <div>{issue.labels.map((l) => <span key={l} className="label-chip">{l}</span>)}{!issue.labels.length && <span className="muted">—</span>}</div>}
 
-            {issue.type !== 'subtask' && <>
+            {RELEASES_ENABLED && issue.type !== 'subtask' && <>
               <div className="prop-label" data-tip="Đợt bàn giao (Release) chứa issue này">Phiên bản</div>
               <select value={issue.version_id ?? ''} disabled={!canEdit && !can(perms, 'sprint.manage')}
                 onChange={(e) => save({ version_id: e.target.value ? Number(e.target.value) : null })}>
