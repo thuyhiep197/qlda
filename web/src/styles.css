@@ -766,3 +766,12 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E") center / contain no-repeat; }
 .md a[href^="/api/issues/attachments/"]:hover { border-color: var(--primary); color: var(--primary); }
 .filter-bar select.filter-on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+/* Gom bộ lọc ít dùng */
+.more-filters { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; background: var(--sunken); border-radius: 6px; }
+.btn.more-on { background: var(--primary-soft); color: var(--primary); }
+.help-tip { display: inline-flex; color: var(--muted); cursor: help; }
+.help-tip:hover { color: var(--primary); }
+.quick-add { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 4px; }
+.quick-add .btn { color: var(--muted); }
+.quick-add .btn:hover { color: var(--primary); }
+.side-link { align-self: flex-start; color: var(--muted); }

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useOutletContext, useParams } from 'react-router-dom';
-import { can, useProject, useProjects } from '../hooks';
+import { can, isViewerOnly, useMe, useProject, useProjects } from '../hooks';
 import type { Project } from '../types';
 import { colorOf, RELEASES_ENABLED } from '../util';
 import { Spinner } from '../components/ui';
@@ -13,6 +13,8 @@ export const useProjectCtx = () => useOutletContext<Project>();
 export default function ProjectLayout() {
   const { key } = useParams();
   const { data: project, error, isLoading } = useProject(key?.toUpperCase());
+  const { data: me } = useMe();
+  const viewer = isViewerOnly(me);
   // Nhớ dự án đang xem để lần đăng nhập sau mở thẳng vào đây
   useEffect(() => { if (project) try { localStorage.setItem(LAST_PROJECT, project.key); } catch { /* bỏ qua */ } }, [project?.key]);
   if (isLoading) return <Spinner />;
@@ -20,15 +22,17 @@ export default function ProjectLayout() {
 
   const tabs: [string, string, LucideIcon][] = [
     ['dashboard', 'Dashboard', LayoutDashboard],
-    ['plan', 'Kế hoạch', ListTree],
+    ['plan', 'Kế hoạch chi tiết', ListTree],
     ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban', SquareKanban],
     ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ['issues', 'Danh sách issue', List],
-    ['roadmap', 'Lộ trình', ChartGantt],
+    ['roadmap', 'Kế hoạch tổng quan', ChartGantt],
     ...(RELEASES_ENABLED ? [['releases', 'Phát hành', Rocket] as [string, string, LucideIcon]] : []),
     ['reports', 'Báo cáo', ChartColumn],
     ...(can(project.permissions, 'project.admin') ? [['settings', 'Cài đặt', Settings] as [string, string, LucideIcon]] : []),
   ];
+  // Người chỉ theo dõi: chỉ Dashboard, Kế hoạch chi tiết, Kế hoạch tổng quan
+  const visibleTabs = viewer ? tabs.filter(([p]) => ['dashboard', 'plan', 'roadmap'].includes(p)) : tabs;
 
   return (
     <div className="project">
@@ -40,7 +44,7 @@ export default function ProjectLayout() {
         </div>
       </div>
       <nav className="tabs">
-        {tabs.map(([path, label, Icon]) => <NavLink key={path} to={`/p/${project.key}/${path}`}><Icon size={16} /> {label}</NavLink>)}
+        {visibleTabs.map(([path, label, Icon]) => <NavLink key={path} to={`/p/${project.key}/${path}`}><Icon size={16} /> {label}</NavLink>)}
       </nav>
       <Outlet context={project} />
     </div>

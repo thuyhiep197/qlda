@@ -11,6 +11,10 @@ export const useMe = () => useQuery<Me | null>({
   staleTime: 60_000,
 });
 
+/** Người chỉ theo dõi (Người xem, Phối hợp…): không tạo, không chuyển trạng thái issue → giao diện rút gọn. */
+export const isViewerOnly = (me?: Me | null) => !!me && !me.is_admin
+  && !(me.role_permissions ?? []).some((p) => p === 'issue.create' || p === 'issue.transition' || p === 'issue.edit');
+
 export const useProjects = () => useQuery<ProjectSummary[]>({ queryKey: ['projects'], queryFn: () => api.get('/projects') });
 
 export const useProject = (key?: string) => useQuery<Project>({

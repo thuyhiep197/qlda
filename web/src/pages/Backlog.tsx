@@ -4,7 +4,7 @@ import { api, qs, queryClient, refreshAll } from '../api';
 import { can, useIssueModal, useSprints } from '../hooks';
 import type { Issue, IssueType, Sprint } from '../types';
 import { fmtDate, TYPE_LABELS } from '../util';
-import { Spinner, toast, toastError } from '../components/ui';
+import { Spinner, toast, toastError, HelpTip } from '../components/ui';
 import { FilterBar, useFilters } from '../components/FilterBar';
 import { IssueLine } from '../components/IssueRow';
 import { CompleteSprintModal, SprintSeriesModal, StartSprintModal } from '../components/SprintModals';
@@ -136,11 +136,9 @@ export default function Backlog() {
         {canSprint && <button className="btn btn-sm btn-primary" onClick={createSprint}><Plus size={14} strokeWidth={2.5} /> Tạo sprint</button>}
         {canSprint && sprints.length > 0 && <button className="btn btn-sm" onClick={() => setSeries(true)} data-tip="Tạo tiếp nhiều sprint theo độ dài và nhịp của các sprint đã có"><CalendarRange size={14} /> Tạo loạt sprint</button>}
         <ImportButton project={project} />
+        {canSprint && <HelpTip text="Giữ Ctrl (hoặc Shift để chọn liên tiếp) rồi bấm vào issue, hoặc tick ô đầu dòng, để chọn nhiều issue rồi kéo cả nhóm vào sprint" />}
       </FilterBar>
       {selected.size > 0 && <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />}
-      {!selected.size && canSprint && (
-        <div className="muted small mb-sm">Mẹo: giữ <b>Ctrl</b> (hoặc <b>Shift</b> để chọn liên tiếp) rồi bấm vào issue — hoặc tick ô đầu dòng — để chọn nhiều issue, sau đó kéo cả nhóm vào sprint.</div>
-      )}
 
       {containers.map(({ c, sprint }) => {
         const list = listFor(c);

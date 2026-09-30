@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { Bookmark, Bug, Check, ChevronDown, ChevronsDown, ChevronsUp, ChevronUp, Equal, ListTree, UserRound, X, Zap, type LucideIcon } from 'lucide-react';
+import { Bookmark, Bug, Check, ChevronDown, ChevronsDown, ChevronsUp, ChevronUp, Equal, Info, ListTree, SlidersHorizontal, UserRound, X, Zap, type LucideIcon } from 'lucide-react';
 import type { Category, IssueType, Priority } from '../types';
 import { colorOf, initials, PRIORITY_LABELS, typeTip } from '../util';
 
@@ -256,4 +256,22 @@ export function SideBadge({ side }: { side: 'so' | 'truong' | 'chung' | null | u
   const tone = side === 'so' ? 'purple' : side === 'truong' ? 'blue' : 'default';
   const label = side === 'so' ? 'Sở' : side === 'truong' ? 'Trường' : 'Chung';
   return <span className={`lozenge lozenge-${tone}`}>{label}</span>;
+}
+
+/** Nút "Bộ lọc": gom các ô lọc ít dùng, mở ra thành một hàng riêng; hiện số bộ lọc đang bật. */
+export function MoreFilters({ count, children }: { count: number; children: ReactNode }) {
+  const [open, setOpen] = useState(count > 0);
+  return (
+    <>
+      <button type="button" className={`btn btn-sm ${count ? 'more-on' : ''}`} onClick={() => setOpen(!open)} aria-expanded={open}>
+        <SlidersHorizontal size={14} /> Bộ lọc{count ? ` (${count})` : ''} {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {open && <div className="more-filters">{children}</div>}
+    </>
+  );
+}
+
+/** Biểu tượng ⓘ: gợi ý cách dùng, chỉ hiện khi rê chuột (thay cho các dòng "Mẹo…"). */
+export function HelpTip({ text }: { text: string }) {
+  return <span className="help-tip" data-tip={text} aria-label={text}><Info size={15} /></span>;
 }

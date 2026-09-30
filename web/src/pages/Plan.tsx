@@ -5,7 +5,7 @@ import { api, qs } from '../api';
 import { useIssueModal } from '../hooks';
 import type { Issue } from '../types';
 import { fmtDate, today as todayStr, TYPE_LABELS } from '../util';
-import { Avatar, Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui';
+import { Avatar, Empty, Spinner, StatusBadge, TypeIcon, MoreFilters } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
@@ -187,7 +187,7 @@ export default function Plan() {
     const mod: any = await import('exceljs');
     const ExcelJS = mod.default ?? mod;
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Kế hoạch', { properties: { outlineLevelRow: 2 }, views: [{ state: 'frozen', ySplit: 1 }] });
+    const ws = wb.addWorksheet('Kế hoạch chi tiết', { properties: { outlineLevelRow: 2 }, views: [{ state: 'frozen', ySplit: 1 }] });
     ws.columns = [
       { header: 'Mã', key: 'key', width: 11 }, { header: 'Cấp', key: 'lvl', width: 10 }, { header: 'Công việc', key: 'name', width: 60 },
       { header: 'Từ ngày', key: 'from', width: 12 }, { header: 'Đến ngày', key: 'to', width: 12 },
@@ -212,7 +212,7 @@ export default function Plan() {
     const buf = await wb.xlsx.writeBuffer();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-    a.download = `Ke-hoach-${project.key}-${today}.xlsx`;
+    a.download = `Ke-hoach-chi-tiet-${project.key}-${today}.xlsx`;
     a.click();
   };
 
@@ -234,31 +234,33 @@ export default function Plan() {
 
       <div className="filter-bar">
         <input className="filter-search" placeholder="Tìm công việc…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={assignee ? 'filter-on' : ''}>
-          <option value="">Người thực hiện</option>
-          <option value="-">— Chưa giao —</option>
-          {assignees.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
         <select value={owner} onChange={(e) => setOwner(e.target.value)} className={owner ? 'filter-on' : ''}>
           <option value="">Người phụ trách</option>
           {owners.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select value={epic} onChange={(e) => setEpic(e.target.value)} className={epic ? 'filter-on' : ''}>
-          <option value="">Giai đoạn (Epic)</option>
-          {tree.map((e) => <option key={e.issue.id} value={e.issue.id}>{e.issue.summary}</option>)}
-        </select>
-        <select value={type} onChange={(e) => setType(e.target.value)} className={type ? 'filter-on' : ''}>
-          <option value="">Loại (Story/Task…)</option>
-          {types.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-        </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className={status ? 'filter-on' : ''}>
-          <option value="">Trạng thái</option>
-          {statuses.map((x) => <option key={x} value={x}>{x}</option>)}
         </select>
         <select value={health} onChange={(e) => setHealth(e.target.value as Health | '')} className={health ? 'filter-on' : ''}>
           <option value="">Đánh giá</option>
           {(Object.keys(HEALTH) as Health[]).map((h) => <option key={h} value={h}>{HEALTH[h].label}</option>)}
         </select>
+        <MoreFilters count={[assignee, epic, type, status].filter(Boolean).length}>
+          <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={assignee ? 'filter-on' : ''}>
+            <option value="">Người thực hiện</option>
+            <option value="-">— Chưa giao —</option>
+            {assignees.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <select value={epic} onChange={(e) => setEpic(e.target.value)} className={epic ? 'filter-on' : ''}>
+            <option value="">Giai đoạn (Epic)</option>
+            {tree.map((e) => <option key={e.issue.id} value={e.issue.id}>{e.issue.summary}</option>)}
+          </select>
+          <select value={type} onChange={(e) => setType(e.target.value)} className={type ? 'filter-on' : ''}>
+            <option value="">Loại (Story/Task…)</option>
+            {types.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+          </select>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={status ? 'filter-on' : ''}>
+            <option value="">Trạng thái</option>
+            {statuses.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+        </MoreFilters>
         {(filtering || epic) && <button className="btn btn-subtle btn-sm" onClick={clearFilters}>Xóa lọc</button>}
         {(filtering || epic) && <span className="muted small">{flatten(shown).filter((r) => r.level > 0).length} việc khớp</span>}
         <div className="spacer" />
@@ -302,8 +304,7 @@ export default function Plan() {
                       {r.lateKids > 0 && <span className="lozenge lozenge-red" data-tip="Số việc bên trong đang trễ hạn">{r.lateKids} trễ</span>}
                     </div>
                   </td>
-                  <td><span className={`lozenge lozenge-${HEALTH[r.health].tone}`} data-tip={r.note || undefined}>{HEALTH[r.health].label}</span>
-                    {r.note && <div className="muted small plan-note" data-tip={r.note}>{r.note}</div>}</td>
+                  <td><span className={`lozenge lozenge-${HEALTH[r.health].tone}`} data-tip={r.note || undefined}>{HEALTH[r.health].label}</span></td>
                   <td className="col-progress">
                     <div className="plan-pct">
                       <div className="plan-bar" data-tip={r.expected != null ? `Đạt ${r.progress}% · kế hoạch ${r.expected}%` : `Đạt ${r.progress}%`}>

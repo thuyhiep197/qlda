@@ -5,7 +5,7 @@ import { api, qs, queryClient, refreshAll } from '../api';
 import { can, useIssueModal, useSprints } from '../hooks';
 import type { Issue, Status } from '../types';
 import { canMove, fmtDate, isOverdue, today } from '../util';
-import { Avatar, Empty, PriorityIcon, Spinner, toastError, TypeIcon } from '../components/ui';
+import { Avatar, Empty, PriorityIcon, Spinner, toastError, TypeIcon, HelpTip } from '../components/ui';
 import { FilterBar, useFilters } from '../components/FilterBar';
 import { EpicTag } from '../components/IssueRow';
 import { CompleteSprintModal } from '../components/SprintModals';
@@ -153,8 +153,9 @@ export default function Board() {
       )}
 
       {selected.size > 0 ? <BulkBar issues={issues.filter((i) => selected.has(i.id))} onClear={() => setSelected(new Set())} />
-        : <div className="muted small mb-sm">Mẹo: giữ <b>Ctrl</b> rồi bấm vào các thẻ để chọn nhiều, sau đó <b>Giao cho…</b> hoặc đổi trạng thái hàng loạt.</div>}
+        : null}
       <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
+        <HelpTip text="Giữ Ctrl rồi bấm vào các thẻ để chọn nhiều, sau đó Giao cho… hoặc đổi trạng thái hàng loạt" />
         <label className="check small"><input type="checkbox" checked={showSub} onChange={(e) => setShowSub(e.target.checked)} /> Hiện sub-task</label>
         <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>
           <option value="none">Không phân làn</option>

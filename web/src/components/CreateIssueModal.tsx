@@ -10,7 +10,7 @@ const TYPE_HINTS: Record<IssueType, string> = {
   story: 'Chức năng nhìn từ phía người dùng, thường có tiêu chí chấp nhận',
   task: 'Đầu việc cần làm (kỹ thuật, tài liệu, cấu hình...)',
   bug: 'Lỗi cần sửa',
-  epic: 'Nhóm lớn chứa nhiều Story/Task/Bug, hiển thị trên Lộ trình',
+  epic: 'Giai đoạn lớn chứa nhiều Story/Task/Bug, hiển thị trên Kế hoạch tổng quan',
   subtask: 'Việc nhỏ nằm dưới một Story, Task hoặc Bug',
 };
 import { LabelsInput, DateInput } from './fields';

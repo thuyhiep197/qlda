@@ -12,6 +12,8 @@ export interface Me {
   phone?: string | null;
   job_title?: string | null;
   role_name?: string | null;
+  /** Quyền theo vai trò của tài khoản (áp dụng ở mọi dự án) */
+  role_permissions?: string[];
   created_at?: string;
   last_login_at?: string | null;
   preferences?: { theme?: 'light' | 'dark' | 'system'; notify?: Partial<Record<'mention' | 'assigned' | 'comment' | 'status', boolean>> };

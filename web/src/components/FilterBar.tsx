@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Issue, Project } from '../types';
 import { TYPE_LABELS } from '../util';
-import { Avatar } from './ui';
+import { Avatar, MoreFilters } from './ui';
 import { useComponents } from '../hooks';
 
 export interface Filters {
@@ -55,30 +55,32 @@ export function FilterBar({ project, filters, setFilters, epics, children }: {
         ))}
         <button className={filters.assignees.includes('none') ? 'on' : ''} onClick={() => toggle('none')} title="Chưa giao"><Avatar size={28} /></button>
       </div>
-      {epics && (
-        <select value={filters.epic} onChange={(e) => setFilters({ ...filters, epic: e.target.value })}>
-          <option value="">Tất cả epic</option>
-          <option value="none">Không thuộc epic</option>
-          {epics.map((e) => <option key={e.id} value={e.id}>{e.summary}</option>)}
+      <MoreFilters count={[filters.epic, filters.component, filters.type, filters.label].filter(Boolean).length}>
+        {epics && (
+          <select value={filters.epic} onChange={(e) => setFilters({ ...filters, epic: e.target.value })}>
+            <option value="">Tất cả epic</option>
+            <option value="none">Không thuộc epic</option>
+            {epics.map((e) => <option key={e.id} value={e.id}>{e.summary}</option>)}
+          </select>
+        )}
+        {!!components?.length && (
+          <select value={filters.component} onChange={(e) => setFilters({ ...filters, component: e.target.value })}>
+            <option value="">Tất cả mô-đun</option>
+            <option value="none">Không thuộc mô-đun</option>
+            {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` · ${c.lead_name}` : ''}</option>)}
+          </select>
+        )}
+        <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}>
+          <option value="">Mọi loại</option>
+          {(['story', 'task', 'bug', 'subtask'] as const).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
         </select>
-      )}
-      {!!components?.length && (
-        <select value={filters.component} onChange={(e) => setFilters({ ...filters, component: e.target.value })}>
-          <option value="">Tất cả mô-đun</option>
-          <option value="none">Không thuộc mô-đun</option>
-          {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` · ${c.lead_name}` : ''}</option>)}
-        </select>
-      )}
-      <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}>
-        <option value="">Mọi loại</option>
-        {(['story', 'task', 'bug', 'subtask'] as const).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-      </select>
-      {project.labels.length > 0 && (
-        <select value={filters.label} onChange={(e) => setFilters({ ...filters, label: e.target.value })}>
-          <option value="">Mọi nhãn</option>
-          {project.labels.map((l) => <option key={l} value={l}>{l}</option>)}
-        </select>
-      )}
+        {project.labels.length > 0 && (
+          <select value={filters.label} onChange={(e) => setFilters({ ...filters, label: e.target.value })}>
+            <option value="">Mọi nhãn</option>
+            {project.labels.map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+        )}
+      </MoreFilters>
       {active && <button className="btn btn-subtle btn-sm" onClick={() => setFilters(emptyFilters)}>Xóa lọc</button>}
       <div className="spacer" />
       {children}

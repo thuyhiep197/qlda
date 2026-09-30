@@ -8,7 +8,7 @@ import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PR
 import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
-import { ArrowRightLeft, Copy, Eye, EyeOff, Link as LinkIcon, Timer, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, Copy, Eye, EyeOff, Link as LinkIcon, Paperclip, Plus, Timer, Trash2, X } from 'lucide-react';
 
 export default function IssueDetailModal({ issueKey }: { issueKey: string }) {
   const { close } = useIssueModal();
@@ -65,6 +65,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const [editingComment, setEditingComment] = useState<{ id: number; body: string } | null>(null);
   const [childText, setChildText] = useState('');
   const [linkForm, setLinkForm] = useState<{ type: string; key: string } | null>(null);
+  const [addingChild, setAddingChild] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (isLoading) return <Spinner />;
@@ -240,7 +241,22 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             )}
           </section>
 
-          {issue.type !== 'subtask' && (
+          {/* Hàng thêm nhanh: thay cho các mục trống */}
+          {(() => {
+            const canChild = issue.type !== 'subtask' && can(perms, 'issue.create') && !issue.children.length && !addingChild;
+            const canLink = canEdit && !issue.links.length && !linkForm;
+            const canFile = can(perms, 'attachment.create') && !issue.attachments.length;
+            if (!canChild && !canLink && !canFile) return null;
+            return (
+              <div className="quick-add">
+                {canChild && <button className="btn btn-subtle btn-sm" onClick={() => setAddingChild(true)}><Plus size={14} /> {issue.type === 'epic' ? 'Story/Task' : 'Sub-task'}</button>}
+                {canLink && <button className="btn btn-subtle btn-sm" onClick={() => setLinkForm({ type: 'relates', key: '' })}><LinkIcon size={14} /> Liên kết issue</button>}
+                {canFile && <button className="btn btn-subtle btn-sm" onClick={() => fileRef.current?.click()}><Paperclip size={14} /> Tệp đính kèm</button>}
+              </div>
+            );
+          })()}
+
+          {issue.type !== 'subtask' && (issue.children.length > 0 || addingChild) && (
             <section>
               <h4>
                 {issue.type === 'epic' ? 'Các issue trong epic' : 'Sub-task'}
@@ -262,14 +278,14 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               </div>
               {can(perms, 'issue.create') && (
                 <form onSubmit={addChild} className="row gap-xs mt-sm">
-                  <input className="grow" value={childText} onChange={(e) => setChildText(e.target.value)}
+                  <input className="grow" autoFocus={addingChild && !issue.children.length} value={childText} onChange={(e) => setChildText(e.target.value)}
                     placeholder={issue.type === 'epic' ? '+ Thêm story vào epic (gõ tiêu đề rồi Enter)' : '+ Thêm sub-task (gõ tiêu đề rồi Enter)'} />
                 </form>
               )}
             </section>
           )}
 
-          <section>
+          {(issue.links.length > 0 || linkForm) && <section>
             <h4 className="row">
               Liên kết issue
               {canEdit && !linkForm && <button className="btn btn-subtle btn-sm" onClick={() => setLinkForm({ type: 'relates', key: '' })}>+ Thêm</button>}
@@ -286,7 +302,6 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                 <button type="button" className="btn" onClick={() => setLinkForm(null)}>Hủy</button>
               </form>
             )}
-            {issue.links.length === 0 && !linkForm && <div className="muted small">Chưa có liên kết</div>}
             {issue.links.map((l) => (
               <div key={`${l.id}-${l.direction}`} className="child-row" onClick={() => open(l.key)}>
                 <span className="muted small link-type">{LINK_LABELS[l.type]?.[l.direction === 'out' ? 0 : 1]}</span>
@@ -300,20 +315,19 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                 }}><X size={14} /></button>}
               </div>
             ))}
-          </section>
+          </section>}
 
-          <section>
+          <input ref={fileRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
+          {issue.attachments.length > 0 && <section>
             <h4 className="row">
               Tệp đính kèm {issue.attachments.length > 0 && <span className="muted small">({issue.attachments.length})</span>}
               {can(perms, 'attachment.create') && <>
                 <button className="btn btn-subtle btn-sm" onClick={() => fileRef.current?.click()}>+ Tải lên</button>
-                <input ref={fileRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
               </>}
             </h4>
             <div className="attachments"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => { e.preventDefault(); if (can(perms, 'attachment.create')) upload(e.dataTransfer.files); }}>
-              {issue.attachments.length === 0 && <div className="muted small">Kéo thả tệp vào đây để đính kèm</div>}
               {issue.attachments.map((a) => (
                 <div key={a.id} className="attachment">
                   {/^image\/(png|jpe?g|gif|webp|bmp)$/.test(a.mime || '')
@@ -328,7 +342,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                 </div>
               ))}
             </div>
-          </section>
+          </section>}
 
           <section>
             <div className="tabs tabs-sm">
@@ -515,7 +529,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             </div>
           </div>
 
-          <TimeTracking issue={issue} canEdit={canEdit} canLog={can(perms, 'issue.transition')} onLog={() => setLogging(true)} save={save} />
+          {(issue.original_estimate != null || issue.time_spent > 0) ? <TimeTracking issue={issue} canEdit={canEdit} canLog={can(perms, 'issue.transition')} onLog={() => setLogging(true)} save={save} />
+            : can(perms, 'issue.transition') && <button className="btn btn-subtle btn-sm side-link" onClick={() => setLogging(true)}><Timer size={14} /> Ghi thời gian làm việc</button>}
 
           <Watchers issue={issue} members={project?.members ?? []} canManage={canEdit} meId={me?.id} />
 

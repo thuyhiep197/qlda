@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { api, logout, queryClient } from '../api';
 import { applyTheme } from '../theme';
-import { useIssueModal, useMe, useProjects } from '../hooks';
+import { isViewerOnly, useIssueModal, useMe, useProjects } from '../hooks';
 import { Avatar } from './ui';
 import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
@@ -81,7 +81,7 @@ export default function Layout() {
             <Search size={16} className="search-icon" aria-hidden />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm issue theo từ khóa hoặc mã (VD: DEMO-12)…" />
           </form>
-          <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> Tạo issue</button>
+          {!isViewerOnly(me) && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> Tạo issue</button>}
           <div className="spacer" />
           <NotificationBell />
           <div className="user-menu">

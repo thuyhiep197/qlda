@@ -5,7 +5,7 @@ import { api, qs, refreshAll } from '../api';
 import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useVersions } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
 import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS } from '../util';
-import { Avatar, Empty, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
+import { Avatar, Empty, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
 import { EpicTag } from '../components/IssueRow';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar } from '../components/BulkBar';
@@ -104,81 +104,84 @@ export default function IssueList() {
             {projects?.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
           </select>
         )}
-        <select value={filter.type || ''} onChange={(e) => set('type', e.target.value)}>
-          <option value="">Mọi loại</option>
-          {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        {project ? (
-          <select value={filter.status || ''} onChange={(e) => set('status', e.target.value)}>
-            <option value="">Mọi trạng thái</option>
-            {project.statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        ) : null}
-        <select value={filter.statusCategory || ''} onChange={(e) => set('statusCategory', e.target.value)}>
-          <option value="">Mọi nhóm trạng thái</option>
-          <option value="todo,inprogress">Chưa hoàn thành</option>
-          {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
         <select value={filter.assignee || ''} onChange={(e) => set('assignee', e.target.value)}>
           <option value="">Mọi người thực hiện</option>
           <option value="me">Tôi</option>
           <option value="none">Chưa giao</option>
           {project?.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
         </select>
-        <select value={filter.priority || ''} onChange={(e) => set('priority', e.target.value)}>
-          <option value="">Mọi độ ưu tiên</option>
-          {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
+        <select value={filter.statusCategory || ''} onChange={(e) => set('statusCategory', e.target.value)}>
+          <option value="">Mọi nhóm trạng thái</option>
+          <option value="todo,inprogress">Chưa hoàn thành</option>
+          {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        {!!epics?.length && (
-          <select value={filter.parent || ''} onChange={(e) => set('parent', e.target.value)}>
-            <option value="">Mọi epic</option>
-            {epics.map((e) => <option key={e.id} value={e.id}>{e.key} · {e.summary}</option>)}
+        <MoreFilters count={(['type', 'status', 'priority', 'parent', 'sprint', 'version', 'component', 'ba', 'label'] as const).filter((k) => filter[k]).length}>
+          <select value={filter.type || ''} onChange={(e) => set('type', e.target.value)}>
+            <option value="">Mọi loại</option>
+            {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-        )}
-        {project?.type === 'scrum' && (
-          <select value={filter.sprint || ''} onChange={(e) => set('sprint', e.target.value)}>
-            <option value="">Mọi sprint</option>
-            <option value="active">Sprint đang chạy</option>
-            <option value="backlog">Backlog (chưa vào sprint)</option>
-            {sprints?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {project ? (
+            <select value={filter.status || ''} onChange={(e) => set('status', e.target.value)}>
+              <option value="">Mọi trạng thái</option>
+              {project.statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          ) : null}
+          <select value={filter.priority || ''} onChange={(e) => set('priority', e.target.value)}>
+            <option value="">Mọi độ ưu tiên</option>
+            {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
           </select>
-        )}
-        {showVersion && (
-          <select value={filter.version || ''} onChange={(e) => set('version', e.target.value)}>
-            <option value="">Mọi phiên bản</option>
-            <option value="none">Chưa gán phiên bản</option>
-            {versions!.map((v) => <option key={v.id} value={v.id}>{v.name}{v.status === 'released' ? ' (đã phát hành)' : ''}</option>)}
-          </select>
-        )}
-        {showComponent && (
-          <select value={filter.component || ''} onChange={(e) => set('component', e.target.value)}>
-            <option value="">Tất cả mô-đun</option>
-            <option value="none">Không thuộc mô-đun</option>
-            {components!.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        )}
-        {showComponent && (
-          <select value={filter.ba || ''} onChange={(e) => set('ba', e.target.value)}>
-            <option value="">Mọi BA phụ trách</option>
-            <option value="me">BA phụ trách: tôi</option>
-            {[...new Map(components!.filter((c) => c.lead_id).map((c) => [c.lead_id, c.lead_name])).entries()].map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
-          </select>
-        )}
-        {project && project.labels.length > 0 && (
-          <select value={filter.label || ''} onChange={(e) => set('label', e.target.value)}>
-            <option value="">Mọi nhãn</option>
-            {project.labels.map((l) => <option key={l} value={l}>{l}</option>)}
-          </select>
-        )}
+          {!!epics?.length && (
+            <select value={filter.parent || ''} onChange={(e) => set('parent', e.target.value)}>
+              <option value="">Mọi epic</option>
+              {epics.map((e) => <option key={e.id} value={e.id}>{e.key} · {e.summary}</option>)}
+            </select>
+          )}
+          {project?.type === 'scrum' && (
+            <select value={filter.sprint || ''} onChange={(e) => set('sprint', e.target.value)}>
+              <option value="">Mọi sprint</option>
+              <option value="active">Sprint đang chạy</option>
+              <option value="backlog">Backlog (chưa vào sprint)</option>
+              {sprints?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          )}
+          {showVersion && (
+            <select value={filter.version || ''} onChange={(e) => set('version', e.target.value)}>
+              <option value="">Mọi phiên bản</option>
+              <option value="none">Chưa gán phiên bản</option>
+              {versions!.map((v) => <option key={v.id} value={v.id}>{v.name}{v.status === 'released' ? ' (đã phát hành)' : ''}</option>)}
+            </select>
+          )}
+          {showComponent && (
+            <select value={filter.component || ''} onChange={(e) => set('component', e.target.value)}>
+              <option value="">Tất cả mô-đun</option>
+              <option value="none">Không thuộc mô-đun</option>
+              {components!.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+          {showComponent && (
+            <select value={filter.ba || ''} onChange={(e) => set('ba', e.target.value)}>
+              <option value="">Mọi BA phụ trách</option>
+              <option value="me">BA phụ trách: tôi</option>
+              {[...new Map(components!.filter((c) => c.lead_id).map((c) => [c.lead_id, c.lead_name])).entries()].map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
+            </select>
+          )}
+          {project && project.labels.length > 0 && (
+            <select value={filter.label || ''} onChange={(e) => set('label', e.target.value)}>
+              <option value="">Mọi nhãn</option>
+              {project.labels.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          )}
+        </MoreFilters>
         {hasFilter && <button className="btn btn-subtle btn-sm" onClick={() => setParams(routeKey ? {} : filter.project ? { project: filter.project } : {})}>Xóa lọc</button>}
         <div className="spacer" />
         <span className="muted small">{issues?.length ?? 0} issue</span>
+        <HelpTip text="Tick ô đầu dòng (hoặc ô trên cùng để chọn tất cả theo bộ lọc) rồi bấm Giao cho… để giao việc, đổi trạng thái hàng loạt" />
         {routeKey && project && <ImportButton project={project} />}
         <button className="btn btn-sm" onClick={exportCsv} disabled={!issues?.length}><Download size={14} /> Xuất Excel (CSV)</button>
       </div>
 
       {selectedIssues.length > 0 ? <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />
-        : !!issues?.length && <div className="muted small mb-sm">Mẹo: tick ô đầu dòng (hoặc ô trên cùng để chọn tất cả theo bộ lọc) rồi bấm <b>Giao cho…</b> để giao việc hàng loạt.</div>}
+        : null}
 
       {isLoading ? <Spinner /> : !issues?.length ? <Empty title="Không có issue phù hợp" /> : (
         <div className="table-wrap">

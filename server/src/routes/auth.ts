@@ -51,12 +51,14 @@ r.post('/logout', (_req, res) => {
 });
 
 r.get('/me', requireAuth, (req, res) => {
-  const extra = get<{ preferences: string; phone: string | null; job_title: string | null; created_at: string; last_login_at: string | null; role_name: string | null }>(
-    `SELECT u.preferences, u.phone, u.job_title, u.created_at, u.last_login_at, r.name AS role_name
+  const extra = get<{ preferences: string; phone: string | null; job_title: string | null; created_at: string; last_login_at: string | null; role_name: string | null; role_permissions: string | null }>(
+    `SELECT u.preferences, u.phone, u.job_title, u.created_at, u.last_login_at, r.name AS role_name, r.permissions AS role_permissions
      FROM users u LEFT JOIN roles r ON r.id = u.default_role_id WHERE u.id = ?`, req.user.id)!;
   let preferences = {};
   try { preferences = JSON.parse(extra.preferences || '{}'); } catch { /* giữ mặc định */ }
-  res.json({ ...req.user, ...extra, preferences });
+  let role_permissions: string[] = [];
+  try { role_permissions = JSON.parse(extra.role_permissions || '[]'); } catch { /* vai trò lỗi → coi như không có quyền */ }
+  res.json({ ...req.user, ...extra, preferences, role_permissions });
 });
 
 // ---------------------------------------------------------------------------
