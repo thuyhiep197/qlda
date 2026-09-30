@@ -713,3 +713,11 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .stack-sm { display: flex; flex-direction: column; gap: 6px; }
 .module-mini { display: block; padding: 8px 10px; border-radius: 6px; color: var(--text); }
 .module-mini:hover { background: var(--row-hover); text-decoration: none; }
+.assign-picker { position: relative; }
+.assign-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 60; width: 300px; background: var(--surface); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 8px; }
+.assign-menu input { width: 100%; margin-bottom: 6px; }
+.assign-list { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; }
+.assign-list button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: none; padding: 6px 8px; border-radius: 4px; font: inherit; color: var(--text); cursor: pointer; }
+.assign-list button:hover { background: var(--row-hover); }
+.assign-group { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); padding: 8px 8px 2px; letter-spacing: .03em; }
+.card-issue.selected { outline: 2px solid var(--primary); outline-offset: -1px; background: var(--primary-soft); }

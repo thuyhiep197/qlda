@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react';
+import { useEffect, useState, type DragEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, qs, queryClient, refreshAll } from '../api';
@@ -9,6 +9,7 @@ import { Avatar, Empty, PriorityIcon, Spinner, toastError, TypeIcon } from '../c
 import { FilterBar, useFilters } from '../components/FilterBar';
 import { EpicTag } from '../components/IssueRow';
 import { CompleteSprintModal } from '../components/SprintModals';
+import { BulkBar } from '../components/BulkBar';
 import { QuickCreate } from './Backlog';
 import { useProjectCtx } from './ProjectLayout';
 import { CalendarDays, ChevronDown, ChevronRight, CornerDownRight, SquareCheck, Target } from 'lucide-react';
@@ -42,6 +43,13 @@ export default function Board() {
   const [showSub, setShowSub] = useState(true);
   const [drag, setDrag] = useState<Issue | null>(null);
   const [drop, setDrop] = useState<{ lane: string; status: number; index: number } | null>(null);
+  // Chọn nhiều thẻ (Ctrl/⌘ + bấm) để giao việc, đổi trạng thái… hàng loạt
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.modal')) setSelected(new Set()); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, []);
   const [completing, setCompleting] = useState<typeof actives[number] | null>(null);
 
   const canTransition = can(project.permissions, 'issue.transition');
@@ -144,6 +152,8 @@ export default function Board() {
         </div>
       )}
 
+      {selected.size > 0 ? <BulkBar issues={issues.filter((i) => selected.has(i.id))} onClear={() => setSelected(new Set())} />
+        : <div className="muted small mb-sm">Mẹo: giữ <b>Ctrl</b> rồi bấm vào các thẻ để chọn nhiều, sau đó <b>Giao cho…</b> hoặc đổi trạng thái hàng loạt.</div>}
       <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
         <label className="check small"><input type="checkbox" checked={showSub} onChange={(e) => setShowSub(e.target.checked)} /> Hiện sub-task</label>
         <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>
@@ -185,7 +195,11 @@ export default function Board() {
                       onDragEnd={() => { setDrag(null); setDrop(null); }}
                       onDragOver={(e) => onDragOverCard(e, lane.key, s, idx)}>
                       {isTarget && drop!.index === idx && <div className="drop-line" />}
-                      <Card issue={i} dragging={drag?.id === i.id} onOpen={() => open(i.key)} />
+                      <Card issue={i} dragging={drag?.id === i.id} selected={selected.has(i.id)} onOpen={(e) => {
+                        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                          const n = new Set(selected); n.has(i.id) ? n.delete(i.id) : n.add(i.id); setSelected(n);
+                        } else open(i.key);
+                      }} />
                     </div>
                   ))}
                   {isTarget && drop!.index === cards.length && cards.length > 0 && <div className="drop-line" />}
@@ -224,9 +238,9 @@ function Lane({ lane, statuses, group, children }: {
   );
 }
 
-function Card({ issue, onOpen, dragging }: { issue: Issue; onOpen: () => void; dragging: boolean }) {
+function Card({ issue, onOpen, dragging, selected }: { issue: Issue; onOpen: (e: React.MouseEvent) => void; dragging: boolean; selected?: boolean }) {
   return (
-    <div className={`card-issue ${dragging ? 'dragging' : ''}`} onClick={onOpen}>
+    <div className={`card-issue ${dragging ? 'dragging' : ''} ${selected ? 'selected' : ''}`} onClick={onOpen}>
       {issue.type === 'subtask' && issue.parent_key && <div className="muted small ellipsis"><CornerDownRight size={12} /> {issue.parent_key} {issue.parent_summary}</div>}
       <div className={`card-title ${issue.status_category === 'done' ? 'done-text' : ''}`}>{issue.summary}</div>
       <div className="card-tags">

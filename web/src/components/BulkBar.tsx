@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, refreshAll } from '../api';
-import { can, useComponents, useProject, useSprints, useVersions } from '../hooks';
+import { can, useComponents, useMe, useProject, useSprints, useVersions } from '../hooks';
 import type { Issue } from '../types';
 import { PRIORITIES, PRIORITY_LABELS } from '../util';
-import { toast } from './ui';
-import { Trash2 } from 'lucide-react';
+import { Avatar, toast } from './ui';
+import { Trash2, UserPlus } from 'lucide-react';
 
 interface BulkResult { ok: number; failed: number; results: { key: string; ok: boolean; error?: string }[] }
 
@@ -59,19 +59,14 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
   return (
     <div className="bulk-bar" role="toolbar" aria-label="Thao tác hàng loạt">
       <b>Đã chọn {keys.length} issue</b>
+      {project && <AssignPicker members={project.members} disabled={busy}
+        onPick={(id, name) => act({ assignee_id: id }, id ? `Đã giao cho ${name}` : 'Đã bỏ giao')} />}
       {project?.type === 'scrum' && (
         <select value="" disabled={busy} onChange={(e) => toSprint(e.target.value)}>
           <option value="" disabled>Chuyển vào sprint…</option>
           <option value="backlog">Backlog</option>
           {sprints?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.state === 'active' ? ' (đang chạy)' : ''}</option>)}
           {can(perms, 'sprint.manage') && <option value="new">+ Sprint mới</option>}
-        </select>
-      )}
-      {project && (
-        <select value="" disabled={busy} onChange={(e) => act({ assignee_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã giao việc')}>
-          <option value="" disabled>Giao cho…</option>
-          <option value="none">— Bỏ giao —</option>
-          {project.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
         </select>
       )}
       {project && (
@@ -105,6 +100,58 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
       <div className="spacer" />
       {!single && <span className="muted small">Chọn issue cùng một dự án để chuyển sprint, giao việc, đổi trạng thái</span>}
       <button className="btn btn-sm" onClick={onClear}>Bỏ chọn</button>
+    </div>
+  );
+}
+
+/** Nút "Giao cho": tìm người theo tên, nhóm theo vai trò, có "Giao cho tôi" và "Bỏ giao". */
+function AssignPicker({ members, disabled, onPick }: {
+  members: { id: number; full_name: string; username: string; role_name: string | null; is_active?: number }[];
+  disabled?: boolean; onPick: (id: number | null, name?: string) => void;
+}) {
+  const { data: me } = useMe();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', close); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const list = members.filter((m) => m.is_active !== 0)
+    .filter((m) => !q || `${m.full_name} ${m.username} ${m.role_name || ''}`.toLowerCase().includes(q.toLowerCase()));
+  const groups = [...new Set(list.map((m) => m.role_name || 'Khác'))];
+  const pick = (id: number | null, name?: string) => { setOpen(false); setQ(''); onPick(id, name); };
+  const isMember = !!me && members.some((m) => m.id === me.id);
+
+  return (
+    <div className="assign-picker" ref={box}>
+      <button type="button" className="btn btn-sm btn-primary" disabled={disabled} onClick={() => setOpen(!open)}>
+        <UserPlus size={14} /> Giao cho…
+      </button>
+      {open && (
+        <div className="assign-menu">
+          <input autoFocus placeholder="Tìm theo tên, vai trò…" value={q} onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && list.length === 1) pick(list[0].id, list[0].full_name); }} />
+          <div className="assign-list">
+            {!q && isMember && <button type="button" onClick={() => pick(me!.id, me!.full_name)}><Avatar name={me!.full_name} size={22} /> <b>Giao cho tôi</b></button>}
+            {!q && <button type="button" onClick={() => pick(null)}><Avatar size={22} /> Bỏ giao (chưa giao ai)</button>}
+            {groups.map((g) => (
+              <div key={g}>
+                <div className="assign-group">{g}</div>
+                {list.filter((m) => (m.role_name || 'Khác') === g).map((m) => (
+                  <button type="button" key={m.id} onClick={() => pick(m.id, m.full_name)}>
+                    <Avatar name={m.full_name} size={22} /> {m.full_name} <span className="muted small">@{m.username}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+            {!list.length && <div className="muted small pad">Không tìm thấy thành viên</div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

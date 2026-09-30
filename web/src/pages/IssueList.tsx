@@ -177,7 +177,8 @@ export default function IssueList() {
         <button className="btn btn-sm" onClick={exportCsv} disabled={!issues?.length}><Download size={14} /> Xuất Excel (CSV)</button>
       </div>
 
-      {selectedIssues.length > 0 && <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />}
+      {selectedIssues.length > 0 ? <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />
+        : !!issues?.length && <div className="muted small mb-sm">Mẹo: tick ô đầu dòng (hoặc ô trên cùng để chọn tất cả theo bộ lọc) rồi bấm <b>Giao cho…</b> để giao việc hàng loạt.</div>}
 
       {isLoading ? <Spinner /> : !issues?.length ? <Empty title="Không có issue phù hợp" /> : (
         <div className="table-wrap">
