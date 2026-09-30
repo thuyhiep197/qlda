@@ -86,6 +86,109 @@ r.get('/projects/:key/summary', (req, res) => {
   res.json({ byStatus, byType, byPriority, byAssignee, trend, overdue });
 });
 
+/**
+ * Dashboard dự án: tiến độ thực tế so với kế hoạch (theo hạn hoàn thành), từng giai đoạn (Epic),
+ * sprint đang chạy, mô-đun (nhãn), khối lượng theo người, việc quá hạn/sắp đến hạn, mốc sắp tới.
+ */
+r.get('/projects/:key/dashboard', (req, res) => {
+  const { project } = loadProject(req);
+  const pid = project.id;
+  const today = localDate();
+  const in7 = addDays(today, 7);
+  type Row = { id: number; key: string; type: string; summary: string; parent_id: number | null; start_date: string | null;
+    due_date: string | null; story_points: number | null; labels: string | null; assignee_id: number | null; category: string;
+    status_name: string; sprint_id: number | null };
+  const rows = all<Row>(`SELECT i.id, i.key, i.type, i.summary, i.parent_id, i.start_date, i.due_date, i.story_points, i.labels,
+      i.assignee_id, i.sprint_id, s.category, s.name AS status_name
+    FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.project_id = ?`, pid);
+  const work = rows.filter((i) => i.type !== 'epic' && i.type !== 'subtask');
+  const done = (i: Row) => i.category === 'done';
+  const pts = (list: Row[]) => list.reduce((a, i) => a + (i.story_points || 0), 0);
+  // Tiến độ: đếm theo điểm ước lượng nếu có, không thì theo số issue
+  const measure = (list: Row[]) => {
+    const usePts = pts(list) > 0;
+    const w = (i: Row) => (usePts ? i.story_points || 0 : 1);
+    const total = list.reduce((a, i) => a + w(i), 0);
+    const actual = list.filter(done).reduce((a, i) => a + w(i), 0);
+    const planned = list.filter((i) => i.due_date && i.due_date < today).reduce((a, i) => a + w(i), 0);
+    return {
+      total_issues: list.length, done_issues: list.filter(done).length,
+      inprogress_issues: list.filter((i) => i.category === 'inprogress').length,
+      points: pts(list), done_points: pts(list.filter(done)),
+      pct_done: total ? Math.round((actual / total) * 100) : 0,
+      pct_planned: total ? Math.round((planned / total) * 100) : 0,
+      overdue: list.filter((i) => !done(i) && i.due_date && i.due_date < today).length,
+    };
+  };
+  const dates = (list: Row[]) => {
+    const s = list.map((i) => i.start_date || i.due_date).filter(Boolean).sort() as string[];
+    const d = list.map((i) => i.due_date || i.start_date).filter(Boolean).sort() as string[];
+    return { start: s[0] ?? null, end: d[d.length - 1] ?? null };
+  };
+  const health = (m: ReturnType<typeof measure>, end: string | null) =>
+    m.total_issues && m.done_issues === m.total_issues ? 'done'
+      : m.overdue > 0 && end && end < today ? 'late'
+        : m.pct_done + 10 < m.pct_planned ? 'behind'
+          : m.done_issues === 0 && m.inprogress_issues === 0 ? 'not_started' : 'on_track';
+
+  const overall = measure(work);
+  const span = dates(work);
+  const elapsed = span.start && span.end
+    ? Math.min(100, Math.max(0, Math.round(((Date.parse(today) - Date.parse(span.start)) / Math.max(1, Date.parse(span.end) - Date.parse(span.start) + 86400_000)) * 100)))
+    : 0;
+
+  const epics = rows.filter((i) => i.type === 'epic').map((e) => {
+    const kids = work.filter((i) => i.parent_id === e.id);
+    const m = measure(kids);
+    const d = dates(kids);
+    const start = e.start_date || d.start, end = e.due_date || d.end;
+    return { id: e.id, key: e.key, summary: e.summary, start_date: start, due_date: end, status_name: e.status_name, ...m, health: health(m, end) };
+  }).sort((a, b) => (a.start_date || '9').localeCompare(b.start_date || '9') || a.id - b.id);
+
+  const modules = new Map<string, Row[]>();
+  for (const i of work) for (const l of (i.labels || '').split(',').filter(Boolean)) modules.set(l, [...(modules.get(l) || []), i]);
+  const labels = [...modules.entries()].map(([name, list]) => ({ name, ...measure(list), ...dates(list) }))
+    .sort((a, b) => (a.start || '9').localeCompare(b.start || '9'));
+
+  const active = all<{ id: number; name: string; start_date: string; end_date: string; goal: string | null }>(
+    `SELECT id, name, start_date, end_date, goal FROM sprints WHERE project_id = ? AND state = 'active' ORDER BY start_date, id`, pid);
+  const sprints = active.map((s) => {
+    const list = work.filter((i) => i.sprint_id === s.id);
+    const len = Math.max(1, Date.parse(s.end_date) - Date.parse(s.start_date) + 86400_000);
+    return { ...s, ...measure(list),
+      days_left: Math.ceil((Date.parse(s.end_date) - Date.parse(today)) / 86400_000),
+      pct_time: Math.min(100, Math.max(0, Math.round(((Date.parse(today) - Date.parse(s.start_date) + 86400_000) / len) * 100))) };
+  });
+  const next = get(`SELECT id, name, start_date, end_date FROM sprints WHERE project_id = ? AND state = 'future' ORDER BY COALESCE(start_date, '9'), id LIMIT 1`, pid) ?? null;
+
+  const byAssignee = all(`SELECT COALESCE(u.full_name, 'Chưa giao') AS name,
+      SUM(CASE WHEN s.category = 'todo' THEN 1 ELSE 0 END) AS todo,
+      SUM(CASE WHEN s.category = 'inprogress' THEN 1 ELSE 0 END) AS inprogress,
+      SUM(CASE WHEN s.category <> 'done' AND i.due_date < ? THEN 1 ELSE 0 END) AS overdue
+    FROM issues i JOIN statuses s ON s.id = i.status_id LEFT JOIN users u ON u.id = i.assignee_id
+    WHERE i.project_id = ? AND i.type NOT IN ('epic') AND s.category <> 'done'
+    GROUP BY i.assignee_id ORDER BY (todo + inprogress) DESC`, today, pid);
+
+  const open = listIssues(req.user, { project: project.key, statusCategory: 'todo,inprogress', sort: 'due' })
+    .filter((i: any) => i.type !== 'epic' && i.due_date);
+  const overdueList = open.filter((i: any) => i.due_date < today).slice(0, 15);
+  const upcoming = open.filter((i: any) => i.due_date >= today && i.due_date <= in7).slice(0, 15);
+  const milestones = rows.filter((i) => (i.labels || '').split(',').includes('mốc') || i.type === 'epic')
+    .filter((i) => i.due_date && i.due_date >= today && !done(i))
+    .sort((a, b) => a.due_date!.localeCompare(b.due_date!)).slice(0, 6)
+    .map((i) => ({ key: i.key, type: i.type, summary: i.summary, due_date: i.due_date, days: Math.round((Date.parse(i.due_date!) - Date.parse(today)) / 86400_000) }));
+
+  const activity = all(`SELECT h.id, h.field, h.old_label, h.new_label, h.created_at, u.full_name AS user_name, i.key, i.summary, i.type
+    FROM issue_history h JOIN issues i ON i.id = h.issue_id LEFT JOIN users u ON u.id = h.user_id
+    WHERE i.project_id = ? AND h.field IN ('created','status','assignee') ORDER BY h.created_at DESC, h.id DESC LIMIT 12`, pid);
+  const doneWeek = get<{ c: number }>(`SELECT COUNT(*) c FROM issues i JOIN statuses s ON s.id = i.status_id
+    WHERE i.project_id = ? AND i.type NOT IN ('epic','subtask') AND s.category = 'done' AND i.resolved_at >= ?`,
+  pid, dayStart(addDays(today, -6)).toISOString())!.c;
+
+  res.json({ today, overall: { ...overall, ...span, pct_time: elapsed, health: health(overall, span.end), done_week: doneWeek },
+    epics, labels, sprints, next_sprint: next, byAssignee, overdue: overdueList, upcoming, milestones, activity });
+});
+
 r.get('/projects/:key/velocity', (req, res) => {
   const { project } = loadProject(req);
   const sprints = all(`SELECT id, name, start_date, end_date, completed_at, committed_points, completed_points,

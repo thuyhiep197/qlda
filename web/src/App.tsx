@@ -13,6 +13,7 @@ import Backlog from './pages/Backlog';
 import Board from './pages/Board';
 import IssueList from './pages/IssueList';
 import Roadmap from './pages/Roadmap';
+import ProjectDashboard from './pages/ProjectDashboard';
 import Reports from './pages/Reports';
 import ProjectSettings from './pages/ProjectSettings';
 import IssuePage from './pages/IssuePage';
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="issues" element={<IssueList />} />
           <Route path="p/:key" element={<ProjectLayout />}>
             <Route index element={<ProjectHome />} />
+            <Route path="dashboard" element={<ProjectDashboard />} />
             <Route path="backlog" element={<Backlog />} />
             <Route path="board" element={<Board />} />
             <Route path="issues" element={<IssueList />} />
