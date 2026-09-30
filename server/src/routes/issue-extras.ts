@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import { all, get, now, run, tx } from '../db.ts';
 import {
-  addHistory, createIssue, deleteIssue, fetchIssue, fmtMinutes, getIssueRow, parseDuration, updateIssue,
+  addHistory, createIssue, deleteIssue, fetchIssue, fmtMinutes, getIssueRow, parseDuration, syncEpicStatus, updateIssue,
   type IssueRow,
 } from '../issues.ts';
 import { badRequest, canEditIssue, forbidden, notFound, requireProjectAccess } from '../permissions.ts';
@@ -200,6 +200,8 @@ r.post('/:key/move-project', (req, res) => {
     }
     // Epic chuyển đi: các issue con ở lại dự án cũ, bỏ liên kết epic
     if (row.type === 'epic') run('UPDATE issues SET parent_id = NULL WHERE parent_id = ? AND project_id <> ?', row.id, target.id);
+    // Issue rời khỏi Epic ở dự án cũ → Epic đó tự cập nhật trạng thái
+    if (row.type !== 'epic' && row.type !== 'subtask') syncEpicStatus(row.parent_id, req.user.id);
     return { from: oldKey, to: get<{ key: string }>('SELECT key FROM issues WHERE id = ?', row.id)!.key };
   });
   res.json(moved);

@@ -17,10 +17,12 @@ import filterRoutes from './routes/filters.ts';
 import reportRoutes from './routes/reports.ts';
 import notificationRoutes from './routes/notifications.ts';
 import { pruneNotifications } from './notify.ts';
+import { syncAllEpics } from './issues.ts';
 import { scheduleBackups } from './backup.ts';
 
 migrate();
 seedRoles();
+syncAllEpics();
 ensureAdmin();
 scheduleBackups();
 pruneNotifications();

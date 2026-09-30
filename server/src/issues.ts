@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { all, get, now, run, tx, UPLOAD_DIR } from './db.ts';
 import { handleMentions, notify, watch, watchers } from './notify.ts';
-import { canTransition, initialStatus, isStatusAllowed, mapStatusForType } from './workflow.ts';
+import { canTransition, initialStatus, isStatusAllowed, mapStatusForType, projectStatuses, typeStatuses } from './workflow.ts';
 import {
   accessibleProjectIds, badRequest, canEditIssue, forbidden, notFound,
   type AuthUser, type Permission,
@@ -370,6 +370,7 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     watchLead(id, componentId);
     if (assigneeId) notify([assigneeId], user.id, id, 'assigned', summary);
     handleMentions(id, projectId, user.id, data.description);
+    if (type !== 'epic' && type !== 'subtask') syncEpicStatus(parentId, user.id);
     return fetchIssue('id', id);
   });
 }
@@ -522,6 +523,9 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
     };
     if (has('status_id') && Number(data.status_id) !== issue.status_id) {
       if (!perms.has('issue.transition')) throw forbidden('Bạn không có quyền chuyển trạng thái');
+      if (issue.type === 'epic' && epicWorkCount(issue.id)) {
+        throw badRequest('Trạng thái Epic tự động theo các Story/Task/Bug bên trong, không đổi tay được');
+      }
       const s = checkStatus(issue.project_id, data.status_id);
       if (!isStatusAllowed(issue.project_id, effType, s.id)) {
         throw badRequest(`Trạng thái "${statusName(s.id)}" không dùng cho loại ${TYPE_NAMES[effType] ?? effType}`);
@@ -552,6 +556,11 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       const st = history.find((h) => h[0] === 'status');
       if (st) notify(watchers(issue.id), user.id, issue.id, 'status', `${st[3]} → ${st[4]}`);
       if (sets.description !== undefined) handleMentions(issue.id, issue.project_id, user.id, sets.description as string, issue.description);
+      // Epic cũ và Epic mới (nếu đổi Epic) tự cập nhật trạng thái
+      if (sets.status_id !== undefined || sets.parent_id !== undefined || sets.type !== undefined) {
+        syncEpicStatus(issue.parent_id, user.id);
+        if (sets.parent_id !== undefined) syncEpicStatus(sets.parent_id as number | null, user.id);
+      }
     }
   });
   return fetchIssue('id', issue.id);
@@ -575,8 +584,41 @@ export function deleteIssue(issue: IssueRow) {
     );
     for (const id of ids.slice(1)) run('DELETE FROM issues WHERE id = ?', id);
     run('DELETE FROM issues WHERE id = ?', issue.id);
+    syncEpicStatus(issue.parent_id, null);
     for (const f of files) fs.rm(path.join(UPLOAD_DIR, f.stored_name), { force: true }, () => {});
   });
+}
+
+/**
+ * Trạng thái Epic tự động theo các Story/Task/Bug bên trong (không tính Sub-task):
+ *  - tất cả Hoàn thành → Epic Hoàn thành; tất cả Cần làm → Epic Cần làm;
+ *  - còn lại (có việc đang thực hiện, hoặc đã xong một phần) → Epic Đang thực hiện.
+ * Epic chưa có việc nào thì giữ nguyên trạng thái.
+ */
+const WORK_TYPES = "('story','task','bug')";
+export function epicWorkCount(epicId: number) {
+  return get<{ c: number }>(`SELECT COUNT(*) c FROM issues WHERE parent_id = ? AND type IN ${WORK_TYPES}`, epicId)!.c;
+}
+export function syncEpicStatus(epicId: number | null | undefined, actorId: number | null) {
+  if (!epicId) return;
+  const epic = get<IssueRow>('SELECT * FROM issues WHERE id = ?', epicId);
+  if (!epic || epic.type !== 'epic') return;
+  const kids = all<{ category: string }>(`SELECT s.category FROM issues i JOIN statuses s ON s.id = i.status_id
+    WHERE i.parent_id = ? AND i.type IN ${WORK_TYPES}`, epicId);
+  if (!kids.length) return;
+  const target = kids.every((k) => k.category === 'done') ? 'done' : kids.every((k) => k.category === 'todo') ? 'todo' : 'inprogress';
+  if (get<{ category: string }>('SELECT category FROM statuses WHERE id = ?', epic.status_id)?.category === target) return;
+  const s = typeStatuses(epic.project_id, 'epic').find((x) => x.category === target)
+    ?? projectStatuses(epic.project_id).find((x) => x.category === target);
+  if (!s) return;
+  const ts = now();
+  run('UPDATE issues SET status_id = ?, resolved_at = ?, updated_at = ? WHERE id = ?', s.id, target === 'done' ? ts : null, ts, epic.id);
+  addHistory(epic.id, actorId, 'status', epic.status_id, s.id, statusName(epic.status_id), `${s.name} (tự động)`);
+  if (actorId) notify(watchers(epic.id), actorId, epic.id, 'status', `${statusName(epic.status_id)} → ${s.name} (tự động theo các issue bên trong)`);
+}
+/** Đồng bộ mọi Epic — chạy khi khởi động (dữ liệu cũ, hoặc trạng thái bị đổi ngoài luồng thông thường). */
+export function syncAllEpics() {
+  for (const e of all<{ id: number }>("SELECT id FROM issues WHERE type = 'epic'")) tx(() => syncEpicStatus(e.id, null));
 }
 
 export function getIssueRow(key: string) {

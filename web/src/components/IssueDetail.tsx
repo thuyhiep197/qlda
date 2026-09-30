@@ -102,6 +102,9 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   };
 
   // Trạng thái hợp lệ theo workflow của loại issue và luồng chuyển (server đã tính sẵn)
+  // Epic đã có Story/Task/Bug: trạng thái tự động theo các việc bên trong (server tính)
+  const workKids = issue.type === 'epic' ? issue.children.filter((c) => c.type !== 'subtask') : [];
+  const epicAuto = workKids.length > 0;
   const allowedStatuses = project?.statuses.filter((s) => issue.next_status_ids.includes(s.id)) ?? [];
 
   const addComment = async (e: FormEvent) => {
@@ -401,10 +404,17 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
         </div>
 
         <aside className="issue-side">
-          <select className={`status-select status-${issue.status_category}`} value={issue.status_id} disabled={!canTransition}
-            onChange={(e) => save({ status_id: Number(e.target.value) })}>
-            {allowedStatuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+          {epicAuto ? (
+            <div className="row gap-xs" data-tip="Tất cả Hoàn thành → Hoàn thành · tất cả Cần làm → Cần làm · còn lại → Đang thực hiện">
+              <span className={`status-select status-${issue.status_category} status-static`}>{issue.status_name}</span>
+              <span className="muted small">Tự động theo {workKids.length} việc bên trong</span>
+            </div>
+          ) : (
+            <select className={`status-select status-${issue.status_category}`} value={issue.status_id} disabled={!canTransition}
+              onChange={(e) => save({ status_id: Number(e.target.value) })}>
+              {allowedStatuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          )}
 
           <div className="props">
             <div className="prop-label">Người thực hiện</div>
