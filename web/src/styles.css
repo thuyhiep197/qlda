@@ -756,3 +756,12 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .mini-bar > div { height: 100%; background: var(--success); opacity: .8; }
 .mini-bar.tone-red { background: var(--red-bg); } .mini-bar.tone-yellow { background: var(--yellow-bg); } .mini-bar.tone-blue { background: var(--st-ip-bg); }
 .status-select.status-static { display: inline-flex; align-items: center; cursor: default; padding: 0 12px; height: 32px; border-radius: 4px; font-weight: 700; }
+.mention-hint { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.attach-btn { color: var(--primary); }
+/* Tệp đính kèm chèn trong bình luận/mô tả: hiện thành thẻ tệp */
+.md a[href^="/api/issues/attachments/"] { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; margin: 2px 0;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--sunken); color: var(--text); font-size: 13px; text-decoration: none; }
+.md a[href^="/api/issues/attachments/"]::before { content: ''; width: 14px; height: 14px; flex-shrink: 0; background: var(--muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E") center / contain no-repeat; }
+.md a[href^="/api/issues/attachments/"]:hover { border-color: var(--primary); color: var(--primary); }

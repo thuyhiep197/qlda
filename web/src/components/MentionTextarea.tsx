@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { api, refreshAll } from '../api';
 import type { UserBasic } from '../types';
 import { Avatar, toastError } from './ui';
+import { Paperclip } from 'lucide-react';
 
 const fold = (v: string) => v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
 
@@ -29,6 +30,7 @@ export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, 
   const [query, setQuery] = useState<{ start: number; text: string } | null>(null);
   const [active, setActive] = useState(0);
   const [uploading, setUploading] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Khớp theo đầu từ của họ tên (gõ @hung ra Lê Quốc Hùng) hoặc một phần tên đăng nhập
   const matches = query
@@ -114,10 +116,12 @@ export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, 
         onBlur={() => setTimeout(() => setQuery(null), 150)}
         onPaste={(e) => {
           if (!issueKey) return;
-          const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'));
+          const files = Array.from(e.clipboardData.files);
           if (!files.length) return;
           e.preventDefault();
-          upload(files.map((f, i) => new File([f], `anh-dan-${stamp()}${i ? `-${i}` : ''}.${f.type.split('/')[1] || 'png'}`, { type: f.type })));
+          // Ảnh chụp màn hình không có tên thật → đặt tên theo thời điểm; tệp copy từ thư mục giữ nguyên tên
+          upload(files.map((f, i) => (f.type.startsWith('image/') && /^image\.\w+$/i.test(f.name)
+            ? new File([f], `anh-dan-${stamp()}${i ? `-${i}` : ''}.${f.type.split('/')[1] || 'png'}`, { type: f.type }) : f)));
         }}
         onDragOver={(e) => { if (issueKey && e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
         onDrop={(e) => {
@@ -140,8 +144,13 @@ export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, 
         </div>
       )}
       <div className="mention-hint muted small">
-        Gõ <b>@</b> để nhắc thành viên{issueKey ? <> · Dán (Ctrl+V) hoặc kéo thả ảnh, tệp vào đây</> : null}
-        {uploading > 0 && <> · <b>Đang tải tệp lên…</b></>}
+        {issueKey && <>
+          <button type="button" className="btn btn-subtle btn-sm attach-btn" disabled={uploading > 0} onClick={() => fileRef.current?.click()}
+            data-tip="Chọn tệp (Word, Excel, PDF, ảnh…) để đính kèm vào bình luận"><Paperclip size={14} /> Đính kèm tệp</button>
+          <input ref={fileRef} type="file" multiple hidden onChange={(e) => { const fs = Array.from(e.target.files || []); e.target.value = ''; upload(fs); }} />
+        </>}
+        <span>Gõ <b>@</b> để nhắc thành viên{issueKey ? <> · Dán (Ctrl+V) hoặc kéo thả ảnh, tệp vào đây</> : null}</span>
+        {uploading > 0 && <b>· Đang tải tệp lên…</b>}
       </div>
     </div>
   );
