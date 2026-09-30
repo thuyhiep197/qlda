@@ -5,7 +5,9 @@ import { HttpError } from '../permissions.ts';
 
 const r = Router();
 
-// Chống dò mật khẩu: trong 15 phút, tối đa 10 lần sai cho mỗi tài khoản và 50 lần sai cho mỗi địa chỉ IP
+// Chống dò mật khẩu (mặc định TẮT theo yêu cầu; bật bằng LOGIN_LOCKOUT=on trong .env):
+// trong 15 phút, tối đa 10 lần sai cho mỗi tài khoản và 50 lần sai cho mỗi địa chỉ IP
+const LOCKOUT = process.env.LOGIN_LOCKOUT === 'on';
 const WINDOW = 15 * 60_000;
 const LIMITS = { user: 10, ip: 50 };
 const failures = new Map<string, { count: number; until: number }>();
@@ -27,7 +29,7 @@ r.post('/login', (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
   const userKey = `u:${username}`, ipKey = `ip:${req.ip}`;
-  if (blocked(userKey, LIMITS.user) || blocked(ipKey, LIMITS.ip)) {
+  if (LOCKOUT && (blocked(userKey, LIMITS.user) || blocked(ipKey, LIMITS.ip))) {
     throw new HttpError(429, 'Đăng nhập sai quá nhiều lần, vui lòng thử lại sau 15 phút');
   }
   const user = get('SELECT * FROM users WHERE username = ?', username);

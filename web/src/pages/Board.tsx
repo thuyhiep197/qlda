@@ -1,6 +1,6 @@
 import { useState, type DragEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api, qs, queryClient, refreshAll } from '../api';
 import { can, useIssueModal, useSprints } from '../hooks';
 import type { Issue, Status } from '../types';
@@ -13,20 +13,24 @@ import { QuickCreate } from './Backlog';
 import { useProjectCtx } from './ProjectLayout';
 import { CalendarDays, ChevronDown, ChevronRight, CornerDownRight, SquareCheck, Target } from 'lucide-react';
 
-type Group = 'none' | 'assignee' | 'epic';
+type Group = 'none' | 'assignee' | 'epic' | 'sprint';
 
 export default function Board() {
   const project = useProjectCtx();
   const { open } = useIssueModal();
   const isScrum = project.type === 'scrum';
-  const sprint = project.active_sprint;
-  const issuesKey = ['issues', 'board', project.key];
+  // Có thể có nhiều sprint chạy song song: chọn xem một sprint, hoặc tất cả
+  const actives = project.active_sprints ?? (project.active_sprint ? [project.active_sprint] : []);
+  const [params, setParams] = useSearchParams();
+  const sprint = actives.find((x) => String(x.id) === params.get('sprint')) ?? (actives.length === 1 ? actives[0] : null);
+  const pickSprint = (id: string) => setParams((p) => { if (id) p.set('sprint', id); else p.delete('sprint'); return p; }, { replace: true });
+  const issuesKey = ['issues', 'board', project.key, sprint?.id ?? 'all'];
   const { data: issues, isLoading } = useQuery<Issue[]>({
     queryKey: issuesKey,
     queryFn: () => api.get(`/issues${qs(isScrum
-      ? { project: project.key, sprint: 'active', excludeEpics: '1' }
+      ? { project: project.key, sprint: sprint ? sprint.id : 'active', excludeEpics: '1' }
       : { project: project.key, excludeEpics: '1', hideDoneOlderThanDays: 14 })}`),
-    enabled: !isScrum || !!sprint,
+    enabled: !isScrum || actives.length > 0,
   });
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', project.key],
@@ -38,11 +42,11 @@ export default function Board() {
   const [showSub, setShowSub] = useState(true);
   const [drag, setDrag] = useState<Issue | null>(null);
   const [drop, setDrop] = useState<{ lane: string; status: number; index: number } | null>(null);
-  const [completing, setCompleting] = useState(false);
+  const [completing, setCompleting] = useState<typeof actives[number] | null>(null);
 
   const canTransition = can(project.permissions, 'issue.transition');
 
-  if (isScrum && !sprint) {
+  if (isScrum && !actives.length) {
     return (
       <div className="page-pad">
         <Empty title="Chưa có sprint nào đang chạy">
@@ -76,6 +80,9 @@ export default function Board() {
       key: k, items,
       title: k === 'none' ? 'Không thuộc epic' : <><TypeIcon type="epic" size={14} /> {items[0].parent_summary}</>,
     })).sort((a, b) => (a.key === 'none' ? 1 : b.key === 'none' ? -1 : 0));
+  } else if (group === 'sprint') {
+    lanes = actives.map((sp) => ({ key: String(sp.id), items: visible.filter((i) => i.sprint_id === sp.id),
+      title: <><b>{sp.name}</b> <span className="muted small">{fmtDate(sp.start_date)} – {fmtDate(sp.end_date)}</span></> }));
   } else {
     lanes = [{ key: 'all', title: null, items: visible }];
   }
@@ -112,6 +119,18 @@ export default function Board() {
 
   return (
     <div className="page-pad board-page">
+      {isScrum && actives.length > 1 && (
+        <div className="row gap-sm mb-sm wrap">
+          <span className="muted small">{actives.length} sprint đang chạy song song:</span>
+          <select value={sprint?.id ?? ''} onChange={(e) => pickSprint(e.target.value)}>
+            <option value="">Tất cả sprint đang chạy</option>
+            {actives.map((x) => <option key={x.id} value={x.id}>{x.name} ({fmtDate(x.start_date)} – {fmtDate(x.end_date)})</option>)}
+          </select>
+          {!sprint && can(project.permissions, 'sprint.manage') && actives.map((x) => (
+            <button key={x.id} className="btn btn-sm" onClick={() => setCompleting(x)}>Hoàn thành {x.name}</button>
+          ))}
+        </div>
+      )}
       {isScrum && sprint && (
         <div className="sprint-bar">
           <div>
@@ -121,7 +140,7 @@ export default function Board() {
             {sprint.goal && <div className="muted small icon-text"><Target size={13} /> {sprint.goal}</div>}
           </div>
           <div className="spacer" />
-          {can(project.permissions, 'sprint.manage') && <button className="btn" onClick={() => setCompleting(true)}>Hoàn thành sprint</button>}
+          {can(project.permissions, 'sprint.manage') && <button className="btn" onClick={() => setCompleting(sprint)}>Hoàn thành sprint</button>}
         </div>
       )}
 
@@ -131,6 +150,7 @@ export default function Board() {
           <option value="none">Không phân làn</option>
           <option value="assignee">Phân làn theo người thực hiện</option>
           <option value="epic">Phân làn theo epic</option>
+          {isScrum && !sprint && actives.length > 1 && <option value="sprint">Phân làn theo sprint</option>}
         </select>
       </FilterBar>
 
@@ -170,7 +190,7 @@ export default function Board() {
                   ))}
                   {isTarget && drop!.index === cards.length && cards.length > 0 && <div className="drop-line" />}
                   {s.id === statuses[0].id && lane.key === lanes[0].key && can(project.permissions, 'issue.create') &&
-                    <QuickCreate projectKey={project.key} sprintId={sprint?.id} statusId={s.id} compact />}
+                    <QuickCreate projectKey={project.key} sprintId={sprint?.id ?? actives[0]?.id} statusId={s.id} compact />}
                 </div>
               );
             })}
@@ -178,11 +198,12 @@ export default function Board() {
         ))}
       </div>
 
-      {completing && sprint && (
-        <CompleteSprintModal project={project} sprint={sprint} futureSprints={futureSprints || []}
-          doneCount={issues.filter((i) => i.type !== 'subtask' && i.status_category === 'done').length}
-          openCount={issues.filter((i) => i.type !== 'subtask' && i.status_category !== 'done').length}
-          onClose={() => setCompleting(false)} />
+      {completing && (
+        <CompleteSprintModal project={project} sprint={completing}
+          futureSprints={[...actives.filter((x) => x.id !== completing.id), ...(futureSprints || [])]}
+          doneCount={issues.filter((i) => i.sprint_id === completing.id && i.type !== 'subtask' && i.status_category === 'done').length}
+          openCount={issues.filter((i) => i.sprint_id === completing.id && i.type !== 'subtask' && i.status_category !== 'done').length}
+          onClose={() => { setCompleting(null); if (sprint?.id === completing.id) pickSprint(''); }} />
       )}
     </div>
   );

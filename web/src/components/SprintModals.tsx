@@ -75,7 +75,7 @@ export function CompleteSprintModal({ project, sprint, futureSprints, doneCount,
             <select value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
               <option value="backlog">Backlog</option>
               <option value="new">Sprint mới</option>
-              {futureSprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {futureSprints.map((s) => <option key={s.id} value={s.id}>{s.name}{s.state === 'active' ? ' (đang chạy)' : ''}</option>)}
             </select>
           </label>
         )}

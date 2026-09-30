@@ -91,6 +91,7 @@ Bỏ service `caddy` trong `docker-compose.yml`. Cấu hình web server sẵn c�
 | `ADMIN_USERNAME` / `ADMIN_FULLNAME` / `ADMIN_PASSWORD` | admin / Quản trị hệ thống / Admin@123 | Tài khoản quản trị tạo khi CSDL còn trống |
 | `MAX_UPLOAD_MB` | 25 | Dung lượng tối đa mỗi tệp đính kèm |
 | `BACKUP_KEEP` | 14 | Số bản sao lưu giữ lại; `0` để tắt |
+| `LOGIN_LOCKOUT` | (tắt) | `on` để bật khóa tạm 15 phút khi đăng nhập sai quá 10 lần/tài khoản hoặc 50 lần/IP |
 | `JWT_SECRET` | tự sinh, lưu trong CSDL | Khóa ký phiên đăng nhập |
 | `TZ` | Asia/Ho_Chi_Minh | Múi giờ |
 

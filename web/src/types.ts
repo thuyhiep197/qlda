@@ -123,6 +123,7 @@ export interface Project {
   /** Loại issue → trạng thái được dùng (loại không có trong đây dùng mọi trạng thái) */
   type_statuses: Partial<Record<IssueType, number[]>>;
   active_sprint: Sprint | null;
+  active_sprints: Sprint[];
   labels: string[];
   permissions: string[];
 }

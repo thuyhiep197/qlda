@@ -75,14 +75,15 @@ r.get('/:key', (req, res) => {
     FROM project_members pm JOIN users u ON u.id = pm.user_id JOIN roles r ON r.id = COALESCE(u.default_role_id, pm.role_id)
     WHERE pm.project_id = ? ORDER BY u.full_name`, project.id);
   const { transitions, type_statuses } = workflowConfig(project.id);
-  const activeSprint = get("SELECT * FROM sprints WHERE project_id = ? AND state = 'active'", project.id) ?? null;
+  // Như Jira (sprint song song): có thể có nhiều sprint cùng chạy
+  const activeSprints = all("SELECT * FROM sprints WHERE project_id = ? AND state = 'active' ORDER BY start_date, id", project.id);
   const lead = get('SELECT id, full_name FROM users WHERE id = ?', project.lead_id) ?? null;
   const labels = new Set<string>();
   for (const row of all<{ labels: string }>('SELECT DISTINCT labels FROM issues WHERE project_id = ? AND labels IS NOT NULL', project.id)) {
     row.labels.split(',').forEach((l) => l && labels.add(l));
   }
   res.json({
-    ...project, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprint,
+    ...project, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
     labels: [...labels].sort(), permissions: [...perms],
   });
 });
@@ -349,9 +350,6 @@ r.patch('/:key/sprints/:id', (req, res) => {
 r.post('/:key/sprints/:id/start', (req, res) => {
   const { project, sprint } = loadSprint(req);
   if (sprint.state !== 'future') throw badRequest('Chỉ bắt đầu được sprint chưa chạy');
-  if (get("SELECT 1 FROM sprints WHERE project_id = ? AND state = 'active'", project.id)) {
-    throw badRequest('Dự án đang có sprint chạy, hãy hoàn thành sprint đó trước');
-  }
   const b = req.body || {};
   const start = checkDate(b.start_date, 'Ngày bắt đầu') || localDate();
   const end = checkDate(b.end_date, 'Ngày kết thúc');
@@ -375,7 +373,7 @@ r.post('/:key/sprints/:id/complete', (req, res) => {
       const seq = get('SELECT sprint_seq FROM projects WHERE id = ?', project.id)!.sprint_seq;
       target = run('INSERT INTO sprints(project_id, name) VALUES (?,?)', project.id, `${project.key} Sprint ${seq}`).id;
     } else if (moveTo && moveTo !== 'backlog') {
-      const t = get("SELECT * FROM sprints WHERE id = ? AND project_id = ? AND state = 'future'", Number(moveTo), project.id);
+      const t = get("SELECT * FROM sprints WHERE id = ? AND project_id = ? AND state IN ('future','active') AND id <> ?", Number(moveTo), project.id, sprint.id);
       if (!t) throw badRequest('Sprint đích không hợp lệ');
       target = t.id;
     }

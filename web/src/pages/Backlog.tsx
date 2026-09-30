@@ -172,8 +172,8 @@ export default function Backlog() {
               <span className="pts pts-inprogress" data-tip="Tổng điểm ước lượng: Đang thực hiện">{sum('inprogress')}</span>
               <span className="pts pts-done" data-tip="Tổng điểm ước lượng: Hoàn thành">{sum('done')}</span>
               {sprint && canSprint && sprint.state === 'future' && (
-                <button className="btn btn-sm" disabled={hasActive || all.length === 0}
-                  data-tip={hasActive ? 'Đang có sprint chạy' : all.length === 0 ? 'Sprint chưa có issue' : undefined}
+                <button className="btn btn-sm" disabled={all.length === 0}
+                  data-tip={all.length === 0 ? 'Sprint chưa có issue' : hasActive ? 'Chạy song song với sprint đang chạy' : undefined}
                   onClick={() => setStartModal({ sprint, mode: 'start' })}>Bắt đầu sprint</button>
               )}
               {sprint && canSprint && sprint.state === 'active' && (
