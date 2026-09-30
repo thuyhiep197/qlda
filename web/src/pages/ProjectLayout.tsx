@@ -21,8 +21,8 @@ export default function ProjectLayout() {
   const tabs: [string, string, LucideIcon][] = [
     ['dashboard', 'Dashboard', LayoutDashboard],
     ['plan', 'Kế hoạch', ListTree],
-    ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban', SquareKanban],
+    ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ['issues', 'Danh sách issue', List],
     ['roadmap', 'Lộ trình', ChartGantt],
     ...(RELEASES_ENABLED ? [['releases', 'Phát hành', Rocket] as [string, string, LucideIcon]] : []),
