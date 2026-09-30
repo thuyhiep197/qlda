@@ -59,14 +59,20 @@ function evaluate(r: Row, today: string) {
 }
 
 /** Dựng cây Epic → đầu việc → việc con, tính tiến độ và đánh giá từ dưới lên. */
-function buildTree(issues: Issue[], today: string): Row[] {
+/**
+ * Người phụ trách: giai đoạn → đầu mối Epic; việc thuộc mô-đun → BA phụ trách mô-đun;
+ * việc không có mô-đun do người không phải Dev thực hiện (VD việc CĐT góp ý/xác nhận) → chính người đó;
+ * còn lại → người phụ trách của cấp trên (đầu mối giai đoạn / việc cha).
+ */
+function buildTree(issues: Issue[], today: string, isDev: (name: string | null) => boolean): Row[] {
   const byParent = new Map<number, Issue[]>();
   for (const i of issues) if (i.parent_id) byParent.set(i.parent_id, [...(byParent.get(i.parent_id) || []), i]);
   const order = (a: Issue, b: Issue) => (a.start_date || a.due_date || '9').localeCompare(b.start_date || b.due_date || '9') || a.id - b.id;
   const leafProgress = (i: Issue) => (i.status_category === 'done' ? 100 : i.status_category === 'inprogress' ? 50 : 0);
 
   const make = (i: Issue, level: 0 | 1 | 2, parentOwner: string | null): Row => {
-    const owner = level === 0 ? i.assignee_name : i.component_lead_name || parentOwner;
+    const owner = level === 0 ? i.assignee_name
+      : i.component_lead_name || (i.assignee_name && !isDev(i.assignee_name) ? i.assignee_name : parentOwner);
     const kids = level < 2 ? (byParent.get(i.id) || []).filter((c) => (level === 0 ? c.type !== 'subtask' : c.type === 'subtask')).sort(order) : [];
     const children = kids.map((c) => make(c, (level + 1) as 1 | 2, owner));
     // Tiến độ: việc lá theo trạng thái; việc cha = trung bình theo điểm ước lượng (không có điểm thì mỗi việc 1)
@@ -114,7 +120,8 @@ export default function Plan() {
     queryKey: ['issues', 'plan', project.key],
     queryFn: () => api.get(`/issues${qs({ project: project.key, limit: 5000 })}`),
   });
-  const tree = useMemo(() => (issues ? buildTree(issues, today) : []), [issues, today]);
+  const devNames = useMemo(() => new Set(project.members.filter((m) => /dev/i.test(m.role_name || '')).map((m) => m.full_name)), [project.members]);
+  const tree = useMemo(() => (issues ? buildTree(issues, today, (n) => !!n && devNames.has(n)) : []), [issues, today, devNames]);
   const all = useMemo(() => flatten(tree), [tree]);
 
   const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở cấp giai đoạn
@@ -229,7 +236,7 @@ export default function Plan() {
               <th data-tip={HEALTH_HELP}>Đánh giá</th>
               <th>Tiến độ</th>
               <th>Thời gian</th>
-              <th>Người thực hiện</th><th data-tip="Giai đoạn: đầu mối Epic · Đầu việc: BA phụ trách mô-đun (nếu có), không thì đầu mối giai đoạn">Người phụ trách</th>
+              <th>Người thực hiện</th><th data-tip="Giai đoạn: đầu mối Epic · Việc thuộc mô-đun: BA phụ trách mô-đun · Việc không thuộc mô-đun do BA/BA Lead thực hiện (VD việc CĐT): chính người đó · Còn lại: đầu mối giai đoạn">Người phụ trách</th>
               <th>Trạng thái</th>
               <th className="col-timeline">Tiến trình <span className="muted small">({fmtDate(span0)} – {fmtDate(span1)})</span></th>
             </tr>
