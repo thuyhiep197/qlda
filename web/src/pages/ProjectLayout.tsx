@@ -4,7 +4,7 @@ import { can, useProject, useProjects } from '../hooks';
 import type { Project } from '../types';
 import { colorOf, RELEASES_ENABLED } from '../util';
 import { Spinner } from '../components/ui';
-import { ChartColumn, LayoutDashboard, ChartGantt, List, ListTodo, Rocket, Settings, SquareKanban, type LucideIcon } from 'lucide-react';
+import { ChartColumn, LayoutDashboard, ListTree, ChartGantt, List, ListTodo, Rocket, Settings, SquareKanban, type LucideIcon } from 'lucide-react';
 
 const LAST_PROJECT = 'qlda:last-project';
 
@@ -20,6 +20,7 @@ export default function ProjectLayout() {
 
   const tabs: [string, string, LucideIcon][] = [
     ['dashboard', 'Dashboard', LayoutDashboard],
+    ['plan', 'Kế hoạch', ListTree],
     ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban', SquareKanban],
     ['issues', 'Danh sách issue', List],
