@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, refreshAll } from '../api';
-import { can, useProject, useSprints, useVersions } from '../hooks';
+import { can, useComponents, useProject, useSprints, useVersions } from '../hooks';
 import type { Issue } from '../types';
 import { PRIORITIES, PRIORITY_LABELS } from '../util';
 import { toast } from './ui';
@@ -32,6 +32,7 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
   const { data: project } = useProject(single);
   const { data: sprints } = useSprints(project?.type === 'scrum' ? single : undefined, 'future,active');
   const { data: versions } = useVersions(single);
+  const { data: components } = useComponents(single);
   const [busy, setBusy] = useState(false);
   const [label, setLabel] = useState('');
 
@@ -83,6 +84,13 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
         <option value="" disabled>Độ ưu tiên…</option>
         {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
       </select>
+      {project && !!components?.length && (
+        <select value="" disabled={busy} onChange={(e) => act({ component_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã chuyển mô-đun')}>
+          <option value="" disabled>Mô-đun…</option>
+          <option value="none">— Bỏ mô-đun —</option>
+          {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` (BA: ${c.lead_name})` : ''}</option>)}
+        </select>
+      )}
       {project && versions && versions.some((v) => v.status === 'unreleased') && (
         <select value="" disabled={busy} onChange={(e) => act({ version_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã gán phiên bản')}>
           <option value="" disabled>Phiên bản…</option>

@@ -2,14 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useIssueModal, useMe, useProjects } from '../hooks';
-import type { Issue, IssueType } from '../types';
+import type { Issue, IssueType, Side } from '../types';
 import { colorOf, FIELD_LABELS, timeAgo } from '../util';
-import { Avatar, Empty, Spinner, TypeIcon } from '../components/ui';
+import { Avatar, Empty, SideBadge, Spinner, TypeIcon } from '../components/ui';
 import { IssueLine } from '../components/IssueRow';
 
 interface DashboardData {
   stats: { assigned_open: number; in_progress: number; overdue: number; done_week: number; reported_open: number };
   mine: Issue[];
+  toTest: Issue[];
+  myModules: { id: number; name: string; side: Side | null; project_key: string; total: number; done: number; inprogress: number }[];
   activity: { id: number; field: string; old_label: string; new_label: string; created_at: string; user_name: string; key: string; summary: string; type: IssueType }[];
 }
 
@@ -34,6 +36,31 @@ export default function Dashboard() {
             <div className="stat-card"><div className="stat-num">{data.stats.done_week ?? 0}</div><div>Hoàn thành 7 ngày qua</div></div>
             <div className="stat-card"><div className="stat-num">{data.stats.reported_open ?? 0}</div><div>Do tôi tạo, chưa đóng</div></div>
           </div>
+
+          {(data.toTest.length > 0 || data.myModules.length > 0) && (
+            <div className="dash-grid mb">
+              <div className="card">
+                <div className="card-head">
+                  <h3>Chờ tôi kiểm thử ({data.toTest.length})</h3>
+                  <Link to="/issues?ba=me&statusCategory=inprogress" className="small">Việc của mô-đun tôi phụ trách</Link>
+                </div>
+                {data.toTest.length === 0 ? <div className="muted small">Chưa có việc nào chuyển sang Kiểm thử</div> :
+                  <div className="issue-lines">{data.toTest.map((i) => <IssueLine key={i.id} issue={i} onOpen={() => open(i.key)} />)}</div>}
+              </div>
+              <div className="card">
+                <div className="card-head"><h3>Mô-đun tôi phụ trách</h3></div>
+                <div className="stack-sm">
+                  {data.myModules.map((m) => (
+                    <Link key={m.id} to={`/p/${m.project_key}/issues?component=${m.id}`} className="module-mini">
+                      <div className="row gap-xs"><b className="grow ellipsis">{m.name}</b><SideBadge side={m.side} /></div>
+                      <div className="progress"><div style={{ width: `${m.total ? (m.done / m.total) * 100 : 0}%` }} /><div className="progress-ip" style={{ width: `${m.total ? (m.inprogress / m.total) * 100 : 0}%` }} /></div>
+                      <div className="muted small">{m.done}/{m.total} xong · {m.inprogress} đang làm</div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="dash-grid">
             <div className="card">

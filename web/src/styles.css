@@ -709,3 +709,7 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 @media (max-width: 640px) { .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .update-banner { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 200; display: flex; align-items: center; gap: 12px;
   background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 10px 12px 10px 16px; max-width: calc(100vw - 32px); }
+.mb { margin-bottom: 20px; }
+.stack-sm { display: flex; flex-direction: column; gap: 6px; }
+.module-mini { display: block; padding: 8px 10px; border-radius: 6px; color: var(--text); }
+.module-mini:hover { background: var(--row-hover); text-decoration: none; }

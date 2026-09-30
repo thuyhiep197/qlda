@@ -37,7 +37,15 @@ r.get('/dashboard', (req, res) => {
     JOIN projects p ON p.id = i.project_id
     WHERE p.is_archived = 0 AND ${scope} AND h.field IN ('created','status','assignee','sprint')
     ORDER BY h.created_at DESC, h.id DESC LIMIT 30`);
-  res.json({ stats, mine, activity });
+  // BA: việc của mô-đun mình phụ trách đang ở bước kiểm thử
+  const toTest = listIssues(user, { ba: 'me', statusCategory: 'inprogress', sort: 'priority', limit: '100' })
+    .filter((i: any) => /kiểm thử|kiem thu|test|qa/i.test(i.status_name));
+  const myModules = all(`SELECT c.id, c.name, c.side, p.key AS project_key,
+      (SELECT COUNT(*) FROM issues i WHERE i.component_id = c.id AND i.type NOT IN ('epic','subtask')) AS total,
+      (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.component_id = c.id AND i.type NOT IN ('epic','subtask') AND s.category = 'done') AS done,
+      (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.component_id = c.id AND i.type NOT IN ('epic','subtask') AND s.category = 'inprogress') AS inprogress
+    FROM components c JOIN projects p ON p.id = c.project_id WHERE c.lead_id = ? AND p.is_archived = 0 ORDER BY p.key, c.position`, user.id);
+  res.json({ stats, mine, activity, toTest, myModules });
 });
 
 // ---------------------------------------------------------------------------
@@ -97,9 +105,9 @@ r.get('/projects/:key/dashboard', (req, res) => {
   const in7 = addDays(today, 7);
   type Row = { id: number; key: string; type: string; summary: string; parent_id: number | null; start_date: string | null;
     due_date: string | null; story_points: number | null; labels: string | null; assignee_id: number | null; category: string;
-    status_name: string; sprint_id: number | null };
+    status_name: string; sprint_id: number | null; component_id: number | null };
   const rows = all<Row>(`SELECT i.id, i.key, i.type, i.summary, i.parent_id, i.start_date, i.due_date, i.story_points, i.labels,
-      i.assignee_id, i.sprint_id, s.category, s.name AS status_name
+      i.assignee_id, i.sprint_id, i.component_id, s.category, s.name AS status_name
     FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.project_id = ?`, pid);
   const work = rows.filter((i) => i.type !== 'epic' && i.type !== 'subtask');
   const done = (i: Row) => i.category === 'done';
@@ -150,6 +158,11 @@ r.get('/projects/:key/dashboard', (req, res) => {
   const labels = [...modules.entries()].map(([name, list]) => ({ name, ...measure(list), ...dates(list) }))
     .sort((a, b) => (a.start || '9').localeCompare(b.start || '9'));
 
+  // Mô-đun (Component) kèm BA phụ trách
+  const components = all<{ id: number; name: string; side: string | null; lead_name: string | null }>(
+    'SELECT c.id, c.name, c.side, u.full_name AS lead_name FROM components c LEFT JOIN users u ON u.id = c.lead_id WHERE c.project_id = ? ORDER BY c.position, c.id', pid,
+  ).map((c) => { const list = work.filter((i) => i.component_id === c.id); return { ...c, ...measure(list), ...dates(list) }; });
+
   const active = all<{ id: number; name: string; start_date: string; end_date: string; goal: string | null }>(
     `SELECT id, name, start_date, end_date, goal FROM sprints WHERE project_id = ? AND state = 'active' ORDER BY start_date, id`, pid);
   const sprints = active.map((s) => {
@@ -186,7 +199,7 @@ r.get('/projects/:key/dashboard', (req, res) => {
   pid, dayStart(addDays(today, -6)).toISOString())!.c;
 
   res.json({ today, overall: { ...overall, ...span, pct_time: elapsed, health: health(overall, span.end), done_week: doneWeek },
-    epics, labels, sprints, next_sprint: next, byAssignee, overdue: overdueList, upcoming, milestones, activity });
+    epics, labels, components, sprints, next_sprint: next, byAssignee, overdue: overdueList, upcoming, milestones, activity });
 });
 
 r.get('/projects/:key/velocity', (req, res) => {

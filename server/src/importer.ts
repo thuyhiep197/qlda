@@ -26,6 +26,7 @@ export interface ImportRow {
   start_date?: string;
   due_date?: string;
   version?: string;
+  component?: string;
   original_estimate?: string;
 }
 
@@ -104,6 +105,7 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
   const sprintBy = new Map(sprints.map((s) => [fold(s.name), s]));
   const versions = all<{ id: number; name: string; status: string }>('SELECT id, name, status FROM versions WHERE project_id = ?', projectId);
   const versionBy = new Map(versions.map((v) => [fold(v.name), v]));
+  const componentBy = new Map(all<{ id: number; name: string }>('SELECT id, name FROM components WHERE project_id = ?', projectId).map((c) => [fold(c.name), c.id]));
 
   // Bước 1: chuẩn hóa từng dòng
   const results: ImportResult[] = [];
@@ -168,6 +170,11 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
       if (!v) res.warnings.push(`Không có phiên bản "${str(r.version)}" trong dự án, để trống`);
       else if (v.status === 'archived') res.warnings.push(`Phiên bản "${str(r.version)}" đã lưu trữ, để trống`);
       else data.version_id = v.id;
+    }
+    if (str(r.component)) {
+      const c = componentBy.get(fold(r.component));
+      if (!c) res.warnings.push(`Không có mô-đun "${str(r.component)}" trong dự án, để trống`);
+      else if (type !== 'subtask') data.component_id = c;
     }
     if (str(r.original_estimate)) {
       // Chỉ kiểm tra ở đây; giữ nguyên chuỗi để createIssue đổi sang phút đúng một lần

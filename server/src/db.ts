@@ -317,6 +317,20 @@ const migrations: string[] = [
    ALTER TABLE users ADD COLUMN preferences TEXT NOT NULL DEFAULT '{}';
    ALTER TABLE users ADD COLUMN phone TEXT;
    ALTER TABLE users ADD COLUMN job_title TEXT;`,
+  // v8: mô-đun (như Component của Jira) — mỗi mô-đun có BA phụ trách, thuộc side Sở/Trường/Chung
+  `CREATE TABLE components (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     description TEXT,
+     side TEXT,
+     lead_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+     position INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     UNIQUE (project_id, name)
+   );
+   ALTER TABLE issues ADD COLUMN component_id INTEGER REFERENCES components(id) ON DELETE SET NULL;
+   CREATE INDEX idx_issues_component ON issues(component_id);`,
 ];
 
 export function migrate() {

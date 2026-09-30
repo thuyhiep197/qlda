@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { api, errMsg, refreshAll } from '../api';
-import { can, useIssueModal, useSprints, useVersions } from '../hooks';
+import { can, useComponents, useIssueModal, useSprints, useVersions } from '../hooks';
 import type { IssueType, Project } from '../types';
 import { RELEASES_ENABLED, TYPE_LABELS } from '../util';
 import { Modal, Spinner, toast, TypeIcon } from './ui';
@@ -11,7 +11,7 @@ import { CircleCheck, CircleX, Download, TriangleAlert, Upload } from 'lucide-re
 // Hỗ trợ file mẫu của QLDA và file CSV xuất từ Jira.
 // ---------------------------------------------------------------------------
 type Key = 'ref' | 'type' | 'summary' | 'description' | 'parent' | 'priority' | 'assignee' | 'story_points'
-  | 'sprint' | 'status' | 'labels' | 'start_date' | 'due_date' | 'version' | 'original_estimate';
+  | 'sprint' | 'status' | 'labels' | 'start_date' | 'due_date' | 'version' | 'original_estimate' | 'component';
 
 const ALL_COLUMNS: { key: Key; header: string; width: number; note: string }[] = [
   { key: 'ref', header: 'Mã dòng', width: 10, note: 'Không bắt buộc. Mã tự đặt (VD: E1, S1) để các dòng khác trỏ tới làm issue cha.' },
@@ -24,6 +24,7 @@ const ALL_COLUMNS: { key: Key; header: string; width: number; note: string }[] =
   { key: 'story_points', header: 'Điểm ước lượng', width: 15, note: 'Điểm ước lượng (story point), là số. VD: 1, 2, 3, 5, 8.' },
   { key: 'sprint', header: 'Sprint', width: 18, note: 'Tên sprint chưa đóng. Bỏ trống = Backlog. Không áp dụng cho Epic và Sub-task.' },
   { key: 'status', header: 'Trạng thái', width: 14, note: 'Tên trạng thái của dự án. Bỏ trống = trạng thái đầu tiên.' },
+  { key: 'component', header: 'Mô-đun', width: 24, note: 'Tên mô-đun đã tạo ở Cài đặt → Mô-đun & BA phụ trách. BA phụ trách lấy theo mô-đun.' },
   { key: 'labels', header: 'Nhãn', width: 18, note: 'Nhiều nhãn cách nhau bằng dấu phẩy.' },
   { key: 'start_date', header: 'Ngày bắt đầu', width: 14, note: 'Dạng ngày/tháng/năm, VD 01/10/2026. Thường dùng cho Epic (Lộ trình).' },
   { key: 'due_date', header: 'Hạn hoàn thành', width: 15, note: 'Dạng ngày/tháng/năm.' },
@@ -49,6 +50,7 @@ const ALIASES: Record<SrcKey, string[]> = {
   sprint: ['sprint'],
   status: ['trang thai', 'status'],
   labels: ['nhan', 'labels', 'label', 'tag'],
+  component: ['mo-dun', 'mo dun', 'module', 'phan he', 'component', 'components', 'component/s'],
   start_date: ['ngay bat dau', 'bat dau', 'tu ngay', 'start date', 'custom field (start date)'],
   due_date: ['han hoan thanh', 'ket thuc', 'ngay ket thuc', 'den ngay', 'han', 'due date', 'deadline', 'ngay het han'],
   wbs: ['stt', 'tt', 'so tt', 'wbs', 'ma wbs'],
@@ -210,7 +212,7 @@ async function readFile(file: File): Promise<Sheet[]> {
 // ---------------------------------------------------------------------------
 // File mẫu
 // ---------------------------------------------------------------------------
-async function downloadTemplate(project: Project, sprintNames: string[], versionNames: string[] = []) {
+async function downloadTemplate(project: Project, sprintNames: string[], versionNames: string[] = [], componentNames: string[] = []) {
   const ExcelJS = await loadExcel();
   const wb = new ExcelJS.Workbook();
   wb.creator = 'QLDA';
@@ -247,6 +249,7 @@ async function downloadTemplate(project: Project, sprintNames: string[], version
     ['sprint', project.type === 'scrum' ? sprintNames : []],
     ['status', project.statuses.map((s) => s.name)],
     ['version', versionNames],
+    ['component', componentNames],
   ];
   listCols.forEach(([key, values], ci) => {
     if (!values.length) return;
@@ -306,6 +309,7 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
   const { open } = useIssueModal();
   const { data: sprints } = useSprints(project.key, 'future,active');
   const { data: versions } = useVersions(project.key);
+  const { data: components } = useComponents(project.key);
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
@@ -364,7 +368,7 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
 
   const template = async () => {
     setBusy('Đang tạo file mẫu…');
-    try { await downloadTemplate(project, (sprints ?? []).map((s) => s.name), (versions ?? []).filter((v) => v.status === 'unreleased').map((v) => v.name)); } catch (e) { setError(errMsg(e)); } finally { setBusy(''); }
+    try { await downloadTemplate(project, (sprints ?? []).map((s) => s.name), (versions ?? []).filter((v) => v.status === 'unreleased').map((v) => v.name), (components ?? []).map((c) => c.name)); } catch (e) { setError(errMsg(e)); } finally { setBusy(''); }
   };
 
   const done = res?.committed;

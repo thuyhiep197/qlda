@@ -13,11 +13,14 @@ export const PRIORITIES: Priority[] = ['highest', 'high', 'medium', 'low', 'lowe
 export const CATEGORY_LABELS: Record<Category, string> = {
   todo: 'Cần làm', inprogress: 'Đang thực hiện', done: 'Hoàn thành',
 };
+/** Side của hệ thống: phân hệ Sở, phân hệ các Trường, hoặc dùng chung. */
+export const SIDE_LABELS: Record<'so' | 'truong' | 'chung', string> = { so: 'Sở', truong: 'Trường', chung: 'Chung' };
+
 export const FIELD_LABELS: Record<string, string> = {
   created: 'đã tạo issue', summary: 'Tiêu đề', description: 'Mô tả', type: 'Loại', priority: 'Độ ưu tiên',
   story_points: 'Điểm ước lượng', labels: 'Nhãn', start_date: 'Ngày bắt đầu', due_date: 'Hạn hoàn thành',
   assignee: 'Người thực hiện', parent: 'Issue cha', sprint: 'Sprint', status: 'Trạng thái',
-  attachment: 'Tệp đính kèm', link: 'Liên kết', version: 'Phiên bản', original_estimate: 'Ước lượng thời gian',
+  attachment: 'Tệp đính kèm', link: 'Liên kết', version: 'Phiên bản', component: 'Mô-đun', original_estimate: 'Ước lượng thời gian',
   remaining_estimate: 'Thời gian còn lại', worklog: 'Ghi giờ', moved: 'Chuyển dự án', cloned: 'Nhân bản từ',
 };
 

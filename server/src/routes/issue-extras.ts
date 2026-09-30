@@ -86,7 +86,7 @@ r.delete('/worklogs/:id', (req, res) => {
 // ---------------------------------------------------------------------------
 // Thao tác hàng loạt: đổi sprint (kèm vị trí), người thực hiện, trạng thái, ưu tiên, phiên bản, thêm nhãn; hoặc xóa
 // ---------------------------------------------------------------------------
-const BULK_FIELDS = ['sprint_id', 'assignee_id', 'status_id', 'priority', 'version_id'];
+const BULK_FIELDS = ['sprint_id', 'assignee_id', 'status_id', 'priority', 'version_id', 'component_id'];
 
 r.post('/bulk', (req, res) => {
   const b = req.body || {};
@@ -147,7 +147,7 @@ r.post('/:key/clone', (req, res) => {
       assignee_id: assigneeOk && (src.assignee_id === req.user.id || perms.has('issue.assign')) ? src.assignee_id : null,
       parent_id: src.parent_id, sprint_id: sprint && sprint.state !== 'closed' ? src.sprint_id : null,
       story_points: src.story_points, labels: src.labels ? src.labels.split(',') : [], start_date: src.start_date,
-      due_date: src.due_date, version_id: src.version_id,
+      due_date: src.due_date, version_id: src.version_id, component_id: src.component_id,
       original_estimate: src.original_estimate !== null ? src.original_estimate / 60 : null,
       ...over,
     });
@@ -193,7 +193,7 @@ r.post('/:key/move-project', (req, res) => {
       const member = it.assignee_id && get(`SELECT 1 FROM users u WHERE u.id = ? AND (u.is_admin = 1 OR EXISTS
         (SELECT 1 FROM project_members pm WHERE pm.project_id = ? AND pm.user_id = u.id))`, it.assignee_id, target.id);
       const rank = (get<{ r: number | null }>('SELECT MAX(rank) r FROM issues WHERE project_id = ?', target.id)!.r ?? 0) + 1000;
-      run(`UPDATE issues SET project_id = ?, number = ?, key = ?, status_id = ?, sprint_id = NULL, version_id = NULL,
+      run(`UPDATE issues SET project_id = ?, number = ?, key = ?, status_id = ?, sprint_id = NULL, version_id = NULL, component_id = NULL,
            parent_id = ?, assignee_id = ?, rank = ?, updated_at = ? WHERE id = ?`,
       target.id, seq, `${target.key}-${seq}`, st.id, it.id === row.id ? null : it.parent_id, member ? it.assignee_id : null, rank, now(), it.id);
       addHistory(it.id, req.user.id, 'moved', it.key, `${target.key}-${seq}`, it.key, `${target.key}-${seq}`);

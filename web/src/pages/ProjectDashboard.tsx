@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, CalendarClock, CheckCircle2, Flag, Gauge, Timer } from 'lucide-react';
 import { api } from '../api';
 import { useIssueModal } from '../hooks';
-import type { Issue, IssueType } from '../types';
+import type { Issue, IssueType, Side } from '../types';
 import { fmtDate, timeAgo } from '../util';
-import { Avatar, Empty, Spinner, TypeIcon } from '../components/ui';
+import { Avatar, Empty, SideBadge, Spinner, TypeIcon } from '../components/ui';
 import { IssueLine } from '../components/IssueRow';
 import { useProjectCtx } from './ProjectLayout';
 
@@ -19,6 +19,7 @@ interface DashData {
   overall: Measure & { start: string | null; end: string | null; pct_time: number; health: Health; done_week: number };
   epics: (Measure & { id: number; key: string; summary: string; start_date: string | null; due_date: string | null; health: Health })[];
   labels: (Measure & { name: string; start: string | null; end: string | null })[];
+  components: (Measure & { id: number; name: string; side: Side | null; lead_name: string | null; start: string | null; end: string | null })[];
   sprints: (Measure & { id: number; name: string; start_date: string; end_date: string; goal: string | null; days_left: number; pct_time: number })[];
   next_sprint: { id: number; name: string; start_date: string | null; end_date: string | null } | null;
   byAssignee: { name: string; todo: number; inprogress: number; overdue: number }[];
@@ -182,7 +183,25 @@ export default function ProjectDashboard() {
       </div>
 
       <div className="dash-cols">
-        {/* Mô-đun (nhãn) */}
+        {/* Mô-đun và BA phụ trách (nếu dự án đã chia mô-đun), không thì theo nhãn */}
+        {data.components.length > 0 ? (
+        <div className="card">
+          <div className="card-head"><h3>Tiến độ theo mô-đun</h3><Link className="small" to={`/p/${project.key}/settings`}>Phân công BA</Link></div>
+          <table className="table compact module-table">
+            <thead><tr><th>Mô-đun</th><th>BA phụ trách</th><th style={{ width: '28%' }}>Tiến độ</th><th className="num">Xong</th></tr></thead>
+            <tbody>
+              {data.components.map((c) => (
+                <tr key={c.id}>
+                  <td><Link to={`/p/${project.key}/issues?component=${c.id}`}>{c.name}</Link><div className="muted small">{range(c.start, c.end)}</div></td>
+                  <td className="nowrap"><div className="row gap-xs">{c.lead_name ? <><Avatar name={c.lead_name} size={20} /> <span className="small">{c.lead_name}</span></> : <span className="muted small">Chưa có</span>} <SideBadge side={c.side} /></div></td>
+                  <td><PlanBar m={c} /></td>
+                  <td className="num nowrap">{c.done_issues}/{c.total_issues}{c.overdue ? <span className="overdue"> · {c.overdue} trễ</span> : null}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        ) : (
         <div className="card">
           <div className="card-head"><h3>Tiến độ theo nhãn / mô-đun</h3></div>
           {data.labels.length === 0 ? <div className="muted small">Chưa gắn nhãn cho issue nào</div> : (
@@ -201,6 +220,7 @@ export default function ProjectDashboard() {
             </table>
           )}
         </div>
+        )}
 
         {/* Khối lượng theo người */}
         <div className="card">

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs, refreshAll } from '../api';
-import { can, useProject, useProjects, useSprints, useVersions } from '../hooks';
+import { can, useComponents, useProject, useProjects, useSprints, useVersions } from '../hooks';
 import type { Issue, IssueType, Priority } from '../types';
 import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
 import { Modal, toast, toastError, TypeIcon } from './ui';
@@ -32,6 +32,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
   const { data: project } = useProject(key || undefined);
   const { data: sprints } = useSprints(key || undefined, 'future,active');
   const { data: versions } = useVersions(key || undefined);
+  const { data: components } = useComponents(key || undefined);
 
   const [type, setType] = useState<IssueType>(defaults?.type || 'story');
   const [summary, setSummary] = useState('');
@@ -46,6 +47,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
   const [dueDate, setDueDate] = useState('');
   const [estimate, setEstimate] = useState('');
   const [version, setVersion] = useState('');
+  const [component, setComponent] = useState('');
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -68,6 +70,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         status_id: defaults?.status_id,
         story_points: points || null, labels, start_date: startDate || null, due_date: dueDate || null,
         original_estimate: type !== 'epic' && estimate.trim() ? estimate : null, version_id: type !== 'subtask' && version ? Number(version) : null,
+        component_id: type !== 'subtask' && type !== 'epic' && component ? Number(component) : null,
       });
       toast(`Đã tạo ${issue.key}`);
       await refreshAll();
@@ -99,7 +102,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
       <form id="create-issue" onSubmit={submit} className="form-grid">
         <label className="field span-2">
           <span>Dự án *</span>
-          <select value={key} onChange={(e) => { setKey(e.target.value); setParent(''); setSprint(''); setAssignee(''); setVersion(''); }}>
+          <select value={key} onChange={(e) => { setKey(e.target.value); setParent(''); setSprint(''); setAssignee(''); setVersion(''); setComponent(''); }}>
             {projects?.map((p) => <option key={p.key} value={p.key}>{p.name} ({p.key})</option>)}
           </select>
         </label>
@@ -166,6 +169,15 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
           <label className="field" data-tip="1d = 8 giờ, 1w = 5 ngày; số không đơn vị là giờ">
             <span>Ước lượng thời gian</span>
             <input value={estimate} onChange={(e) => setEstimate(e.target.value)} placeholder="VD: 2d, 4h 30m" />
+          </label>
+        )}
+        {type !== 'subtask' && type !== 'epic' && !!components?.length && (
+          <label className="field">
+            <span>Mô-đun</span>
+            <select value={component} onChange={(e) => setComponent(e.target.value)}>
+              <option value="">— Không có —</option>
+              {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` (BA: ${c.lead_name})` : ''}</option>)}
+            </select>
           </label>
         )}
         {type !== 'subtask' && (versions?.some((v) => v.status === 'unreleased') ?? false) && (

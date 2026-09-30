@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { useIssueModal, useMe, useProject, useProjects, useSprints, useVersions } from '../hooks';
+import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useVersions } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
 import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS } from '../util';
 import { Avatar, Empty, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
@@ -11,7 +11,7 @@ import { ImportButton } from '../components/ImportIssues';
 import { BulkBar } from '../components/BulkBar';
 import { ChevronDown, Download, Star, X } from 'lucide-react';
 
-const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'parent', 'label', 'q', 'sort'] as const;
+const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'component', 'ba', 'parent', 'label', 'q', 'sort'] as const;
 
 export default function IssueList() {
   const { key: routeKey } = useParams();
@@ -22,6 +22,8 @@ export default function IssueList() {
   const { data: project } = useProject(projectKey || undefined);
   const { data: sprints } = useSprints(projectKey || undefined);
   const { data: versions } = useVersions(projectKey || undefined);
+  const { data: components } = useComponents(projectKey || undefined);
+  const showComponent = !!components?.length;
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', projectKey],
     queryFn: () => api.get(`/issues${qs({ project: projectKey, type: 'epic', sort: 'rank' })}`),
@@ -57,6 +59,7 @@ export default function IssueList() {
       ['Trạng thái', (i) => i.status_name], ['Độ ưu tiên', (i) => PRIORITY_LABELS[i.priority]],
       ['Người thực hiện', (i) => i.assignee_name], ['Người tạo', (i) => i.reporter_name],
       ['Epic/Issue cha', (i) => i.parent_key ? `${i.parent_key} ${i.parent_summary}` : ''], ['Sprint', (i) => i.sprint_name],
+      ['Mô-đun', (i) => i.component_name], ['BA phụ trách', (i) => i.component_lead_name],
       ...(RELEASES_ENABLED ? [['Phiên bản', (i: Issue) => i.version_name] as [string, (i: Issue) => unknown]] : []), ['Điểm ước lượng', (i) => i.story_points], ['Nhãn', (i) => i.labels.join(', ')],
       ['Ngày bắt đầu', (i) => i.start_date], ['Hạn', (i) => i.due_date],
       ['Ước lượng (giờ)', (i) => (i.original_estimate != null ? i.original_estimate / 60 : '')],
@@ -147,6 +150,20 @@ export default function IssueList() {
             {versions!.map((v) => <option key={v.id} value={v.id}>{v.name}{v.status === 'released' ? ' (đã phát hành)' : ''}</option>)}
           </select>
         )}
+        {showComponent && (
+          <select value={filter.component || ''} onChange={(e) => set('component', e.target.value)}>
+            <option value="">Tất cả mô-đun</option>
+            <option value="none">Không thuộc mô-đun</option>
+            {components!.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+        {showComponent && (
+          <select value={filter.ba || ''} onChange={(e) => set('ba', e.target.value)}>
+            <option value="">Mọi BA phụ trách</option>
+            <option value="me">BA phụ trách: tôi</option>
+            {[...new Map(components!.filter((c) => c.lead_id).map((c) => [c.lead_id, c.lead_name])).entries()].map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
+          </select>
+        )}
         {project && project.labels.length > 0 && (
           <select value={filter.label || ''} onChange={(e) => set('label', e.target.value)}>
             <option value="">Mọi nhãn</option>
@@ -178,6 +195,7 @@ export default function IssueList() {
                 <Th k="priority">Ưu tiên</Th>
                 <th>Người thực hiện</th>
                 {project?.type !== 'kanban' && <th>Sprint</th>}
+                {showComponent && <th>Mô-đun</th>}
                 {showVersion && <th>Phiên bản</th>}
                 <th className="num" data-tip="Điểm ước lượng (story point)">Điểm</th>
                 {showTime && <th className="num" data-tip="Thời gian đã ghi / ước lượng">Giờ công</th>}
@@ -200,6 +218,7 @@ export default function IssueList() {
                   <td><div className="row gap-xs"><PriorityIcon priority={i.priority} /> <span className="small">{PRIORITY_LABELS[i.priority]}</span></div></td>
                   <td><div className="row gap-xs"><Avatar name={i.assignee_name} size={22} /> <span className="small">{i.assignee_name || 'Chưa giao'}</span></div></td>
                   {project?.type !== 'kanban' && <td className="small">{i.sprint_name || ''}</td>}
+                  {showComponent && <td className="small" data-tip={i.component_lead_name ? `BA phụ trách: ${i.component_lead_name}` : undefined}>{i.component_name || ''}</td>}
                   {showVersion && <td className="small">{i.version_name || ''}</td>}
                   <td className="num">{i.story_points ?? ''}</td>
                   {showTime && <td className="num small nowrap">{i.time_spent ? fmtDuration(i.time_spent) : ''}{i.original_estimate != null ? ` / ${fmtDuration(i.original_estimate)}` : ''}</td>}

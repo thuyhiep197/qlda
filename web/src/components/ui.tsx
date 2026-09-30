@@ -249,3 +249,11 @@ export function UpdateBanner() {
     </div>
   );
 }
+
+/** Nhãn side của mô-đun: Sở / Trường / Chung. */
+export function SideBadge({ side }: { side: 'so' | 'truong' | 'chung' | null | undefined }) {
+  if (!side) return null;
+  const tone = side === 'so' ? 'purple' : side === 'truong' ? 'blue' : 'default';
+  const label = side === 'so' ? 'Sở' : side === 'truong' ? 'Trường' : 'Chung';
+  return <span className={`lozenge lozenge-${tone}`}>{label}</span>;
+}

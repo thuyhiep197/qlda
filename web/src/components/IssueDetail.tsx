@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { can, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions } from '../hooks';
+import { can, useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions } from '../hooks';
 import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, Worklog } from '../types';
 import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
-import { Avatar, Markdown, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
+import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
 import { ArrowRightLeft, Copy, Eye, EyeOff, Link as LinkIcon, Timer, Trash2, X } from 'lucide-react';
@@ -48,6 +48,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const { data: allUsers } = useUsersBasic();
   const { data: sprints } = useSprints(issue?.project_key, 'future,active');
   const { data: versions } = useVersions(issue?.project_key);
+  const { data: components } = useComponents(issue?.project_key);
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', issue?.project_key],
     queryFn: () => api.get(`/issues${qs({ project: issue!.project_key, type: 'epic', sort: 'key' })}`),
@@ -444,6 +445,21 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                 <option value="">— Không có —</option>
                 {epics?.map((ep) => <option key={ep.id} value={ep.id}>{ep.key} · {ep.summary}</option>)}
               </select>
+            </>}
+
+            {issue.type !== 'epic' && (!!components?.length || issue.component_id) && <>
+              <div className="prop-label" data-tip="Phân hệ chức năng (Component)">Mô-đun</div>
+              {issue.type === 'subtask' ? <div>{issue.component_name || '—'}</div> : (
+                <select value={issue.component_id ?? ''} disabled={!canEdit} onChange={(e) => save({ component_id: e.target.value ? Number(e.target.value) : null })}>
+                  <option value="">— Không có —</option>
+                  {components?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
+              <div className="prop-label" data-tip="BA phụ trách mô-đun: đầu mối nghiệp vụ và kiểm thử">BA phụ trách</div>
+              <div className="row gap-xs">
+                {issue.component_lead_name ? <><Avatar name={issue.component_lead_name} size={22} /> {issue.component_lead_name}</> : <span className="muted">—</span>}
+                <SideBadge side={issue.component_side} />
+              </div>
             </>}
 
             {project?.type === 'scrum' && issue.type !== 'epic' && <>

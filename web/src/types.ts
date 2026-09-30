@@ -166,6 +166,11 @@ export interface Issue {
   version_id: number | null;
   version_name: string | null;
   version_status: string | null;
+  component_id: number | null;
+  component_name: string | null;
+  component_side: Side | null;
+  component_lead_id: number | null;
+  component_lead_name: string | null;
   original_estimate: number | null;
   remaining_estimate: number | null;
   time_spent: number;
@@ -192,6 +197,22 @@ export interface IssueDetail extends Issue {
   next_status_ids: number[];
   watchers: { id: number; username: string; full_name: string }[];
   watching: boolean;
+}
+
+export type Side = 'so' | 'truong' | 'chung';
+
+/** Mô-đun (Component theo Jira) và BA phụ trách. */
+export interface Component {
+  id: number;
+  project_id: number;
+  name: string;
+  description: string | null;
+  side: Side | null;
+  lead_id: number | null;
+  lead_name: string | null;
+  position: number;
+  issue_count: number;
+  done_count: number;
 }
 
 export interface Version {

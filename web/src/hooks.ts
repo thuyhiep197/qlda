@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
 import { RELEASES_ENABLED } from './util';
-import type { Me, Project, ProjectSummary, Role, Sprint, UserBasic, Version } from './types';
+import type { Component, Me, Project, ProjectSummary, Role, Sprint, UserBasic, Version } from './types';
 
 export const useMe = () => useQuery<Me | null>({
   queryKey: ['me'],
@@ -26,6 +26,12 @@ export const useSprints = (key?: string, state?: string) => useQuery<Sprint[]>({
 });
 
 export const useUsersBasic = () => useQuery<UserBasic[]>({ queryKey: ['users-basic'], queryFn: () => api.get('/users/basic') });
+export const useComponents = (key?: string) => useQuery<Component[]>({
+  queryKey: ['components', key],
+  queryFn: () => api.get(`/projects/${key}/components`),
+  enabled: !!key,
+});
+
 export const useVersions = (key?: string) => useQuery<Version[]>({
   queryKey: ['versions', key],
   queryFn: () => api.get(`/projects/${key}/versions`),

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Issue, Project } from '../types';
 import { TYPE_LABELS } from '../util';
 import { Avatar } from './ui';
+import { useComponents } from '../hooks';
 
 export interface Filters {
   q: string;
@@ -9,9 +10,10 @@ export interface Filters {
   epic: string;
   type: string;
   label: string;
+  component: string;
 }
 
-export const emptyFilters: Filters = { q: '', assignees: [], epic: '', type: '', label: '' };
+export const emptyFilters: Filters = { q: '', assignees: [], epic: '', type: '', label: '', component: '' };
 
 export function useFilters() {
   const [f, setF] = useState<Filters>(emptyFilters);
@@ -25,9 +27,11 @@ export function useFilters() {
     if (f.epic && f.epic !== 'none' && String(i.parent_id) !== f.epic) return false;
     if (f.type && i.type !== f.type) return false;
     if (f.label && !i.labels.includes(f.label)) return false;
+    if (f.component === 'none' && i.component_id) return false;
+    if (f.component && f.component !== 'none' && String(i.component_id) !== f.component) return false;
     return true;
   }), [f]);
-  const active = !!(f.q || f.assignees.length || f.epic || f.type || f.label);
+  const active = !!(f.q || f.assignees.length || f.epic || f.type || f.label || f.component);
   return { filters: f, setFilters: setF, apply, active };
 }
 
@@ -38,7 +42,8 @@ export function FilterBar({ project, filters, setFilters, epics, children }: {
     ...filters,
     assignees: filters.assignees.includes(id) ? filters.assignees.filter((x) => x !== id) : [...filters.assignees, id],
   });
-  const active = filters.q || filters.assignees.length || filters.epic || filters.type || filters.label;
+  const active = filters.q || filters.assignees.length || filters.epic || filters.type || filters.label || filters.component;
+  const { data: components } = useComponents(project.key);
   return (
     <div className="filter-bar">
       <input className="filter-search" placeholder="Tìm trong bảng…" value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} />
@@ -55,6 +60,13 @@ export function FilterBar({ project, filters, setFilters, epics, children }: {
           <option value="">Tất cả epic</option>
           <option value="none">Không thuộc epic</option>
           {epics.map((e) => <option key={e.id} value={e.id}>{e.summary}</option>)}
+        </select>
+      )}
+      {!!components?.length && (
+        <select value={filters.component} onChange={(e) => setFilters({ ...filters, component: e.target.value })}>
+          <option value="">Tất cả mô-đun</option>
+          <option value="none">Không thuộc mô-đun</option>
+          {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` · ${c.lead_name}` : ''}</option>)}
         </select>
       )}
       <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}>

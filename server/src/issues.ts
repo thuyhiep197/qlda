@@ -36,6 +36,7 @@ export interface IssueRow {
   created_at: string;
   updated_at: string;
   version_id: number | null;
+  component_id: number | null;
   original_estimate: number | null;
   remaining_estimate: number | null;
 }
@@ -47,6 +48,7 @@ SELECT i.*, p.key AS project_key, p.name AS project_name,
   par.key AS parent_key, par.summary AS parent_summary, par.type AS parent_type,
   sp.name AS sprint_name, sp.state AS sprint_state,
   v.name AS version_name, v.status AS version_status,
+  cp.name AS component_name, cp.side AS component_side, cp.lead_id AS component_lead_id, cu.full_name AS component_lead_name,
   (SELECT COALESCE(SUM(w.minutes), 0) FROM worklogs w WHERE w.issue_id = i.id) AS time_spent,
   (SELECT COUNT(*) FROM issues c WHERE c.parent_id = i.id) AS child_count,
   (SELECT COUNT(*) FROM issues c JOIN statuses cs ON cs.id = c.status_id
@@ -58,7 +60,9 @@ LEFT JOIN users a ON a.id = i.assignee_id
 LEFT JOIN users r ON r.id = i.reporter_id
 LEFT JOIN issues par ON par.id = i.parent_id
 LEFT JOIN sprints sp ON sp.id = i.sprint_id
-LEFT JOIN versions v ON v.id = i.version_id`;
+LEFT JOIN versions v ON v.id = i.version_id
+LEFT JOIN components cp ON cp.id = i.component_id
+LEFT JOIN users cu ON cu.id = cp.lead_id`;
 
 export function serialize(row: any) {
   return { ...row, labels: row.labels ? String(row.labels).split(',').filter(Boolean) : [] };
@@ -81,6 +85,8 @@ export interface IssueFilter {
   sprint?: string;
   parent?: string;
   version?: string;
+  component?: string;
+  ba?: string;
   keys?: string;
   label?: string;
   q?: string;
@@ -137,6 +143,10 @@ export function listIssues(user: AuthUser, f: IssueFilter) {
 
   if (f.version === 'none') where.push('i.version_id IS NULL');
   else if (f.version) { where.push('i.version_id = ?'); params.push(Number(f.version)); }
+  if (f.component === 'none') where.push('i.component_id IS NULL');
+  else if (f.component) { where.push('i.component_id = ?'); params.push(Number(f.component)); }
+  // BA phụ trách = người phụ trách mô-đun của issue
+  if (f.ba) { where.push('cp.lead_id = ?'); params.push(f.ba === 'me' ? user.id : Number(f.ba)); }
   const keys = csv(f.keys).map((k) => k.toUpperCase());
   if (keys.length) { where.push(`i.key IN (${placeholders(keys.length)})`); params.push(...keys); }
   if (f.parent === 'none') where.push('i.parent_id IS NULL');
@@ -245,6 +255,20 @@ function checkStatus(projectId: number, statusId: unknown) {
   return s;
 }
 
+/** Mô-đun thuộc dự án (null = bỏ trống). */
+export function checkComponent(projectId: number, componentId: unknown): number | null {
+  if (componentId === null || componentId === undefined || componentId === '') return null;
+  const c = get<{ id: number; project_id: number }>('SELECT id, project_id FROM components WHERE id = ?', Number(componentId));
+  if (!c || c.project_id !== projectId) throw badRequest('Mô-đun không hợp lệ');
+  return c.id;
+}
+const componentName = (id: number | null) => (id ? get<{ name: string }>('SELECT name FROM components WHERE id = ?', id)?.name ?? null : null);
+/** BA phụ trách mô-đun tự theo dõi các issue của mô-đun (nhận thông báo bình luận, chuyển trạng thái). */
+const watchLead = (issueId: number, componentId: number | null) => {
+  const lead = componentId ? get<{ lead_id: number | null }>('SELECT lead_id FROM components WHERE id = ?', componentId)?.lead_id : null;
+  if (lead) watch(issueId, [lead]);
+};
+
 /** Phiên bản phát hành thuộc dự án và chưa lưu trữ. */
 export function checkVersion(projectId: number, versionId: unknown): number | null {
   if (versionId === null || versionId === undefined || versionId === '') return null;
@@ -319,6 +343,10 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     let sprintId: number | null = null;
     if (type === 'subtask' && parentId) sprintId = get('SELECT sprint_id FROM issues WHERE id = ?', parentId)?.sprint_id ?? null;
     else if (type !== 'epic' && data.sprint_id) sprintId = checkSprint(projectId, data.sprint_id);
+    // Sub-task thuộc mô-đun của issue cha
+    const componentId = type === 'subtask' && parentId
+      ? get('SELECT component_id FROM issues WHERE id = ?', parentId)?.component_id ?? null
+      : checkComponent(projectId, data.component_id);
 
     run('UPDATE projects SET issue_seq = issue_seq + 1 WHERE id = ?', projectId);
     const p = get('SELECT key, issue_seq FROM projects WHERE id = ?', projectId)!;
@@ -328,17 +356,18 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     const { id } = run(
       `INSERT INTO issues(project_id, number, key, type, summary, description, status_id, priority, assignee_id,
         reporter_id, parent_id, sprint_id, story_points, labels, start_date, due_date, rank, resolved_at, created_at, updated_at,
-        version_id, original_estimate, remaining_estimate)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        version_id, original_estimate, remaining_estimate, component_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       projectId, p.issue_seq, `${p.key}-${p.issue_seq}`, type, summary, data.description || null, statusId, priority,
       assigneeId, user.id, parentId, sprintId, checkPoints(data.story_points), checkLabels(data.labels),
       checkDate(data.start_date, 'Ngày bắt đầu'), checkDate(data.due_date, 'Hạn hoàn thành'),
       data.rank !== undefined ? Number(data.rank) : nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
-      checkVersion(projectId, data.version_id), estimate, estimate,
+      checkVersion(projectId, data.version_id), estimate, estimate, componentId,
     );
     addHistory(id, user.id, 'created', null, null);
     if (sprintId) addHistory(id, user.id, 'sprint', null, sprintId, null, sprintName(sprintId));
     watch(id, [user.id, assigneeId]);
+    watchLead(id, componentId);
     if (assigneeId) notify([assigneeId], user.id, id, 'assigned', summary);
     handleMentions(id, projectId, user.id, data.description);
     return fetchIssue('id', id);
@@ -454,6 +483,15 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         if (!perms.has('sprint.manage') && !canEdit) throw forbidden('Bạn không có quyền đổi phiên bản phát hành');
         sets.version_id = v;
         history.push(['version', issue.version_id, v, versionName(issue.version_id), versionName(v)]);
+      }
+    }
+    if (has('component_id')) {
+      requireEdit();
+      const v = checkComponent(issue.project_id, data.component_id);
+      if (v !== issue.component_id) {
+        sets.component_id = v;
+        history.push(['component', issue.component_id, v, componentName(issue.component_id), componentName(v)]);
+        watchLead(issue.id, v);
       }
     }
     if (has('original_estimate')) {
