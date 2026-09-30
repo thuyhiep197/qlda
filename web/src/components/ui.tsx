@@ -215,3 +215,37 @@ export function TooltipLayer() {
     </>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Báo có phiên bản mới (server tự triển khai khi có bản cập nhật)
+// ---------------------------------------------------------------------------
+const bundleOf = (html: string) => /assets\/index-[\w-]+\.js/.exec(html)?.[0] ?? null;
+
+/** Định kỳ và khi quay lại tab, so tệp JS chính của trang với bản trên server; khác thì mời tải lại. */
+export function UpdateBanner() {
+  const [stale, setStale] = useState(false);
+  useEffect(() => {
+    const mine = bundleOf(document.documentElement.innerHTML);
+    if (!mine) return; // chế độ dev
+    const check = async () => {
+      try {
+        const html = await fetch('/', { cache: 'no-store' }).then((r) => r.text());
+        const latest = bundleOf(html);
+        if (latest && latest !== mine) setStale(true);
+      } catch { /* mất mạng: thử lại lần sau */ }
+    };
+    const t = setInterval(check, 60_000);
+    const onVis = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVis);
+    check();
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+  }, []);
+  if (!stale) return null;
+  return (
+    <div className="update-banner" role="status">
+      QLDA vừa có phiên bản mới.
+      <button className="btn btn-sm btn-primary" onClick={() => window.location.reload()}>Tải lại để cập nhật</button>
+      <button className="icon-btn" aria-label="Để sau" onClick={() => setStale(false)}><X size={16} /></button>
+    </div>
+  );
+}

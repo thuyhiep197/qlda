@@ -14,7 +14,7 @@ export default function ProjectLayout() {
   if (error || !project) return <div className="page"><h2>Không truy cập được dự án</h2><p className="muted">{error instanceof Error ? error.message : ''}</p></div>;
 
   const tabs: [string, string, LucideIcon][] = [
-    ['dashboard', 'Tổng quan', LayoutDashboard],
+    ['dashboard', 'Dashboard', LayoutDashboard],
     ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban', SquareKanban],
     ['issues', 'Danh sách issue', List],
