@@ -1,4 +1,4 @@
-import type { Category, IssueType, Priority, Project, Status } from './types';
+import type { Category, Issue, IssueType, Priority, Project, Status } from './types';
 
 /** Chức năng Phát hành (phiên bản): đang tắt theo yêu cầu. Dữ liệu phía server vẫn giữ nguyên; đổi thành true để bật lại. */
 export const RELEASES_ENABLED = false;
@@ -103,3 +103,26 @@ export function fmtDuration(m: number | null | undefined): string {
 
 /** Phút → số giờ gọn (VD 3.5h) cho bảng giờ công. */
 export const fmtHours = (m: number) => `${Math.round((m / 60) * 10) / 10}h`;
+
+/** Đánh giá tiến độ của một issue tại hôm nay (cùng quy tắc với màn Kế hoạch chi tiết). */
+export type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
+export const HEALTH_LABELS: Record<Health, string> = {
+  late: 'Trễ hạn', behind: 'Chậm tiến độ', on_track: 'Đúng tiến độ', not_started: 'Chưa đến hạn',
+  done_late: 'Xong, trễ hạn', done: 'Hoàn thành', no_plan: 'Chưa có lịch',
+};
+export function issueHealth(i: Pick<Issue, 'status_category' | 'start_date' | 'due_date' | 'resolved_at'>, now = today()): Health {
+  const DAY = 86400_000;
+  const d = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / DAY);
+  if (i.status_category === 'done') {
+    const doneDay = i.resolved_at ? new Date(new Date(i.resolved_at).getTime() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10) : null;
+    return i.due_date && doneDay && doneDay > i.due_date ? 'done_late' : 'done';
+  }
+  if (!i.start_date && !i.due_date) return 'no_plan';
+  const s = i.start_date || i.due_date!, e = i.due_date || i.start_date!;
+  if (e < now) return 'late';
+  if (s > now) return 'not_started';
+  const progress = i.status_category === 'inprogress' ? 50 : 0;
+  const expected = Math.round(Math.min(1, (d(s, now) + 1) / (d(s, e) + 1)) * 100);
+  if (progress === 0 && d(s, now) >= 1) return 'behind';
+  return progress + 15 < expected ? 'behind' : 'on_track';
+}

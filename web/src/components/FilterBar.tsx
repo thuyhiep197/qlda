@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Issue, Project } from '../types';
-import { TYPE_LABELS } from '../util';
+import { HEALTH_LABELS, issueHealth, TYPE_LABELS, type Health } from '../util';
 import { Avatar, MoreFilters } from './ui';
 import { useComponents } from '../hooks';
 
@@ -11,9 +11,12 @@ export interface Filters {
   type: string;
   label: string;
   component: string;
+  owner: string;
+  status: string;
+  health: string;
 }
 
-export const emptyFilters: Filters = { q: '', assignees: [], epic: '', type: '', label: '', component: '' };
+export const emptyFilters: Filters = { q: '', assignees: [], epic: '', type: '', label: '', component: '', owner: '', status: '', health: '' };
 
 export function useFilters() {
   const [f, setF] = useState<Filters>(emptyFilters);
@@ -29,9 +32,12 @@ export function useFilters() {
     if (f.label && !i.labels.includes(f.label)) return false;
     if (f.component === 'none' && i.component_id) return false;
     if (f.component && f.component !== 'none' && String(i.component_id) !== f.component) return false;
+    if (f.owner && (f.owner === 'none' ? !!i.component_lead_id : String(i.component_lead_id) !== f.owner)) return false;
+    if (f.status && String(i.status_id) !== f.status) return false;
+    if (f.health && issueHealth(i) !== f.health) return false;
     return true;
   }), [f]);
-  const active = !!(f.q || f.assignees.length || f.epic || f.type || f.label || f.component);
+  const active = !!(f.q || f.assignees.length || f.epic || f.type || f.label || f.component || f.owner || f.status || f.health);
   return { filters: f, setFilters: setF, apply, active };
 }
 
@@ -42,7 +48,7 @@ export function FilterBar({ project, filters, setFilters, epics, children }: {
     ...filters,
     assignees: filters.assignees.includes(id) ? filters.assignees.filter((x) => x !== id) : [...filters.assignees, id],
   });
-  const active = filters.q || filters.assignees.length || filters.epic || filters.type || filters.label || filters.component;
+  const active = filters.q || filters.assignees.length || filters.epic || filters.type || filters.label || filters.component || filters.owner || filters.status || filters.health;
   const { data: components } = useComponents(project.key);
   return (
     <div className="filter-bar">
@@ -55,28 +61,47 @@ export function FilterBar({ project, filters, setFilters, epics, children }: {
         ))}
         <button className={filters.assignees.includes('none') ? 'on' : ''} onClick={() => toggle('none')} title="Chưa giao"><Avatar size={28} /></button>
       </div>
-      <MoreFilters count={[filters.epic, filters.component, filters.type, filters.label].filter(Boolean).length}>
+      <MoreFilters count={[filters.assignees.length ? 'x' : '', filters.owner, filters.epic, filters.component, filters.type, filters.status, filters.health, filters.label].filter(Boolean).length}>
+        <select value={filters.assignees.length === 1 ? String(filters.assignees[0]) : ''} className={filters.assignees.length ? 'filter-on' : ''}
+          onChange={(e) => setFilters({ ...filters, assignees: e.target.value ? [e.target.value === 'none' ? 'none' : Number(e.target.value)] : [] })}>
+          <option value="">Người thực hiện</option>
+          <option value="none">— Chưa giao —</option>
+          {project.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+        </select>
+        <select value={filters.owner} className={filters.owner ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, owner: e.target.value })}>
+          <option value="">Người phụ trách (BA)</option>
+          <option value="none">— Chưa có —</option>
+          {project.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+        </select>
         {epics && (
-          <select value={filters.epic} onChange={(e) => setFilters({ ...filters, epic: e.target.value })}>
-            <option value="">Tất cả epic</option>
+          <select value={filters.epic} className={filters.epic ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, epic: e.target.value })}>
+            <option value="">Giai đoạn (Epic)</option>
             <option value="none">Không thuộc epic</option>
             {epics.map((e) => <option key={e.id} value={e.id}>{e.summary}</option>)}
           </select>
         )}
         {!!components?.length && (
-          <select value={filters.component} onChange={(e) => setFilters({ ...filters, component: e.target.value })}>
-            <option value="">Tất cả mô-đun</option>
+          <select value={filters.component} className={filters.component ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, component: e.target.value })}>
+            <option value="">Mô-đun</option>
             <option value="none">Không thuộc mô-đun</option>
             {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` · ${c.lead_name}` : ''}</option>)}
           </select>
         )}
-        <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}>
-          <option value="">Mọi loại</option>
+        <select value={filters.type} className={filters.type ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, type: e.target.value })}>
+          <option value="">Loại (Story/Task…)</option>
           {(['story', 'task', 'bug', 'subtask'] as const).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
         </select>
+        <select value={filters.status} className={filters.status ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+          <option value="">Trạng thái</option>
+          {project.statuses.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+        </select>
+        <select value={filters.health} className={filters.health ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, health: e.target.value })}>
+          <option value="">Đánh giá</option>
+          {(Object.keys(HEALTH_LABELS) as Health[]).map((h) => <option key={h} value={h}>{HEALTH_LABELS[h]}</option>)}
+        </select>
         {project.labels.length > 0 && (
-          <select value={filters.label} onChange={(e) => setFilters({ ...filters, label: e.target.value })}>
-            <option value="">Mọi nhãn</option>
+          <select value={filters.label} className={filters.label ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, label: e.target.value })}>
+            <option value="">Nhãn</option>
             {project.labels.map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
         )}

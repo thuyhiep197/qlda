@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download } from 'lucide-react';
-import { api, qs } from '../api';
+import { api, qs, refreshAll } from '../api';
 import { useIssueModal, can } from '../hooks';
 import type { Issue } from '../types';
-import { fmtDate, today as todayStr, TYPE_LABELS } from '../util';
-import { Avatar, Empty, Spinner, StatusBadge, TypeIcon, MoreFilters } from '../components/ui';
+import { fmtDate, today as todayStr, TYPE_LABELS, canMove, statusesFor } from '../util';
+import { Avatar, Empty, Spinner, StatusBadge, TypeIcon, MoreFilters, toast, toastError } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
@@ -110,6 +110,28 @@ const fmtShort = (d: string | null) => {
   const y = d.slice(0, 4);
   return `${d.slice(8, 10)}/${d.slice(5, 7)}${y !== String(new Date().getFullYear()) ? `/${y.slice(2)}` : ''}`;
 };
+
+/** Đổi trạng thái ngay trên bảng kế hoạch; chỉ liệt kê trạng thái hợp lệ theo quy trình của loại issue. */
+function InlineStatus({ issue }: { issue: Issue }) {
+  const project = useProjectCtx();
+  const [busy, setBusy] = useState(false);
+  const options = statusesFor(project, issue.type).filter((st) => canMove(project, issue.type, issue.status_id, st.id));
+  const change = async (id: number) => {
+    if (id === issue.status_id) return;
+    setBusy(true);
+    try {
+      await api.patch(`/issues/${issue.key}`, { status_id: id });
+      toast(`${issue.key}: ${project.statuses.find((x) => x.id === id)?.name}`);
+      await refreshAll();
+    } catch (e) { toastError(e); } finally { setBusy(false); }
+  };
+  return (
+    <select className={`status-select status-${issue.status_category} plan-status`} value={issue.status_id} disabled={busy}
+      onChange={(e) => change(Number(e.target.value))} aria-label={`Trạng thái ${issue.key}`}>
+      {options.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+    </select>
+  );
+}
 
 const flatten = (rows: Row[]): Row[] => rows.flatMap((r) => [r, ...flatten(r.children)]);
 
@@ -317,7 +339,9 @@ export default function Plan() {
                   <td className={`nowrap small ${late ? 'overdue' : ''}`}>{r.start || r.end ? <>{fmtShort(r.start)} – {fmtShort(r.end)}</> : <span className="muted">—</span>}</td>
                   <td>{r.level > 0 && i.assignee_name ? <div className="row gap-xs"><Avatar name={i.assignee_name} size={20} /><span className="small ellipsis">{i.assignee_name}</span></div> : <span className="muted small">—</span>}</td>
                   <td>{r.owner ? <div className="row gap-xs"><Avatar name={r.owner} size={20} /><span className="small ellipsis">{r.owner}</span></div> : <span className="muted small">—</span>}</td>
-                  <td>{i.status_name ? <StatusBadge name={i.status_name} category={i.status_category} /> : null}</td>
+                  <td>{!i.status_name ? null
+                    : i.type !== 'epic' && i.id > 0 && can(project.permissions, 'issue.transition') ? <InlineStatus issue={i} />
+                      : <span data-tip={i.type === 'epic' ? 'Trạng thái Epic tự động theo các việc bên trong' : undefined}><StatusBadge name={i.status_name} category={i.status_category} /></span>}</td>
                   <td className="col-timeline">
                     <div className="mini-timeline">
                       <div className="mini-today" style={{ left: `${pos(today)}%` }} />

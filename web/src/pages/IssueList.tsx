@@ -4,14 +4,14 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
 import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useVersions, hasPerm } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
-import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS } from '../util';
+import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS, HEALTH_LABELS, issueHealth, type Health } from '../util';
 import { Avatar, Empty, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
 import { EpicTag } from '../components/IssueRow';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar } from '../components/BulkBar';
 import { ChevronDown, Download, Star, X } from 'lucide-react';
 
-const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'component', 'ba', 'parent', 'label', 'q', 'sort'] as const;
+const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'component', 'ba', 'parent', 'label', 'health', 'q', 'sort'] as const;
 
 export default function IssueList() {
   const { key: routeKey } = useParams();
@@ -37,10 +37,12 @@ export default function IssueList() {
   if (projectKey) filter.project = projectKey;
   const sort = filter.sort || 'updated';
 
-  const { data: issues, isLoading } = useQuery<Issue[]>({
+  const { data: fetched, isLoading } = useQuery<Issue[]>({
     queryKey: ['issues', 'list', filter],
     queryFn: () => api.get(`/issues${qs({ ...filter, sort, limit: 1000 })}`),
   });
+  // Đánh giá (trễ hạn, chậm tiến độ…) tính theo ngày hôm nay nên lọc ngay trên danh sách
+  const issues = filter.health && fetched ? fetched.filter((i) => issueHealth(i) === filter.health) : fetched;
   // Đổi bộ lọc thì bỏ các issue không còn trong danh sách khỏi lựa chọn
   useEffect(() => {
     if (!issues) return;
@@ -116,7 +118,7 @@ export default function IssueList() {
           <option value="todo,inprogress">Chưa hoàn thành</option>
           {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <MoreFilters count={(['type', 'status', 'priority', 'parent', 'sprint', 'version', 'component', 'ba', 'label'] as const).filter((k) => filter[k]).length}>
+        <MoreFilters count={(['type', 'status', 'priority', 'parent', 'sprint', 'version', 'component', 'ba', 'label', 'health'] as const).filter((k) => filter[k]).length}>
           <select value={filter.type || ''} onChange={(e) => set('type', e.target.value)}>
             <option value="">Mọi loại</option>
             {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -166,6 +168,10 @@ export default function IssueList() {
               {[...new Map(components!.filter((c) => c.lead_id).map((c) => [c.lead_id, c.lead_name])).entries()].map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
             </select>
           )}
+          <select value={filter.health || ''} onChange={(e) => set('health', e.target.value)}>
+            <option value="">Đánh giá</option>
+            {(Object.keys(HEALTH_LABELS) as Health[]).map((h) => <option key={h} value={h}>{HEALTH_LABELS[h]}</option>)}
+          </select>
           {project && project.labels.length > 0 && (
             <select value={filter.label || ''} onChange={(e) => set('label', e.target.value)}>
               <option value="">Mọi nhãn</option>
