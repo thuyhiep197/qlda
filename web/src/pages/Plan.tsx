@@ -234,19 +234,15 @@ export default function Plan() {
 
       <div className="filter-bar">
         <input className="filter-search" placeholder="Tìm công việc…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select value={owner} onChange={(e) => setOwner(e.target.value)} className={owner ? 'filter-on' : ''}>
-          <option value="">Người phụ trách</option>
-          {owners.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select value={health} onChange={(e) => setHealth(e.target.value as Health | '')} className={health ? 'filter-on' : ''}>
-          <option value="">Đánh giá</option>
-          {(Object.keys(HEALTH) as Health[]).map((h) => <option key={h} value={h}>{HEALTH[h].label}</option>)}
-        </select>
-        <MoreFilters count={[assignee, epic, type, status].filter(Boolean).length}>
+        <MoreFilters count={[assignee, owner, epic, type, status, health].filter(Boolean).length}>
           <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={assignee ? 'filter-on' : ''}>
             <option value="">Người thực hiện</option>
             <option value="-">— Chưa giao —</option>
             {assignees.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <select value={owner} onChange={(e) => setOwner(e.target.value)} className={owner ? 'filter-on' : ''}>
+            <option value="">Người phụ trách</option>
+            {owners.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           <select value={epic} onChange={(e) => setEpic(e.target.value)} className={epic ? 'filter-on' : ''}>
             <option value="">Giai đoạn (Epic)</option>
@@ -259,6 +255,10 @@ export default function Plan() {
           <select value={status} onChange={(e) => setStatus(e.target.value)} className={status ? 'filter-on' : ''}>
             <option value="">Trạng thái</option>
             {statuses.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+          <select value={health} onChange={(e) => setHealth(e.target.value as Health | '')} className={health ? 'filter-on' : ''}>
+            <option value="">Đánh giá</option>
+            {(Object.keys(HEALTH) as Health[]).map((h) => <option key={h} value={h}>{HEALTH[h].label}</option>)}
           </select>
         </MoreFilters>
         {(filtering || epic) && <button className="btn btn-subtle btn-sm" onClick={clearFilters}>Xóa lọc</button>}
