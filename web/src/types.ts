@@ -1,4 +1,5 @@
 export type IssueType = 'epic' | 'story' | 'task' | 'bug' | 'subtask';
+export type SubType = 'story' | 'task' | 'bug';
 export type Priority = 'highest' | 'high' | 'medium' | 'low' | 'lowest';
 export type Category = 'todo' | 'inprogress' | 'done';
 
@@ -178,6 +179,8 @@ export interface Issue {
   /** BA phụ trách chọn riêng trên issue (null = theo mô-đun) */
   ba_id: number | null;
   component_default_lead_name: string | null;
+  /** Loại của việc con (Sub-task): story / task / bug; null = việc con thường */
+  subtype: SubType | null;
   original_estimate: number | null;
   remaining_estimate: number | null;
   time_spent: number;
@@ -193,7 +196,7 @@ export interface HistoryItem {
 }
 
 export interface IssueDetail extends Issue {
-  children: (Pick<Issue, 'id' | 'key' | 'type' | 'summary' | 'priority' | 'story_points' | 'assignee_id' | 'assignee_name' | 'status_name' | 'status_category'>)[];
+  children: (Pick<Issue, 'id' | 'key' | 'type' | 'subtype' | 'summary' | 'priority' | 'story_points' | 'assignee_id' | 'assignee_name' | 'status_name' | 'status_category'>)[];
   comments: { id: number; author_id: number; author_name: string; body: string; created_at: string; updated_at: string | null }[];
   attachments: { id: number; filename: string; mime: string; size: number; created_at: string; uploader_id: number; uploader_name: string }[];
   links: { id: number; type: string; direction: 'in' | 'out'; key: string; summary: string; issue_type: IssueType; status_name: string; status_category: Category }[];

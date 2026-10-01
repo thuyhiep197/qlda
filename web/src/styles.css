@@ -810,3 +810,7 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .pk-row { grid-column: 1 / -1; display: grid; gap: 0 8px; }
 .pk-ba { max-width: 90px; }
 .audit-table tr.audit-danger td { background: var(--error-row-bg); }
+
+/* Việc con có loại (Story/Task/Bug): dấu góc nhỏ để phân biệt với đầu việc */
+.type-icon-child { position: relative; }
+.type-icon-child::after { content: ''; position: absolute; right: -2px; bottom: -2px; width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2px #44546f; }

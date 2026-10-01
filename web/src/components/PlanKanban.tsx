@@ -83,7 +83,7 @@ export function PlanKanban({ project, lanes }: { project: Project; lanes: Kanban
                                 {(i.start_date || i.due_date) && <span className={`small nowrap ${h === 'late' ? 'overdue' : 'muted'}`}><CalendarDays size={12} /> {fmtDate(i.start_date).slice(0, 5)}{i.due_date ? `–${fmtDate(i.due_date).slice(0, 5)}` : ''}</span>}
                               </div>
                               <div className="card-foot">
-                                <TypeIcon type={i.type} size={14} />
+                                <TypeIcon type={i.type} subtype={i.subtype} size={14} />
                                 <span className="issue-key">{i.key}</span>
                                 <span className="spacer" />
                                 <PriorityIcon priority={i.priority} size={14} />

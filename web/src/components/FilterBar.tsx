@@ -28,7 +28,7 @@ export function useFilters() {
     if (f.assignees.length && !f.assignees.includes(i.assignee_id ?? 'none')) return false;
     if (f.epic === 'none' && i.parent_type === 'epic') return false;
     if (f.epic && f.epic !== 'none' && String(i.parent_id) !== f.epic) return false;
-    if (f.type && i.type !== f.type) return false;
+    if (f.type && i.type !== f.type && i.subtype !== f.type) return false;
     if (f.label && !i.labels.includes(f.label)) return false;
     if (f.component === 'none' && i.component_id) return false;
     if (f.component && f.component !== 'none' && String(i.component_id) !== f.component) return false;

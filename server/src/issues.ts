@@ -38,6 +38,7 @@ export interface IssueRow {
   version_id: number | null;
   component_id: number | null;
   ba_id: number | null;
+  subtype: string | null;
   original_estimate: number | null;
   remaining_estimate: number | null;
 }
@@ -121,7 +122,11 @@ export function listIssues(user: AuthUser, f: IssueFilter) {
   where.push('p.is_archived = 0');
 
   const types = csv(f.type);
-  if (types.length) { where.push(`i.type IN (${placeholders(types.length)})`); params.push(...types); }
+  // Lọc Story/Task/Bug lấy cả việc con cùng loại
+  if (types.length) {
+    where.push(`(i.type IN (${placeholders(types.length)}) OR (i.type = 'subtask' AND i.subtype IN (${placeholders(types.length)})))`);
+    params.push(...types, ...types);
+  }
   const statuses = csv(f.status).map(Number);
   if (statuses.length) { where.push(`i.status_id IN (${placeholders(statuses.length)})`); params.push(...statuses); }
   const cats = csv(f.statusCategory);
@@ -253,6 +258,14 @@ function checkParent(projectId: number, type: string, parentId: unknown, selfId?
   return parent.id;
 }
 
+/** Loại việc con: story / task / bug, bỏ trống = việc con thường. */
+function checkSubtype(v: unknown): string | null {
+  if (v === null || v === undefined || v === '') return null;
+  if (!STANDARD_TYPES.includes(String(v))) throw badRequest('Loại việc con chỉ có thể là Story, Task hoặc Bug');
+  return String(v);
+}
+const SUBTYPE_LABELS: Record<string, string> = { story: 'Story', task: 'Task', bug: 'Bug' };
+
 function checkStatus(projectId: number, statusId: unknown) {
   const s = get<{ id: number; category: string; project_id: number }>('SELECT * FROM statuses WHERE id = ?', Number(statusId));
   if (!s || s.project_id !== projectId) throw badRequest('Trạng thái không hợp lệ');
@@ -360,13 +373,14 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     const { id } = run(
       `INSERT INTO issues(project_id, number, key, type, summary, description, status_id, priority, assignee_id,
         reporter_id, parent_id, sprint_id, story_points, labels, start_date, due_date, rank, resolved_at, created_at, updated_at,
-        version_id, original_estimate, remaining_estimate, component_id)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        version_id, original_estimate, remaining_estimate, component_id, subtype)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       projectId, p.issue_seq, `${p.key}-${p.issue_seq}`, type, summary, data.description || null, statusId, priority,
       assigneeId, user.id, parentId, sprintId, checkPoints(data.story_points), checkLabels(data.labels),
       checkDate(data.start_date, 'Ngày bắt đầu'), checkDate(data.due_date, 'Hạn hoàn thành'),
       data.rank !== undefined ? Number(data.rank) : nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
       checkVersion(projectId, data.version_id), estimate, estimate, componentId,
+      type === 'subtask' ? checkSubtype(data.subtype) : null,
     );
     addHistory(id, user.id, 'created', null, null);
     if (sprintId) addHistory(id, user.id, 'sprint', null, sprintId, null, sprintName(sprintId));
@@ -418,6 +432,19 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         }
       }
       sets.type = data.type; history.push(['type', issue.type, data.type]);
+      if (data.type !== 'subtask' && issue.subtype) sets.subtype = null;
+    }
+    if (has('subtype')) {
+      requireEdit();
+      if (((sets.type as string | undefined) ?? issue.type) !== 'subtask') {
+        if (data.subtype) throw badRequest('Chỉ việc con mới chọn được loại việc con');
+      } else {
+        const v = checkSubtype(data.subtype);
+        if (v !== issue.subtype) {
+          sets.subtype = v;
+          history.push(['subtype', issue.subtype, v, SUBTYPE_LABELS[issue.subtype ?? ''] ?? 'Sub-task', SUBTYPE_LABELS[v ?? ''] ?? 'Sub-task']);
+        }
+      }
     }
     if (has('priority') && data.priority !== issue.priority) {
       requireEdit();

@@ -363,6 +363,8 @@ const migrations: string[] = [
    );
    CREATE INDEX idx_audit_at ON audit_log(at);
    CREATE INDEX idx_audit_action ON audit_log(action);`,
+  // v13: loại của việc con (Sub-task) — Story / Task / Bug; NULL = việc con thường
+  `ALTER TABLE issues ADD COLUMN subtype TEXT;`,
 ];
 
 export function migrate() {

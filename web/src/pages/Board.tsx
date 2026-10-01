@@ -249,7 +249,7 @@ function Card({ issue, onOpen, dragging, selected }: { issue: Issue; onOpen: (e:
         {issue.labels.map((l) => <span key={l} className="label-chip sm">{l}</span>)}
       </div>
       <div className="card-foot">
-        <TypeIcon type={issue.type} />
+        <TypeIcon type={issue.type} subtype={issue.subtype} />
         <span className="issue-key small">{issue.key}</span>
         {issue.child_count > 0 && <span className="muted small nowrap" title="Sub-task hoàn thành"><SquareCheck size={12} /> {issue.child_done}/{issue.child_count}</span>}
         {issue.due_date && <span className={`small ${isOverdue(issue) ? 'overdue' : issue.due_date === today() ? 'warn' : 'muted'} icon-text`}><CalendarDays size={12} /> {fmtDate(issue.due_date).slice(0, 5)}</span>}

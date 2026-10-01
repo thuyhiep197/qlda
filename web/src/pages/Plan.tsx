@@ -183,7 +183,11 @@ export default function Plan() {
     && (!status || r.issue.status_name === status)
     && (!q || `${r.issue.key} ${r.issue.summary}`.toLowerCase().includes(q.toLowerCase()));
   const visibleTree = (rows: Row[]): Row[] => rows.flatMap((r) => {
-    if (type && r.level === 1 && r.issue.type !== type) return [];
+    if (type && r.level === 1 && r.issue.type !== type) {
+      // Đầu việc khác loại nhưng có việc con đúng loại → chỉ hiện các việc con đó
+      const subs = visibleTree(r.children.filter((c) => c.issue.subtype === type));
+      return subs.length ? [{ ...r, children: subs }] : [];
+    }
     const kids = visibleTree(r.children);
     if (kids.length) return [{ ...r, children: kids }];
     // Giai đoạn chỉ còn hiện khi có việc bên trong khớp (trừ khi chỉ lọc theo người phụ trách/đánh giá… của chính giai đoạn)
@@ -226,7 +230,7 @@ export default function Plan() {
     const FILL: Partial<Record<Health, string>> = { late: 'FFFFD5D2', behind: 'FFF8E6A0', on_track: 'FFCCE0FF', done: 'FFBAF3DB', done_late: 'FFDFD8FD' };
     for (const r of flatten(shown)) {
       const row = ws.addRow({
-        key: r.issue.key, lvl: r.level === 0 ? 'Giai đoạn' : r.level === 1 ? TYPE_LABELS[r.issue.type] : 'Việc con',
+        key: r.issue.key, lvl: r.level === 0 ? 'Giai đoạn' : r.level === 1 ? TYPE_LABELS[r.issue.type] : r.issue.subtype ? `Việc con (${TYPE_LABELS[r.issue.subtype]})` : 'Việc con',
         name: `${'    '.repeat(r.level)}${r.issue.summary}`, from: fmtDate(r.start), to: fmtDate(r.end),
         who: r.issue.assignee_name || '', owner: r.owner || '', status: r.issue.status_name, pct: r.progress,
         health: HEALTH[r.health].label, note: r.note,
@@ -334,7 +338,7 @@ export default function Plan() {
                       {r.children.length && !filtering
                         ? <button className="icon-btn" onClick={() => toggle(r)} aria-label="Mở/đóng">{isOpen(r) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
                         : <span className="plan-spacer" />}
-                      {i.id > 0 && <TypeIcon type={i.type} size={15} />}
+                      {i.id > 0 && <TypeIcon type={i.type} subtype={i.subtype} size={15} />}
                       <a className="ellipsis" onClick={() => i.id > 0 && open(i.key)} data-tip={i.summary}>
                         {i.key && <span className="issue-key">{i.key}</span>} {i.summary}
                       </a>

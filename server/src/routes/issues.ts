@@ -41,7 +41,7 @@ r.get('/:key', (req, res) => {
   const perms = requireProjectAccess(req.user, row.project_id);
   if (!perms.has('issue.view')) throw forbidden('Bạn không có quyền xem issue');
   const issue = fetchIssue('id', row.id);
-  const children = all(`SELECT i.id, i.key, i.type, i.summary, i.priority, i.story_points, i.assignee_id,
+  const children = all(`SELECT i.id, i.key, i.type, i.subtype, i.summary, i.priority, i.story_points, i.assignee_id,
       u.full_name AS assignee_name, s.name AS status_name, s.category AS status_category
     FROM issues i JOIN statuses s ON s.id = i.status_id LEFT JOIN users u ON u.id = i.assignee_id
     WHERE i.parent_id = ? ORDER BY i.rank, i.id`, row.id);

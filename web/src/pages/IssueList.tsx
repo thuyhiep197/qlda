@@ -58,7 +58,7 @@ export default function IssueList() {
   const exportCsv = () => {
     if (!issues) return;
     const cols: [string, (i: Issue) => unknown][] = [
-      ['Mã', (i) => i.key], ['Loại', (i) => TYPE_LABELS[i.type]], ['Tiêu đề', (i) => i.summary],
+      ['Mã', (i) => i.key], ['Loại', (i) => (i.type === 'subtask' && i.subtype ? `${TYPE_LABELS[i.subtype]} (việc con)` : TYPE_LABELS[i.type])], ['Tiêu đề', (i) => i.summary],
       ['Trạng thái', (i) => i.status_name], ['Độ ưu tiên', (i) => PRIORITY_LABELS[i.priority]],
       ['Người thực hiện', (i) => i.assignee_name], ['Người tạo', (i) => i.reporter_name],
       ['Epic/Issue cha', (i) => i.parent_key ? `${i.parent_key} ${i.parent_summary}` : ''], ['Sprint', (i) => i.sprint_name],
@@ -222,7 +222,7 @@ export default function IssueList() {
                     <input type="checkbox" checked={selected.has(i.id)} aria-label={`Chọn ${i.key}`}
                       onChange={() => { const n = new Set(selected); n.has(i.id) ? n.delete(i.id) : n.add(i.id); setSelected(n); }} />
                   </td>
-                  <td><TypeIcon type={i.type} /></td>
+                  <td><TypeIcon type={i.type} subtype={i.subtype} /></td>
                   <td className="nowrap"><span className={`issue-key ${i.status_category === 'done' ? 'done-text' : ''}`}>{i.key}</span></td>
                   <td><div className="row gap-xs"><span className="ellipsis">{i.summary}</span><EpicTag issue={i} /></div></td>
                   <td><StatusBadge name={i.status_name} category={i.status_category} /></td>

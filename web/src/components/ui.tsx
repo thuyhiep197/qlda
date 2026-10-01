@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { Bookmark, Bug, Check, ChevronDown, ChevronsDown, ChevronsUp, ChevronUp, Equal, Info, ListTree, SlidersHorizontal, UserRound, X, Zap, type LucideIcon } from 'lucide-react';
-import type { Category, IssueType, Priority } from '../types';
-import { colorOf, initials, PRIORITY_LABELS, typeTip } from '../util';
+import type { Category, IssueType, Priority, SubType } from '../types';
+import { colorOf, initials, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
 
 // ---------------------------------------------------------------------------
 // Biểu tượng
@@ -16,13 +16,16 @@ const TYPE_GLYPHS: Record<IssueType, LucideIcon> = {
   epic: Zap, story: Bookmark, task: Check, bug: Bug, subtask: ListTree,
 };
 
-/** Biểu tượng loại issue: ô màu như Jira, hình vẽ theo bộ Lucide. */
-export function TypeIcon({ type, size = 16 }: { type: IssueType; size?: number }) {
-  const Glyph = TYPE_GLYPHS[type];
+/** Biểu tượng loại issue: ô màu như Jira, hình vẽ theo bộ Lucide. Việc con có loại (Story/Task/Bug) hiện biểu tượng của loại đó kèm dấu góc "việc con". */
+export function TypeIcon({ type, subtype, size = 16 }: { type: IssueType; subtype?: SubType | null; size?: number }) {
+  const shown: IssueType = type === 'subtask' && subtype ? subtype : type;
+  const child = shown !== type;
+  const Glyph = TYPE_GLYPHS[shown];
+  const tip = child ? `${TYPE_LABELS[shown]} (việc con)` : typeTip(type);
   return (
-    <span className="type-icon" role="img" aria-label={typeTip(type)} data-tip={typeTip(type)}
-      style={{ width: size, height: size, background: TYPE_COLORS[type], borderRadius: Math.max(3, size / 5) }}>
-      <Glyph size={Math.round(size * 0.72)} color="#fff" strokeWidth={type === 'task' ? 3 : 2.5} aria-hidden />
+    <span className={`type-icon${child ? ' type-icon-child' : ''}`} role="img" aria-label={tip} data-tip={tip}
+      style={{ width: size, height: size, background: TYPE_COLORS[shown], borderRadius: Math.max(3, size / 5) }}>
+      <Glyph size={Math.round(size * 0.72)} color="#fff" strokeWidth={shown === 'task' ? 3 : 2.5} aria-hidden />
     </span>
   );
 }

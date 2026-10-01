@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
 import { can, useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions } from '../hooks';
-import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, Worklog } from '../types';
+import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, SubType, Worklog } from '../types';
 import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
 import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput, DateInput } from './fields';
@@ -64,6 +64,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const [comment, setComment] = useState('');
   const [editingComment, setEditingComment] = useState<{ id: number; body: string } | null>(null);
   const [childText, setChildText] = useState('');
+  const [childType, setChildType] = useState<SubType | ''>('');
   const [linkForm, setLinkForm] = useState<{ type: string; key: string } | null>(null);
   const [addingChild, setAddingChild] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -155,7 +156,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
     try {
       await api.post('/issues', {
         project_key: issue.project_key, summary: childText,
-        type: issue.type === 'epic' ? 'story' : 'subtask', parent_id: issue.id,
+        parent_id: issue.id,
+        ...(issue.type === 'epic' ? { type: childType || 'story' } : { type: 'subtask', subtype: childType || 'task' }),
       });
       setChildText('');
       await refreshAll();
@@ -201,7 +203,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             <a onClick={() => open(issue.parent_key!)}><TypeIcon type={issue.parent_type!} size={14} /> {issue.parent_key}</a>
           </>}
           <span>/</span>
-          <span className="row gap-xs"><TypeIcon type={issue.type} size={14} /> <Link to={`/browse/${issue.key}`}>{issue.key}</Link></span>
+          <span className="row gap-xs"><TypeIcon type={issue.type} subtype={issue.subtype} size={14} /> <Link to={`/browse/${issue.key}`}>{issue.key}</Link></span>
         </div>
         <div className="row gap-xs">
           <button className="icon-btn" data-tip="Sao chép liên kết" onClick={copyLink}><LinkIcon size={16} /></button>
@@ -249,7 +251,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             if (!canChild && !canLink && !canFile) return null;
             return (
               <div className="quick-add">
-                {canChild && <button className="btn btn-subtle btn-sm" onClick={() => setAddingChild(true)}><Plus size={14} /> {issue.type === 'epic' ? 'Story/Task' : 'Sub-task'}</button>}
+                {canChild && <button className="btn btn-subtle btn-sm" onClick={() => setAddingChild(true)}><Plus size={14} /> {issue.type === 'epic' ? 'Story/Task/Bug' : 'Việc con'}</button>}
                 {canLink && <button className="btn btn-subtle btn-sm" onClick={() => setLinkForm({ type: 'relates', key: '' })}><LinkIcon size={14} /> Liên kết issue</button>}
                 {canFile && <button className="btn btn-subtle btn-sm" onClick={() => fileRef.current?.click()}><Paperclip size={14} /> Tệp đính kèm</button>}
               </div>
@@ -259,14 +261,14 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           {issue.type !== 'subtask' && (issue.children.length > 0 || addingChild) && (
             <section>
               <h4>
-                {issue.type === 'epic' ? 'Các issue trong epic' : 'Sub-task'}
+                {issue.type === 'epic' ? 'Các issue trong epic' : 'Việc con'}
                 {issue.child_count > 0 && <span className="muted small"> · {issue.child_done}/{issue.child_count} hoàn thành</span>}
               </h4>
               {issue.child_count > 0 && <div className="progress"><div style={{ width: `${childPct}%` }} /></div>}
               <div className="child-list">
                 {issue.children.map((c) => (
                   <div key={c.id} className="child-row" onClick={() => open(c.key)}>
-                    <TypeIcon type={c.type} />
+                    <TypeIcon type={c.type} subtype={c.subtype} />
                     <span className="issue-key">{c.key}</span>
                     <span className={`ellipsis grow ${c.status_category === 'done' ? 'done-text' : ''}`}>{c.summary}</span>
                     <PriorityIcon priority={c.priority} />
@@ -278,8 +280,12 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               </div>
               {can(perms, 'issue.create') && (
                 <form onSubmit={addChild} className="row gap-xs mt-sm">
+                  <select value={childType || (issue.type === 'epic' ? 'story' : 'task')} onChange={(e) => setChildType(e.target.value as SubType)}
+                    aria-label="Loại việc" data-tip={issue.type === 'epic' ? 'Loại đầu việc' : 'Loại việc con: vẫn đi theo sprint của việc cha và tính vào tiến độ việc cha'}>
+                    {(['story', 'task', 'bug'] as const).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+                  </select>
                   <input className="grow" autoFocus={addingChild && !issue.children.length} value={childText} onChange={(e) => setChildText(e.target.value)}
-                    placeholder={issue.type === 'epic' ? '+ Thêm story vào epic (gõ tiêu đề rồi Enter)' : '+ Thêm sub-task (gõ tiêu đề rồi Enter)'} />
+                    placeholder={issue.type === 'epic' ? '+ Thêm đầu việc vào epic (gõ tiêu đề rồi Enter)' : '+ Thêm việc con (gõ tiêu đề rồi Enter)'} />
                 </form>
               )}
             </section>
@@ -454,6 +460,16 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                   {t === issue.type ? TYPE_LABELS[t] : issue.type === 'subtask' ? `Chuyển thành ${TYPE_LABELS[t]}` : t === 'subtask' ? 'Chuyển thành Sub-task…' : TYPE_LABELS[t]}
                 </option>)}
               </select>
+            </>}
+            {issue.type === 'subtask' && <>
+              <div className="prop-label">Loại việc con</div>
+              <div className="row gap-xs">
+                <TypeIcon type={issue.type} subtype={issue.subtype} />
+                <select value={issue.subtype ?? ''} disabled={!canEdit} onChange={(e) => save({ subtype: e.target.value || null })}>
+                  {(['story', 'task', 'bug'] as const).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+                  <option value="">Chưa phân loại</option>
+                </select>
+              </div>
             </>}
 
             <div className="prop-label">Độ ưu tiên</div>

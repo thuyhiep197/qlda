@@ -12,7 +12,7 @@ export function EpicTag({ issue }: { issue: Pick<Issue, 'parent_key' | 'parent_s
 export function IssueLine({ issue, onOpen }: { issue: Issue; onOpen: () => void }) {
   return (
     <div className="issue-line" onClick={onOpen}>
-      <TypeIcon type={issue.type} />
+      <TypeIcon type={issue.type} subtype={issue.subtype} />
       <span className={`issue-key ${issue.status_category === 'done' ? 'done-text' : ''}`}>{issue.key}</span>
       <span className="ellipsis grow">{issue.summary}</span>
       {issue.labels.slice(0, 2).map((l) => <span key={l} className="label-chip sm">{l}</span>)}

@@ -147,7 +147,7 @@ r.post('/:key/clone', (req, res) => {
       assignee_id: assigneeOk && (src.assignee_id === req.user.id || perms.has('issue.assign')) ? src.assignee_id : null,
       parent_id: src.parent_id, sprint_id: sprint && sprint.state !== 'closed' ? src.sprint_id : null,
       story_points: src.story_points, labels: src.labels ? src.labels.split(',') : [], start_date: src.start_date,
-      due_date: src.due_date, version_id: src.version_id, component_id: src.component_id,
+      due_date: src.due_date, version_id: src.version_id, component_id: src.component_id, subtype: src.subtype,
       original_estimate: src.original_estimate !== null ? src.original_estimate / 60 : null,
       ...over,
     });
