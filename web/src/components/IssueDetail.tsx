@@ -480,9 +480,13 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                   {components?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               )}
-              <div className="prop-label" data-tip="BA phụ trách mô-đun: đầu mối nghiệp vụ và kiểm thử">BA phụ trách</div>
+              <div className="prop-label" data-tip="Đầu mối nghiệp vụ và kiểm thử. Mặc định theo BA phụ trách của mô-đun; chọn người khác nếu issue này do BA khác phụ trách">BA phụ trách</div>
               <div className="row gap-xs">
-                {issue.component_lead_name ? <><Avatar name={issue.component_lead_name} size={22} /> {issue.component_lead_name}</> : <span className="muted">—</span>}
+                <select value={issue.ba_id ?? ''} disabled={!canEdit} onChange={(e) => save({ ba_id: e.target.value ? Number(e.target.value) : null })}>
+                  <option value="">{issue.component_default_lead_name ? `Theo mô-đun (${issue.component_default_lead_name})` : '— Chưa có —'}</option>
+                  {[...(project?.members ?? [])].sort((a, b) => Number(!/BA/i.test(a.role_name || '')) - Number(!/BA/i.test(b.role_name || '')))
+                    .map((m) => <option key={m.id} value={m.id}>{m.full_name}{m.role_name ? ` (${m.role_name})` : ''}</option>)}
+                </select>
                 <SideBadge side={issue.component_side} />
               </div>
             </>}

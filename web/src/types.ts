@@ -175,6 +175,9 @@ export interface Issue {
   component_side: Side | null;
   component_lead_id: number | null;
   component_lead_name: string | null;
+  /** BA phụ trách chọn riêng trên issue (null = theo mô-đun) */
+  ba_id: number | null;
+  component_default_lead_name: string | null;
   original_estimate: number | null;
   remaining_estimate: number | null;
   time_spent: number;

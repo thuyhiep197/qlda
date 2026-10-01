@@ -86,6 +86,13 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
           {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` (BA: ${c.lead_name})` : ''}</option>)}
         </select>
       )}
+      {project && !!components?.length && (
+        <select value="" disabled={busy} onChange={(e) => act({ ba_id: e.target.value === 'module' ? null : Number(e.target.value) }, 'Đã đổi BA phụ trách')}>
+          <option value="" disabled>BA phụ trách…</option>
+          <option value="module">— Theo mô-đun —</option>
+          {project.members.filter((m) => /BA/i.test(m.role_name || '')).map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+        </select>
+      )}
       {project && versions && versions.some((v) => v.status === 'unreleased') && (
         <select value="" disabled={busy} onChange={(e) => act({ version_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã gán phiên bản')}>
           <option value="" disabled>Phiên bản…</option>

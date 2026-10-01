@@ -37,6 +37,7 @@ export interface IssueRow {
   updated_at: string;
   version_id: number | null;
   component_id: number | null;
+  ba_id: number | null;
   original_estimate: number | null;
   remaining_estimate: number | null;
 }
@@ -48,7 +49,9 @@ SELECT i.*, p.key AS project_key, p.name AS project_name,
   par.key AS parent_key, par.summary AS parent_summary, par.type AS parent_type,
   sp.name AS sprint_name, sp.state AS sprint_state,
   v.name AS version_name, v.status AS version_status,
-  cp.name AS component_name, cp.side AS component_side, cp.lead_id AS component_lead_id, cu.full_name AS component_lead_name,
+  cp.name AS component_name, cp.side AS component_side,
+  COALESCE(i.ba_id, cp.lead_id) AS component_lead_id, COALESCE(bu.full_name, cu.full_name) AS component_lead_name,
+  cu.full_name AS component_default_lead_name,
   (SELECT COALESCE(SUM(w.minutes), 0) FROM worklogs w WHERE w.issue_id = i.id) AS time_spent,
   (SELECT COUNT(*) FROM issues c WHERE c.parent_id = i.id) AS child_count,
   (SELECT COUNT(*) FROM issues c JOIN statuses cs ON cs.id = c.status_id
@@ -62,7 +65,8 @@ LEFT JOIN issues par ON par.id = i.parent_id
 LEFT JOIN sprints sp ON sp.id = i.sprint_id
 LEFT JOIN versions v ON v.id = i.version_id
 LEFT JOIN components cp ON cp.id = i.component_id
-LEFT JOIN users cu ON cu.id = cp.lead_id`;
+LEFT JOIN users cu ON cu.id = cp.lead_id
+LEFT JOIN users bu ON bu.id = i.ba_id`;
 
 export function serialize(row: any) {
   return { ...row, labels: row.labels ? String(row.labels).split(',').filter(Boolean) : [] };
@@ -146,7 +150,7 @@ export function listIssues(user: AuthUser, f: IssueFilter) {
   if (f.component === 'none') where.push('i.component_id IS NULL');
   else if (f.component) { where.push('i.component_id = ?'); params.push(Number(f.component)); }
   // BA phụ trách = người phụ trách mô-đun của issue
-  if (f.ba) { where.push('cp.lead_id = ?'); params.push(f.ba === 'me' ? user.id : Number(f.ba)); }
+  if (f.ba) { where.push('COALESCE(i.ba_id, cp.lead_id) = ?'); params.push(f.ba === 'me' ? user.id : Number(f.ba)); }
   const keys = csv(f.keys).map((k) => k.toUpperCase());
   if (keys.length) { where.push(`i.key IN (${placeholders(keys.length)})`); params.push(...keys); }
   if (f.parent === 'none') where.push('i.parent_id IS NULL');
@@ -484,6 +488,16 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         if (!perms.has('sprint.manage') && !canEdit) throw forbidden('Bạn không có quyền đổi phiên bản phát hành');
         sets.version_id = v;
         history.push(['version', issue.version_id, v, versionName(issue.version_id), versionName(v)]);
+      }
+    }
+    if (has('ba_id')) {
+      requireEdit();
+      const v = data.ba_id ? Number(data.ba_id) : null;
+      if (v && !isMember(issue.project_id, v)) throw badRequest('BA phụ trách phải là thành viên dự án');
+      if (v !== issue.ba_id) {
+        sets.ba_id = v;
+        history.push(['ba', issue.ba_id, v, userName(issue.ba_id) ?? 'Theo mô-đun', userName(v) ?? 'Theo mô-đun']);
+        if (v) watch(issue.id, [v]);
       }
     }
     if (has('component_id')) {

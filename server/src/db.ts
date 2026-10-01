@@ -338,6 +338,8 @@ const migrations: string[] = [
      effect TEXT NOT NULL CHECK (effect IN ('allow', 'deny')),
      PRIMARY KEY (user_id, permission)
    );`,
+  // v10: BA phụ trách riêng cho từng issue (bỏ trống = theo BA phụ trách của mô-đun)
+  `ALTER TABLE issues ADD COLUMN ba_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`,
 ];
 
 export function migrate() {
