@@ -799,3 +799,13 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .status-select.plan-status { height: 24px; padding: 0 22px 0 8px; border-radius: 3px; font-size: 11px; cursor: pointer; min-height: 0; }
 
 .more-filters select.filter-on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+/* Kế hoạch chi tiết dạng Kanban */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button { display: inline-flex; align-items: center; gap: 5px; border: none; background: var(--surface); color: var(--muted); font: inherit; font-size: 13px; padding: 4px 10px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button.on { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.pk-board { grid-auto-rows: auto; }
+.pk-lane { display: contents; }
+.pk-lane > .lane-head { grid-column: 1 / -1; }
+.pk-row { grid-column: 1 / -1; display: grid; gap: 0 8px; }
+.pk-ba { max-width: 90px; }

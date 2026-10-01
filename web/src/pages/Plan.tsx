@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, ListTree, SquareKanban } from 'lucide-react';
 import { api, qs, refreshAll } from '../api';
 import { useIssueModal, can } from '../hooks';
 import type { Issue } from '../types';
 import { fmtDate, today as todayStr, TYPE_LABELS, canMove, statusesFor } from '../util';
 import { Avatar, Empty, Spinner, StatusBadge, TypeIcon, MoreFilters, toast, toastError } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
+import { PlanKanban } from '../components/PlanKanban';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -155,6 +156,10 @@ export default function Plan() {
   const [epic, setEpic] = useState('');
   const [type, setType] = useState('');
   const [status, setStatus] = useState('');
+  // Dạng xem: bảng (cây) hoặc Kanban; nhớ lựa chọn trên máy
+  const [view, setViewState] = useState<'table' | 'kanban'>(() => { try { return localStorage.getItem('qlda:plan-view') === 'kanban' ? 'kanban' : 'table'; } catch { return 'table'; } });
+  const setView = (v: 'table' | 'kanban') => { setViewState(v); try { localStorage.setItem('qlda:plan-view', v); } catch { /* bỏ qua */ } };
+  const [showSub, setShowSub] = useState(false);
 
   if (isLoading || !issues) return <Spinner />;
   if (!tree.length) return <div className="page-pad"><Empty title="Dự án chưa có kế hoạch"><p className="muted">Tạo Epic (giai đoạn) và các đầu việc, hoặc nhập kế hoạch từ Excel ở Backlog.</p></Empty></div>;
@@ -286,13 +291,24 @@ export default function Plan() {
         {(filtering || epic) && <button className="btn btn-subtle btn-sm" onClick={clearFilters}>Xóa lọc</button>}
         {(filtering || epic) && <span className="muted small">{flatten(shown).filter((r) => r.level > 0).length} việc khớp</span>}
         <div className="spacer" />
-        {!filtering && <>
+        <div className="seg" role="group" aria-label="Dạng xem">
+          <button className={view === 'table' ? 'on' : ''} onClick={() => setView('table')}><ListTree size={14} /> Dạng bảng</button>
+          <button className={view === 'kanban' ? 'on' : ''} onClick={() => setView('kanban')}><SquareKanban size={14} /> Dạng Kanban</button>
+        </div>
+        {view === 'kanban' && <label className="check small"><input type="checkbox" checked={showSub} onChange={(e) => setShowSub(e.target.checked)} /> Hiện việc con</label>}
+        {view === 'table' && !filtering && <>
           <button className="btn btn-sm" onClick={expandAll}><ChevronsUpDown size={14} /> Mở hết</button>
           <button className="btn btn-sm" onClick={collapseAll}><ChevronsDownUp size={14} /> Chỉ giai đoạn</button>
         </>}
         {can(project.permissions, 'plan.export') && <button className="btn btn-sm" onClick={exportExcel}><Download size={14} /> Xuất Excel</button>}
       </div>
 
+      {view === 'kanban' ? (
+        <PlanKanban project={project} lanes={shown.map((e) => ({
+          key: String(e.issue.id), title: e.issue.summary, epicKey: e.issue.id > 0 ? e.issue.key : undefined,
+          items: flatten(e.children).filter((r) => r.issue.id > 0 && (showSub || r.level === 1)).map((r) => r.issue),
+        }))} />
+      ) : (
       <div className="plan-table-wrap">
         <table className="plan-table">
           <thead>
@@ -360,6 +376,7 @@ export default function Plan() {
           </tbody>
         </table>
       </div>
+      )}
       <p className="muted small">Cách đánh giá: {HEALTH_HELP}. Tiến độ việc lẻ: Cần làm 0%, Đang thực hiện 50%, Hoàn thành 100%; việc cha tính trung bình theo điểm ước lượng của việc con.</p>
     </div>
   );
