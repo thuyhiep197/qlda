@@ -50,7 +50,8 @@ export default function Layout() {
         </NavLink>
         <nav className="nav">
           <NavLink to="/home"><House size={18} /> Trang chủ</NavLink>
-          <NavLink to="/projects"><FolderKanban size={18} /> Tất cả dự án</NavLink>
+          {/* Người dùng chỉ cần "Dự án của tôi"; quản trị cần trang này để tạo / lưu trữ dự án */}
+          {(hasPerm(me, 'project.create') || hasPerm(me, 'project.delete')) && <NavLink to="/projects"><FolderKanban size={18} /> Quản lý dự án</NavLink>}
           {hasPerm(me, 'search.view') && <NavLink to="/issues" end><Search size={18} /> Tìm kiếm issue</NavLink>}
         </nav>
         <div className="nav-section">Dự án của tôi</div>

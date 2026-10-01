@@ -795,3 +795,4 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .perm-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 .perm-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--border); }
 @media (max-width: 900px) { .perm-layout { grid-template-columns: minmax(0, 1fr); } .perm-groups { position: static; } }
+.stat-cards.stat-cards-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }

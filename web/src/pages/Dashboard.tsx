@@ -29,12 +29,10 @@ export default function Dashboard() {
       <h1>{greet}, {me?.full_name}</h1>
       {isLoading || !data ? <Spinner /> : (
         <>
-          <div className="stat-cards">
+          <div className="stat-cards stat-cards-3">
             <div className="stat-card"><div className="stat-num">{data.stats.assigned_open ?? 0}</div><div>Việc được giao chưa xong</div></div>
             <div className="stat-card"><div className="stat-num">{data.stats.in_progress ?? 0}</div><div>Đang thực hiện</div></div>
             <div className={`stat-card ${data.stats.overdue ? 'stat-danger' : ''}`}><div className="stat-num">{data.stats.overdue ?? 0}</div><div>Quá hạn</div></div>
-            <div className="stat-card"><div className="stat-num">{data.stats.done_week ?? 0}</div><div>Hoàn thành 7 ngày qua</div></div>
-            <div className="stat-card"><div className="stat-num">{data.stats.reported_open ?? 0}</div><div>Do tôi tạo, chưa đóng</div></div>
           </div>
 
           {(data.toTest.length > 0 || data.myModules.length > 0) && (
