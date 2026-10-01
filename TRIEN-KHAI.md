@@ -96,3 +96,23 @@ Bỏ service `caddy` trong `docker-compose.yml`. Cấu hình web server sẵn c�
 | `TZ` | Asia/Ho_Chi_Minh | Múi giờ |
 
 `COOKIE_SECURE` luôn được `docker-compose.yml` đặt là `true` trên server.
+
+## Cứu hộ khẩn cấp khi tài khoản quản trị bị chiếm hoặc bị khóa
+
+Chạy trực tiếp trên server (không cần đăng nhập web). Mọi thao tác được ghi vào **Nhật ký bảo mật**.
+
+```bash
+# Liệt kê các tài khoản Quản trị hệ thống và lần đăng nhập gần nhất
+docker compose exec qlda node --import tsx server/src/emergency.ts admins
+
+# Khóa ngay một tài khoản bị lộ (VD: admin) và thu hồi mọi phiên của nó
+docker compose exec qlda node --import tsx server/src/emergency.ts lock admin
+
+# Mở khóa + cấp lại quyền Quản trị + mật khẩu tạm cho chủ hệ thống (in mật khẩu tạm ra màn hình)
+docker compose exec qlda node --import tsx server/src/emergency.ts restore hiepntt
+
+# Thu hồi phiên đăng nhập của tất cả mọi người
+docker compose exec qlda node --import tsx server/src/emergency.ts logout-all
+```
+
+Sau khi cứu hộ: đăng nhập bằng mật khẩu tạm, đổi mật khẩu mạnh, kiểm tra **Nhật ký bảo mật** và danh sách **Người dùng**.
