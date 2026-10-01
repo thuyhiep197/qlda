@@ -340,6 +340,15 @@ const migrations: string[] = [
    );`,
   // v10: BA phụ trách riêng cho từng issue (bỏ trống = theo BA phụ trách của mô-đun)
   `ALTER TABLE issues ADD COLUMN ba_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`,
+  // v11: ảnh/tệp dán hoặc gửi kèm trong bình luận, mô tả (không hiện ở mục Tệp đính kèm của issue)
+  `ALTER TABLE attachments ADD COLUMN inline INTEGER NOT NULL DEFAULT 0;
+   UPDATE attachments SET inline = 1 WHERE filename LIKE 'anh-dan-%' OR EXISTS (
+     SELECT 1 FROM comments c WHERE c.issue_id = attachments.issue_id
+       AND (c.body LIKE '%/attachments/' || attachments.id || ')%' OR c.body LIKE '%/attachments/' || attachments.id || '?%')
+   ) OR EXISTS (
+     SELECT 1 FROM issues i WHERE i.id = attachments.issue_id
+       AND (i.description LIKE '%/attachments/' || attachments.id || ')%' OR i.description LIKE '%/attachments/' || attachments.id || '?%')
+   );`,
 ];
 
 export function migrate() {

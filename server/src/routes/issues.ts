@@ -48,7 +48,7 @@ r.get('/:key', (req, res) => {
   const comments = all(`SELECT c.*, u.full_name AS author_name FROM comments c JOIN users u ON u.id = c.author_id
     WHERE c.issue_id = ? ORDER BY c.created_at`, row.id).filter(() => perms.has('comment.view'));
   const attachments = all(`SELECT a.id, a.filename, a.mime, a.size, a.created_at, a.uploader_id, u.full_name AS uploader_name
-    FROM attachments a JOIN users u ON u.id = a.uploader_id WHERE a.issue_id = ? ORDER BY a.created_at`, row.id).filter(() => perms.has('attachment.view'));
+    FROM attachments a JOIN users u ON u.id = a.uploader_id WHERE a.issue_id = ? AND a.inline = 0 ORDER BY a.created_at`, row.id).filter(() => perms.has('attachment.view'));
   const links = all(`
     SELECT l.id, l.type, 'out' AS direction, i.key, i.summary, i.type AS issue_type, s.name AS status_name, s.category AS status_category
       FROM issue_links l JOIN issues i ON i.id = l.target_id JOIN statuses s ON s.id = i.status_id WHERE l.source_id = ?
@@ -152,14 +152,16 @@ r.post('/:key/attachments', upload.array('files'), (req, res) => {
   try {
     const row = getIssueRow(String(req.params.key));
     requirePerm(req.user, row.project_id, 'attachment.create');
+    // inline=1: ảnh/tệp dán hoặc gửi kèm trong bình luận, mô tả — chỉ hiện trong nội dung đó
+    const inline = req.query.inline === '1' ? 1 : 0;
     const created: { id: number; filename: string; mime: string }[] = [];
     for (const f of files) {
       // multer đọc tên tệp theo latin1, chuyển về UTF-8 để giữ tiếng Việt
       const filename = Buffer.from(f.originalname, 'latin1').toString('utf8');
-      const { id } = run('INSERT INTO attachments(issue_id, uploader_id, filename, stored_name, mime, size, created_at) VALUES (?,?,?,?,?,?,?)',
-        row.id, req.user.id, filename, f.filename, f.mimetype, f.size, now());
+      const { id } = run('INSERT INTO attachments(issue_id, uploader_id, filename, stored_name, mime, size, created_at, inline) VALUES (?,?,?,?,?,?,?,?)',
+        row.id, req.user.id, filename, f.filename, f.mimetype, f.size, now(), inline);
       created.push({ id, filename, mime: f.mimetype });
-      addHistory(row.id, req.user.id, 'attachment', null, filename);
+      if (!inline) addHistory(row.id, req.user.id, 'attachment', null, filename);
     }
     res.status(201).json({ ok: true, attachments: created });
   } catch (e) {
