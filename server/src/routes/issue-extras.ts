@@ -96,7 +96,10 @@ r.post('/bulk', (req, res) => {
   const changes: Record<string, unknown> = {};
   for (const f of BULK_FIELDS) if (b.changes && Object.prototype.hasOwnProperty.call(b.changes, f)) changes[f] = b.changes[f];
   const addLabels: string[] = Array.isArray(b.changes?.labels_add) ? b.changes.labels_add.map(String).filter(Boolean) : [];
-  if (!b.delete && !Object.keys(changes).length && !addLabels.length) throw badRequest('Chưa chọn thay đổi nào');
+  // Đổi loại: Story/Task/Bug đổi loại issue; với việc con thì đổi "loại việc con" (vẫn là việc con của issue cha)
+  const typeTo = b.changes?.type_to ? String(b.changes.type_to) : '';
+  if (typeTo && !['story', 'task', 'bug'].includes(typeTo)) throw badRequest('Chỉ đổi được sang Story, Task hoặc Bug');
+  if (!b.delete && !Object.keys(changes).length && !addLabels.length && !typeTo) throw badRequest('Chưa chọn thay đổi nào');
 
   // Vị trí khi đưa cả nhóm vào sprint/backlog: dàn đều giữa issue phía trên (after_id) và phía dưới (before_id)
   const rankOf = (id: unknown) => (id ? get<{ rank: number }>('SELECT rank FROM issues WHERE id = ?', Number(id))?.rank : undefined);
@@ -118,6 +121,11 @@ r.post('/bulk', (req, res) => {
         const data: Record<string, unknown> = { ...changes };
         // Sub-task không đổi sprint trực tiếp; Epic không vào sprint — bỏ qua trường sprint cho các loại này
         if ('sprint_id' in data && (row.type === 'subtask' || row.type === 'epic')) delete data.sprint_id;
+        if (typeTo) {
+          if (row.type === 'epic') throw badRequest('Epic không đổi được loại');
+          if (row.type === 'subtask') data.subtype = typeTo;
+          else data.type = typeTo;
+        }
         if (addLabels.length) data.labels = [...new Set([...(row.labels ? row.labels.split(',') : []), ...addLabels])];
         if (ranks[i] !== undefined && 'sprint_id' in data) data.rank = ranks[i];
         if (!Object.keys(data).length) return;

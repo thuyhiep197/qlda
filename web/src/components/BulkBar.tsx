@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, refreshAll } from '../api';
 import { can, useComponents, useMe, useProject, useSprints, useVersions } from '../hooks';
 import type { Issue } from '../types';
-import { PRIORITIES, PRIORITY_LABELS } from '../util';
+import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS } from '../util';
 import { Avatar, toast } from './ui';
 import { Trash2, UserPlus } from 'lucide-react';
 
@@ -73,6 +73,13 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
         <select value="" disabled={busy} onChange={(e) => act({ status_id: Number(e.target.value) }, 'Đã đổi trạng thái')}>
           <option value="" disabled>Đổi trạng thái…</option>
           {project.statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      )}
+      {issues.some((i) => i.type !== 'epic') && (
+        <select value="" disabled={busy} onChange={(e) => act({ type_to: e.target.value }, 'Đã đổi loại')}
+          data-tip="Story/Task/Bug đổi sang loại mới; việc con đổi loại việc con (vẫn thuộc việc cha); Epic giữ nguyên">
+          <option value="" disabled>Đổi loại…</option>
+          {(['story', 'task', 'bug'] as const).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
         </select>
       )}
       <select value="" disabled={busy} onChange={(e) => act({ priority: e.target.value }, 'Đã đổi độ ưu tiên')}>
