@@ -16,7 +16,7 @@ export const TAB_PERM: Record<string, string> = {
 const canSettings = (perms: string[]) => ['project.edit', 'component.create', 'component.edit', 'component.delete'].some((p) => can(perms, p));
 /** Tab đầu tiên được phép xem — dùng khi mở dự án. */
 export function firstTab(project: Project) {
-  const order = ['dashboard', 'plan', 'board', 'backlog', 'issues', 'roadmap', 'reports'];
+  const order = ['dashboard', 'roadmap', 'plan', 'board', 'issues', 'backlog', 'reports'];
   return order.find((t) => can(project.permissions, TAB_PERM[t]) && (t !== 'backlog' || project.type === 'scrum')) ?? (canSettings(project.permissions) ? 'settings' : 'dashboard');
 }
 
@@ -33,11 +33,11 @@ export default function ProjectLayout() {
 
   const tabs: [string, string, LucideIcon][] = [
     ['dashboard', 'Dashboard', LayoutDashboard],
+    ['roadmap', 'Kế hoạch tổng quan', ChartGantt],
     ['plan', 'Kế hoạch chi tiết', ListTree],
     ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban', SquareKanban],
-    ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ['issues', 'Danh sách issue', List],
-    ['roadmap', 'Kế hoạch tổng quan', ChartGantt],
+    ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ...(RELEASES_ENABLED ? [['releases', 'Phát hành', Rocket] as [string, string, LucideIcon]] : []),
     ['reports', 'Báo cáo', ChartColumn],
     ...(canSettings(project.permissions) ? [['settings', 'Cài đặt', Settings] as [string, string, LucideIcon]] : []),
