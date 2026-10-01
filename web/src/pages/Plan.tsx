@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download } from 'lucide-react';
 import { api, qs } from '../api';
-import { useIssueModal } from '../hooks';
+import { useIssueModal, can } from '../hooks';
 import type { Issue } from '../types';
 import { fmtDate, today as todayStr, TYPE_LABELS } from '../util';
 import { Avatar, Empty, Spinner, StatusBadge, TypeIcon, MoreFilters } from '../components/ui';
@@ -268,7 +268,7 @@ export default function Plan() {
           <button className="btn btn-sm" onClick={expandAll}><ChevronsUpDown size={14} /> Mở hết</button>
           <button className="btn btn-sm" onClick={collapseAll}><ChevronsDownUp size={14} /> Chỉ giai đoạn</button>
         </>}
-        <button className="btn btn-sm" onClick={exportExcel}><Download size={14} /> Xuất Excel</button>
+        {can(project.permissions, 'plan.export') && <button className="btn btn-sm" onClick={exportExcel}><Download size={14} /> Xuất Excel</button>}
       </div>
 
       <div className="plan-table-wrap">

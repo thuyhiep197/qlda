@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { applyTheme } from './theme';
-import { useMe } from './hooks';
+import { hasPerm, useMe } from './hooks';
 import { Spinner, Toaster, TooltipLayer, UpdateBanner } from './components/ui';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -55,8 +55,8 @@ export default function App() {
           </Route>
           <Route path="browse/:issueKey" element={<IssuePage />} />
           <Route path="profile" element={<Profile />} />
-          {!!me.is_admin && <Route path="admin/users" element={<AdminUsers />} />}
-          {!!me.is_admin && <Route path="admin/roles" element={<AdminRoles />} />}
+          {hasPerm(me, 'user.view') && <Route path="admin/users" element={<AdminUsers />} />}
+          {hasPerm(me, 'role.view') && <Route path="admin/roles" element={<AdminRoles />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

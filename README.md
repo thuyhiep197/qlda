@@ -45,7 +45,7 @@ docker compose up -d --build
 | Nhóm | Chức năng |
 |---|---|
 | Tài khoản | Admin tạo tài khoản, cấp mật khẩu tạm; bắt buộc đổi mật khẩu lần đầu; đặt lại mật khẩu; khóa/mở khóa; chống dò mật khẩu (khóa 15 phút sau 10 lần sai) |
-| Phân quyền | Mỗi tài khoản có **một vai trò** (BA Lead, BA, Techlead, Dev, Người xem) quyết định quyền trên mọi dự án người đó tham gia; **thành viên dự án** quyết định ai được vào dự án. Quản trị hệ thống có toàn quyền. Tạo thêm vai trò và tick chọn 12 quyền trên ma trận |
+| Phân quyền | Theo **nhóm người dùng** và **riêng từng người** (cấp thêm/chặn), trên ma trận **chức năng × hành động** (Xem, Thêm, Sửa, Xóa, Tải, Import) gom theo nhóm chức năng; áp dụng trên mọi dự án người đó tham gia |
 | Dự án | Scrum hoặc Kanban, mã dự án (VD `QLVB` → issue `QLVB-12`), trưởng dự án, thành viên, lưu trữ/khôi phục |
 | Issue | Epic, Story, Task, Bug, Sub-task; mô tả Markdown; độ ưu tiên; story point; nhãn; hạn hoàn thành; người thực hiện; issue cha; liên kết (chặn / liên quan / trùng); bình luận; tệp đính kèm (kéo thả, xem trước ảnh); lịch sử thay đổi đầy đủ |
 | Trao đổi | Bình luận Markdown; gõ **@** để nhắc thành viên dự án; **dán ảnh (Ctrl+V)** hoặc kéo thả ảnh/tệp vào bình luận, mô tả (ảnh hiện ngay trong nội dung, tự lưu vào tệp đính kèm); **Người theo dõi** (tự thêm người tạo, người được giao, người bình luận, người được @nhắc; ai cũng tự Theo dõi/Bỏ theo dõi) |
@@ -66,24 +66,23 @@ docker compose up -d --build
 | Báo cáo | Báo cáo sprint (xong / chưa xong / thêm giữa chừng / bị rút ra), Giờ công, Biểu đồ khối lượng còn lại (burndown) theo điểm ước lượng hoặc số issue, Năng suất sprint (velocity), tổng quan (theo trạng thái, loại, ưu tiên, người thực hiện), xu hướng tạo mới/hoàn thành, danh sách quá hạn |
 | Trang chủ | Việc của tôi, số liệu cá nhân, hoạt động gần đây, dự án của tôi |
 
-### Ma trận quyền mặc định
+### Phân quyền: nhóm người dùng × chức năng × hành động
 
-| Quyền | BA Lead | BA (kiêm PM, Tester) | Techlead | Dev | Người xem |
-|---|:-:|:-:|:-:|:-:|:-:|
-| Xem dự án, bình luận | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Tạo issue, chuyển trạng thái, đính kèm tệp | ✔ | ✔ | ✔ | ✔ | |
-| Sửa issue do mình tạo hoặc được giao | ✔ | ✔ | ✔ | ✔ | |
-| Sửa mọi issue | ✔ | ✔ | ✔ | | |
-| Giao việc cho người khác | ✔ | ✔ | ✔ | | |
-| Quản lý sprint, sắp xếp backlog | ✔ | ✔ | ✔ | | |
-| Quản trị dự án (thông tin, thành viên, workflow) | ✔ | | | | |
-| Xóa issue | ✔ | | | | |
-| Nhập issue hàng loạt từ Excel/CSV | ✔ | ✔ | ✔ | | |
-| Sửa/xóa bình luận, xóa tệp của người khác | ✔ | | | | |
+Quyền được tick trên **ma trận**: dòng là **chức năng** (gom theo **nhóm chức năng**), cột là **hành động**: Xem, Thêm, Sửa, Xóa, Tải, Import.
 
-Vai trò chọn khi tạo tài khoản (mục **Người dùng**). Đổi vai trò thì quyền thay đổi ngay trên mọi dự án. Trong mỗi dự án chỉ cần thêm hoặc bỏ thành viên. Tài khoản BA Lead được bật **Quản trị hệ thống**, nên có toàn quyền trên mọi dự án, kể cả khi không được thêm làm thành viên. Người xem dành cho khách hàng hoặc lãnh đạo.
+| Nhóm chức năng | Chức năng |
+|---|---|
+| Theo dõi tiến độ | Dashboard dự án · Kế hoạch chi tiết & tổng quan · Báo cáo |
+| Công việc | Danh sách & tìm kiếm issue · Issue · Issue của mình · Giao việc · Chuyển trạng thái · Bình luận · Tệp đính kèm · Ghi thời gian |
+| Lập kế hoạch | Sprint · Backlog · Mô-đun & BA phụ trách |
+| Quản trị dự án | Dự án (thông tin, thành viên, quy trình) |
+| Quản trị hệ thống | Người dùng · Nhóm người dùng & phân quyền |
 
-Quản trị hệ thống sửa được ma trận này tại **Vai trò & quyền**. Mọi quyền được kiểm tra ở phía server, không chỉ ẩn nút trên giao diện.
+- **Nhóm người dùng** (BA Lead, BA, Techlead, Dev, Phối hợp, Người xem…): mỗi tài khoản thuộc **một nhóm chính**, quyền của nhóm được gán mặc định. Sửa tại **Nhóm người dùng & phân quyền**: tick từng ô, cả dòng, cả cột hoặc cả nhóm chức năng; sao chép được quyền từ nhóm khác.
+- **Phân quyền riêng theo người dùng** (**Người dùng → Phân quyền**): tick thêm ô để **cấp thêm** (nền xanh), bỏ tick ô của nhóm để **chặn** (nền đỏ). Quyền thực tế = quyền nhóm + cấp thêm − chặn. Nút *Khôi phục theo nhóm* xóa mọi phân quyền riêng.
+- Quyền áp dụng trên **mọi dự án** người đó tham gia; **thành viên dự án** chỉ quyết định ai được vào dự án. **Quản trị hệ thống** luôn có toàn quyền.
+- Không có quyền **Xem** thì tab/chức năng bị ẩn và server từ chối truy cập. Mọi quyền đều kiểm tra ở server, không chỉ ẩn nút.
+- Khi nâng cấp từ bản cũ, các vai trò cũ tự chuyển sang ma trận mới với năng lực như cũ (người trực tiếp làm việc thấy mọi màn hình; Người xem/Phối hợp chỉ thấy Dashboard và Kế hoạch).
 
 ## 5. Cấu trúc mã nguồn
 
@@ -92,7 +91,7 @@ server/src/
   index.ts            khởi động Express, định tuyến, phục vụ giao diện đã build
   db.ts               kết nối SQLite (node:sqlite), migrations theo phiên bản
   auth.ts             băm mật khẩu (scrypt), JWT cookie, middleware đăng nhập
-  permissions.ts      danh mục quyền, vai trò mặc định, kiểm tra quyền theo dự án
+  permissions.ts      danh mục chức năng × hành động, nhóm mặc định, quyền riêng theo người dùng, kiểm tra quyền
   issues.ts           nghiệp vụ issue: tạo, sửa (kèm lịch sử), xếp hạng, xóa
   backup.ts           sao lưu CSDL
   routes/             auth, admin (users/roles), projects (thành viên, workflow, sprint), issues, reports

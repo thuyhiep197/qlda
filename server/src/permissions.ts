@@ -1,53 +1,131 @@
 import { all, get, run } from './db.ts';
 
-/** Danh mục quyền trong phạm vi dự án. Vai trò (role) là một tập các quyền này. */
-export const PERMISSIONS = [
-  { key: 'project.admin', group: 'Dự án', label: 'Quản trị dự án (thông tin, thành viên, workflow)' },
-  { key: 'sprint.manage', group: 'Dự án', label: 'Quản lý sprint và sắp xếp backlog' },
-  { key: 'issue.create', group: 'Issue', label: 'Tạo issue' },
-  { key: 'issue.edit', group: 'Issue', label: 'Sửa mọi issue' },
-  { key: 'issue.edit_own', group: 'Issue', label: 'Sửa issue do mình tạo hoặc được giao' },
-  { key: 'issue.assign', group: 'Issue', label: 'Giao việc (đổi người thực hiện)' },
-  { key: 'issue.transition', group: 'Issue', label: 'Chuyển trạng thái issue' },
-  { key: 'issue.delete', group: 'Issue', label: 'Xóa issue' },
-  { key: 'issue.import', group: 'Issue', label: 'Nhập issue hàng loạt từ file Excel/CSV' },
-  { key: 'comment.create', group: 'Bình luận & tệp', label: 'Bình luận' },
-  { key: 'comment.delete_any', group: 'Bình luận & tệp', label: 'Sửa/xóa bình luận của người khác' },
-  { key: 'attachment.create', group: 'Bình luận & tệp', label: 'Đính kèm tệp' },
-  { key: 'attachment.delete_any', group: 'Bình luận & tệp', label: 'Xóa tệp của người khác' },
-] as const;
+// ---------------------------------------------------------------------------
+// Danh mục phân quyền: Nhóm chức năng → Chức năng → Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
+// Mã quyền = "<chức năng>.<hành động>", VD: issue.create, plan.export.
+// Nhóm người dùng (vai trò) là một tập mã quyền; mỗi người dùng có thể được cho phép thêm / chặn riêng từng quyền.
+// ---------------------------------------------------------------------------
+export const ACTIONS = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa', export: 'Tải', import: 'Import' } as const;
+export type Action = keyof typeof ACTIONS;
 
-export type Permission = (typeof PERMISSIONS)[number]['key'];
-export const ALL_PERMISSIONS = PERMISSIONS.map((p) => p.key) as Permission[];
+export interface FeatureDef { key: string; label: string; hint?: string; actions: Action[]; actionHints?: Partial<Record<Action, string>> }
+export interface FeatureGroup { key: string; label: string; features: FeatureDef[] }
+
+export const FEATURE_GROUPS: FeatureGroup[] = [
+  {
+    key: 'monitor', label: 'Theo dõi tiến độ', features: [
+      { key: 'dashboard', label: 'Dashboard dự án', actions: ['view'] },
+      { key: 'plan', label: 'Kế hoạch chi tiết & tổng quan', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel kế hoạch' } },
+      { key: 'report', label: 'Báo cáo', hint: 'Khối lượng còn lại, báo cáo sprint, năng suất, giờ công', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel giờ công' } },
+    ],
+  },
+  {
+    key: 'work', label: 'Công việc', features: [
+      { key: 'search', label: 'Danh sách & tìm kiếm issue', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel danh sách issue' } },
+      { key: 'issue', label: 'Issue (Epic, Story, Task, Bug, Sub-task)', actions: ['view', 'create', 'edit', 'delete', 'import'],
+        actionHints: { view: 'Mở xem chi tiết issue, xem kế hoạch', edit: 'Sửa mọi issue', import: 'Nhập issue hàng loạt từ Excel/CSV' } },
+      { key: 'issue_own', label: 'Issue của mình', hint: 'Issue do mình tạo hoặc được giao', actions: ['edit'] },
+      { key: 'assign', label: 'Giao việc', hint: 'Đổi người thực hiện', actions: ['edit'] },
+      { key: 'transition', label: 'Chuyển trạng thái', actions: ['edit'] },
+      { key: 'comment', label: 'Bình luận', actions: ['view', 'create', 'edit', 'delete'],
+        actionHints: { edit: 'Sửa bình luận của người khác (của mình luôn sửa được)', delete: 'Xóa bình luận của người khác' } },
+      { key: 'attachment', label: 'Tệp đính kèm', actions: ['view', 'create', 'delete', 'export'],
+        actionHints: { delete: 'Xóa tệp của người khác (của mình luôn xóa được)', export: 'Tải tệp về máy' } },
+      { key: 'worklog', label: 'Ghi thời gian làm việc', actions: ['view', 'create', 'edit', 'delete'],
+        actionHints: { edit: 'Sửa giờ của người khác', delete: 'Xóa giờ của người khác' } },
+    ],
+  },
+  {
+    key: 'planning', label: 'Lập kế hoạch', features: [
+      { key: 'sprint', label: 'Sprint', hint: 'Bảng sprint đang chạy; tạo, sửa, bắt đầu, hoàn thành, xóa sprint', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'backlog', label: 'Backlog', hint: 'Sắp xếp, kéo issue vào sprint', actions: ['view', 'edit'] },
+      { key: 'component', label: 'Mô-đun & BA phụ trách', actions: ['view', 'create', 'edit', 'delete'] },
+    ],
+  },
+  {
+    key: 'project', label: 'Quản trị dự án', features: [
+      { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình', actions: ['create', 'edit', 'delete'],
+        actionHints: { delete: 'Lưu trữ dự án' } },
+    ],
+  },
+  {
+    key: 'system', label: 'Quản trị hệ thống', features: [
+      { key: 'user', label: 'Người dùng', hint: 'Tài khoản, đặt lại mật khẩu', actions: ['view', 'create', 'edit', 'delete'], actionHints: { delete: 'Khóa tài khoản' } },
+      { key: 'role', label: 'Nhóm người dùng & phân quyền', actions: ['view', 'create', 'edit', 'delete'] },
+    ],
+  },
+];
+
+export type Permission = string;
+export const ALL_PERMISSIONS: Permission[] = FEATURE_GROUPS.flatMap((g) => g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`)));
+const VALID = new Set(ALL_PERMISSIONS);
+
+/**
+ * Mã quyền gộp dùng trong code từ trước (vẫn kiểm tra ở nhiều nơi) — suy ra từ quyền mới.
+ * VD 'sprint.manage' = được sắp xếp backlog/đổi sprint của issue.
+ */
+const DERIVED: Record<string, string[]> = {
+  'issue.edit_own': ['issue_own.edit'],
+  'issue.assign': ['assign.edit'],
+  'issue.transition': ['transition.edit'],
+  'sprint.manage': ['backlog.edit'],
+  'project.admin': ['project.edit'],
+  'attachment.delete_any': ['attachment.delete'],
+};
+function withDerived(set: Set<Permission>) {
+  for (const [k, from] of Object.entries(DERIVED)) if (from.some((p) => set.has(p))) set.add(k);
+  return set;
+}
+
+// ---------------------------------------------------------------------------
+// Chuyển quyền kiểu cũ (danh sách quyền phẳng) sang ma trận chức năng × hành động — chạy 1 lần khi khởi động
+// ---------------------------------------------------------------------------
+const OLD_KEYS = ['project.admin', 'sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition',
+  'issue.delete', 'issue.import', 'comment.create', 'comment.delete_any', 'attachment.create', 'attachment.delete_any'];
+const OLD_MAP: Record<string, string[]> = {
+  'issue.create': ['issue.create'], 'issue.edit': ['issue.edit'], 'issue.edit_own': ['issue_own.edit'], 'issue.assign': ['assign.edit'],
+  'issue.transition': ['transition.edit', 'worklog.create'], 'issue.delete': ['issue.delete'], 'issue.import': ['issue.import'],
+  'sprint.manage': ['sprint.create', 'sprint.edit', 'sprint.delete', 'backlog.edit'],
+  'project.admin': ['project.edit', 'component.create', 'component.edit', 'component.delete', 'worklog.edit', 'worklog.delete'],
+  'comment.create': ['comment.create'], 'comment.delete_any': ['comment.edit', 'comment.delete'],
+  'attachment.create': ['attachment.create'], 'attachment.delete_any': ['attachment.delete'],
+};
+// Người trực tiếp làm việc thấy mọi màn hình; người chỉ theo dõi (Người xem, Phối hợp) chỉ thấy Dashboard & Kế hoạch
+const VIEW_WORKER = ['dashboard.view', 'plan.view', 'plan.export', 'report.view', 'report.export', 'search.view', 'search.export',
+  'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'worklog.view', 'sprint.view', 'backlog.view', 'component.view'];
+const VIEW_FOLLOWER = ['dashboard.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'component.view'];
+
+export function convertLegacyPermissions(old: string[]): Permission[] {
+  const worker = old.some((p) => ['issue.create', 'issue.edit', 'issue.edit_own', 'issue.transition'].includes(p));
+  const out = new Set<Permission>(worker ? VIEW_WORKER : VIEW_FOLLOWER);
+  for (const p of old) for (const n of OLD_MAP[p] ?? []) out.add(n);
+  if (OLD_KEYS.every((k) => old.includes(k))) ALL_PERMISSIONS.forEach((p) => out.add(p)); // vai trò toàn quyền cũ (BA Lead)
+  return ALL_PERMISSIONS.filter((p) => out.has(p));
+}
+
+/** Nhóm người dùng còn lưu quyền kiểu cũ (chưa có 'issue.view') → chuyển sang kiểu mới, giữ nguyên năng lực. */
+export function upgradeRolePermissions() {
+  for (const r of all<{ id: number; name: string; permissions: string }>('SELECT id, name, permissions FROM roles')) {
+    let p: string[] = [];
+    try { p = JSON.parse(r.permissions); } catch { /* quyền hỏng → coi như rỗng */ }
+    if (p.includes('issue.view')) continue;
+    run('UPDATE roles SET permissions = ? WHERE id = ?', JSON.stringify(convertLegacyPermissions(p)), r.id);
+    console.log(`[permissions] chuyển nhóm "${r.name}" sang phân quyền theo chức năng`);
+  }
+}
+
+export const cleanPermissionList = (v: unknown): Permission[] => (Array.isArray(v) ? ALL_PERMISSIONS.filter((p) => v.includes(p)) : []);
+export const isPermission = (p: string) => VALID.has(p);
 
 export const DEFAULT_ROLES: { name: string; description: string; permissions: Permission[] }[] = [
-  {
-    name: 'BA Lead',
-    description: 'Toàn quyền trong dự án: quản trị dự án, xóa issue, xóa bình luận/tệp của người khác',
-    permissions: ALL_PERMISSIONS,
-  },
-  {
-    name: 'BA',
-    description: 'Kiêm PM, BA và Tester: quản lý backlog/sprint, giao việc, sửa mọi issue, kiểm thử',
-    permissions: ['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition',
-      'issue.import', 'comment.create', 'attachment.create'],
-  },
-  {
-    name: 'Techlead',
-    description: 'Lập kế hoạch kỹ thuật, giao việc cho Dev, quản lý sprint',
-    permissions: ['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition',
-      'issue.import', 'comment.create', 'attachment.create'],
-  },
-  {
-    name: 'Dev',
-    description: 'Thực hiện công việc được giao',
-    permissions: ['issue.create', 'issue.edit_own', 'issue.transition', 'comment.create', 'attachment.create'],
-  },
-  {
-    name: 'Người xem',
-    description: 'Khách hàng/lãnh đạo: chỉ xem và bình luận',
-    permissions: ['comment.create'],
-  },
+  { name: 'BA Lead', description: 'Toàn quyền: quản trị dự án, xóa issue, quản trị hệ thống', permissions: ALL_PERMISSIONS },
+  { name: 'BA', description: 'Kiêm PM, BA và Tester: quản lý backlog/sprint, giao việc, sửa mọi issue, kiểm thử',
+    permissions: convertLegacyPermissions(['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition', 'issue.import', 'comment.create', 'attachment.create']) },
+  { name: 'Techlead', description: 'Lập kế hoạch kỹ thuật, giao việc cho Dev, quản lý sprint',
+    permissions: convertLegacyPermissions(['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition', 'issue.import', 'comment.create', 'attachment.create']) },
+  { name: 'Dev', description: 'Thực hiện công việc được giao',
+    permissions: convertLegacyPermissions(['issue.create', 'issue.edit_own', 'issue.transition', 'comment.create', 'attachment.create']) },
+  { name: 'Người xem', description: 'Khách hàng/lãnh đạo: xem tiến độ và bình luận', permissions: convertLegacyPermissions(['comment.create']) },
 ];
 
 export class HttpError extends Error {
@@ -68,19 +146,32 @@ export interface AuthUser {
   must_change_password: number;
 }
 
-/** Trả về tập quyền của user trong dự án, hoặc null nếu user không được truy cập dự án. */
+/** Quyền thực tế của tài khoản (mọi dự án): quyền của nhóm người dùng + quyền cho phép thêm − quyền bị chặn. */
+export function userPermissions(user: Pick<AuthUser, 'id' | 'is_admin'>, fallbackRoleId?: number | null): Set<Permission> {
+  if (user.is_admin) return withDerived(new Set(ALL_PERMISSIONS));
+  const row = get<{ permissions: string }>(
+    'SELECT r.permissions FROM roles r WHERE r.id = COALESCE((SELECT default_role_id FROM users WHERE id = ?), ?)', user.id, fallbackRoleId ?? null);
+  let base: string[] = [];
+  try { base = row ? JSON.parse(row.permissions) : []; } catch { /* nhóm lỗi → không có quyền */ }
+  const set = new Set<Permission>(base.filter(isPermission));
+  for (const o of all<{ permission: string; effect: string }>('SELECT permission, effect FROM user_permissions WHERE user_id = ?', user.id)) {
+    if (o.effect === 'allow') set.add(o.permission); else set.delete(o.permission);
+  }
+  return withDerived(set);
+}
+
+/** Trả về tập quyền của user trong dự án, hoặc null nếu user không phải thành viên dự án. */
 export function projectPermissions(user: AuthUser, projectId: number): Set<Permission> | null {
-  if (user.is_admin) return new Set(ALL_PERMISSIONS);
-  // Quyền lấy theo vai trò của tài khoản; thành viên dự án chỉ quyết định có được vào dự án hay không
-  const m = get<{ permissions: string }>(
-    `SELECT COALESCE(ur.permissions, r.permissions) AS permissions
-     FROM project_members pm JOIN users u ON u.id = pm.user_id
-     LEFT JOIN roles ur ON ur.id = u.default_role_id JOIN roles r ON r.id = pm.role_id
-     WHERE pm.project_id = ? AND pm.user_id = ?`,
-    projectId, user.id,
-  );
+  if (user.is_admin) return userPermissions(user);
+  // Quyền theo tài khoản (nhóm + quyền riêng); thành viên dự án chỉ quyết định có được vào dự án hay không
+  const m = get<{ role_id: number }>('SELECT role_id FROM project_members WHERE project_id = ? AND user_id = ?', projectId, user.id);
   if (!m) return null;
-  return new Set(JSON.parse(m.permissions) as Permission[]);
+  return userPermissions(user, m.role_id);
+}
+
+/** Bắt buộc có quyền (không gắn với dự án), VD quản trị người dùng, tạo dự án. */
+export function requireUserPerm(user: AuthUser, perm: Permission) {
+  if (!userPermissions(user).has(perm)) throw forbidden();
 }
 
 export function requireProjectAccess(user: AuthUser, projectId: number) {

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { api, logout, queryClient } from '../api';
 import { applyTheme } from '../theme';
-import { isViewerOnly, useIssueModal, useMe, useProjects } from '../hooks';
+import { hasPerm, useIssueModal, useMe, useProjects } from '../hooks';
 import { Avatar } from './ui';
 import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
@@ -51,7 +51,7 @@ export default function Layout() {
         <nav className="nav">
           <NavLink to="/home"><House size={18} /> Trang chủ</NavLink>
           <NavLink to="/projects"><FolderKanban size={18} /> Tất cả dự án</NavLink>
-          <NavLink to="/issues" end><Search size={18} /> Tìm kiếm issue</NavLink>
+          {hasPerm(me, 'search.view') && <NavLink to="/issues" end><Search size={18} /> Tìm kiếm issue</NavLink>}
         </nav>
         <div className="nav-section">Dự án của tôi</div>
         <nav className="nav nav-projects">
@@ -63,12 +63,12 @@ export default function Layout() {
           ))}
           {projects?.length === 0 && <div className="muted small pad">Bạn chưa tham gia dự án nào</div>}
         </nav>
-        {!!me?.is_admin && (
+        {(hasPerm(me, 'user.view') || hasPerm(me, 'role.view')) && (
           <>
             <div className="nav-section">Quản trị hệ thống</div>
             <nav className="nav">
-              <NavLink to="/admin/users"><Users size={18} /> Người dùng</NavLink>
-              <NavLink to="/admin/roles"><ShieldCheck size={18} /> Vai trò & quyền</NavLink>
+              {hasPerm(me, 'user.view') && <NavLink to="/admin/users"><Users size={18} /> Người dùng</NavLink>}
+              {hasPerm(me, 'role.view') && <NavLink to="/admin/roles"><ShieldCheck size={18} /> Nhóm người dùng & phân quyền</NavLink>}
             </nav>
           </>
         )}
@@ -81,7 +81,7 @@ export default function Layout() {
             <Search size={16} className="search-icon" aria-hidden />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm issue theo từ khóa hoặc mã (VD: DEMO-12)…" />
           </form>
-          {!isViewerOnly(me) && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> Tạo issue</button>}
+          {hasPerm(me, 'issue.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> Tạo issue</button>}
           <div className="spacer" />
           <NotificationBell />
           <div className="user-menu">

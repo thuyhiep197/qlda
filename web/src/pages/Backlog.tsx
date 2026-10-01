@@ -46,7 +46,11 @@ export default function Backlog() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Quyền chi tiết: tạo / sửa (bắt đầu, hoàn thành) / xóa sprint; sắp xếp & kéo issue vào sprint (Sửa Backlog)
   const canSprint = can(project.permissions, 'sprint.manage');
+  const canNewSprint = can(project.permissions, 'sprint.create');
+  const canEditSprint = can(project.permissions, 'sprint.edit');
+  const canDelSprint = can(project.permissions, 'sprint.delete');
   const canCreate = can(project.permissions, 'issue.create');
 
   if (isLoading || !sprints || !issues) return <Spinner />;
@@ -133,8 +137,8 @@ export default function Backlog() {
   return (
     <div className={`page-pad ${selected.size ? 'has-selection' : ''}`}>
       <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
-        {canSprint && <button className="btn btn-sm btn-primary" onClick={createSprint}><Plus size={14} strokeWidth={2.5} /> Tạo sprint</button>}
-        {canSprint && sprints.length > 0 && <button className="btn btn-sm" onClick={() => setSeries(true)} data-tip="Tạo tiếp nhiều sprint theo độ dài và nhịp của các sprint đã có"><CalendarRange size={14} /> Tạo loạt sprint</button>}
+        {canNewSprint && <button className="btn btn-sm btn-primary" onClick={createSprint}><Plus size={14} strokeWidth={2.5} /> Tạo sprint</button>}
+        {canNewSprint && sprints.length > 0 && <button className="btn btn-sm" onClick={() => setSeries(true)} data-tip="Tạo tiếp nhiều sprint theo độ dài và nhịp của các sprint đã có"><CalendarRange size={14} /> Tạo loạt sprint</button>}
         <ImportButton project={project} />
         {canSprint && <HelpTip text="Giữ Ctrl (hoặc Shift để chọn liên tiếp) rồi bấm vào issue, hoặc tick ô đầu dòng, để chọn nhiều issue rồi kéo cả nhóm vào sprint" />}
       </FilterBar>
@@ -169,17 +173,17 @@ export default function Backlog() {
               <span className="pts pts-todo" data-tip="Tổng điểm ước lượng: Cần làm">{sum('todo')}</span>
               <span className="pts pts-inprogress" data-tip="Tổng điểm ước lượng: Đang thực hiện">{sum('inprogress')}</span>
               <span className="pts pts-done" data-tip="Tổng điểm ước lượng: Hoàn thành">{sum('done')}</span>
-              {sprint && canSprint && sprint.state === 'future' && (
+              {sprint && canEditSprint && sprint.state === 'future' && (
                 <button className="btn btn-sm" disabled={all.length === 0}
                   data-tip={all.length === 0 ? 'Sprint chưa có issue' : hasActive ? 'Chạy song song với sprint đang chạy' : undefined}
                   onClick={() => setStartModal({ sprint, mode: 'start' })}>Bắt đầu sprint</button>
               )}
-              {sprint && canSprint && sprint.state === 'active' && (
+              {sprint && canEditSprint && sprint.state === 'active' && (
                 <button className="btn btn-sm" onClick={() => setCompleteModal(sprint)}>Hoàn thành sprint</button>
               )}
-              {sprint && canSprint && <button className="btn btn-subtle btn-sm" onClick={() => setStartModal({ sprint, mode: 'edit' })}>Sửa</button>}
-              {sprint && canSprint && sprint.state === 'future' && <button className="btn btn-subtle btn-sm" onClick={() => deleteSprint(sprint)}>Xóa</button>}
-              {!sprint && canSprint && <button className="btn btn-sm" onClick={createSprint}><Plus size={14} /> Tạo sprint</button>}
+              {sprint && canEditSprint && <button className="btn btn-subtle btn-sm" onClick={() => setStartModal({ sprint, mode: 'edit' })}>Sửa</button>}
+              {sprint && canDelSprint && sprint.state === 'future' && <button className="btn btn-subtle btn-sm" onClick={() => deleteSprint(sprint)}>Xóa</button>}
+              {!sprint && canNewSprint && <button className="btn btn-sm" onClick={createSprint}><Plus size={14} /> Tạo sprint</button>}
             </div>
             {sprint?.goal && !isCollapsed && <div className="sprint-goal muted small"><Target size={13} /> {sprint.goal}</div>}
             {!isCollapsed && (

@@ -1,12 +1,9 @@
 import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
-import { requireAdmin } from '../auth.ts';
 import { addHistory } from '../issues.ts';
 import { runImport } from '../importer.ts';
 import { mapStatusForType, projectStatuses, workflowConfig } from '../workflow.ts';
-import {
-  accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission,
-} from '../permissions.ts';
+import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission, requireUserPerm } from '../permissions.ts';
 
 const r = Router();
 
@@ -46,7 +43,8 @@ r.get('/', (req, res) => {
   res.json(ids === 'all' ? rows : rows.filter((p) => ids.includes(p.id)));
 });
 
-r.post('/', requireAdmin, (req, res) => {
+r.post('/', (req, res) => {
+  requireUserPerm(req.user, 'project.create');
   const b = req.body || {};
   const key = String(b.key || '').trim().toUpperCase();
   if (!/^[A-Z][A-Z0-9]{1,9}$/.test(key)) throw badRequest('Mã dự án 2–10 ký tự, bắt đầu bằng chữ cái, chỉ gồm chữ in hoa và số');
@@ -100,7 +98,8 @@ r.patch('/:key', (req, res) => {
   res.json({ ok: true });
 });
 
-r.post('/:key/archive', requireAdmin, (req, res) => {
+r.post('/:key/archive', (req, res) => {
+  requireUserPerm(req.user, 'project.delete');
   const project = get('SELECT * FROM projects WHERE key = ?', String(req.params.key).toUpperCase());
   if (!project) throw notFound();
   run('UPDATE projects SET is_archived = ? WHERE id = ?', req.body?.archived === false ? 0 : 1, project.id);
@@ -281,7 +280,7 @@ r.get('/:key/sprints', (req, res) => {
 });
 
 r.post('/:key/sprints', (req, res) => {
-  const { project } = loadProject(req, 'sprint.manage');
+  const { project } = loadProject(req, 'sprint.create');
   const id = tx(() => {
     run('UPDATE projects SET sprint_seq = sprint_seq + 1 WHERE id = ?', project.id);
     const seq = get('SELECT sprint_seq FROM projects WHERE id = ?', project.id)!.sprint_seq;
@@ -300,7 +299,7 @@ r.get('/:key/sprints/plan-end', (req, res) => {
 
 /** Tạo nhiều sprint một lần (theo quy luật người dùng đã xem trước). Tất cả hoặc không gì cả. */
 r.post('/:key/sprints/batch', (req, res) => {
-  const { project } = loadProject(req, 'sprint.manage');
+  const { project } = loadProject(req, 'sprint.create');
   const list = Array.isArray(req.body?.sprints) ? req.body.sprints : [];
   if (!list.length) throw badRequest('Chưa có sprint nào để tạo');
   if (list.length > 100) throw badRequest('Tối đa 100 sprint mỗi lần');
@@ -320,8 +319,8 @@ r.post('/:key/sprints/batch', (req, res) => {
   res.status(201).json({ created: ids.length });
 });
 
-function loadSprint(req: Request) {
-  const { project } = loadProject(req, 'sprint.manage');
+function loadSprint(req: Request, perm: Permission = 'sprint.edit') {
+  const { project } = loadProject(req, perm);
   const sprint = get('SELECT * FROM sprints WHERE id = ? AND project_id = ?', Number(req.params.id), project.id);
   if (!sprint) throw notFound('Không tìm thấy sprint');
   return { project, sprint };
@@ -395,7 +394,7 @@ r.post('/:key/sprints/:id/complete', (req, res) => {
 });
 
 r.delete('/:key/sprints/:id', (req, res) => {
-  const { sprint } = loadSprint(req);
+  const { sprint } = loadSprint(req, 'sprint.delete');
   if (sprint.state !== 'future') throw badRequest('Chỉ xóa được sprint chưa bắt đầu');
   tx(() => {
     for (const i of all('SELECT id FROM issues WHERE sprint_id = ?', sprint.id)) {

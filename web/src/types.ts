@@ -12,8 +12,8 @@ export interface Me {
   phone?: string | null;
   job_title?: string | null;
   role_name?: string | null;
-  /** Quyền theo vai trò của tài khoản (áp dụng ở mọi dự án) */
-  role_permissions?: string[];
+  /** Quyền thực tế của tài khoản ở mọi dự án (nhóm người dùng + quyền riêng) */
+  permissions?: string[];
   created_at?: string;
   last_login_at?: string | null;
   preferences?: { theme?: 'light' | 'dark' | 'system'; notify?: Partial<Record<'mention' | 'assigned' | 'comment' | 'status', boolean>> };
@@ -55,10 +55,12 @@ export interface Role {
   usage: number;
 }
 
-export interface PermissionDef {
-  key: string;
-  group: string;
-  label: string;
+export type PermAction = 'view' | 'create' | 'edit' | 'delete' | 'export' | 'import';
+export interface FeatureDef { key: string; label: string; hint?: string; actions: PermAction[]; actionHints?: Partial<Record<PermAction, string>> }
+export interface PermissionCatalog { actions: Record<PermAction, string>; groups: { key: string; label: string; features: FeatureDef[] }[] }
+export interface UserPermView {
+  user_id: number; full_name: string; is_admin: boolean; role_name: string | null;
+  group: string[]; overrides: Record<string, 'allow' | 'deny'>; effective: string[];
 }
 
 export interface Status {

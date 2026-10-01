@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { get, now, run } from '../db.ts';
 import { COOKIE, hashPassword, issueToken, requireAuth, validatePassword, verifyPassword } from '../auth.ts';
-import { HttpError } from '../permissions.ts';
+import { HttpError, userPermissions } from '../permissions.ts';
 
 const r = Router();
 
@@ -56,9 +56,9 @@ r.get('/me', requireAuth, (req, res) => {
      FROM users u LEFT JOIN roles r ON r.id = u.default_role_id WHERE u.id = ?`, req.user.id)!;
   let preferences = {};
   try { preferences = JSON.parse(extra.preferences || '{}'); } catch { /* giữ mặc định */ }
-  let role_permissions: string[] = [];
-  try { role_permissions = JSON.parse(extra.role_permissions || '[]'); } catch { /* vai trò lỗi → coi như không có quyền */ }
-  res.json({ ...req.user, ...extra, preferences, role_permissions });
+  const { role_permissions: _rp, ...info } = extra;
+  // Quyền thực tế của tài khoản (nhóm + quyền riêng) — giao diện dùng để ẩn/hiện chức năng
+  res.json({ ...req.user, ...info, preferences, permissions: [...userPermissions(req.user)] });
 });
 
 // ---------------------------------------------------------------------------

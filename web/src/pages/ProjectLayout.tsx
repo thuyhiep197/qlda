@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { Navigate, NavLink, Outlet, useOutletContext, useParams } from 'react-router-dom';
-import { can, isViewerOnly, useMe, useProject, useProjects } from '../hooks';
+import { Navigate, NavLink, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
+import { can, useProject, useProjects } from '../hooks';
 import type { Project } from '../types';
 import { colorOf, RELEASES_ENABLED } from '../util';
 import { Spinner } from '../components/ui';
@@ -8,13 +8,24 @@ import { ChartColumn, LayoutDashboard, ListTree, ChartGantt, List, ListTodo, Roc
 
 const LAST_PROJECT = 'qlda:last-project';
 
+/** Quyền Xem cần có để thấy từng tab. Kanban: bảng theo quyền xem issue. */
+export const TAB_PERM: Record<string, string> = {
+  dashboard: 'dashboard.view', plan: 'plan.view', board: 'sprint.view', backlog: 'backlog.view', issues: 'search.view',
+  roadmap: 'plan.view', releases: 'backlog.view', reports: 'report.view',
+};
+const canSettings = (perms: string[]) => ['project.edit', 'component.create', 'component.edit', 'component.delete'].some((p) => can(perms, p));
+/** Tab đầu tiên được phép xem — dùng khi mở dự án. */
+export function firstTab(project: Project) {
+  const order = ['dashboard', 'plan', 'board', 'backlog', 'issues', 'roadmap', 'reports'];
+  return order.find((t) => can(project.permissions, TAB_PERM[t]) && (t !== 'backlog' || project.type === 'scrum')) ?? (canSettings(project.permissions) ? 'settings' : 'dashboard');
+}
+
 export const useProjectCtx = () => useOutletContext<Project>();
 
 export default function ProjectLayout() {
   const { key } = useParams();
   const { data: project, error, isLoading } = useProject(key?.toUpperCase());
-  const { data: me } = useMe();
-  const viewer = isViewerOnly(me);
+  const location = useLocation();
   // Nhớ dự án đang xem để lần đăng nhập sau mở thẳng vào đây
   useEffect(() => { if (project) try { localStorage.setItem(LAST_PROJECT, project.key); } catch { /* bỏ qua */ } }, [project?.key]);
   if (isLoading) return <Spinner />;
@@ -29,10 +40,15 @@ export default function ProjectLayout() {
     ['roadmap', 'Kế hoạch tổng quan', ChartGantt],
     ...(RELEASES_ENABLED ? [['releases', 'Phát hành', Rocket] as [string, string, LucideIcon]] : []),
     ['reports', 'Báo cáo', ChartColumn],
-    ...(can(project.permissions, 'project.admin') ? [['settings', 'Cài đặt', Settings] as [string, string, LucideIcon]] : []),
+    ...(canSettings(project.permissions) ? [['settings', 'Cài đặt', Settings] as [string, string, LucideIcon]] : []),
   ];
-  // Người chỉ theo dõi: chỉ Dashboard, Kế hoạch chi tiết, Kế hoạch tổng quan
-  const visibleTabs = viewer ? tabs.filter(([p]) => ['dashboard', 'plan', 'roadmap'].includes(p)) : tabs;
+  // Mở thẳng một tab không có quyền xem (VD gõ địa chỉ) → về tab đầu tiên được phép
+  const seg = location.pathname.split('/')[3];
+  if (seg && ((TAB_PERM[seg] && !can(project.permissions, TAB_PERM[seg])) || (seg === 'settings' && !canSettings(project.permissions)))) {
+    return <Navigate to={`/p/${project.key}/${firstTab(project)}`} replace />;
+  }
+  // Chỉ hiện tab người dùng có quyền Xem
+  const visibleTabs = tabs.filter(([p]) => p === 'settings' || can(project.permissions, TAB_PERM[p] ?? ''));
 
   return (
     <div className="project">
@@ -58,10 +74,10 @@ export function Landing() {
   let last: string | null = null;
   try { last = localStorage.getItem(LAST_PROJECT); } catch { /* bỏ qua */ }
   const target = projects.find((p) => p.key === last) ?? projects[0];
-  return <Navigate to={target ? `/p/${target.key}/dashboard` : '/home'} replace />;
+  return <Navigate to={target ? `/p/${target.key}` : '/home'} replace />;
 }
 
 export function ProjectHome() {
   const project = useProjectCtx();
-  return <Navigate to={`/p/${project.key}/dashboard`} replace />;
+  return <Navigate to={`/p/${project.key}/${firstTab(project)}`} replace />;
 }

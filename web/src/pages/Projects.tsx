@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
-import { useMe, useUsersBasic } from '../hooks';
+import { useMe, useUsersBasic, hasPerm } from '../hooks';
 import type { ProjectSummary } from '../types';
 import { colorOf } from '../util';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
@@ -34,8 +34,8 @@ export default function Projects() {
       <div className="page-head">
         <h1>Dự án</h1>
         <div className="spacer" />
-        {!!me?.is_admin && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem dự án đã lưu trữ</label>}
-        {!!me?.is_admin && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Tạo dự án</button>}
+        {hasPerm(me, 'project.delete') && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem dự án đã lưu trữ</label>}
+        {hasPerm(me, 'project.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Tạo dự án</button>}
       </div>
       <input className="filter-input" placeholder="Lọc theo tên hoặc mã dự án" value={filter} onChange={(e) => setFilter(e.target.value)} />
       {isLoading ? <Spinner /> : !list?.length ? (
@@ -57,7 +57,7 @@ export default function Projects() {
                 <td>{p.my_role || (me?.is_admin ? <span className="muted">Quản trị hệ thống</span> : '')}</td>
                 <td className="num">{p.open_count}</td>
                 <td className="num">{p.member_count}</td>
-                {!!me?.is_admin && <td className="num"><button className="btn btn-subtle btn-sm" onClick={() => toggleArchive(p)}>{p.is_archived ? 'Khôi phục' : 'Lưu trữ'}</button></td>}
+                {hasPerm(me, 'project.delete') && <td className="num"><button className="btn btn-subtle btn-sm" onClick={() => toggleArchive(p)}>{p.is_archived ? 'Khôi phục' : 'Lưu trữ'}</button></td>}
               </tr>
             ))}
           </tbody>

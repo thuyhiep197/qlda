@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
-import { useComponents, useMe, useUsersBasic } from '../hooks';
+import { useComponents, useMe, useUsersBasic, hasPerm, can } from '../hooks';
 import type { Category, Component, IssueType, Side, Status } from '../types';
 import { CATEGORY_LABELS, SIDE_LABELS, statusesFor, TYPE_LABELS, typeTip } from '../util';
 import { Avatar, Modal, SideBadge, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
@@ -9,14 +9,18 @@ import { useProjectCtx } from './ProjectLayout';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 
 export default function ProjectSettings() {
-  const [tab, setTab] = useState<'general' | 'members' | 'components' | 'workflow'>('general');
+  const project = useProjectCtx();
+  // Thông tin, thành viên, quy trình: quyền Sửa dự án; Mô-đun: quyền riêng của Mô-đun
+  const canProject = can(project.permissions, 'project.edit');
+  const canComp = ['component.create', 'component.edit', 'component.delete'].some((p) => can(project.permissions, p));
+  const [tab, setTab] = useState<'general' | 'members' | 'components' | 'workflow'>(canProject ? 'general' : 'components');
   return (
     <div className="page-pad">
       <div className="tabs tabs-sm">
-        <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>Thông tin chung</button>
-        <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>Thành viên & vai trò</button>
-        <button className={tab === 'components' ? 'active' : ''} onClick={() => setTab('components')}>Mô-đun & BA phụ trách</button>
-        <button className={tab === 'workflow' ? 'active' : ''} onClick={() => setTab('workflow')}>Trạng thái & quy trình</button>
+        {canProject && <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>Thông tin chung</button>}
+        {canProject && <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>Thành viên</button>}
+        {canComp && <button className={tab === 'components' ? 'active' : ''} onClick={() => setTab('components')}>Mô-đun & BA phụ trách</button>}
+        {canProject && <button className={tab === 'workflow' ? 'active' : ''} onClick={() => setTab('workflow')}>Trạng thái & quy trình</button>}
       </div>
       {tab === 'general' && <General />}
       {tab === 'members' && <Members />}
@@ -64,7 +68,7 @@ function General() {
       <div className="row gap-sm">
         <button className="btn btn-primary">Lưu</button>
         <div className="spacer" />
-        {!!me?.is_admin && <button type="button" className="btn btn-danger" onClick={archive}>Lưu trữ dự án</button>}
+        {hasPerm(me, 'project.delete') && <button type="button" className="btn btn-danger" onClick={archive}>Lưu trữ dự án</button>}
       </div>
     </form>
   );
@@ -175,7 +179,7 @@ function Components() {
     <div className="card">
       <div className="card-head">
         <h3>Mô-đun ({list?.length ?? 0})</h3>
-        <button className="btn btn-primary" onClick={() => setEditing({ side: null })}>+ Thêm mô-đun</button>
+        {can(project.permissions, 'component.create') && <button className="btn btn-primary" onClick={() => setEditing({ side: null })}>+ Thêm mô-đun</button>}
       </div>
       <p className="muted small">Mỗi issue thuộc một mô-đun. <b>BA phụ trách</b> mô-đun là đầu mối nghiệp vụ với dev, tự được theo dõi mọi issue của mô-đun
         (nhận thông báo bình luận, chuyển trạng thái) và kiểm thử khi issue chuyển sang <b>Kiểm thử</b>.</p>
@@ -189,8 +193,8 @@ function Components() {
               <td>{c.lead_name ? <div className="row gap-xs"><Avatar name={c.lead_name} size={22} /> {c.lead_name}</div> : <span className="muted">Chưa có</span>}</td>
               <td className="num">{c.done_count}/{c.issue_count}</td>
               <td className="num nowrap">
-                <button className="btn btn-subtle btn-sm" onClick={() => setEditing(c)}>Sửa</button>
-                <button className="btn btn-subtle btn-sm" onClick={() => del(c)}>Xóa</button>
+                {can(project.permissions, 'component.edit') && <button className="btn btn-subtle btn-sm" onClick={() => setEditing(c)}>Sửa</button>}
+                {can(project.permissions, 'component.delete') && <button className="btn btn-subtle btn-sm" onClick={() => del(c)}>Xóa</button>}
               </td>
             </tr>
           ))}

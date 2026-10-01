@@ -5,7 +5,7 @@ import path from 'node:path';
 import multer from 'multer';
 import { DATA_DIR, migrate } from './db.ts';
 import { ensureAdmin, requireAuth } from './auth.ts';
-import { HttpError, seedRoles } from './permissions.ts';
+import { HttpError, seedRoles, upgradeRolePermissions } from './permissions.ts';
 import authRoutes from './routes/auth.ts';
 import adminRoutes from './routes/admin.ts';
 import projectRoutes from './routes/projects.ts';
@@ -22,6 +22,7 @@ import { scheduleBackups } from './backup.ts';
 
 migrate();
 seedRoles();
+upgradeRolePermissions();
 syncAllEpics();
 ensureAdmin();
 scheduleBackups();

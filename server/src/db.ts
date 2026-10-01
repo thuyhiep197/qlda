@@ -331,6 +331,13 @@ const migrations: string[] = [
    );
    ALTER TABLE issues ADD COLUMN component_id INTEGER REFERENCES components(id) ON DELETE SET NULL;
    CREATE INDEX idx_issues_component ON issues(component_id);`,
+  // v9: phân quyền riêng theo người dùng — cho phép thêm hoặc chặn từng quyền ngoài quyền của nhóm
+  `CREATE TABLE user_permissions (
+     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     permission TEXT NOT NULL,
+     effect TEXT NOT NULL CHECK (effect IN ('allow', 'deny')),
+     PRIMARY KEY (user_id, permission)
+   );`,
 ];
 
 export function migrate() {

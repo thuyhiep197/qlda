@@ -25,7 +25,7 @@ const checkWorkDate = (v: unknown) => {
 // ---------------------------------------------------------------------------
 r.get('/:key/worklogs', (req, res) => {
   const row = getIssueRow(String(req.params.key));
-  requireProjectAccess(req.user, row.project_id);
+  if (!requireProjectAccess(req.user, row.project_id).has('worklog.view')) throw forbidden('Bạn không có quyền xem giờ công');
   res.json(all(`SELECT w.*, u.full_name AS user_name FROM worklogs w JOIN users u ON u.id = w.user_id
     WHERE w.issue_id = ? ORDER BY w.work_date DESC, w.id DESC`, row.id));
 });
@@ -36,7 +36,7 @@ r.get('/:key/worklogs', (req, res) => {
 r.post('/:key/worklogs', (req, res) => {
   const row = getIssueRow(String(req.params.key));
   const perms = requireProjectAccess(req.user, row.project_id);
-  if (!perms.has('issue.transition')) throw forbidden('Bạn không có quyền ghi thời gian cho issue');
+  if (!perms.has('worklog.create')) throw forbidden('Bạn không có quyền ghi thời gian cho issue');
   const b = req.body || {};
   const minutes = parseDuration(b.time_spent, 'Thời gian đã làm');
   if (!minutes) throw badRequest('Nhập thời gian đã làm, VD: 2h 30m');
@@ -58,17 +58,17 @@ r.post('/:key/worklogs', (req, res) => {
   res.status(201).json({ ok: true });
 });
 
-function loadWorklog(req: Express.Request & { params: any }) {
+function loadWorklog(req: Express.Request & { params: any }, perm: 'worklog.edit' | 'worklog.delete') {
   const w = get<{ id: number; issue_id: number; user_id: number; minutes: number; project_id: number }>(
     'SELECT w.*, i.project_id FROM worklogs w JOIN issues i ON i.id = w.issue_id WHERE w.id = ?', Number(req.params.id));
   if (!w) throw notFound();
   const perms = requireProjectAccess(req.user, w.project_id);
-  if (w.user_id !== req.user.id && !perms.has('project.admin')) throw forbidden('Chỉ sửa/xóa được giờ do mình ghi');
+  if (w.user_id !== req.user.id && !perms.has(perm)) throw forbidden('Bạn chỉ sửa/xóa được giờ do mình ghi');
   return w;
 }
 
 r.patch('/worklogs/:id', (req, res) => {
-  const w = loadWorklog(req);
+  const w = loadWorklog(req, 'worklog.edit');
   const b = req.body || {};
   const minutes = b.time_spent !== undefined ? parseDuration(b.time_spent, 'Thời gian đã làm') : w.minutes;
   if (!minutes) throw badRequest('Thời gian đã làm phải lớn hơn 0');
@@ -78,7 +78,7 @@ r.patch('/worklogs/:id', (req, res) => {
 });
 
 r.delete('/worklogs/:id', (req, res) => {
-  const w = loadWorklog(req);
+  const w = loadWorklog(req, 'worklog.delete');
   run('DELETE FROM worklogs WHERE id = ?', w.id);
   res.json({ ok: true });
 });

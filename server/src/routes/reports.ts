@@ -52,7 +52,7 @@ r.get('/dashboard', (req, res) => {
 // Báo cáo dự án
 // ---------------------------------------------------------------------------
 r.get('/projects/:key/summary', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadProject(req, 'report.view');
   const pid = project.id;
   const byStatus = all(`SELECT s.id, s.name, s.category, COUNT(i.id) AS count FROM statuses s
     LEFT JOIN issues i ON i.status_id = s.id AND i.type <> 'epic'
@@ -99,7 +99,7 @@ r.get('/projects/:key/summary', (req, res) => {
  * sprint đang chạy, mô-đun (nhãn), khối lượng theo người, việc quá hạn/sắp đến hạn, mốc sắp tới.
  */
 r.get('/projects/:key/dashboard', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadProject(req, 'dashboard.view');
   const pid = project.id;
   const today = localDate();
   const in7 = addDays(today, 7);
@@ -203,7 +203,7 @@ r.get('/projects/:key/dashboard', (req, res) => {
 });
 
 r.get('/projects/:key/velocity', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadProject(req, 'report.view');
   const sprints = all(`SELECT id, name, start_date, end_date, completed_at, committed_points, completed_points,
       committed_issues, completed_issues
     FROM sprints WHERE project_id = ? AND state = 'closed' ORDER BY completed_at DESC LIMIT 10`, project.id).reverse();
@@ -215,7 +215,7 @@ r.get('/projects/:key/velocity', (req, res) => {
  * (trường sprint và status), tính tổng story point còn lại cuối mỗi ngày.
  */
 r.get('/projects/:key/burndown', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadProject(req, 'report.view');
   const sprintId = Number(req.query.sprint);
   const sprint = get("SELECT * FROM sprints WHERE id = ? AND project_id = ? AND state <> 'future'", sprintId, project.id);
   if (!sprint) throw notFound('Không tìm thấy sprint');
@@ -282,7 +282,7 @@ r.get('/projects/:key/burndown', (req, res) => {
 
 /** Roadmap: danh sách epic kèm tiến độ các issue con. */
 r.get('/projects/:key/roadmap', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadProject(req, 'plan.view');
   const epics = all(`
     SELECT e.id, e.key, e.summary, e.start_date, e.due_date, e.assignee_id, u.full_name AS assignee_name,
       s.name AS status_name, s.category AS status_category,
@@ -313,7 +313,7 @@ r.get('/projects/:key/roadmap', (req, res) => {
  * Dựng lại từ lịch sử trường sprint; không tính sub-task.
  */
 r.get('/projects/:key/sprint-report', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadProject(req, 'report.view');
   const sprint = get("SELECT * FROM sprints WHERE id = ? AND project_id = ? AND state <> 'future'", Number(req.query.sprint), project.id);
   if (!sprint) throw notFound('Không tìm thấy sprint');
   const sid = String(sprint.id);
@@ -358,7 +358,7 @@ r.get('/projects/:key/sprint-report', (req, res) => {
 
 /** Giờ công: các lần ghi giờ của dự án trong khoảng ngày (mặc định 30 ngày gần nhất). */
 r.get('/projects/:key/worklogs', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadProject(req, 'report.view');
   const to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to)) ? String(req.query.to) : localDate();
   const from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from)) ? String(req.query.from) : addDays(to, -29);
   const rows = all(`SELECT w.id, w.work_date, w.minutes, w.comment, w.user_id, u.full_name AS user_name,

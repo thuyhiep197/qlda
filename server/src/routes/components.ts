@@ -41,7 +41,7 @@ r.get('/:key/components', (req, res) => {
 });
 
 r.post('/:key/components', (req, res) => {
-  const { project } = loadProject(req, 'project.admin');
+  const { project } = loadProject(req, 'component.create');
   const b = req.body || {};
   const name = String(b.name || '').trim();
   if (!name) throw badRequest('Tên mô-đun không được để trống');
@@ -53,7 +53,7 @@ r.post('/:key/components', (req, res) => {
 });
 
 r.patch('/:key/components/:id', (req, res) => {
-  const { project } = loadProject(req, 'project.admin');
+  const { project } = loadProject(req, 'component.edit');
   const c = get('SELECT * FROM components WHERE id = ? AND project_id = ?', Number(req.params.id), project.id);
   if (!c) throw notFound('Không tìm thấy mô-đun');
   const b = req.body || {};
@@ -72,7 +72,7 @@ r.patch('/:key/components/:id', (req, res) => {
 });
 
 r.delete('/:key/components/:id', (req, res) => {
-  const { project } = loadProject(req, 'project.admin');
+  const { project } = loadProject(req, 'component.delete');
   const c = get('SELECT * FROM components WHERE id = ? AND project_id = ?', Number(req.params.id), project.id);
   if (!c) throw notFound('Không tìm thấy mô-đun');
   // Issue của mô-đun được giữ lại, chỉ bỏ trống trường Mô-đun

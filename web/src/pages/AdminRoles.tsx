@@ -1,104 +1,103 @@
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, refreshAll } from '../api';
-import { useRoles } from '../hooks';
-import type { PermissionDef } from '../types';
-import { Spinner, toast, toastError } from '../components/ui';
+import { hasPerm, useMe, useRoles } from '../hooks';
+import type { PermissionCatalog } from '../types';
+import { HelpTip, Spinner, toast, toastError } from '../components/ui';
+import { PermMatrix } from '../components/PermMatrix';
 
+/** Nhóm người dùng & phân quyền: mỗi nhóm có bảng quyền Chức năng × Hành động, gán mặc định cho người thuộc nhóm. */
 export default function AdminRoles() {
+  const { data: me } = useMe();
   const { data: roles } = useRoles();
-  const { data: perms } = useQuery<PermissionDef[]>({ queryKey: ['permissions'], queryFn: () => api.get('/permissions') });
-  const [draft, setDraft] = useState<Record<number, string[]>>({});
-  const [dirty, setDirty] = useState<Set<number>>(new Set());
+  const { data: catalog } = useQuery<PermissionCatalog>({ queryKey: ['permissions'], queryFn: () => api.get('/permissions') });
+  const [selected, setSelected] = useState<number | null>(null);
+  const [draft, setDraft] = useState<Set<string>>(new Set());
+  const [dirty, setDirty] = useState(false);
+  const canEdit = hasPerm(me, 'role.edit');
 
+  const role = roles?.find((r) => r.id === selected) ?? roles?.[0];
   useEffect(() => {
-    if (roles) {
-      setDraft(Object.fromEntries(roles.map((r) => [r.id, r.permissions])));
-      setDirty(new Set());
-    }
-  }, [roles]);
+    if (role) { setDraft(new Set(role.permissions)); setDirty(false); }
+  }, [role?.id, roles]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!roles || !perms) return <Spinner />;
+  if (!roles || !catalog) return <Spinner />;
 
-  const toggle = (roleId: number, p: string) => {
-    const cur = draft[roleId] || [];
-    setDraft({ ...draft, [roleId]: cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p] });
-    setDirty(new Set(dirty).add(roleId));
+  const pick = (id: number) => {
+    if (dirty && !confirm('Nhóm hiện tại có thay đổi chưa lưu. Bỏ thay đổi?')) return;
+    setSelected(id);
   };
-
+  const onSet = (perms: string[], value: boolean) => {
+    const n = new Set(draft);
+    perms.forEach((p) => (value ? n.add(p) : n.delete(p)));
+    setDraft(n); setDirty(true);
+  };
   const save = async () => {
+    if (!role) return;
+    try { await api.patch(`/roles/${role.id}`, { permissions: [...draft] }); toast(`Đã lưu quyền nhóm ${role.name}`); setDirty(false); await refreshAll(); }
+    catch (e) { toastError(e); }
+  };
+  const create = async () => {
+    const name = prompt('Tên nhóm người dùng mới (VD: Kiểm thử, Khách hàng):');
+    if (!name?.trim()) return;
     try {
-      for (const id of dirty) await api.patch(`/roles/${id}`, { permissions: draft[id] });
-      toast('Đã lưu phân quyền');
-      await refreshAll();
+      const r = await api.post<{ id: number }>('/roles', { name, permissions: ['dashboard.view', 'plan.view', 'issue.view', 'comment.view', 'comment.create'] });
+      await refreshAll(); setSelected(r.id);
     } catch (e) { toastError(e); }
   };
-
-  const create = async () => {
-    const name = prompt('Tên vai trò mới (VD: Tech Lead, Khách hàng):');
-    if (!name?.trim()) return;
-    try { await api.post('/roles', { name, permissions: ['comment.create'] }); await refreshAll(); } catch (e) { toastError(e); }
+  const rename = async () => {
+    if (!role) return;
+    const name = prompt('Đổi tên nhóm:', role.name);
+    if (!name?.trim() || name === role.name) return;
+    const description = prompt('Mô tả nhóm (tùy chọn):', role.description || '') ?? role.description;
+    try { await api.patch(`/roles/${role.id}`, { name, description }); await refreshAll(); } catch (e) { toastError(e); }
   };
-
-  const rename = async (id: number, old: string) => {
-    const name = prompt('Đổi tên vai trò:', old);
-    if (!name?.trim() || name === old) return;
-    try { await api.patch(`/roles/${id}`, { name }); await refreshAll(); } catch (e) { toastError(e); }
+  const remove = async () => {
+    if (!role || !confirm(`Xóa nhóm "${role.name}"?`)) return;
+    try { await api.del(`/roles/${role.id}`); toast('Đã xóa nhóm'); setSelected(null); await refreshAll(); } catch (e) { toastError(e); }
   };
-
-  const remove = async (id: number, name: string) => {
-    if (!confirm(`Xóa vai trò "${name}"?`)) return;
-    try { await api.del(`/roles/${id}`); toast('Đã xóa vai trò'); await refreshAll(); } catch (e) { toastError(e); }
+  const copyFrom = (id: string) => {
+    const src = roles.find((r) => String(r.id) === id);
+    if (src) { setDraft(new Set(src.permissions)); setDirty(true); }
   };
-
-  const groups = [...new Set(perms.map((p) => p.group))];
 
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Vai trò & quyền</h1>
+        <h1>Nhóm người dùng & phân quyền</h1>
+        <HelpTip text="Quyền của nhóm được gán mặc định cho mọi người thuộc nhóm. Muốn cấp thêm hoặc bỏ bớt quyền cho riêng một người, vào Người dùng → Phân quyền. Quản trị hệ thống luôn có toàn quyền." />
         <div className="spacer" />
-        <button className="btn" onClick={create}>+ Tạo vai trò</button>
-        <button className="btn btn-primary" disabled={!dirty.size} onClick={save}>Lưu thay đổi</button>
+        {hasPerm(me, 'role.create') && <button className="btn" onClick={create}>+ Tạo nhóm</button>}
       </div>
-      <p className="muted">
-        Mỗi tài khoản được gán <b>một vai trò</b> (BA, Dev, Techlead...) khi tạo ở mục <b>Người dùng</b>. Quyền của vai trò áp dụng trên
-        mọi dự án người đó được thêm vào; thành viên dự án chỉ quyết định ai được vào dự án. Tài khoản <b>Quản trị hệ thống</b> có toàn quyền trên mọi dự án.
-      </p>
-      <div className="table-wrap">
-        <table className="table matrix roles-matrix">
-          <thead>
-            <tr>
-              <th>Quyền</th>
-              {roles.map((r) => (
-                <th key={r.id}>
-                  <div className="role-head">
-                    <a onClick={() => rename(r.id, r.name)} title="Đổi tên">{r.name}</a>
-                    <span className="muted small">{r.usage} lượt sử dụng</span>
-                    {r.usage === 0 && <a className="small danger" onClick={() => remove(r.id, r.name)}>Xóa</a>}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((g) => (
-              <Fragment key={g}>
-                <tr className="group-row"><td colSpan={roles.length + 1}>{g}</td></tr>
-                {perms.filter((p) => p.group === g).map((p) => (
-                  <tr key={p.key}>
-                    <td>{p.label}</td>
-                    {roles.map((r) => (
-                      <td key={r.id} className="center">
-                        <input type="checkbox" checked={draft[r.id]?.includes(p.key) ?? false} onChange={() => toggle(r.id, p.key)} />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+
+      <div className="perm-layout">
+        <aside className="perm-groups">
+          {roles.map((r) => (
+            <button key={r.id} className={r.id === role?.id ? 'active' : ''} onClick={() => pick(r.id)}>
+              <b>{r.name}</b>
+              <span className="muted small">{r.usage} người · {r.permissions.length} quyền</span>
+            </button>
+          ))}
+        </aside>
+
+        {role && (
+          <section className="perm-main">
+            <div className="row gap-sm wrap mb-sm">
+              <h2 className="grow">{role.name}{role.description && <span className="muted small"> — {role.description}</span>}</h2>
+              {canEdit && (
+                <select value="" onChange={(e) => copyFrom(e.target.value)} data-tip="Chép bảng quyền của nhóm khác làm điểm bắt đầu">
+                  <option value="">Sao chép quyền từ nhóm…</option>
+                  {roles.filter((r) => r.id !== role.id).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              )}
+              {canEdit && <button className="btn btn-sm" onClick={rename}>Đổi tên</button>}
+              {hasPerm(me, 'role.delete') && role.usage === 0 && <button className="btn btn-sm btn-subtle danger" onClick={remove}>Xóa nhóm</button>}
+              {canEdit && <button className="btn btn-primary" disabled={!dirty} onClick={save}>Lưu thay đổi</button>}
+            </div>
+            <PermMatrix catalog={catalog} has={(p) => draft.has(p)} onSet={onSet} readOnly={!canEdit} />
+            <p className="muted small">Ô trống: hành động không áp dụng cho chức năng đó. Ô "Tất cả" ở mỗi dòng bật/tắt mọi hành động của chức năng; dòng tiêu đề nhóm bật/tắt theo cột hoặc cả nhóm chức năng.</p>
+          </section>
+        )}
       </div>
     </div>
   );

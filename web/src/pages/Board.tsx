@@ -134,7 +134,7 @@ export default function Board() {
             <option value="">Tất cả sprint đang chạy</option>
             {actives.map((x) => <option key={x.id} value={x.id}>{x.name} ({fmtDate(x.start_date)} – {fmtDate(x.end_date)})</option>)}
           </select>
-          {!sprint && can(project.permissions, 'sprint.manage') && actives.map((x) => (
+          {!sprint && can(project.permissions, 'sprint.edit') && actives.map((x) => (
             <button key={x.id} className="btn btn-sm" onClick={() => setCompleting(x)}>Hoàn thành {x.name}</button>
           ))}
         </div>
@@ -148,7 +148,7 @@ export default function Board() {
             {sprint.goal && <div className="muted small icon-text"><Target size={13} /> {sprint.goal}</div>}
           </div>
           <div className="spacer" />
-          {can(project.permissions, 'sprint.manage') && <button className="btn" onClick={() => setCompleting(sprint)}>Hoàn thành sprint</button>}
+          {can(project.permissions, 'sprint.edit') && <button className="btn" onClick={() => setCompleting(sprint)}>Hoàn thành sprint</button>}
         </div>
       )}
 

@@ -4,7 +4,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { api } from '../api';
-import { useIssueModal, useSprints } from '../hooks';
+import { useIssueModal, useSprints, can } from '../hooks';
 import type { Issue, IssueType, Priority } from '../types';
 import { addDays as addDaysStr, fmtDate, fmtHours, PRIORITY_LABELS, today as todayStr, TYPE_LABELS } from '../util';
 import { Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui';
@@ -343,7 +343,7 @@ function Timesheet() {
         <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -6)); setTo(todayStr()); }}>7 ngày</button>
         <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -29)); setTo(todayStr()); }}>30 ngày</button>
         <div className="spacer" />
-        <button className="btn btn-sm" disabled={!data?.rows.length} onClick={exportCsv}><Download size={14} /> Xuất Excel (CSV)</button>
+        {can(project.permissions, 'report.export') && <button className="btn btn-sm" disabled={!data?.rows.length} onClick={exportCsv}><Download size={14} /> Xuất Excel (CSV)</button>}
       </div>
       {isLoading || !data ? <Spinner /> : (
         <>

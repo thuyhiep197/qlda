@@ -334,7 +334,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                     ? <img src={`/api/issues/attachments/${a.id}?inline=1`} alt={a.filename} />
                     : <div className="file-icon">{a.filename.split('.').pop()?.toUpperCase().slice(0, 4)}</div>}
                   <div className="attachment-info">
-                    <a href={`/api/issues/attachments/${a.id}`} className="ellipsis" title={a.filename}>{a.filename}</a>
+                    {can(perms, 'attachment.export') ? <a href={`/api/issues/attachments/${a.id}`} className="ellipsis" title={a.filename}>{a.filename}</a>
+                      : <span className="ellipsis" data-tip="Bạn không có quyền tải tệp về máy">{a.filename}</span>}
                     <div className="muted small">{fmtSize(a.size)} · {a.uploader_name}</div>
                   </div>
                   {(a.uploader_id === me?.id || can(perms, 'attachment.delete_any')) &&
@@ -346,12 +347,12 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
 
           <section>
             <div className="tabs tabs-sm">
-              <button className={tab === 'comments' ? 'active' : ''} onClick={() => setTab('comments')}>Bình luận ({issue.comments.length})</button>
-              <button className={tab === 'worklog' ? 'active' : ''} onClick={() => setTab('worklog')}>Nhật ký giờ ({fmtDuration(issue.time_spent) || '0h'})</button>
+              {can(perms, 'comment.view') && <button className={tab === 'comments' ? 'active' : ''} onClick={() => setTab('comments')}>Bình luận ({issue.comments.length})</button>}
+              {can(perms, 'worklog.view') && <button className={tab === 'worklog' ? 'active' : ''} onClick={() => setTab('worklog')}>Nhật ký giờ ({fmtDuration(issue.time_spent) || '0h'})</button>}
               <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>Lịch sử thay đổi</button>
             </div>
-            {tab === 'worklog' && <WorklogList issue={issue} meId={me?.id} isAdmin={can(perms, 'project.admin')} onLog={can(perms, 'issue.transition') ? () => setLogging(true) : undefined} />}
-            {tab === 'comments' && (
+            {tab === 'worklog' && can(perms, 'worklog.view') && <WorklogList issue={issue} meId={me?.id} isAdmin={can(perms, 'worklog.delete')} onLog={can(perms, 'worklog.create') ? () => setLogging(true) : undefined} />}
+            {tab === 'comments' && can(perms, 'comment.view') && (
               <div className="stack">
                 {can(perms, 'comment.create') && (
                   <form onSubmit={addComment} className="comment-form">
@@ -382,10 +383,10 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                           </div>
                         </div>
                       ) : <Markdown text={c.body} users={allUsers} />}
-                      {(c.author_id === me?.id || can(perms, 'comment.delete_any')) && editingComment?.id !== c.id && (
+                      {(c.author_id === me?.id || can(perms, 'comment.edit') || can(perms, 'comment.delete')) && editingComment?.id !== c.id && (
                         <div className="comment-actions">
-                          <a onClick={() => setEditingComment({ id: c.id, body: c.body })}>Sửa</a>
-                          <a onClick={() => deleteComment(c.id)}>Xóa</a>
+                          {(c.author_id === me?.id || can(perms, 'comment.edit')) && <a onClick={() => setEditingComment({ id: c.id, body: c.body })}>Sửa</a>}
+                          {(c.author_id === me?.id || can(perms, 'comment.delete')) && <a onClick={() => deleteComment(c.id)}>Xóa</a>}
                         </div>
                       )}
                     </div>
@@ -529,8 +530,8 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             </div>
           </div>
 
-          {(issue.original_estimate != null || issue.time_spent > 0) ? <TimeTracking issue={issue} canEdit={canEdit} canLog={can(perms, 'issue.transition')} onLog={() => setLogging(true)} save={save} />
-            : can(perms, 'issue.transition') && <button className="btn btn-subtle btn-sm side-link" onClick={() => setLogging(true)}><Timer size={14} /> Ghi thời gian làm việc</button>}
+          {(issue.original_estimate != null || issue.time_spent > 0) ? <TimeTracking issue={issue} canEdit={canEdit} canLog={can(perms, 'worklog.create')} onLog={() => setLogging(true)} save={save} />
+            : can(perms, 'worklog.create') && <button className="btn btn-subtle btn-sm side-link" onClick={() => setLogging(true)}><Timer size={14} /> Ghi thời gian làm việc</button>}
 
           <Watchers issue={issue} members={project?.members ?? []} canManage={canEdit} meId={me?.id} />
 

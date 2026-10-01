@@ -775,3 +775,23 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .quick-add .btn { color: var(--muted); }
 .quick-add .btn:hover { color: var(--primary); }
 .side-link { align-self: flex-start; color: var(--muted); }
+
+/* ---------- Phân quyền theo chức năng × hành động ---------- */
+.perm-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: start; }
+.perm-groups { display: flex; flex-direction: column; gap: 4px; background: var(--surface); border-radius: 8px; box-shadow: var(--shadow); padding: 8px; position: sticky; top: 72px; }
+.perm-groups button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: none; border: none; border-radius: 6px; padding: 8px 10px; font: inherit; color: var(--text); cursor: pointer; }
+.perm-groups button:hover { background: var(--row-hover); }
+.perm-groups button.active { background: var(--primary-soft); color: var(--primary); }
+.perm-main { background: var(--surface); border-radius: 8px; box-shadow: var(--shadow); padding: 16px 20px; min-width: 0; }
+.perm-main h2 { margin: 0; font-size: 18px; }
+.perm-matrix { font-size: 13px; }
+.perm-matrix th { white-space: nowrap; }
+.perm-matrix th.center, .perm-matrix td.center { width: 64px; text-align: center; }
+.perm-matrix .perm-feature { min-width: 260px; }
+.perm-matrix .perm-group td { background: var(--sunken); font-weight: 700; text-transform: none; font-size: 13px; color: var(--text); }
+.perm-matrix .perm-na { background: repeating-linear-gradient(135deg, transparent, transparent 4px, var(--sunken) 4px, var(--sunken) 6px); }
+.perm-matrix td.perm-allow { background: var(--st-done-bg); }
+.perm-matrix td.perm-deny { background: var(--red-bg); }
+.perm-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.perm-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--border); }
+@media (max-width: 900px) { .perm-layout { grid-template-columns: minmax(0, 1fr); } .perm-groups { position: static; } }

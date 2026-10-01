@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, refreshAll } from '../api';
-import { useMe, useProjects, useRoles } from '../hooks';
-import type { User } from '../types';
+import { hasPerm, useMe, useProjects, useRoles } from '../hooks';
+import type { PermissionCatalog, User, UserPermView } from '../types';
+import { PermMatrix } from '../components/PermMatrix';
 import { fmtDateTime } from '../util';
 import { Avatar, Modal, Spinner, toast, toastError } from '../components/ui';
 
@@ -18,6 +19,7 @@ export default function AdminUsers() {
   const { data: roles } = useRoles();
   const [editing, setEditing] = useState<User | 'new' | null>(null);
   const [reset, setReset] = useState<User | null>(null);
+  const [permUser, setPermUser] = useState<User | null>(null);
   const [filter, setFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
 
@@ -36,25 +38,25 @@ export default function AdminUsers() {
       <div className="page-head">
         <h1>Người dùng</h1>
         <div className="spacer" />
-        <button className="btn btn-primary" onClick={() => setEditing('new')}>+ Tạo tài khoản</button>
+        {hasPerm(me, 'user.create') && <button className="btn btn-primary" onClick={() => setEditing('new')}>+ Tạo tài khoản</button>}
       </div>
       {missingRole > 0 && (
         <div className="form-error mb-sm">
-          Có {missingRole} tài khoản chưa có vai trò. Bấm <b>Sửa</b> để chọn vai trò cho các tài khoản này.
+          Có {missingRole} tài khoản chưa có nhóm người dùng. Bấm <b>Sửa</b> để chọn nhóm cho các tài khoản này.
         </div>
       )}
       <div className="filter-bar">
         <input className="filter-search" style={{ width: 300 }} placeholder="Tìm theo tên, tên đăng nhập, email" value={filter} onChange={(e) => setFilter(e.target.value)} />
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-          <option value="">Mọi vai trò</option>
+          <option value="">Mọi nhóm</option>
           {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          <option value="none">Chưa có vai trò</option>
+          <option value="none">Chưa có nhóm</option>
         </select>
         <span className="muted small">{list?.length ?? 0} tài khoản</span>
       </div>
       {isLoading ? <Spinner /> : (
         <table className="table">
-          <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Vai trò</th><th>Dự án tham gia</th><th>Email</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th /></tr></thead>
+          <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Nhóm người dùng</th><th>Dự án tham gia</th><th>Email</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th /></tr></thead>
           <tbody>
             {list?.map((u) => (
               <tr key={u.id} className={u.is_active ? '' : 'inactive'}>
@@ -74,9 +76,10 @@ export default function AdminUsers() {
                 <td className="small">{u.last_login_at ? fmtDateTime(u.last_login_at) : <span className="muted">Chưa đăng nhập</span>}</td>
                 <td>{u.is_active ? <span className="lozenge lozenge-green">Hoạt động</span> : <span className="lozenge lozenge-red">Đã khóa</span>}</td>
                 <td className="num nowrap">
-                  <button className="btn btn-subtle btn-sm" onClick={() => setEditing(u)}>Sửa</button>
-                  <button className="btn btn-subtle btn-sm" onClick={() => setReset(u)}>Đặt lại mật khẩu</button>
-                  {u.id !== me?.id && <button className="btn btn-subtle btn-sm" onClick={() => toggleActive(u)}>{u.is_active ? 'Khóa' : 'Mở khóa'}</button>}
+                  {(hasPerm(me, 'role.view') || hasPerm(me, 'role.edit')) && <button className="btn btn-subtle btn-sm" onClick={() => setPermUser(u)}>Phân quyền</button>}
+                  {hasPerm(me, 'user.edit') && <button className="btn btn-subtle btn-sm" onClick={() => setEditing(u)}>Sửa</button>}
+                  {hasPerm(me, 'user.edit') && <button className="btn btn-subtle btn-sm" onClick={() => setReset(u)}>Đặt lại mật khẩu</button>}
+                  {u.id !== me?.id && hasPerm(me, u.is_active ? 'user.delete' : 'user.edit') && <button className="btn btn-subtle btn-sm" onClick={() => toggleActive(u)}>{u.is_active ? 'Khóa' : 'Mở khóa'}</button>}
                 </td>
               </tr>
             ))}
@@ -85,6 +88,7 @@ export default function AdminUsers() {
       )}
       {editing && <UserModal user={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       {reset && <ResetModal user={reset} onClose={() => setReset(null)} />}
+      {permUser && <UserPermModal user={permUser} onClose={() => setPermUser(null)} />}
     </div>
   );
 }
@@ -143,15 +147,15 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
               placeholder="VD: nguyen.van.a" /></label>
           <label className="field"><span>Họ tên *</span><input value={fullName} onChange={(e) => setFullName(e.target.value)} required /></label>
           <label className="field"><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-          <label className="field"><span>Vai trò *</span>
+          <label className="field"><span>Nhóm người dùng *</span>
             <select value={roleId} onChange={(e) => setRoleId(e.target.value)} required>
-              <option value="" disabled>— Chọn vai trò —</option>
+              <option value="" disabled>— Chọn nhóm —</option>
               {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select></label>
         </div>
         {role && (
           <div className="muted small">
-            <b>{role.name}</b>: {role.description || ''}. Quyền này áp dụng trên mọi dự án người dùng tham gia (chỉnh chi tiết ở mục Vai trò &amp; quyền).
+            <b>{role.name}</b>: {role.description || ''}. Quyền của nhóm được gán mặc định, áp dụng trên mọi dự án người dùng tham gia. Cấp thêm hoặc bỏ bớt quyền riêng bằng nút Phân quyền.
           </div>
         )}
         {!user && (
@@ -175,7 +179,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
         </div>
         <label className="check">
           <input type="checkbox" checked={isAdmin} disabled={user?.id === me?.id} onChange={(e) => setIsAdmin(e.target.checked)} />
-          <span>Quản trị hệ thống <small className="muted">(toàn quyền: quản lý người dùng, vai trò, tạo dự án, truy cập mọi dự án)</small></span>
+          <span>Quản trị hệ thống <small className="muted">(toàn quyền: quản lý người dùng, phân quyền, tạo dự án, truy cập mọi dự án)</small></span>
         </label>
       </form>
     </Modal>
@@ -207,6 +211,62 @@ function ResetModal({ user, onClose }: { user: User; onClose: () => void }) {
             <input className="grow" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} />
             <button type="button" className="btn" onClick={() => setPassword(genPassword())}>Tạo ngẫu nhiên</button>
           </div></label>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * Phân quyền riêng cho một người: bảng quyền tính sẵn theo nhóm của họ; tick thêm = cấp thêm (xanh),
+ * bỏ tick quyền của nhóm = chặn (đỏ). Ô trùng với nhóm thì không lưu gì riêng.
+ */
+function UserPermModal({ user, onClose }: { user: User; onClose: () => void }) {
+  const { data: me } = useMe();
+  const { data: catalog } = useQuery<PermissionCatalog>({ queryKey: ['permissions'], queryFn: () => api.get('/permissions') });
+  const { data: view } = useQuery<UserPermView>({ queryKey: ['user-perms', user.id], queryFn: () => api.get(`/users/${user.id}/permissions`) });
+  const [overrides, setOverrides] = useState<Record<string, 'allow' | 'deny'> | null>(null);
+  const cur = overrides ?? view?.overrides ?? {};
+  const group = new Set(view?.group ?? []);
+  const has = (p: string) => (cur[p] === 'allow' ? true : cur[p] === 'deny' ? false : group.has(p));
+  const onSet = (perms: string[], value: boolean) => {
+    const n = { ...cur };
+    for (const p of perms) {
+      if (value === group.has(p)) delete n[p]; // trùng quyền nhóm → không cần ghi riêng
+      else n[p] = value ? 'allow' : 'deny';
+    }
+    setOverrides(n);
+  };
+  const save = async () => {
+    try {
+      await api.put(`/users/${user.id}/permissions`, { overrides: cur });
+      toast(`Đã lưu phân quyền của ${user.full_name}`);
+      await refreshAll();
+      onClose();
+    } catch (e) { toastError(e); }
+  };
+  const canEdit = hasPerm(me, 'role.edit') && !view?.is_admin;
+  const nAllow = Object.values(cur).filter((v) => v === 'allow').length;
+  const nDeny = Object.values(cur).filter((v) => v === 'deny').length;
+
+  return (
+    <Modal title={`Phân quyền: ${user.full_name}`} width={980} onClose={onClose} footer={<>
+      {canEdit && (nAllow + nDeny > 0) && <button className="btn btn-subtle" onClick={() => setOverrides({})}>Khôi phục theo nhóm</button>}
+      <div className="spacer" />
+      <button className="btn" onClick={onClose}>{canEdit ? 'Hủy' : 'Đóng'}</button>
+      {canEdit && <button className="btn btn-primary" onClick={save}>Lưu</button>}
+    </>}>
+      {!catalog || !view ? <Spinner /> : (
+        <div className="stack">
+          <div className="perm-legend small">
+            <span>Nhóm người dùng: <b>{view.role_name || 'Chưa có'}</b></span>
+            <span><i style={{ background: 'var(--surface)' }} />Theo nhóm</span>
+            <span><i style={{ background: 'var(--st-done-bg)' }} />Cấp thêm riêng ({nAllow})</span>
+            <span><i style={{ background: 'var(--red-bg)' }} />Chặn riêng ({nDeny})</span>
+          </div>
+          {view.is_admin && <div className="form-error">Tài khoản Quản trị hệ thống luôn có toàn quyền; phân quyền riêng không áp dụng.</div>}
+          <PermMatrix catalog={catalog} has={has} onSet={onSet} mark={(p) => cur[p]} readOnly={!canEdit} />
+          <p className="muted small">Tick thêm ô chưa có trong nhóm để cấp thêm quyền; bỏ tick ô của nhóm để chặn quyền đó với riêng người này. Đổi quyền của nhóm thì người này vẫn giữ phần cấp thêm/chặn riêng.</p>
+        </div>
       )}
     </Modal>
   );

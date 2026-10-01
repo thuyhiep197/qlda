@@ -11,9 +11,8 @@ export const useMe = () => useQuery<Me | null>({
   staleTime: 60_000,
 });
 
-/** Người chỉ theo dõi (Người xem, Phối hợp…): không tạo, không chuyển trạng thái issue → giao diện rút gọn. */
-export const isViewerOnly = (me?: Me | null) => !!me && !me.is_admin
-  && !(me.role_permissions ?? []).some((p) => p === 'issue.create' || p === 'issue.transition' || p === 'issue.edit');
+/** Tài khoản có quyền (theo nhóm người dùng + quyền riêng) — dùng ngoài phạm vi dự án (menu, quản trị). */
+export const hasPerm = (me: Me | null | undefined, p: string) => !!me && (!!me.is_admin || !!me.permissions?.includes(p));
 
 export const useProjects = () => useQuery<ProjectSummary[]>({ queryKey: ['projects'], queryFn: () => api.get('/projects') });
 

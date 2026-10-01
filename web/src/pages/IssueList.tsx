@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useVersions } from '../hooks';
+import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useVersions, hasPerm } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
 import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS } from '../util';
 import { Avatar, Empty, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
@@ -17,6 +17,7 @@ export default function IssueList() {
   const { key: routeKey } = useParams();
   const [params, setParams] = useSearchParams();
   const { open } = useIssueModal();
+  const { data: me } = useMe();
   const projectKey = routeKey?.toUpperCase() || params.get('project') || '';
   const { data: projects } = useProjects();
   const { data: project } = useProject(projectKey || undefined);
@@ -177,7 +178,7 @@ export default function IssueList() {
         <span className="muted small">{issues?.length ?? 0} issue</span>
         <HelpTip text="Tick ô đầu dòng (hoặc ô trên cùng để chọn tất cả theo bộ lọc) rồi bấm Giao cho… để giao việc, đổi trạng thái hàng loạt" />
         {routeKey && project && <ImportButton project={project} />}
-        <button className="btn btn-sm" onClick={exportCsv} disabled={!issues?.length}><Download size={14} /> Xuất Excel (CSV)</button>
+        {hasPerm(me, 'search.export') && <button className="btn btn-sm" onClick={exportCsv} disabled={!issues?.length}><Download size={14} /> Xuất Excel (CSV)</button>}
       </div>
 
       {selectedIssues.length > 0 ? <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />

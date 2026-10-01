@@ -10,7 +10,7 @@ import {
 } from '../issues.ts';
 import { handleMentions, notify, unwatch, watch, watchers } from '../notify.ts';
 import { canTransition, typeStatuses } from '../workflow.ts';
-import { badRequest, canEditIssue, forbidden, notFound, requirePerm, requireProjectAccess } from '../permissions.ts';
+import { badRequest, canEditIssue, forbidden, notFound, requirePerm, requireProjectAccess, requireUserPerm } from '../permissions.ts';
 
 const r = Router();
 
@@ -24,6 +24,7 @@ const upload = multer({
 });
 
 r.get('/', (req, res) => {
+  requireUserPerm(req.user, 'issue.view');
   res.json(listIssues(req.user, req.query as IssueFilter));
 });
 
@@ -38,15 +39,16 @@ r.post('/', (req, res) => {
 r.get('/:key', (req, res) => {
   const row = getIssueRow(req.params.key);
   const perms = requireProjectAccess(req.user, row.project_id);
+  if (!perms.has('issue.view')) throw forbidden('Bạn không có quyền xem issue');
   const issue = fetchIssue('id', row.id);
   const children = all(`SELECT i.id, i.key, i.type, i.summary, i.priority, i.story_points, i.assignee_id,
       u.full_name AS assignee_name, s.name AS status_name, s.category AS status_category
     FROM issues i JOIN statuses s ON s.id = i.status_id LEFT JOIN users u ON u.id = i.assignee_id
     WHERE i.parent_id = ? ORDER BY i.rank, i.id`, row.id);
   const comments = all(`SELECT c.*, u.full_name AS author_name FROM comments c JOIN users u ON u.id = c.author_id
-    WHERE c.issue_id = ? ORDER BY c.created_at`, row.id);
+    WHERE c.issue_id = ? ORDER BY c.created_at`, row.id).filter(() => perms.has('comment.view'));
   const attachments = all(`SELECT a.id, a.filename, a.mime, a.size, a.created_at, a.uploader_id, u.full_name AS uploader_name
-    FROM attachments a JOIN users u ON u.id = a.uploader_id WHERE a.issue_id = ? ORDER BY a.created_at`, row.id);
+    FROM attachments a JOIN users u ON u.id = a.uploader_id WHERE a.issue_id = ? ORDER BY a.created_at`, row.id).filter(() => perms.has('attachment.view'));
   const links = all(`
     SELECT l.id, l.type, 'out' AS direction, i.key, i.summary, i.type AS issue_type, s.name AS status_name, s.category AS status_category
       FROM issue_links l JOIN issues i ON i.id = l.target_id JOIN statuses s ON s.id = i.status_id WHERE l.source_id = ?
@@ -116,16 +118,16 @@ r.post('/:key/comments', (req, res) => {
   res.status(201).json({ id });
 });
 
-function loadComment(user: Express.Request['user'], id: number) {
+function loadComment(user: Express.Request['user'], id: number, perm: 'comment.edit' | 'comment.delete') {
   const c = get('SELECT c.*, i.project_id FROM comments c JOIN issues i ON i.id = c.issue_id WHERE c.id = ?', id);
   if (!c) throw notFound();
   const perms = requireProjectAccess(user, c.project_id);
-  if (c.author_id !== user.id && !perms.has('comment.delete_any')) throw forbidden();
+  if (c.author_id !== user.id && !perms.has(perm)) throw forbidden();
   return c;
 }
 
 r.patch('/comments/:id', (req, res) => {
-  const c = loadComment(req.user, Number(req.params.id));
+  const c = loadComment(req.user, Number(req.params.id), 'comment.edit');
   const body = String(req.body?.body || '').trim();
   if (!body) throw badRequest('Nội dung bình luận không được để trống');
   tx(() => {
@@ -136,7 +138,7 @@ r.patch('/comments/:id', (req, res) => {
 });
 
 r.delete('/comments/:id', (req, res) => {
-  const c = loadComment(req.user, Number(req.params.id));
+  const c = loadComment(req.user, Number(req.params.id), 'comment.delete');
   run('DELETE FROM comments WHERE id = ?', c.id);
   res.json({ ok: true });
 });
@@ -178,6 +180,8 @@ r.get('/attachments/:id', (req, res) => {
   if (!fs.existsSync(file)) throw notFound('Tệp không còn tồn tại trên máy chủ');
   // Chỉ hiển thị trực tiếp ảnh raster; SVG/HTML luôn tải về để tránh chạy mã độc
   const inline = req.query.inline === '1' && /^image\/(png|jpe?g|gif|webp|bmp)$/.test(a.mime || '');
+  const ap = requireProjectAccess(req.user, a.project_id);
+  if (!ap.has(inline ? 'attachment.view' : 'attachment.export')) throw forbidden(inline ? 'Bạn không có quyền xem tệp đính kèm' : 'Bạn không có quyền tải tệp về máy');
   res.setHeader('Content-Type', a.mime || 'application/octet-stream');
   res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(a.filename)}`);
   res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");

@@ -66,7 +66,7 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
           <option value="" disabled>Chuyển vào sprint…</option>
           <option value="backlog">Backlog</option>
           {sprints?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.state === 'active' ? ' (đang chạy)' : ''}</option>)}
-          {can(perms, 'sprint.manage') && <option value="new">+ Sprint mới</option>}
+          {can(perms, 'sprint.create') && <option value="new">+ Sprint mới</option>}
         </select>
       )}
       {project && (
