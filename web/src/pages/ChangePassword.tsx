@@ -31,8 +31,8 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
     <form onSubmit={submit} className="stack">
       <label className="field"><span>Mật khẩu hiện tại</span>
         <input type="password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" required /></label>
-      <label className="field"><span>Mật khẩu mới (tối thiểu 8 ký tự)</span>
-        <input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={8} required /></label>
+      <label className="field"><span>Mật khẩu mới (≥ 10 ký tự, có chữ và số, không chứa tên đăng nhập)</span>
+        <input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={10} required /></label>
       <label className="field"><span>Nhập lại mật khẩu mới</span>
         <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required /></label>
       {error && <div className="form-error">{error}</div>}

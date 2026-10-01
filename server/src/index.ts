@@ -17,6 +17,7 @@ import filterRoutes from './routes/filters.ts';
 import reportRoutes from './routes/reports.ts';
 import notificationRoutes from './routes/notifications.ts';
 import { pruneNotifications } from './notify.ts';
+import { pruneAudit } from './audit.ts';
 import { syncAllEpics } from './issues.ts';
 import { scheduleBackups } from './backup.ts';
 
@@ -28,6 +29,8 @@ ensureAdmin();
 scheduleBackups();
 pruneNotifications();
 setInterval(pruneNotifications, 24 * 3600_000).unref();
+pruneAudit();
+setInterval(pruneAudit, 24 * 3600_000).unref();
 
 const app = express();
 app.disable('x-powered-by');

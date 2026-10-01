@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { all, get, run, tx } from '../db.ts';
 import type { NextFunction, Request, Response } from 'express';
 import { hashPassword, validatePassword } from '../auth.ts';
+import { audit, listAudit } from '../audit.ts';
 import {
   accountRoleId, ACTIONS, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound,
   requireUserPerm, userPermissions,
@@ -61,7 +62,7 @@ r.post('/users', need('user.create'), (req, res) => {
   const full_name = String(b.full_name || '').trim();
   if (!full_name) throw badRequest('Họ tên không được để trống');
   if (get('SELECT 1 FROM users WHERE username = ?', username)) throw badRequest('Tên đăng nhập đã tồn tại');
-  const password = validatePassword(b.password);
+  const password = validatePassword(b.password, username);
   const roleId = checkRole(b.default_role_id);
   if (!roleId) throw badRequest('Vui lòng chọn nhóm người dùng cho tài khoản');
   if (b.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được tạo tài khoản quản trị');
@@ -73,6 +74,7 @@ r.post('/users', need('user.create'), (req, res) => {
     if (b.project_ids !== undefined) setProjects(id, b.project_ids);
     return id;
   });
+  audit(req, 'user_created', { target: username, detail: { full_name, role: get('SELECT name FROM roles WHERE id = ?', roleId)?.name, is_admin: !!b.is_admin } });
   res.status(201).json(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id));
 });
 
@@ -99,14 +101,25 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
     run('UPDATE project_members SET role_id = ? WHERE user_id = ?', accountRoleId(id), id);
     if (b.project_ids !== undefined) setProjects(id, b.project_ids);
   });
+  const after = get('SELECT * FROM users WHERE id = ?', id);
+  const changes: Record<string, unknown> = {};
+  if (!!after.is_admin !== !!u.is_admin) changes.quan_tri_he_thong = after.is_admin ? 'CẤP' : 'GỠ';
+  if (!!after.is_active !== !!u.is_active) changes.tai_khoan = after.is_active ? 'Mở khóa' : 'Khóa';
+  if (after.default_role_id !== u.default_role_id) changes.nhom = `${get('SELECT name FROM roles WHERE id = ?', u.default_role_id)?.name ?? '—'} → ${get('SELECT name FROM roles WHERE id = ?', after.default_role_id)?.name ?? '—'}`;
+  if (after.full_name !== u.full_name) changes.ho_ten = `${u.full_name} → ${after.full_name}`;
+  if (after.email !== u.email) changes.email = `${u.email ?? '—'} → ${after.email ?? '—'}`;
+  if (b.project_ids !== undefined) changes.du_an = 'Cập nhật danh sách dự án';
+  audit(req, 'user_updated', { target: u.username, detail: changes });
   res.json(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id));
 });
 
 r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
   const id = Number(req.params.id);
   if (!get('SELECT 1 FROM users WHERE id = ?', id)) throw notFound();
-  const password = validatePassword(req.body?.password);
+  const target = get<{ username: string }>('SELECT username FROM users WHERE id = ?', id)!;
+  const password = validatePassword(req.body?.password, target.username);
   run('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(password), id);
+  audit(req, 'password_reset', { target: target.username });
   res.json({ ok: true });
 });
 
@@ -133,6 +146,7 @@ r.post('/roles', need('role.create'), (req, res) => {
   if (get('SELECT 1 FROM roles WHERE name = ?', name)) throw badRequest('Tên nhóm đã tồn tại');
   const { id } = run('INSERT INTO roles(name, description, permissions) VALUES (?,?,?)',
     name, req.body?.description || null, cleanPerms(req.body?.permissions || []));
+  audit(req, 'role_created', { target: name });
   res.status(201).json({ id });
 });
 
@@ -147,6 +161,11 @@ r.patch('/roles/:id', need('role.edit'), (req, res) => {
     req.body?.description !== undefined ? req.body.description || null : role.description,
     req.body?.permissions !== undefined ? cleanPerms(req.body.permissions) : role.permissions,
     role.id);
+  if (req.body?.permissions !== undefined) {
+    const before = new Set<string>(JSON.parse(role.permissions || '[]'));
+    const now2 = new Set<string>(JSON.parse(cleanPerms(req.body.permissions)));
+    audit(req, 'role_permissions', { target: name, detail: { them: [...now2].filter((p) => !before.has(p)), bo: [...before].filter((p) => !now2.has(p)) } });
+  } else audit(req, 'role_updated', { target: name });
   res.json({ ok: true });
 });
 
@@ -158,6 +177,7 @@ r.delete('/roles/:id', need('role.delete'), (req, res) => {
   if (get('SELECT 1 FROM project_members WHERE role_id = ?', id)) {
     throw badRequest('Vai trò đang được sử dụng trong dự án, hãy đổi vai trò của các thành viên trước khi xóa');
   }
+  audit(req, 'role_deleted', { target: get('SELECT name FROM roles WHERE id = ?', id)?.name });
   run('DELETE FROM roles WHERE id = ?', id);
   res.json({ ok: true });
 });
@@ -196,7 +216,24 @@ r.put('/users/:id/permissions', need('role.edit'), (req, res) => {
     run('DELETE FROM user_permissions WHERE user_id = ?', id);
     for (const [p, e] of entries) run('INSERT INTO user_permissions(user_id, permission, effect) VALUES (?,?,?)', id, p, String(e));
   });
+  audit(req, 'user_permissions', { target: get('SELECT username FROM users WHERE id = ?', id)?.username, detail: Object.fromEntries(entries) });
   res.json(userPermView(id));
+});
+
+// ---------------------------------------------------------------------------
+// Nhật ký bảo mật & đăng xuất khẩn cấp
+// ---------------------------------------------------------------------------
+r.get('/audit', need('user.view'), (req, res) => {
+  res.json(listAudit({ action: req.query.action ? String(req.query.action) : undefined, user: req.query.user ? String(req.query.user) : undefined,
+    q: req.query.q ? String(req.query.q) : undefined, limit: Number(req.query.limit) || 500 }));
+});
+
+/** Khẩn cấp: thu hồi mọi phiên đăng nhập của mọi người (trừ phiên của người bấm). Chỉ quản trị hệ thống. */
+r.post('/users/logout-all', (req, res) => {
+  if (!req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được thực hiện');
+  const n = run('UPDATE users SET token_version = token_version + 1 WHERE id <> ?', req.user.id).changes;
+  audit(req, 'logout_all', { detail: `Thu hồi phiên của ${n} tài khoản` });
+  res.json({ ok: true, count: n });
 });
 
 export default r;

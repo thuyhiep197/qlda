@@ -1,15 +1,16 @@
 import { Router } from 'express';
 import { get, now, run } from '../db.ts';
-import { COOKIE, hashPassword, issueToken, requireAuth, validatePassword, verifyPassword } from '../auth.ts';
+import { COOKIE, DUMMY_HASH, hashPassword, issueToken, requireAuth, validatePassword, verifyPassword } from '../auth.ts';
+import { audit } from '../audit.ts';
 import { HttpError, userPermissions } from '../permissions.ts';
 
 const r = Router();
 
-// Chống dò mật khẩu (mặc định TẮT theo yêu cầu; bật bằng LOGIN_LOCKOUT=on trong .env):
-// trong 15 phút, tối đa 10 lần sai cho mỗi tài khoản và 50 lần sai cho mỗi địa chỉ IP
-const LOCKOUT = process.env.LOGIN_LOCKOUT === 'on';
+// Chống dò mật khẩu (BẬT mặc định; chỉ tắt khi đặt LOGIN_LOCKOUT=off trong .env):
+// trong 15 phút, tối đa 5 lần sai cho mỗi tài khoản và 30 lần sai cho mỗi địa chỉ IP
+const LOCKOUT = process.env.LOGIN_LOCKOUT !== 'off';
 const WINDOW = 15 * 60_000;
-const LIMITS = { user: 10, ip: 50 };
+const LIMITS = { user: 5, ip: 30 };
 const failures = new Map<string, { count: number; until: number }>();
 
 const blocked = (key: string, limit: number) => {
@@ -30,18 +31,25 @@ r.post('/login', (req, res) => {
   const password = String(req.body?.password || '');
   const userKey = `u:${username}`, ipKey = `ip:${req.ip}`;
   if (LOCKOUT && (blocked(userKey, LIMITS.user) || blocked(ipKey, LIMITS.ip))) {
+    audit(req, 'login_blocked', { userId: null, username, detail: 'Bị chặn do sai mật khẩu quá nhiều lần' });
     throw new HttpError(429, 'Đăng nhập sai quá nhiều lần, vui lòng thử lại sau 15 phút');
   }
   const user = get('SELECT * FROM users WHERE username = ?', username);
-  if (!user || !verifyPassword(password, user.password_hash)) {
+  const okPw = verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
+  if (!user || !okPw) {
     fail(userKey);
     fail(ipKey);
+    audit(req, 'login_failed', { userId: user?.id ?? null, username, detail: user ? 'Sai mật khẩu' : 'Tên đăng nhập không tồn tại' });
     throw new HttpError(401, 'Sai tên đăng nhập hoặc mật khẩu');
   }
-  if (!user.is_active) throw new HttpError(403, 'Tài khoản đã bị khóa, vui lòng liên hệ quản trị viên');
+  if (!user.is_active) {
+    audit(req, 'login_failed', { userId: user.id, username, detail: 'Tài khoản đã bị khóa' });
+    throw new HttpError(403, 'Tài khoản đã bị khóa, vui lòng liên hệ quản trị viên');
+  }
   failures.delete(userKey);
   run('UPDATE users SET last_login_at = ? WHERE id = ?', now(), user.id);
   issueToken(res, user.id);
+  audit(req, 'login', { userId: user.id, username: user.username, detail: user.is_admin ? 'Quản trị hệ thống' : null });
   res.json({ ok: true });
 });
 
@@ -86,6 +94,7 @@ r.put('/preferences', requireAuth, (req, res) => {
 /** Đăng xuất khỏi mọi thiết bị khác (thu hồi mọi phiên cũ, giữ phiên hiện tại). */
 r.post('/logout-others', requireAuth, (req, res) => {
   run('UPDATE users SET token_version = token_version + 1 WHERE id = ?', req.user.id);
+  audit(req, 'logout_others');
   issueToken(res, req.user.id);
   res.json({ ok: true });
 });
@@ -95,9 +104,10 @@ r.post('/change-password', requireAuth, (req, res) => {
   if (!verifyPassword(String(req.body?.current_password || ''), user.password_hash)) {
     throw new HttpError(400, 'Mật khẩu hiện tại không đúng');
   }
-  const next = validatePassword(req.body?.new_password);
+  const next = validatePassword(req.body?.new_password, req.user.username);
   if (next === req.body?.current_password) throw new HttpError(400, 'Mật khẩu mới phải khác mật khẩu hiện tại');
   run('UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1 WHERE id = ?', hashPassword(next), req.user.id);
+  audit(req, 'password_changed');
   issueToken(res, req.user.id);
   res.json({ ok: true });
 });

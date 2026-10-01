@@ -1,3 +1,4 @@
+import { audit } from '../audit.ts';
 import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
 import { addHistory } from '../issues.ts';
@@ -62,6 +63,7 @@ r.post('/', (req, res) => {
     run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, accountRoleId(leadId));
     return id;
   });
+  audit(req, 'project_created', { target: key, detail: name });
   res.status(201).json(get('SELECT * FROM projects WHERE id = ?', id));
 });
 
@@ -103,6 +105,7 @@ r.post('/:key/archive', (req, res) => {
   const project = get('SELECT * FROM projects WHERE key = ?', String(req.params.key).toUpperCase());
   if (!project) throw notFound();
   run('UPDATE projects SET is_archived = ? WHERE id = ?', req.body?.archived === false ? 0 : 1, project.id);
+  audit(req, 'project_archived', { target: req.params.key, detail: req.body?.archived === false ? 'Mở lại' : 'Lưu trữ' });
   res.json({ ok: true });
 });
 
@@ -118,6 +121,7 @@ r.post('/:key/members', (req, res) => {
       run('INSERT OR IGNORE INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', project.id, userId, accountRoleId(userId));
     }
   });
+  audit(req, 'member_added', { target: project.key, detail: ids.map((id) => get('SELECT username FROM users WHERE id = ?', id)?.username).join(', ') });
   res.status(201).json({ ok: true });
 });
 
@@ -126,6 +130,7 @@ r.delete('/:key/members/:userId', (req, res) => {
   const userId = Number(req.params.userId);
   if (userId === req.user.id && !req.user.is_admin) throw badRequest('Không thể tự xóa mình khỏi dự án');
   run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', project.id, userId);
+  audit(req, 'member_removed', { target: project.key, detail: get('SELECT username FROM users WHERE id = ?', userId)?.username });
   res.json({ ok: true });
 });
 

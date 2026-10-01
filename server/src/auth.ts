@@ -31,12 +31,21 @@ export function verifyPassword(password: string, stored: string) {
   return crypto.timingSafeEqual(expected, actual);
 }
 
-export function validatePassword(password: unknown): string {
-  if (typeof password !== 'string' || password.length < 8) {
-    throw new HttpError(400, 'Mật khẩu phải có ít nhất 8 ký tự');
-  }
+const COMMON = ['admin@123', 'admin@1234', 'admin@12345', 'admin123', 'password', 'password1', 'matkhau', '12345678', '123456789', '1234567890', 'qwerty123', 'abc@1234', 'abc12345'];
+
+/** Mật khẩu: ≥ 10 ký tự, có chữ và số, không chứa tên đăng nhập, không phải mật khẩu phổ biến. */
+export function validatePassword(password: unknown, username?: string): string {
+  if (typeof password !== 'string' || password.length < 10) throw new HttpError(400, 'Mật khẩu phải có ít nhất 10 ký tự');
+  if (password.length > 200) throw new HttpError(400, 'Mật khẩu quá dài');
+  if (!/[A-Za-zÀ-ỹ]/.test(password) || !/\d/.test(password)) throw new HttpError(400, 'Mật khẩu phải có cả chữ và số');
+  const low = password.toLowerCase();
+  if (COMMON.includes(low) || /^(.)\1+$/.test(password)) throw new HttpError(400, 'Mật khẩu quá dễ đoán, hãy chọn mật khẩu khác');
+  if (username && username.length >= 3 && low.includes(username.toLowerCase())) throw new HttpError(400, 'Mật khẩu không được chứa tên đăng nhập');
   return password;
 }
+
+/** Hash giả để thời gian kiểm tra như nhau khi tên đăng nhập không tồn tại (không lộ tài khoản nào có thật). */
+export const DUMMY_HASH = hashPassword(crypto.randomBytes(16).toString('hex'));
 
 export function issueToken(res: Response, userId: number) {
   const tv = get<{ token_version: number }>('SELECT token_version FROM users WHERE id = ?', userId)?.token_version ?? 0;
@@ -73,6 +82,10 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   if (user.token_version !== tv) throw new HttpError(401, 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại');
   delete (user as { token_version?: number }).token_version;
   req.user = user;
+  // Tài khoản mới tạo / vừa được đặt lại mật khẩu: chỉ được dùng các API tài khoản cho tới khi đổi mật khẩu
+  if (user.must_change_password && !req.originalUrl.startsWith('/api/auth/')) {
+    throw new HttpError(403, 'Bạn cần đổi mật khẩu trước khi tiếp tục');
+  }
   next();
 }
 

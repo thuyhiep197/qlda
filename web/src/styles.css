@@ -809,3 +809,4 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .pk-lane > .lane-head { grid-column: 1 / -1; }
 .pk-row { grid-column: 1 / -1; display: grid; gap: 0 8px; }
 .pk-ba { max-width: 90px; }
+.audit-table tr.audit-danger td { background: var(--error-row-bg); }

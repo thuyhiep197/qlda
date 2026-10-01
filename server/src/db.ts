@@ -349,6 +349,20 @@ const migrations: string[] = [
      SELECT 1 FROM issues i WHERE i.id = attachments.issue_id
        AND (i.description LIKE '%/attachments/' || attachments.id || ')%' OR i.description LIKE '%/attachments/' || attachments.id || '?%')
    );`,
+  // v12: nhật ký bảo mật (đăng nhập, thao tác quản trị)
+  `CREATE TABLE audit_log (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     at TEXT NOT NULL,
+     user_id INTEGER,
+     username TEXT,
+     action TEXT NOT NULL,
+     target TEXT,
+     detail TEXT,
+     ip TEXT,
+     user_agent TEXT
+   );
+   CREATE INDEX idx_audit_at ON audit_log(at);
+   CREATE INDEX idx_audit_action ON audit_log(action);`,
 ];
 
 export function migrate() {

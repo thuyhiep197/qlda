@@ -23,6 +23,11 @@ export default function AdminUsers() {
   const [filter, setFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
 
+  const logoutAll = async () => {
+    if (!confirm('Thu hồi phiên đăng nhập của TẤT CẢ mọi người (trừ bạn)? Mọi người phải đăng nhập lại. Dùng khi nghi tài khoản bị chiếm.')) return;
+    try { const r = await api.post<{ count: number }>('/users/logout-all'); toast(`Đã đăng xuất ${r.count} tài khoản`); } catch (e) { toastError(e); }
+  };
+
   const toggleActive = async (u: User) => {
     if (u.is_active && !confirm(`Khóa tài khoản ${u.full_name}? Người dùng sẽ không đăng nhập được nữa.`)) return;
     try { await api.patch(`/users/${u.id}`, { is_active: !u.is_active }); await refreshAll(); } catch (e) { toastError(e); }
@@ -38,6 +43,7 @@ export default function AdminUsers() {
       <div className="page-head">
         <h1>Người dùng</h1>
         <div className="spacer" />
+        {!!me?.is_admin && <button className="btn btn-danger" onClick={logoutAll} data-tip="Khẩn cấp: buộc mọi người (trừ bạn) đăng nhập lại ngay">Đăng xuất tất cả mọi người</button>}
         {hasPerm(me, 'user.create') && <button className="btn btn-primary" onClick={() => setEditing('new')}>+ Tạo tài khoản</button>}
       </div>
       {missingRole > 0 && (
@@ -159,9 +165,9 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
           </div>
         )}
         {!user && (
-          <label className="field"><span>Mật khẩu tạm (tối thiểu 8 ký tự)</span>
+          <label className="field"><span>Mật khẩu tạm (≥ 10 ký tự, có chữ và số)</span>
             <div className="row gap-xs">
-              <input className="grow" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
+              <input className="grow" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} required />
               <button type="button" className="btn" onClick={() => setPassword(genPassword())}>Tạo ngẫu nhiên</button>
             </div></label>
         )}
@@ -208,7 +214,7 @@ function ResetModal({ user, onClose }: { user: User; onClose: () => void }) {
       ) : (
         <label className="field"><span>Mật khẩu tạm mới</span>
           <div className="row gap-xs">
-            <input className="grow" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} />
+            <input className="grow" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} />
             <button type="button" className="btn" onClick={() => setPassword(genPassword())}>Tạo ngẫu nhiên</button>
           </div></label>
       )}

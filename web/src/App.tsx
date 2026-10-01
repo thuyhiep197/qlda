@@ -20,6 +20,7 @@ import ProjectSettings from './pages/ProjectSettings';
 import IssuePage from './pages/IssuePage';
 import AdminUsers from './pages/AdminUsers';
 import AdminRoles from './pages/AdminRoles';
+import AdminAudit from './pages/AdminAudit';
 import Profile from './pages/Profile';
 import Releases from './pages/Releases';
 import { RELEASES_ENABLED } from './util';
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="profile" element={<Profile />} />
           {hasPerm(me, 'user.view') && <Route path="admin/users" element={<AdminUsers />} />}
           {hasPerm(me, 'role.view') && <Route path="admin/roles" element={<AdminRoles />} />}
+          {hasPerm(me, 'user.view') && <Route path="admin/audit" element={<AdminAudit />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

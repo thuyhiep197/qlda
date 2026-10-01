@@ -8,7 +8,7 @@ import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
 import { colorOf } from '../util';
-import { FolderKanban, House, LogOut, Menu, Moon, Plus, Search, Settings, ShieldCheck, Sun, Users } from 'lucide-react';
+import { FolderKanban, House, LogOut, Menu, Moon, Plus, Search, Settings, ScrollText, ShieldCheck, Sun, Users } from 'lucide-react';
 
 export default function Layout() {
   const { data: me } = useMe();
@@ -70,6 +70,7 @@ export default function Layout() {
             <nav className="nav">
               {hasPerm(me, 'user.view') && <NavLink to="/admin/users"><Users size={18} /> Người dùng</NavLink>}
               {hasPerm(me, 'role.view') && <NavLink to="/admin/roles"><ShieldCheck size={18} /> Nhóm người dùng & phân quyền</NavLink>}
+              {hasPerm(me, 'user.view') && <NavLink to="/admin/audit"><ScrollText size={18} /> Nhật ký bảo mật</NavLink>}
             </nav>
           </>
         )}
