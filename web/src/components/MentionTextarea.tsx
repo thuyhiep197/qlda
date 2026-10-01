@@ -115,10 +115,18 @@ export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, 
         onClick={(e) => detect(e.currentTarget)}
         onBlur={() => setTimeout(() => setQuery(null), 150)}
         onPaste={(e) => {
-          if (!issueKey) return;
-          const files = Array.from(e.clipboardData.files);
+          const cd = e.clipboardData;
+          // Một số trình duyệt / công cụ chụp màn hình chỉ đưa ảnh vào items, không vào files → đọc cả hai
+          let files = Array.from(cd.files);
+          if (!files.length) {
+            files = Array.from(cd.items).filter((it) => it.kind === 'file').map((it) => it.getAsFile()).filter((f): f is File => !!f);
+          }
           if (!files.length) return;
+          // Chép chữ từ Word/Excel: clipboard có cả chữ lẫn ảnh minh họa của đoạn đó → giữ chữ
+          const text = cd.getData('text/plain');
+          if (text.trim() && /urn:schemas-microsoft-com:office|<meta name=ProgId content=(Word|Excel)/i.test(cd.getData('text/html'))) return;
           e.preventDefault();
+          if (!issueKey) { toastError(new Error('Ảnh và tệp chỉ dán được sau khi đã tạo issue: hãy tạo issue rồi dán vào mô tả hoặc bình luận.')); return; }
           // Ảnh chụp màn hình không có tên thật → đặt tên theo thời điểm; tệp copy từ thư mục giữ nguyên tên
           upload(files.map((f, i) => (f.type.startsWith('image/') && /^image\.\w+$/i.test(f.name)
             ? new File([f], `anh-dan-${stamp()}${i ? `-${i}` : ''}.${f.type.split('/')[1] || 'png'}`, { type: f.type }) : f)));
