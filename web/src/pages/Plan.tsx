@@ -8,6 +8,7 @@ import { fmtDate, today as todayStr, TYPE_LABELS, canMove, statusesFor } from '.
 import { Avatar, Empty, Spinner, StatusBadge, TypeIcon, MoreFilters, toast, toastError } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
 import { PlanKanban } from '../components/PlanKanban';
+import { CreateEpicButton } from '../components/CreateIssueModal';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -162,7 +163,7 @@ export default function Plan() {
   const [showSub, setShowSub] = useState(false);
 
   if (isLoading || !issues) return <Spinner />;
-  if (!tree.length) return <div className="page-pad"><Empty title="Dự án chưa có kế hoạch"><p className="muted">Tạo Epic (giai đoạn) và các đầu việc, hoặc nhập kế hoạch từ Excel ở Backlog.</p></Empty></div>;
+  if (!tree.length) return <div className="page-pad"><Empty title="Dự án chưa có kế hoạch"><p className="muted">Tạo Epic (giai đoạn) và các đầu việc, hoặc nhập kế hoạch từ Excel ở Backlog.</p><CreateEpicButton project={project} small={false} /></Empty></div>;
 
   const isOpen = (r: Row) => (expanded ? expanded.has(r.issue.id) : r.level === 0);
   const toggle = (r: Row) => {
@@ -304,6 +305,7 @@ export default function Plan() {
           <button className="btn btn-sm" onClick={expandAll}><ChevronsUpDown size={14} /> Mở hết</button>
           <button className="btn btn-sm" onClick={collapseAll}><ChevronsDownUp size={14} /> Chỉ giai đoạn</button>
         </>}
+        <CreateEpicButton project={project} />
         {can(project.permissions, 'plan.export') && <button className="btn btn-sm" onClick={exportExcel}><Download size={14} /> Xuất Excel</button>}
       </div>
 

@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs, refreshAll } from '../api';
-import { can, useComponents, useProject, useProjects, useSprints, useVersions } from '../hooks';
+import { can, useComponents, useIssueModal, useProject, useProjects, useSprints, useVersions } from '../hooks';
+import { Plus } from 'lucide-react';
 import type { Issue, IssueType, Priority } from '../types';
 import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
 import { Modal, toast, toastError, TypeIcon } from './ui';
@@ -203,5 +204,22 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** Nút "Tạo Epic" trên các trang kế hoạch: mở form tạo issue đặt sẵn loại Epic, tạo xong mở luôn epic đó. */
+export function CreateEpicButton({ project, small = true }: { project: { key: string; permissions?: string[] }; small?: boolean }) {
+  const [creating, setCreating] = useState(false);
+  const { open } = useIssueModal();
+  if (!can(project.permissions, 'issue.create')) return null;
+  return (
+    <>
+      <button className={`btn btn-primary ${small ? 'btn-sm' : ''}`} onClick={() => setCreating(true)}
+        data-tip="Tạo giai đoạn lớn chứa nhiều Story/Task/Bug">
+        <Plus size={14} strokeWidth={2.5} /> Tạo Epic
+      </button>
+      {creating && <CreateIssueModal projectKey={project.key} defaults={{ type: 'epic' }}
+        onClose={() => setCreating(false)} onCreated={(issue) => open(issue.key)} />}
+    </>
   );
 }

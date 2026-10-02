@@ -6,6 +6,7 @@ import type { Category, IssueType } from '../types';
 import { colorOf, fmtDate, today } from '../util';
 import { Avatar, Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
+import { CreateEpicButton } from '../components/CreateIssueModal';
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 
 interface Child {
@@ -44,7 +45,8 @@ export default function Roadmap() {
   if (isLoading || !epics) return <Spinner />;
   if (!epics.length) {
     return <div className="page-pad"><Empty title="Chưa có epic nào">
-      <p className="muted">Tạo issue loại Epic, đặt ngày bắt đầu và hạn hoàn thành để hiển thị trên lộ trình.</p>
+      <p className="muted">Tạo Epic, đặt ngày bắt đầu và hạn hoàn thành để hiển thị trên kế hoạch tổng quan.</p>
+      <CreateEpicButton project={project} small={false} />
     </Empty></div>;
   }
 
@@ -87,6 +89,7 @@ export default function Roadmap() {
         <button className="btn btn-sm" onClick={() => setExpanded(allOpen ? new Set() : new Set(epics.map((e) => e.id)))}>
           {allOpen ? <><ChevronsDownUp size={14} /> Thu gọn tất cả</> : <><ChevronsUpDown size={14} /> Mở rộng tất cả</>}
         </button>
+        <CreateEpicButton project={project} />
         <span className="muted small">Bấm mũi tên cạnh epic để xem các issue trong epic. Thanh thời gian lấy theo ngày bắt đầu – hạn hoàn thành, nếu thiếu thì theo sprint.</span>
       </div>
       <div className="roadmap">
