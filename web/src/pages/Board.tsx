@@ -40,7 +40,6 @@ export default function Board() {
   const { data: futureSprints } = useSprints(project.key, 'future');
   const { filters, setFilters, apply } = useFilters();
   const [group, setGroup] = useState<Group>('none');
-  const [showSub, setShowSub] = useState(true);
   const [drag, setDrag] = useState<Issue | null>(null);
   const [drop, setDrop] = useState<{ lane: string; status: number; index: number } | null>(null);
   // Chọn nhiều thẻ (Ctrl/⌘ + bấm) để giao việc, đổi trạng thái… hàng loạt
@@ -67,7 +66,7 @@ export default function Board() {
   if (isLoading || !issues) return <Spinner />;
 
   const statuses = project.statuses;
-  const visible = apply(issues).filter((i) => showSub || i.type !== 'subtask');
+  const visible = apply(issues);
 
   const allowed = (issue: Issue, to: number) => canMove(project, issue.type, issue.status_id, to);
 
@@ -156,7 +155,6 @@ export default function Board() {
         : null}
       <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
         <HelpTip text="Giữ Ctrl rồi bấm vào các thẻ để chọn nhiều, sau đó Giao cho… hoặc đổi trạng thái hàng loạt" />
-        <label className="check small"><input type="checkbox" checked={showSub} onChange={(e) => setShowSub(e.target.checked)} /> Hiện sub-task</label>
         <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>
           <option value="none">Không phân làn</option>
           <option value="assignee">Phân làn theo người thực hiện</option>

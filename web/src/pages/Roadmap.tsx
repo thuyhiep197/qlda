@@ -37,7 +37,7 @@ function range(x: { start_date: string | null; due_date: string | null; sprint_s
 export default function Roadmap() {
   const project = useProjectCtx();
   const { open } = useIssueModal();
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở hết các epic
   const { data: epics, isLoading } = useQuery<Epic[]>({
     queryKey: ['roadmap', project.key],
     queryFn: () => api.get(`/reports/projects/${project.key}/roadmap`),
@@ -66,14 +66,15 @@ export default function Roadmap() {
     months.push({ label: `T${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`, left: pct(d.getTime()), width: pct(next) - pct(d.getTime()) });
   }
   const width = Math.max(800, months.length * 160);
-  const toggle = (id: number) => { const n = new Set(expanded); n.has(id) ? n.delete(id) : n.add(id); setExpanded(n); };
-  const allOpen = epics.every((e) => !e.children.length || expanded.has(e.id));
+  const isOpen = (id: number) => (expanded ? expanded.has(id) : true);
+  const toggle = (id: number) => { const n = new Set(expanded ?? epics.map((e) => e.id)); n.has(id) ? n.delete(id) : n.add(id); setExpanded(n); };
+  const allOpen = epics.every((e) => !e.children.length || isOpen(e.id));
 
   // Mỗi hàng: epic, tiếp theo là các issue con khi được mở rộng
   const rows: ({ kind: 'epic'; e: Epic } | { kind: 'child'; c: Child; color: string })[] = [];
   for (const e of epics) {
     rows.push({ kind: 'epic', e });
-    if (expanded.has(e.id)) for (const c of e.children) rows.push({ kind: 'child', c, color: colorOf(e.key) });
+    if (isOpen(e.id)) for (const c of e.children) rows.push({ kind: 'child', c, color: colorOf(e.key) });
   }
 
   const bar = (r: [string, string], color: string, done: number, tip: string, onClick: () => void, child = false) => (
@@ -102,7 +103,7 @@ export default function Roadmap() {
               return (
                 <div key={`e${e.id}`} className="roadmap-cell" onClick={() => open(e.key)}>
                   <button className="icon-btn" disabled={!e.children.length} data-tip={e.children.length ? `${e.children.length} issue con` : 'Chưa có issue con'}
-                    onClick={(ev) => { ev.stopPropagation(); toggle(e.id); }}>{expanded.has(e.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
+                    onClick={(ev) => { ev.stopPropagation(); toggle(e.id); }}>{isOpen(e.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
                   <TypeIcon type="epic" />
                   <div className="grow ellipsis">
                     <div className="ellipsis"><span className="issue-key">{e.key}</span> {e.summary}</div>

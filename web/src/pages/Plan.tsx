@@ -149,7 +149,7 @@ export default function Plan() {
   const tree = useMemo(() => (issues ? buildTree(issues, today, (n) => !!n && devNames.has(n)) : []), [issues, today, devNames]);
   const all = useMemo(() => flatten(tree), [tree]);
 
-  const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở cấp giai đoạn
+  const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở hết (hiện mọi công việc)
   const [health, setHealth] = useState<Health | ''>('');
   const [q, setQ] = useState('');
   const [assignee, setAssignee] = useState('');
@@ -160,14 +160,13 @@ export default function Plan() {
   // Dạng xem: bảng (cây) hoặc Kanban; nhớ lựa chọn trên máy
   const [view, setViewState] = useState<'table' | 'kanban'>(() => { try { return localStorage.getItem('qlda:plan-view') === 'kanban' ? 'kanban' : 'table'; } catch { return 'table'; } });
   const setView = (v: 'table' | 'kanban') => { setViewState(v); try { localStorage.setItem('qlda:plan-view', v); } catch { /* bỏ qua */ } };
-  const [showSub, setShowSub] = useState(false);
 
   if (isLoading || !issues) return <Spinner />;
   if (!tree.length) return <div className="page-pad"><Empty title="Dự án chưa có kế hoạch"><p className="muted">Tạo Epic (giai đoạn) và các đầu việc, hoặc nhập kế hoạch từ Excel ở Backlog.</p><CreateEpicButton project={project} small={false} /></Empty></div>;
 
-  const isOpen = (r: Row) => (expanded ? expanded.has(r.issue.id) : r.level === 0);
+  const isOpen = (r: Row) => (expanded ? expanded.has(r.issue.id) : true);
   const toggle = (r: Row) => {
-    const base = expanded ?? new Set(tree.map((e) => e.issue.id));
+    const base = expanded ?? new Set(all.filter((x) => x.children.length).map((x) => x.issue.id));
     const n = new Set(base); n.has(r.issue.id) ? n.delete(r.issue.id) : n.add(r.issue.id); setExpanded(n);
   };
   const expandAll = () => setExpanded(new Set(all.filter((r) => r.children.length).map((r) => r.issue.id)));
@@ -300,7 +299,6 @@ export default function Plan() {
           <button className={view === 'table' ? 'on' : ''} onClick={() => setView('table')}><ListTree size={14} /> Dạng bảng</button>
           <button className={view === 'kanban' ? 'on' : ''} onClick={() => setView('kanban')}><SquareKanban size={14} /> Dạng Kanban</button>
         </div>
-        {view === 'kanban' && <label className="check small"><input type="checkbox" checked={showSub} onChange={(e) => setShowSub(e.target.checked)} /> Hiện việc con</label>}
         {view === 'table' && !filtering && <>
           <button className="btn btn-sm" onClick={expandAll}><ChevronsUpDown size={14} /> Mở hết</button>
           <button className="btn btn-sm" onClick={collapseAll}><ChevronsDownUp size={14} /> Chỉ giai đoạn</button>
@@ -312,7 +310,7 @@ export default function Plan() {
       {view === 'kanban' ? (
         <PlanKanban project={project} lanes={shown.map((e) => ({
           key: String(e.issue.id), title: e.issue.summary, epicKey: e.issue.id > 0 ? e.issue.key : undefined,
-          items: flatten(e.children).filter((r) => r.issue.id > 0 && (showSub || r.level === 1)).map((r) => r.issue),
+          items: flatten(e.children).filter((r) => r.issue.id > 0).map((r) => r.issue),
         }))} />
       ) : (
       <div className="plan-table-wrap">

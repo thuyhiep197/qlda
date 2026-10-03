@@ -608,6 +608,9 @@ input.switch:checked::after { left: 18px; }
 .drag-row.selected .issue-line, .drag-row.selected .row-check { background: var(--primary-soft); }
 .drag-row .drop-line { position: absolute; left: 0; right: 0; top: -1px; }
 .drag-row.dragging-group { opacity: .4; }
+/* Backlog: việc con thụt vào dưới việc cha, chỉ để xem */
+.sub-line { display: flex; padding-left: 32px; background: var(--surface); }
+.sub-line > .issue-line { flex: 1; min-width: 0; min-height: 34px; padding-left: 8px; border-left: 2px solid var(--border); }
 
 /* ---------- Bộ lọc đã lưu, dòng đang chọn ---------- */
 .saved-filters { position: relative; }

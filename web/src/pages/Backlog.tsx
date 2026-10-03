@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent, type FormEvent } from 'react';
+import { Fragment, useEffect, useState, type DragEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs, queryClient, refreshAll } from '../api';
 import { can, useIssueModal, useSprints } from '../hooks';
@@ -24,6 +24,11 @@ export default function Backlog() {
   const { data: issues, isLoading } = useQuery<Issue[]>({
     queryKey: issuesKey,
     queryFn: () => api.get(`/issues${qs({ project: project.key, sprint: 'open', excludeSubtasks: '1', excludeEpics: '1' })}`),
+  });
+  // Việc con chỉ để xem (thụt vào dưới việc cha): đi theo sprint của việc cha nên không kéo thả, không cộng điểm
+  const { data: subtasks } = useQuery<Issue[]>({
+    queryKey: ['issues', 'backlog-sub', project.key],
+    queryFn: () => api.get(`/issues${qs({ project: project.key, type: 'subtask' })}`),
   });
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', project.key],
@@ -56,6 +61,8 @@ export default function Backlog() {
   if (isLoading || !sprints || !issues) return <Spinner />;
 
   const visible = apply(issues);
+  const subsOf = new Map<number, Issue[]>();
+  for (const s of subtasks || []) if (s.parent_id) subsOf.set(s.parent_id, [...(subsOf.get(s.parent_id) || []), s]);
   const listFor = (c: Container) => visible.filter((i) =>
     c === 'backlog' ? i.sprint_id == null && i.status_category !== 'done' : i.sprint_id === c);
   const selectedIssues = issues.filter((i) => selected.has(i.id)).sort((a, b) => a.rank - b.rank);
@@ -196,7 +203,8 @@ export default function Backlog() {
                 {list.map((i, idx) => {
                   const isSel = selected.has(i.id);
                   return (
-                    <div key={i.id} draggable={canSprint}
+                    <Fragment key={i.id}>
+                    <div draggable={canSprint}
                       className={`drag-row ${isSel ? 'selected' : ''} ${drag?.id === i.id || (dragGroup && isSel) ? 'dragging' : ''}`}
                       style={{ position: 'relative' }}
                       onDragStart={(e) => {
@@ -215,6 +223,10 @@ export default function Backlog() {
                       </label>
                       <IssueLine issue={i} onOpen={() => open(i.key)} />
                     </div>
+                    {(subsOf.get(i.id) || []).map((s) => (
+                      <div key={s.id} className="sub-line"><IssueLine issue={s} onOpen={() => open(s.key)} /></div>
+                    ))}
+                    </Fragment>
                   );
                 })}
                 {drop?.c === c && drop.index === list.length && list.length > 0 && <div className="drop-line" />}
