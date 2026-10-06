@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, ListTree, SquareKanban } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, ListTree, Plus, SquareKanban, X } from 'lucide-react';
 import { api, qs, refreshAll } from '../api';
 import { useIssueModal, can } from '../hooks';
-import type { Issue } from '../types';
+import type { Issue, SubType } from '../types';
 import { fmtDate, today as todayStr, TYPE_LABELS, canMove, statusesFor } from '../util';
 import { Avatar, Empty, Spinner, StatusBadge, TypeIcon, MoreFilters, toast, toastError } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
 import { PlanKanban } from '../components/PlanKanban';
-import { CreateEpicButton } from '../components/CreateIssueModal';
+import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -161,6 +161,14 @@ export default function Plan() {
   const [view, setViewState] = useState<'table' | 'kanban'>(() => { try { return localStorage.getItem('qlda:plan-view') === 'kanban' ? 'kanban' : 'table'; } catch { return 'table'; } });
   const setView = (v: 'table' | 'kanban') => { setViewState(v); try { localStorage.setItem('qlda:plan-view', v); } catch { /* bỏ qua */ } };
 
+  // Thêm nhanh việc ngay trên bảng (như Timeline của Jira): nút + trên dòng Epic / đầu việc
+  const canCreate = can(project.permissions, 'issue.create');
+  const [adding, setAdding] = useState<{ parent: Issue; level: 0 | 1 } | null>(null);
+  const [draft, setDraft] = useState('');
+  const [draftType, setDraftType] = useState<SubType>('story');
+  const [busy, setBusy] = useState(false);
+  const [fullForm, setFullForm] = useState<{ type: Issue['type']; parent_id?: number } | null>(null);
+
   if (isLoading || !issues) return <Spinner />;
   if (!tree.length) return <div className="page-pad"><Empty title="Dự án chưa có kế hoạch"><p className="muted">Tạo Epic (giai đoạn) và các đầu việc, hoặc nhập kế hoạch từ Excel ở Backlog.</p><CreateEpicButton project={project} small={false} /></Empty></div>;
 
@@ -168,6 +176,35 @@ export default function Plan() {
   const toggle = (r: Row) => {
     const base = expanded ?? new Set(all.filter((x) => x.children.length).map((x) => x.issue.id));
     const n = new Set(base); n.has(r.issue.id) ? n.delete(r.issue.id) : n.add(r.issue.id); setExpanded(n);
+  };
+  const startAdd = (r: Row) => {
+    setAdding({ parent: r.issue, level: r.level as 0 | 1 });
+    setDraft('');
+    setDraftType(r.level === 0 ? 'story' : 'task');
+    // Mở nhánh để thấy việc vừa thêm
+    if (expanded && !expanded.has(r.issue.id)) setExpanded(new Set(expanded).add(r.issue.id));
+  };
+  const submitDraft = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!adding || !draft.trim() || busy) return;
+    const p = adding.parent;
+    setBusy(true);
+    try {
+      // Epic → Story/Task/Bug thuộc epic (dòng "Chưa thuộc giai đoạn nào" → không có epic); đầu việc → việc con có loại
+      const created: Issue = await api.post('/issues', {
+        project_key: project.key, summary: draft.trim(),
+        ...(adding.level === 0 ? { type: draftType, parent_id: p.id > 0 ? p.id : null } : { type: 'subtask', subtype: draftType, parent_id: p.id }),
+      });
+      toast(`Đã tạo ${created.key}`);
+      setDraft('');
+      await refreshAll();
+    } catch (err) { toastError(err); } finally { setBusy(false); }
+  };
+  const openFullForm = () => {
+    if (!adding) return;
+    const p = adding.parent;
+    setFullForm(adding.level === 0 ? { type: draftType, ...(p.id > 0 ? { parent_id: p.id } : {}) } : { type: 'subtask', parent_id: p.id });
+    setAdding(null);
   };
   const expandAll = () => setExpanded(new Set(all.filter((r) => r.children.length).map((r) => r.issue.id)));
   const collapseAll = () => setExpanded(new Set());
@@ -199,6 +236,12 @@ export default function Plan() {
   const lines: Row[] = [];
   const walk = (rows: Row[]) => rows.forEach((r) => { lines.push(r); if (filtering || isOpen(r)) walk(r.children); });
   walk(shown);
+  // Dòng nhập nhanh: ngay sau nhánh của việc cha (sau việc con cuối cùng)
+  let draftAt = -1;
+  if (adding) {
+    const idx = lines.findIndex((r) => r.issue.id === adding.parent.id && r.level === adding.level);
+    if (idx >= 0) { draftAt = idx + 1; while (draftAt < lines.length && lines[draftAt].level > adding.level) draftAt++; }
+  }
 
   // Trục thời gian của cả dự án cho cột Tiến trình
   const dated = all.flatMap((r) => [r.start, r.end]).filter(Boolean) as string[];
@@ -246,6 +289,28 @@ export default function Plan() {
     a.download = `Ke-hoach-chi-tiet-${project.key}-${today}.xlsx`;
     a.click();
   };
+
+  const draftRow = adding && (
+    <tr key="draft" className="plan-row plan-draft">
+      <td colSpan={8}>
+        <form className="plan-name" style={{ paddingLeft: (adding.level + 1) * 22 }} onSubmit={submitDraft}
+          onKeyDown={(e) => { if (e.key === 'Escape') setAdding(null); }}>
+          <span className="plan-spacer" />
+          <TypeIcon type={adding.level === 0 ? draftType : 'subtask'} subtype={adding.level === 0 ? null : draftType} size={15} />
+          <select value={draftType} onChange={(e) => setDraftType(e.target.value as SubType)} aria-label="Loại việc">
+            {(['story', 'task', 'bug'] as const).map((t) => <option key={t} value={t}>{adding.level === 0 ? TYPE_LABELS[t] : `Việc con (${TYPE_LABELS[t]})`}</option>)}
+          </select>
+          <input className="grow" autoFocus value={draft} disabled={busy} onChange={(e) => setDraft(e.target.value)}
+            placeholder={adding.level === 0
+              ? `Tiêu đề việc mới trong "${adding.parent.summary}" — Enter để tạo, Esc để đóng`
+              : `Tiêu đề việc con của ${adding.parent.key} — Enter để tạo, Esc để đóng`} />
+          <button className="btn btn-primary btn-sm" disabled={busy || !draft.trim()}>Tạo</button>
+          <button type="button" className="btn btn-sm" onClick={openFullForm} data-tip="Mở form đầy đủ (người thực hiện, ngày, sprint…) với việc cha đã chọn sẵn">Thêm chi tiết…</button>
+          <button type="button" className="icon-btn" onClick={() => setAdding(null)} aria-label="Đóng"><X size={16} /></button>
+        </form>
+      </td>
+    </tr>
+  );
 
   return (
     <div className="page-pad plan-page">
@@ -328,60 +393,68 @@ export default function Plan() {
           </thead>
           <tbody>
             {!lines.length && <tr><td colSpan={8} className="muted">Không có công việc nào khớp bộ lọc.</td></tr>}
-            {lines.map((r) => {
-              const i = r.issue;
-              const late = r.health === 'late';
-              return (
-                <tr key={`${r.level}-${i.id}`} className={`plan-row lvl-${r.level}`}>
-                  <td className="col-name">
-                    <div className="plan-name" style={{ paddingLeft: r.level * 22 }}>
-                      {r.children.length && !filtering
-                        ? <button className="icon-btn" onClick={() => toggle(r)} aria-label="Mở/đóng">{isOpen(r) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
-                        : <span className="plan-spacer" />}
-                      {i.id > 0 && <TypeIcon type={i.type} subtype={i.subtype} size={15} />}
-                      <a className="ellipsis" onClick={() => i.id > 0 && open(i.key)} data-tip={i.summary}>
-                        {i.key && <span className="issue-key">{i.key}</span>} {i.summary}
-                      </a>
-                      {r.children.length > 0 && <span className="muted small nowrap">({r.children.length})</span>}
-                      {r.lateKids > 0 && <span className="lozenge lozenge-red" data-tip="Số việc bên trong đang trễ hạn">{r.lateKids} trễ</span>}
-                    </div>
-                  </td>
-                  <td><span className={`lozenge lozenge-${HEALTH[r.health].tone}`} data-tip={r.note || undefined}>{HEALTH[r.health].label}</span></td>
-                  <td className="col-progress">
-                    <div className="plan-pct">
-                      <div className="plan-bar" data-tip={r.expected != null ? `Đạt ${r.progress}% · kế hoạch ${r.expected}%` : `Đạt ${r.progress}%`}>
-                        <div className="plan-done" style={{ width: `${r.progress}%` }} />
-                        {r.expected != null && <div className="plan-mark" style={{ left: `${r.expected}%` }} />}
-                      </div>
-                      <span className="small nowrap">{r.progress}%</span>
-                    </div>
-                  </td>
-                  <td className={`nowrap small ${late ? 'overdue' : ''}`}>{r.start || r.end ? <>{fmtShort(r.start)} – {fmtShort(r.end)}</> : <span className="muted">—</span>}</td>
-                  <td>{r.level > 0 && i.assignee_name ? <div className="row gap-xs"><Avatar name={i.assignee_name} size={20} /><span className="small ellipsis">{i.assignee_name}</span></div> : <span className="muted small">—</span>}</td>
-                  <td>{r.owner ? <div className="row gap-xs"><Avatar name={r.owner} size={20} /><span className="small ellipsis">{r.owner}</span></div> : <span className="muted small">—</span>}</td>
-                  <td>{!i.status_name ? null
-                    : i.type !== 'epic' && i.id > 0 && can(project.permissions, 'issue.transition') ? <InlineStatus issue={i} />
-                      : <span data-tip={i.type === 'epic' ? 'Trạng thái Epic tự động theo các việc bên trong' : undefined}><StatusBadge name={i.status_name} category={i.status_category} /></span>}</td>
-                  <td className="col-timeline">
-                    <div className="mini-timeline">
-                      <div className="mini-today" style={{ left: `${pos(today)}%` }} />
-                      {r.start && r.end && (
-                        <div className={`mini-bar tone-${HEALTH[r.health].tone}`}
-                          style={{ left: `${pos(r.start)}%`, width: `max(4px, ${pos(r.end) - pos(r.start) + 100 / spanDays}%)` }}
-                          data-tip={`${fmtDate(r.start)} – ${fmtDate(r.end)}`}>
-                          <div style={{ width: `${r.progress}%` }} />
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {[...lines.map((r, idx) => [idx === draftAt ? draftRow : null, rowOf(r)]), lines.length === draftAt ? draftRow : null]}
           </tbody>
         </table>
       </div>
       )}
+      {fullForm && <CreateIssueModal projectKey={project.key} defaults={fullForm} onClose={() => setFullForm(null)} onCreated={(x) => open(x.key)} />}
       <p className="muted small">Cách đánh giá: {HEALTH_HELP}. Tiến độ việc lẻ: Cần làm 0%, Đang thực hiện 50%, Hoàn thành 100%; việc cha tính trung bình theo điểm ước lượng của việc con.</p>
     </div>
   );
+
+  function rowOf(r: Row) {
+    const i = r.issue;
+    const late = r.health === 'late';
+    return (
+      <tr key={`${r.level}-${i.id}`} className={`plan-row lvl-${r.level}`}>
+        <td className="col-name">
+          <div className="plan-name" style={{ paddingLeft: r.level * 22 }}>
+            {r.children.length && !filtering
+              ? <button className="icon-btn" onClick={() => toggle(r)} aria-label="Mở/đóng">{isOpen(r) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
+              : <span className="plan-spacer" />}
+            {i.id > 0 && <TypeIcon type={i.type} subtype={i.subtype} size={15} />}
+            <a className="ellipsis" onClick={() => i.id > 0 && open(i.key)} data-tip={i.summary}>
+              {i.key && <span className="issue-key">{i.key}</span>} {i.summary}
+            </a>
+            {r.children.length > 0 && <span className="muted small nowrap">({r.children.length})</span>}
+            {r.lateKids > 0 && <span className="lozenge lozenge-red" data-tip="Số việc bên trong đang trễ hạn">{r.lateKids} trễ</span>}
+            {canCreate && r.level < 2 && (
+              <button className="icon-btn plan-add" onClick={() => startAdd(r)}
+                aria-label={r.level === 0 ? 'Thêm Story/Task/Bug vào giai đoạn này' : 'Thêm việc con'}
+                data-tip={r.level === 0 ? 'Thêm Story/Task/Bug vào giai đoạn này' : 'Thêm việc con'}><Plus size={15} strokeWidth={2.5} /></button>
+            )}
+          </div>
+        </td>
+        <td><span className={`lozenge lozenge-${HEALTH[r.health].tone}`} data-tip={r.note || undefined}>{HEALTH[r.health].label}</span></td>
+        <td className="col-progress">
+          <div className="plan-pct">
+            <div className="plan-bar" data-tip={r.expected != null ? `Đạt ${r.progress}% · kế hoạch ${r.expected}%` : `Đạt ${r.progress}%`}>
+              <div className="plan-done" style={{ width: `${r.progress}%` }} />
+              {r.expected != null && <div className="plan-mark" style={{ left: `${r.expected}%` }} />}
+            </div>
+            <span className="small nowrap">{r.progress}%</span>
+          </div>
+        </td>
+        <td className={`nowrap small ${late ? 'overdue' : ''}`}>{r.start || r.end ? <>{fmtShort(r.start)} – {fmtShort(r.end)}</> : <span className="muted">—</span>}</td>
+        <td>{r.level > 0 && i.assignee_name ? <div className="row gap-xs"><Avatar name={i.assignee_name} size={20} /><span className="small ellipsis">{i.assignee_name}</span></div> : <span className="muted small">—</span>}</td>
+        <td>{r.owner ? <div className="row gap-xs"><Avatar name={r.owner} size={20} /><span className="small ellipsis">{r.owner}</span></div> : <span className="muted small">—</span>}</td>
+        <td>{!i.status_name ? null
+          : i.type !== 'epic' && i.id > 0 && can(project.permissions, 'issue.transition') ? <InlineStatus issue={i} />
+            : <span data-tip={i.type === 'epic' ? 'Trạng thái Epic tự động theo các việc bên trong' : undefined}><StatusBadge name={i.status_name} category={i.status_category} /></span>}</td>
+        <td className="col-timeline">
+          <div className="mini-timeline">
+            <div className="mini-today" style={{ left: `${pos(today)}%` }} />
+            {r.start && r.end && (
+              <div className={`mini-bar tone-${HEALTH[r.health].tone}`}
+                style={{ left: `${pos(r.start)}%`, width: `max(4px, ${pos(r.end) - pos(r.start) + 100 / spanDays}%)` }}
+                data-tip={`${fmtDate(r.start)} – ${fmtDate(r.end)}`}>
+                <div style={{ width: `${r.progress}%` }} />
+              </div>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  }
 }

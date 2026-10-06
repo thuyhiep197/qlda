@@ -826,3 +826,12 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .table-projects td.proj-name { min-width: 240px; max-width: 360px; }
 .table-projects td.people { min-width: 90px; max-width: 160px; }
 .table-projects .lozenge { text-transform: none; font-size: 12px; font-weight: 600; }
+
+/* Kế hoạch chi tiết: nút + thêm việc trên từng dòng (hiện khi rê chuột) và dòng nhập nhanh */
+.plan-add { width: 24px; height: 24px; flex-shrink: 0; opacity: 0; color: var(--primary); }
+.plan-row:hover .plan-add, .plan-add:focus-visible { opacity: 1; }
+@media (hover: none) { .plan-add { opacity: .7; } }
+.plan-draft td { background: var(--primary-soft) !important; }
+.plan-draft .plan-name { gap: 8px; }
+.plan-draft select { width: auto; }
+.plan-draft input { min-width: 200px; }
