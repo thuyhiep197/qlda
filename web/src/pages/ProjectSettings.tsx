@@ -6,6 +6,7 @@ import type { Category, Component, IssueType, Side, Status } from '../types';
 import { CATEGORY_LABELS, SIDE_LABELS, statusesFor, TYPE_LABELS, typeTip } from '../util';
 import { Avatar, Modal, SideBadge, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
+import { ProjectInfoFields, projectInfoOf } from '../components/ProjectInfoFields';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 
 export default function ProjectSettings() {
@@ -38,11 +39,12 @@ function General() {
   const [description, setDescription] = useState(project.description || '');
   const [type, setType] = useState(project.type);
   const [lead, setLead] = useState(String(project.lead_id));
+  const [info, setInfo] = useState(projectInfoOf(project));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await api.patch(`/projects/${project.key}`, { name, description, type, lead_id: Number(lead) });
+      await api.patch(`/projects/${project.key}`, { name, description, type, lead_id: Number(lead), ...info });
       toast('Đã lưu thông tin dự án');
       await refreshAll();
     } catch (err) { toastError(err); }
@@ -64,6 +66,7 @@ function General() {
         <select value={lead} onChange={(e) => setLead(e.target.value)}>
           {project.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
         </select></label>
+      <ProjectInfoFields value={info} onChange={setInfo} />
       <label className="field"><span>Mô tả</span><textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
       <div className="row gap-sm">
         <button className="btn btn-primary">Lưu</button>

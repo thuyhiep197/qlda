@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
 import { useMe, useUsersBasic, hasPerm } from '../hooks';
 import type { ProjectSummary } from '../types';
-import { colorOf } from '../util';
+import { colorOf, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES } from '../util';
+import { ProjectInfoFields, projectInfoOf } from '../components/ProjectInfoFields';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
 
 export default function Projects() {
@@ -16,6 +17,8 @@ export default function Projects() {
   });
   const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState('');
+  const [statusF, setStatusF] = useState('');
+  const [priorityF, setPriorityF] = useState('');
 
   const toggleArchive = async (p: ProjectSummary) => {
     const action = p.is_archived ? 'Khôi phục' : 'Lưu trữ';
@@ -27,7 +30,15 @@ export default function Projects() {
     } catch (e) { toastError(e); }
   };
 
-  const list = projects?.filter((p) => !filter || `${p.name} ${p.key}`.toLowerCase().includes(filter.toLowerCase()));
+  // Sắp theo ưu tiên (Rất cao trước), cùng ưu tiên thì theo tên
+  const rank = (v: string | null) => { const i = PROJECT_PRIORITIES.findIndex(([n]) => n === v); return i < 0 ? 99 : i; };
+  const q = filter.trim().toLowerCase();
+  const list = projects
+    ?.filter((p) => !q || [p.name, p.key, p.customer, p.pm, p.ba, p.dev, p.tester, p.sales].join(' ').toLowerCase().includes(q))
+    .filter((p) => !statusF || (p.project_status || '') === (statusF === '-' ? '' : statusF))
+    .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
+    .sort((a, b) => rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
+  const canArchive = hasPerm(me, 'project.delete');
 
   return (
     <div className="page">
@@ -37,31 +48,49 @@ export default function Projects() {
         {hasPerm(me, 'project.delete') && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem dự án đã lưu trữ</label>}
         {hasPerm(me, 'project.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Tạo dự án</button>}
       </div>
-      <input className="filter-input" placeholder="Lọc theo tên hoặc mã dự án" value={filter} onChange={(e) => setFilter(e.target.value)} />
+      <div className="filter-bar">
+        <input className="filter-input" style={{ marginBottom: 0 }} placeholder="Lọc theo tên, mã, khách hàng, nhân sự" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <select value={statusF} className={statusF ? 'filter-on' : ''} onChange={(e) => setStatusF(e.target.value)}>
+          <option value="">Trạng thái: Tất cả</option>
+          {PROJECT_STATUSES.map(([n]) => <option key={n} value={n}>{n}</option>)}
+          <option value="-">(Chưa có trạng thái)</option>
+        </select>
+        <select value={priorityF} className={priorityF ? 'filter-on' : ''} onChange={(e) => setPriorityF(e.target.value)}>
+          <option value="">Ưu tiên: Tất cả</option>
+          {PROJECT_PRIORITIES.map(([n]) => <option key={n} value={n}>{n}</option>)}
+          <option value="-">(Chưa có ưu tiên)</option>
+        </select>
+        {list && projects && <span className="muted small">{list.length}/{projects.length} dự án</span>}
+      </div>
       {isLoading ? <Spinner /> : !list?.length ? (
         <Empty title={archived ? 'Không có dự án lưu trữ' : 'Chưa có dự án nào'}>
           {!me?.is_admin && <p className="muted">Liên hệ quản trị viên để được thêm vào dự án.</p>}
         </Empty>
       ) : (
-        <table className="table">
+        <div className="table-wrap">
+        <table className="table table-projects">
           <thead>
-            <tr><th>Tên dự án</th><th>Mã</th><th>Loại</th><th>Trưởng dự án</th><th>Vai trò của tôi</th><th className="num">Issue mở</th><th className="num">Thành viên</th>{!!me?.is_admin && <th />}</tr>
+            <tr><th>Tên dự án</th><th>Tên khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>PM</th><th>BA</th><th>Dev</th><th>Tester</th><th>Kinh doanh</th><th>Loại</th>{canArchive && <th />}</tr>
           </thead>
           <tbody>
             {list.map((p) => (
               <tr key={p.id}>
-                <td><Link to={`/p/${p.key}`} className="row gap-sm"><span className="proj-dot" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span> <b>{p.name}</b></Link></td>
-                <td>{p.key}</td>
+                <td className="proj-name"><Link to={`/p/${p.key}`} className="row gap-sm" style={{ alignItems: 'flex-start' }}><span className="proj-dot" style={{ background: colorOf(p.key), flexShrink: 0 }}>{p.key.slice(0, 2)}</span> <span><b>{p.name}</b><div className="muted small">{p.key}</div></span></Link></td>
+                <td>{p.customer}</td>
+                <td>{p.priority && <span className={lozengeOf(PROJECT_PRIORITIES, p.priority)}>{p.priority}</span>}</td>
+                <td>{p.project_status && <span className={lozengeOf(PROJECT_STATUSES, p.project_status)}>{p.project_status}</span>}</td>
+                <td className="people">{p.pm}</td>
+                <td className="people">{p.ba}</td>
+                <td className="people">{p.dev}</td>
+                <td className="people">{p.tester}</td>
+                <td className="people">{p.sales}</td>
                 <td>{p.type === 'scrum' ? 'Scrum' : 'Kanban'}</td>
-                <td>{p.lead_name}</td>
-                <td>{p.my_role || (me?.is_admin ? <span className="muted">Quản trị hệ thống</span> : '')}</td>
-                <td className="num">{p.open_count}</td>
-                <td className="num">{p.member_count}</td>
-                {hasPerm(me, 'project.delete') && <td className="num"><button className="btn btn-subtle btn-sm" onClick={() => toggleArchive(p)}>{p.is_archived ? 'Khôi phục' : 'Lưu trữ'}</button></td>}
+                {canArchive && <td className="num"><button className="btn btn-subtle btn-sm" onClick={() => toggleArchive(p)}>{p.is_archived ? 'Khôi phục' : 'Lưu trữ'}</button></td>}
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
       {creating && <CreateProjectModal onClose={() => setCreating(false)} />}
     </div>
@@ -78,6 +107,7 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const [type, setType] = useState<'scrum' | 'kanban'>('scrum');
   const [lead, setLead] = useState(String(me?.id ?? ''));
   const [description, setDescription] = useState('');
+  const [info, setInfo] = useState(projectInfoOf());
 
   const suggestKey = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'D')
     .split(/\s+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
@@ -85,7 +115,7 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/projects', { name, key, type, lead_id: Number(lead), description });
+      await api.post('/projects', { name, key, type, lead_id: Number(lead), description, ...info });
       toast('Đã tạo dự án');
       await refreshAll();
       onClose();
@@ -120,6 +150,7 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
           <select value={lead} onChange={(e) => setLead(e.target.value)}>
             {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name} (@{u.username}){u.default_role_name ? ` · ${u.default_role_name}` : ''}</option>)}
           </select></label>
+        <ProjectInfoFields value={info} onChange={setInfo} />
         <label className="field"><span>Mô tả</span>
           <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
       </form>

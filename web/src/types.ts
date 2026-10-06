@@ -110,6 +110,14 @@ export interface ProjectSummary {
   issue_count: number;
   my_role: string | null;
   is_archived: number;
+  customer: string | null;
+  priority: string | null;
+  project_status: string | null;
+  pm: string | null;
+  ba: string | null;
+  dev: string | null;
+  tester: string | null;
+  sales: string | null;
 }
 
 export interface Project {
@@ -120,6 +128,14 @@ export interface Project {
   type: 'scrum' | 'kanban';
   lead_id: number;
   lead: { id: number; full_name: string } | null;
+  customer: string | null;
+  priority: string | null;
+  project_status: string | null;
+  pm: string | null;
+  ba: string | null;
+  dev: string | null;
+  tester: string | null;
+  sales: string | null;
   workflow_strict: number;
   statuses: Status[];
   members: Member[];

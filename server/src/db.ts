@@ -365,6 +365,15 @@ const migrations: string[] = [
    CREATE INDEX idx_audit_action ON audit_log(action);`,
   // v13: loại của việc con (Sub-task) — Story / Task / Bug; NULL = việc con thường
   `ALTER TABLE issues ADD COLUMN subtype TEXT;`,
+  // v14: thông tin quản lý dự án (theo bảng quản lý dự án của BA): khách hàng, ưu tiên, trạng thái dự án, nhân sự
+  `ALTER TABLE projects ADD COLUMN customer TEXT;
+   ALTER TABLE projects ADD COLUMN priority TEXT;
+   ALTER TABLE projects ADD COLUMN project_status TEXT;
+   ALTER TABLE projects ADD COLUMN pm TEXT;
+   ALTER TABLE projects ADD COLUMN ba TEXT;
+   ALTER TABLE projects ADD COLUMN dev TEXT;
+   ALTER TABLE projects ADD COLUMN tester TEXT;
+   ALTER TABLE projects ADD COLUMN sales TEXT;`,
 ];
 
 export function migrate() {

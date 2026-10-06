@@ -17,6 +17,12 @@ export function loadProject(req: Request, perm?: Permission) {
   return { project, perms };
 }
 
+// Thông tin quản lý dự án (chữ tự do): khách hàng, ưu tiên, trạng thái dự án, nhân sự
+const INFO_FIELDS = ['customer', 'priority', 'project_status', 'pm', 'ba', 'dev', 'tester', 'sales'] as const;
+function infoValues(b: any, project?: any) {
+  return INFO_FIELDS.map((f) => b[f] !== undefined ? (String(b[f] ?? '').trim().slice(0, 500) || null) : (project?.[f] ?? null));
+}
+
 const DEFAULT_STATUSES: [string, string][] = [
   ['Cần làm', 'todo'],
   ['Đang làm', 'inprogress'],
@@ -57,8 +63,8 @@ r.post('/', (req, res) => {
   if (!get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', leadId)) throw badRequest('Trưởng dự án không hợp lệ');
 
   const id = tx(() => {
-    const { id } = run('INSERT INTO projects(key, name, description, type, lead_id) VALUES (?,?,?,?,?)',
-      key, name, b.description || null, type, leadId);
+    const { id } = run(`INSERT INTO projects(key, name, description, type, lead_id, ${INFO_FIELDS.join(', ')}) VALUES (?,?,?,?,?${',?'.repeat(INFO_FIELDS.length)})`,
+      key, name, b.description || null, type, leadId, ...infoValues(b));
     DEFAULT_STATUSES.forEach(([n, c], i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', id, n, c, i));
     run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, accountRoleId(leadId));
     return id;
@@ -95,8 +101,8 @@ r.patch('/:key', (req, res) => {
   if (!name) throw badRequest('Tên dự án không được để trống');
   const type = b.type !== undefined ? (b.type === 'kanban' ? 'kanban' : 'scrum') : project.type;
   const leadId = b.lead_id !== undefined ? Number(b.lead_id) : project.lead_id;
-  run('UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ? WHERE id = ?',
-    name, b.description !== undefined ? b.description || null : project.description, type, leadId, project.id);
+  run(`UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ?, ${INFO_FIELDS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
+    name, b.description !== undefined ? b.description || null : project.description, type, leadId, ...infoValues(b, project), project.id);
   res.json({ ok: true });
 });
 

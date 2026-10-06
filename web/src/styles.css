@@ -817,3 +817,12 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 /* Việc con có loại (Story/Task/Bug): dấu góc nhỏ để phân biệt với đầu việc */
 .type-icon-child { position: relative; }
 .type-icon-child::after { content: ''; position: absolute; right: -2px; bottom: -2px; width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2px #44546f; }
+
+/* Thông tin quản lý dự án */
+.info-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.info-people label { display: flex; flex-direction: column; gap: 2px; }
+.info-people input { width: 100%; }
+.table-projects td { font-size: 13px; vertical-align: top; }
+.table-projects td.proj-name { min-width: 240px; max-width: 360px; }
+.table-projects td.people { min-width: 90px; max-width: 160px; }
+.table-projects .lozenge { text-transform: none; font-size: 12px; font-weight: 600; }

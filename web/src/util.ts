@@ -16,6 +16,17 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 /** Side của hệ thống: phân hệ Sở, phân hệ các Trường, hoặc dùng chung. */
 export const SIDE_LABELS: Record<'so' | 'truong' | 'chung', string> = { so: 'Sở', truong: 'Trường', chung: 'Chung' };
 
+// Ưu tiên & trạng thái của DỰ ÁN (theo danh mục trong bảng quản lý dự án của BA) — khác ưu tiên/trạng thái của issue
+export const PROJECT_PRIORITIES: [string, string][] = [
+  ['Rất cao', 'red'], ['Cao', 'yellow'], ['Bình thường', 'blue'], ['Thấp', 'default'], ['Ổn định', 'green'], ['Pending', 'purple'],
+];
+export const PROJECT_STATUSES: [string, string][] = [
+  ['Chưa bắt đầu', 'default'], ['Đang làm hồ sơ', 'purple'], ['Đang phân tích', 'blue'], ['Đang thiết kế', 'blue'],
+  ['Đang phát triển', 'blue'], ['Đang kiểm thử', 'blue'], ['Đang xử lý vấn đề', 'red'], ['Chờ khách hàng', 'yellow'],
+  ['Chờ nội bộ', 'yellow'], ['Triển khai/Golive', 'green'], ['Hoàn thành', 'green'], ['Tạm dừng', 'default'], ['Hủy bỏ', 'default'],
+];
+export const lozengeOf = (list: [string, string][], v: string | null) => `lozenge lozenge-${list.find(([n]) => n === v)?.[1] ?? 'default'}`;
+
 export const FIELD_LABELS: Record<string, string> = {
   created: 'đã tạo issue', summary: 'Tiêu đề', description: 'Mô tả', type: 'Loại', priority: 'Độ ưu tiên',
   story_points: 'Điểm ước lượng', labels: 'Nhãn', start_date: 'Ngày bắt đầu', due_date: 'Hạn hoàn thành',
