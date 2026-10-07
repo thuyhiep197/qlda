@@ -112,13 +112,11 @@ r.get('/projects/:key/dashboard', (req, res) => {
   const work = rows.filter((i) => i.type !== 'epic' && i.type !== 'subtask');
   const done = (i: Row) => i.category === 'done';
   const pts = (list: Row[]) => list.reduce((a, i) => a + (i.story_points || 0), 0);
-  // Tiến độ: đếm theo điểm ước lượng nếu có, không thì theo số issue
+  // Tiến độ: đếm theo số issue (Story/Task/Bug), không dùng điểm ước lượng
   const measure = (list: Row[]) => {
-    const usePts = pts(list) > 0;
-    const w = (i: Row) => (usePts ? i.story_points || 0 : 1);
-    const total = list.reduce((a, i) => a + w(i), 0);
-    const actual = list.filter(done).reduce((a, i) => a + w(i), 0);
-    const planned = list.filter((i) => i.due_date && i.due_date < today).reduce((a, i) => a + w(i), 0);
+    const total = list.length;
+    const actual = list.filter(done).length;
+    const planned = list.filter((i) => i.due_date && i.due_date < today).length;
     return {
       total_issues: list.length, done_issues: list.filter(done).length,
       inprogress_issues: list.filter((i) => i.category === 'inprogress').length,
@@ -185,7 +183,8 @@ r.get('/projects/:key/dashboard', (req, res) => {
   const open = listIssues(req.user, { project: project.key, statusCategory: 'todo,inprogress', sort: 'due' })
     .filter((i: any) => i.type !== 'epic' && i.due_date);
   const overdueList = open.filter((i: any) => i.due_date < today).slice(0, 15);
-  const upcoming = open.filter((i: any) => i.due_date >= today && i.due_date <= in7).slice(0, 15);
+  const upcomingAll = open.filter((i: any) => i.type !== 'subtask' && i.due_date >= today && i.due_date <= in7);
+  const upcoming = upcomingAll.slice(0, 15);
   const milestones = rows.filter((i) => (i.labels || '').split(',').includes('mốc') || i.type === 'epic')
     .filter((i) => i.due_date && i.due_date >= today && !done(i))
     .sort((a, b) => a.due_date!.localeCompare(b.due_date!)).slice(0, 6)
@@ -198,7 +197,7 @@ r.get('/projects/:key/dashboard', (req, res) => {
     WHERE i.project_id = ? AND i.type NOT IN ('epic','subtask') AND s.category = 'done' AND i.resolved_at >= ?`,
   pid, dayStart(addDays(today, -6)).toISOString())!.c;
 
-  res.json({ today, overall: { ...overall, ...span, pct_time: elapsed, health: health(overall, span.end), done_week: doneWeek },
+  res.json({ today, overall: { ...overall, ...span, pct_time: elapsed, health: health(overall, span.end), done_week: doneWeek, upcoming_count: upcomingAll.length },
     epics, labels, components, sprints, next_sprint: next, byAssignee, overdue: overdueList, upcoming, milestones, activity });
 });
 

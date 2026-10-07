@@ -78,11 +78,10 @@ function buildTree(issues: Issue[], today: string, isDev: (name: string | null) 
       : i.component_lead_name || (i.assignee_name && !isDev(i.assignee_name) ? i.assignee_name : parentOwner);
     const kids = level < 2 ? (byParent.get(i.id) || []).filter((c) => (level === 0 ? c.type !== 'subtask' : c.type === 'subtask')).sort(order) : [];
     const children = kids.map((c) => make(c, (level + 1) as 1 | 2, owner));
-    // Tiến độ: việc lá theo trạng thái; việc cha = trung bình theo điểm ước lượng (không có điểm thì mỗi việc 1)
+    // Tiến độ: việc lá theo trạng thái; việc cha = trung bình các việc bên trong (mỗi issue như nhau, không dùng điểm)
     let progress = leafProgress(i);
     if (children.length) {
-      const w = (r: Row) => r.issue.story_points || 1;
-      progress = Math.round(children.reduce((a, r) => a + r.progress * w(r), 0) / children.reduce((a, r) => a + w(r), 0));
+      progress = Math.round(children.reduce((a, r) => a + r.progress, 0) / children.length);
       if (i.status_category === 'done') progress = 100;
     }
     const kidStarts = children.map((r) => r.start).filter(Boolean) as string[];
@@ -413,7 +412,7 @@ export default function Plan() {
       </div>
       )}
       {fullForm && <CreateIssueModal projectKey={project.key} defaults={fullForm} onClose={() => setFullForm(null)} onCreated={(x) => open(x.key)} />}
-      <p className="muted small">Cách đánh giá: {HEALTH_HELP}. Tiến độ việc lẻ: Cần làm 0%, Đang thực hiện 50%, Hoàn thành 100%; việc cha tính trung bình theo điểm ước lượng của việc con.</p>
+      <p className="muted small">Cách đánh giá: {HEALTH_HELP}. Tiến độ việc lẻ: Cần làm 0%, Đang thực hiện 50%, Hoàn thành 100%; việc cha tính trung bình các việc bên trong (mỗi issue như nhau).</p>
     </div>
   );
 

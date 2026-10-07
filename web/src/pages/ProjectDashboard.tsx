@@ -16,7 +16,7 @@ interface Measure {
 }
 interface DashData {
   today: string;
-  overall: Measure & { start: string | null; end: string | null; pct_time: number; health: Health; done_week: number };
+  overall: Measure & { start: string | null; end: string | null; pct_time: number; health: Health; done_week: number; upcoming_count?: number };
   epics: (Measure & { id: number; key: string; summary: string; start_date: string | null; due_date: string | null; health: Health })[];
   labels: (Measure & { name: string; start: string | null; end: string | null })[];
   components: (Measure & { id: number; name: string; side: Side | null; lead_name: string | null; start: string | null; end: string | null })[];
@@ -75,12 +75,12 @@ export default function ProjectDashboard() {
         <div className="kpi">
           <div className="kpi-label"><Gauge size={15} /> Hoàn thành</div>
           <div className="kpi-num">{o.pct_done}%</div>
-          <div className="muted small">{o.done_issues}/{o.total_issues} issue{o.points ? ` · ${o.done_points}/${o.points} điểm` : ''}</div>
+          <div className="muted small">{o.done_issues}/{o.total_issues} issue đã hoàn thành</div>
         </div>
         <div className="kpi">
           <div className="kpi-label"><CalendarClock size={15} /> So với kế hoạch</div>
           <div className={`kpi-num ${gap < -10 ? 'bad' : gap < 0 ? 'warn' : 'good'}`}>{gap > 0 ? '+' : ''}{gap}%</div>
-          <div className="muted small">Kế hoạch đến hôm nay: {o.pct_planned}%</div>
+          <div className="muted small" data-tip="Kế hoạch đến hôm nay = tỷ lệ issue có hạn hoàn thành trước hôm nay (lẽ ra đã xong)">Kế hoạch đến hôm nay: {o.pct_planned}%</div>
         </div>
         <div className={`kpi ${o.overdue ? 'kpi-danger' : ''}`}>
           <div className="kpi-label"><AlertTriangle size={15} /> Quá hạn</div>
@@ -90,7 +90,7 @@ export default function ProjectDashboard() {
         <div className="kpi">
           <div className="kpi-label"><Timer size={15} /> Đang thực hiện</div>
           <div className="kpi-num">{o.inprogress_issues}</div>
-          <div className="muted small">{data.upcoming.length} issue đến hạn trong 7 ngày</div>
+          <div className="muted small">{o.upcoming_count ?? data.upcoming.length} issue đến hạn trong 7 ngày</div>
         </div>
         <div className="kpi">
           <div className="kpi-label"><CheckCircle2 size={15} /> Hoàn thành 7 ngày qua</div>
@@ -157,7 +157,7 @@ export default function ProjectDashboard() {
                   <div className="progress" data-tip={`Hoàn thành ${s.pct_done}% · Thời gian đã qua ${s.pct_time}%`}>
                     <div style={{ width: `${s.pct_done}%` }} />
                   </div>
-                  <div className="muted small">{s.done_issues}/{s.total_issues} issue{s.points ? ` · ${s.done_points}/${s.points} điểm` : ''} · thời gian đã qua {s.pct_time}%</div>
+                  <div className="muted small">{s.done_issues}/{s.total_issues} issue · thời gian đã qua {s.pct_time}%</div>
                 </div>
               ))}
             </div>

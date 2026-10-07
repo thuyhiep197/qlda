@@ -107,7 +107,7 @@ export default function Roadmap() {
                   <TypeIcon type="epic" />
                   <div className="grow ellipsis">
                     <div className="ellipsis"><span className="issue-key">{e.key}</span> {e.summary}</div>
-                    <div className="progress sm" data-tip={`${e.done}/${e.total} issue hoàn thành · ${e.done_points}/${e.points} điểm`}>
+                    <div className="progress sm" data-tip={`${e.done}/${e.total} issue hoàn thành`}>
                       <div style={{ width: `${pctDone}%` }} />
                       <div className="progress-ip" style={{ width: `${e.total ? (e.inprogress / e.total) * 100 : 0}%` }} />
                     </div>
@@ -142,7 +142,7 @@ export default function Roadmap() {
                 return (
                   <div key={`e${e.id}`} className="roadmap-cell timeline-row">
                     {r ? bar(r, colorOf(e.key), e.total ? (e.done / e.total) * 100 : 0,
-                      `${e.summary}\n${fmtDate(r[0])} – ${fmtDate(r[1])}\n${e.done}/${e.total} issue · ${e.done_points}/${e.points} điểm`, () => open(e.key))
+                      `${e.summary}\n${fmtDate(r[0])} – ${fmtDate(r[1])}\n${e.done}/${e.total} issue hoàn thành`, () => open(e.key))
                       : <span className="muted small pad-x">Chưa đặt lịch — mở epic để đặt ngày bắt đầu/kết thúc</span>}
                   </div>
                 );
