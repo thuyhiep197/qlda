@@ -75,7 +75,7 @@ export default function Projects() {
           <tbody>
             {list.map((p) => (
               <tr key={p.id}>
-                <td className="proj-name"><Link to={`/p/${p.key}`} className="row gap-sm" style={{ alignItems: 'flex-start' }}><span className="proj-dot" style={{ background: colorOf(p.key), flexShrink: 0 }}>{p.key.slice(0, 2)}</span> <span><b>{p.name}</b><div className="muted small">{p.key}</div></span></Link></td>
+                <td className="proj-name"><Link to={`/p/${p.key}`} className="row gap-sm" style={{ alignItems: 'flex-start' }}><span className="proj-dot" style={{ background: colorOf(p.key), flexShrink: 0 }}>{p.key.slice(0, 2)}</span> <b>{p.name}</b></Link></td>
                 <td>{p.customer}</td>
                 <td>{p.priority && <span className={lozengeOf(PROJECT_PRIORITIES, p.priority)}>{p.priority}</span>}</td>
                 <td>{p.project_status && <span className={lozengeOf(PROJECT_STATUSES, p.project_status)}>{p.project_status}</span>}</td>
