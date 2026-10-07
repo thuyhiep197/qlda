@@ -1,19 +1,44 @@
-import { PROJECT_PRIORITIES, PROJECT_STATUSES } from '../util';
+import { X } from 'lucide-react';
+import { useStaff } from '../hooks';
+import { PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 
 // Thông tin quản lý dự án — dùng chung cho form Tạo dự án và Cài đặt dự án
 export type ProjectInfo = {
   customer: string; priority: string; project_status: string;
-  pm: string; ba: string; dev: string; tester: string; sales: string;
+  ba: string; dev: string; tester: string; am: string;
 };
 
 export function projectInfoOf(p?: Partial<Record<keyof ProjectInfo, string | null>>): ProjectInfo {
   return {
     customer: p?.customer ?? '', priority: p?.priority ?? '', project_status: p?.project_status ?? '',
-    pm: p?.pm ?? '', ba: p?.ba ?? '', dev: p?.dev ?? '', tester: p?.tester ?? '', sales: p?.sales ?? '',
+    ba: p?.ba ?? '', dev: p?.dev ?? '', tester: p?.tester ?? '', am: p?.am ?? '',
   };
 }
 
-const PEOPLE: [keyof ProjectInfo, string][] = [['pm', 'PM'], ['ba', 'BA'], ['dev', 'Dev'], ['tester', 'Tester'], ['sales', 'Kinh doanh']];
+export const splitNames = (v: string | null | undefined) => (v ? v.split(',').map((x) => x.trim()).filter(Boolean) : []);
+
+/** Chọn nhiều người từ Danh mục nhân sự theo vị trí; tên cũ không còn trong danh mục vẫn giữ (gạch chân chấm). */
+function StaffPicker({ position, value, onChange }: { position: string; value: string; onChange: (v: string) => void }) {
+  const { data: staff } = useStaff();
+  const chosen = splitNames(value);
+  const known = new Set(staff?.map((s) => s.full_name));
+  const options = (staff || []).filter((s) => s.positions.split(',').includes(position) && !chosen.includes(s.full_name));
+  return (
+    <div className="staff-picker">
+      {chosen.map((n) => (
+        <span key={n} className={`chip ${staff && !known.has(n) ? 'chip-unknown' : ''}`}
+          data-tip={staff && !known.has(n) ? 'Không có trong Danh mục nhân sự' : undefined}>
+          {n}
+          <button type="button" aria-label={`Bỏ ${n}`} onClick={() => onChange(chosen.filter((x) => x !== n).join(', '))}><X size={12} /></button>
+        </span>
+      ))}
+      <select value="" onChange={(e) => e.target.value && onChange([...chosen, e.target.value].join(', '))} aria-label="Thêm người">
+        <option value="">+ Thêm…</option>
+        {options.map((s) => <option key={s.id} value={s.full_name}>{s.full_name}{s.note ? ` (${s.note})` : ''}</option>)}
+      </select>
+    </div>
+  );
+}
 
 export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onChange: (v: ProjectInfo) => void }) {
   const set = (k: keyof ProjectInfo, v: string) => onChange({ ...value, [k]: v });
@@ -37,11 +62,11 @@ export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onC
             </optgroup>
           </select></label>
       </div>
-      <div className="field"><span>Nhân sự <small className="muted">(ghi tên, nhiều người cách nhau bằng dấu phẩy)</small></span>
+      <div className="field"><span>Nhân sự <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
         <div className="info-people">
-          {PEOPLE.map(([k, label]) => (
-            <label key={k}><small className="muted">{label}</small>
-              <input value={value[k]} onChange={(e) => set(k, e.target.value)} /></label>
+          {STAFF_POSITIONS.map((p) => (
+            <div key={p.key}><small className="muted">{p.label}</small>
+              <StaffPicker position={p.key} value={value[p.field]} onChange={(v) => set(p.field, v)} /></div>
           ))}
         </div>
       </div>

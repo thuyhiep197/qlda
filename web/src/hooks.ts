@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
 import { RELEASES_ENABLED } from './util';
-import type { Component, Me, Project, ProjectSummary, Role, Sprint, UserBasic, Version } from './types';
+import type { Component, Me, Project, ProjectSummary, Role, Sprint, StaffMember, UserBasic, Version } from './types';
 
 export const useMe = () => useQuery<Me | null>({
   queryKey: ['me'],
@@ -28,6 +28,7 @@ export const useSprints = (key?: string, state?: string) => useQuery<Sprint[]>({
   enabled: !!key,
 });
 
+export const useStaff = () => useQuery<StaffMember[]>({ queryKey: ['staff'], queryFn: () => api.get('/staff') });
 export const useUsersBasic = () => useQuery<UserBasic[]>({ queryKey: ['users-basic'], queryFn: () => api.get('/users/basic') });
 export const useComponents = (key?: string) => useQuery<Component[]>({
   queryKey: ['components', key],

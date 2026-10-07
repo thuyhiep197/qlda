@@ -52,6 +52,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'system', label: 'Quản trị hệ thống', features: [
       { key: 'user', label: 'Người dùng', hint: 'Tài khoản, đặt lại mật khẩu', actions: ['view', 'create', 'edit', 'delete'], actionHints: { delete: 'Khóa tài khoản' } },
       { key: 'role', label: 'Nhóm người dùng & phân quyền', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'staff', label: 'Danh mục nhân sự', hint: 'Danh sách BA/PM, Tester, AM, Dev dùng để chọn nhân sự cho dự án', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
 ];

@@ -21,6 +21,7 @@ import IssuePage from './pages/IssuePage';
 import AdminUsers from './pages/AdminUsers';
 import AdminRoles from './pages/AdminRoles';
 import AdminAudit from './pages/AdminAudit';
+import AdminStaff from './pages/AdminStaff';
 import Profile from './pages/Profile';
 import Releases from './pages/Releases';
 import { RELEASES_ENABLED } from './util';
@@ -59,6 +60,7 @@ export default function App() {
           {hasPerm(me, 'user.view') && <Route path="admin/users" element={<AdminUsers />} />}
           {hasPerm(me, 'role.view') && <Route path="admin/roles" element={<AdminRoles />} />}
           {hasPerm(me, 'user.view') && <Route path="admin/audit" element={<AdminAudit />} />}
+          {hasPerm(me, 'staff.view') && <Route path="admin/staff" element={<AdminStaff />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

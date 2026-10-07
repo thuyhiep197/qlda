@@ -378,6 +378,39 @@ const migrations: string[] = [
   `ALTER TABLE issues ADD COLUMN phase TEXT;
    UPDATE projects SET project_status = NULL WHERE project_status NOT IN
      ('Chưa bắt đầu','Trình chủ trương','Lập HSYC','Khảo sát, phân tích','Xây dựng','Kiểm thử','Triển khai','Nghiệm thu','Hỗ trợ vận hành');`,
+  // v16: danh mục nhân sự dùng chung (vị trí BA/PM, Tester, AM, Dev); dự án gộp PM vào BA (thành BA/PM), Kinh doanh đổi thành AM
+  `CREATE TABLE staff (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     full_name TEXT NOT NULL UNIQUE,
+     positions TEXT NOT NULL DEFAULT '',
+     note TEXT,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   INSERT INTO staff(full_name, positions, note) VALUES
+     ('Nguyễn Thị Thúy Hiệp', 'ba_pm,tester', NULL),
+     ('Hoàng Thanh Trang', 'ba_pm,tester', NULL),
+     ('Nguyễn Hồng Nhung', 'ba_pm,tester,am', NULL),
+     ('Phạm Hải Đăng', 'ba_pm,tester', NULL),
+     ('Nguyễn Phương Anh', 'ba_pm,tester', NULL),
+     ('Nguyễn Minh Hiếu', 'ba_pm', 'TTS'),
+     ('Phạm Văn Phương', 'am', NULL),
+     ('Nguyễn Văn Chuyền', 'am', NULL),
+     ('Hoàng Toàn', 'am', NULL),
+     ('Phan Hồng Đạt', 'dev', NULL),
+     ('Nhữ Đình Nhật', 'dev', NULL),
+     ('Nhữ Xuân Việt', 'dev', NULL),
+     ('Nguyễn Đức Anh', 'dev', NULL),
+     ('Lưu Văn Đông', 'dev', NULL),
+     ('Nguyễn Hữu Tùng', 'dev', NULL),
+     ('Ngô Giản Tuy', 'dev', NULL),
+     ('Phạm Hoàng Anh', 'dev', NULL),
+     ('Nguyễn Huy', 'dev', NULL),
+     ('Nguyễn Anh Tuấn', 'dev', NULL),
+     ('Phạm Tuấn Anh', 'dev', NULL),
+     ('Trần Ngọc Tú', 'dev', NULL);
+   UPDATE projects SET ba = CASE WHEN pm IS NULL OR pm = '' THEN ba WHEN ba IS NULL OR ba = '' THEN pm WHEN ba = pm THEN ba ELSE pm || ', ' || ba END;
+   ALTER TABLE projects DROP COLUMN pm;
+   ALTER TABLE projects RENAME COLUMN sales TO am;`,
 ];
 
 export function migrate() {

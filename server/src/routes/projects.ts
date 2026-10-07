@@ -18,8 +18,8 @@ export function loadProject(req: Request, perm?: Permission) {
   return { project, perms };
 }
 
-// Thông tin quản lý dự án (chữ tự do): khách hàng, ưu tiên, trạng thái dự án, nhân sự
-const INFO_FIELDS = ['customer', 'priority', 'project_status', 'pm', 'ba', 'dev', 'tester', 'sales'] as const;
+// Thông tin quản lý dự án: khách hàng, ưu tiên, trạng thái dự án (ghim), nhân sự (họ tên theo Danh mục nhân sự, cách nhau dấu phẩy)
+export const INFO_FIELDS = ['customer', 'priority', 'project_status', 'ba', 'dev', 'tester', 'am'] as const;
 function infoValues(b: any, project?: any) {
   if (b.project_status !== undefined) checkPhase(b.project_status);
   return INFO_FIELDS.map((f) => b[f] !== undefined ? (String(b[f] ?? '').trim().slice(0, 500) || null) : (project?.[f] ?? null));

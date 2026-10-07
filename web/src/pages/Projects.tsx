@@ -4,8 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
 import { useMe, useUsersBasic, hasPerm } from '../hooks';
 import type { ProjectSummary } from '../types';
-import { colorOf, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES } from '../util';
-import { ProjectInfoFields, projectInfoOf } from '../components/ProjectInfoFields';
+import { colorOf, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
+import { ProjectInfoFields, projectInfoOf, splitNames } from '../components/ProjectInfoFields';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
 
 export default function Projects() {
@@ -35,7 +35,7 @@ export default function Projects() {
   const q = filter.trim().toLowerCase();
   const statusOf = (p: ProjectSummary) => p.project_status || p.status_auto || '';
   const list = projects
-    ?.filter((p) => !q || [p.name, p.key, p.customer, p.pm, p.ba, p.dev, p.tester, p.sales].join(' ').toLowerCase().includes(q))
+    ?.filter((p) => !q || [p.name, p.key, p.customer, p.ba, p.dev, p.tester, p.am].join(' ').toLowerCase().includes(q))
     .filter((p) => !statusF || statusOf(p) === (statusF === '-' ? '' : statusF))
     .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
     .sort((a, b) => rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
@@ -71,7 +71,7 @@ export default function Projects() {
         <div className="table-wrap">
         <table className="table table-projects">
           <thead>
-            <tr><th>Tên dự án</th><th>Tên khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>PM</th><th>BA</th><th>Dev</th><th>Tester</th><th>Kinh doanh</th><th>Loại</th>{canArchive && <th />}</tr>
+            <tr><th>Tên dự án</th><th>Tên khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>BA/PM</th><th>Dev</th><th>Tester</th><th>AM</th><th>Loại</th>{canArchive && <th />}</tr>
           </thead>
           <tbody>
             {list.map((p) => (
@@ -80,11 +80,7 @@ export default function Projects() {
                 <td>{p.customer}</td>
                 <td>{p.priority && <span className={lozengeOf(PROJECT_PRIORITIES, p.priority)}>{p.priority}</span>}</td>
                 <td><ProjectStatus p={p} /></td>
-                <td className="people">{p.pm}</td>
-                <td className="people">{p.ba}</td>
-                <td className="people">{p.dev}</td>
-                <td className="people">{p.tester}</td>
-                <td className="people">{p.sales}</td>
+                {STAFF_POSITIONS.map((sp) => <td key={sp.key} className="people">{splitNames(p[sp.field]).map((n) => <div key={n}>{n}</div>)}</td>)}
                 <td>{p.type === 'scrum' ? 'Scrum' : 'Kanban'}</td>
                 {canArchive && <td className="num"><button className="btn btn-subtle btn-sm" onClick={() => toggleArchive(p)}>{p.is_archived ? 'Khôi phục' : 'Lưu trữ'}</button></td>}
               </tr>

@@ -25,6 +25,9 @@ const ACTIONS: Record<string, { label: string; danger?: boolean }> = {
   project_archived: { label: 'Lưu trữ / mở lại dự án' },
   member_added: { label: 'Thêm thành viên dự án' },
   member_removed: { label: 'Xóa thành viên dự án' },
+  staff_created: { label: 'Thêm vào danh mục nhân sự' },
+  staff_updated: { label: 'Sửa danh mục nhân sự' },
+  staff_deleted: { label: 'Xóa khỏi danh mục nhân sự' },
 };
 
 /** Rút gọn chuỗi trình duyệt: "Chrome · Windows" */

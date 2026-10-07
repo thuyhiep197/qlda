@@ -137,3 +137,9 @@ export function issueHealth(i: Pick<Issue, 'status_category' | 'start_date' | 'd
   if (progress === 0 && d(s, now) >= 1) return 'behind';
   return progress + 15 < expected ? 'behind' : 'on_track';
 }
+
+/** Vị trí trong Danh mục nhân sự; field = trường nhân sự tương ứng của dự án */
+export const STAFF_POSITIONS: { key: 'ba_pm' | 'tester' | 'am' | 'dev'; label: string; field: 'ba' | 'tester' | 'am' | 'dev' }[] = [
+  { key: 'ba_pm', label: 'BA/PM', field: 'ba' }, { key: 'dev', label: 'Dev', field: 'dev' },
+  { key: 'tester', label: 'Tester', field: 'tester' }, { key: 'am', label: 'AM', field: 'am' },
+];

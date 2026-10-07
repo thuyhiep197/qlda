@@ -97,6 +97,15 @@ export interface Sprint {
   done_points?: number;
 }
 
+export type StaffPosition = 'ba_pm' | 'tester' | 'am' | 'dev';
+/** Danh mục nhân sự dùng chung; positions: các vị trí cách nhau dấu phẩy */
+export interface StaffMember {
+  id: number;
+  full_name: string;
+  positions: string;
+  note: string | null;
+}
+
 export interface ProjectSummary {
   id: number;
   key: string;
@@ -116,11 +125,10 @@ export interface ProjectSummary {
   customer: string | null;
   priority: string | null;
   project_status: string | null;
-  pm: string | null;
   ba: string | null;
   dev: string | null;
   tester: string | null;
-  sales: string | null;
+  am: string | null;
 }
 
 export interface Project {
@@ -134,11 +142,10 @@ export interface Project {
   customer: string | null;
   priority: string | null;
   project_status: string | null;
-  pm: string | null;
   ba: string | null;
   dev: string | null;
   tester: string | null;
-  sales: string | null;
+  am: string | null;
   workflow_strict: number;
   statuses: Status[];
   members: Member[];
