@@ -25,6 +25,7 @@ const RULES: [RegExp, Phase][] = [
   [/chu truong/, 'Trình chủ trương'],
   [/hsyc|ho so yeu cau|ho so moi thau|hsmt|dau thau|lua chon nha thau/, 'Lập HSYC'],
   [/nghiem thu|ban giao/, 'Nghiệm thu'],
+  [/van hanh thu|chay thu/, 'Triển khai'],
   [/van hanh|bao hanh|bao tri|ho tro/, 'Hỗ trợ vận hành'],
   [/kiem thu|\btest|\bsit\b|\buat\b/, 'Kiểm thử'],
   [/trien khai|dao tao|go ?live|cai dat/, 'Triển khai'],
@@ -59,12 +60,15 @@ export function autoProjectStatuses(): Map<number, { status: Phase | null; reaso
     const cnt = counts.find((c) => c.project_id === pid);
     const list = (byProject.get(pid) || []).map((e) => ({ ...e, ph: (e.phase as Phase | null) ?? guessPhase(e.summary) }))
       .filter((e) => e.ph && e.ph !== 'Chưa bắt đầu') as (typeof epics[number] & { ph: Phase })[];
-    // Giai đoạn đang chạy: Epic chưa xong và đã bắt đầu (đến ngày bắt đầu, hoặc đã có việc đang làm). Nhiều giai đoạn chồng nhau → lấy giai đoạn xa nhất
-    const running = list.filter((e) => e.category !== 'done' && (e.category === 'inprogress' || (e.start_date && e.start_date <= today)))
+    // Giai đoạn đang chạy: ưu tiên Epic thực sự có việc đang làm; không có thì xét Epic đã đến ngày bắt đầu theo kế hoạch.
+    // Nhiều giai đoạn chồng nhau → lấy giai đoạn xa nhất
+    const open = list.filter((e) => e.category !== 'done');
+    const active = open.filter((e) => e.category === 'inprogress');
+    const running = (active.length ? active : open.filter((e) => e.start_date && e.start_date <= today))
       .sort((a, b) => order(b.ph) - order(a.ph));
     if (running.length) {
       const e = running[0];
-      out.set(pid, { status: e.ph, reason: `Theo giai đoạn ${e.key} "${e.summary}" đang chạy (${ddmm(e.start_date)} – ${ddmm(e.due_date)})` });
+      out.set(pid, { status: e.ph, reason: `Theo giai đoạn ${e.key} "${e.summary}" ${active.length ? 'đang có việc làm' : 'đã đến ngày bắt đầu'} (${ddmm(e.start_date)} – ${ddmm(e.due_date)})` });
       continue;
     }
     const done = list.filter((e) => e.category === 'done').sort((a, b) => order(b.ph) - order(a.ph));
