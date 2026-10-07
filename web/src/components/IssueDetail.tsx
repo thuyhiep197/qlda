@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
 import { can, useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions } from '../hooks';
 import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, SubType, Worklog } from '../types';
-import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
+import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, PROJECT_STATUSES, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
 import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
@@ -470,6 +470,14 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                   <option value="">Chưa phân loại</option>
                 </select>
               </div>
+            </>}
+
+            {issue.type === 'epic' && <>
+              <div className="prop-label" data-tip="Giai đoạn trong vòng đời dự án. Trạng thái dự án tự cập nhật theo giai đoạn của Epic đang chạy. Để Tự động: hệ thống đoán theo tên Epic">Giai đoạn dự án</div>
+              <select value={issue.phase ?? ''} disabled={!canEdit} onChange={(e) => save({ phase: e.target.value || null })}>
+                <option value="">⚙ Tự động: {issue.phase_guess ?? 'không đoán được từ tên'}</option>
+                {PROJECT_STATUSES.filter(([n]) => n !== 'Chưa bắt đầu').map(([n]) => <option key={n} value={n}>{n}</option>)}
+              </select>
             </>}
 
             <div className="prop-label">Độ ưu tiên</div>

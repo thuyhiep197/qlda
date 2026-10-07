@@ -29,10 +29,12 @@ export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onC
             <option value="">—</option>
             {options(PROJECT_PRIORITIES, value.priority).map((n) => <option key={n}>{n}</option>)}
           </select></label>
-        <label className="field grow"><span>Trạng thái dự án</span>
+        <label className="field grow"><span data-tip="Tự động: theo giai đoạn (Epic) đang chạy. Ghim: giữ cố định trạng thái đã chọn, dùng khi dự án chưa có công việc trên tool (VD đang trình chủ trương, lập HSYC)">Trạng thái dự án</span>
           <select value={value.project_status} onChange={(e) => set('project_status', e.target.value)}>
-            <option value="">—</option>
-            {options(PROJECT_STATUSES, value.project_status).map((n) => <option key={n}>{n}</option>)}
+            <option value="">⚙ Tự động (theo giai đoạn Epic)</option>
+            <optgroup label="Ghim cố định">
+              {options(PROJECT_STATUSES, value.project_status).map((n) => <option key={n} value={n}>📌 {n}</option>)}
+            </optgroup>
           </select></label>
       </div>
       <div className="field"><span>Nhân sự <small className="muted">(ghi tên, nhiều người cách nhau bằng dấu phẩy)</small></span>

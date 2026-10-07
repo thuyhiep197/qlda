@@ -33,9 +33,10 @@ export default function Projects() {
   // Sắp theo ưu tiên (Rất cao trước), cùng ưu tiên thì theo tên
   const rank = (v: string | null) => { const i = PROJECT_PRIORITIES.findIndex(([n]) => n === v); return i < 0 ? 99 : i; };
   const q = filter.trim().toLowerCase();
+  const statusOf = (p: ProjectSummary) => p.project_status || p.status_auto || '';
   const list = projects
     ?.filter((p) => !q || [p.name, p.key, p.customer, p.pm, p.ba, p.dev, p.tester, p.sales].join(' ').toLowerCase().includes(q))
-    .filter((p) => !statusF || (p.project_status || '') === (statusF === '-' ? '' : statusF))
+    .filter((p) => !statusF || statusOf(p) === (statusF === '-' ? '' : statusF))
     .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
     .sort((a, b) => rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
   const canArchive = hasPerm(me, 'project.delete');
@@ -53,7 +54,7 @@ export default function Projects() {
         <select value={statusF} className={statusF ? 'filter-on' : ''} onChange={(e) => setStatusF(e.target.value)}>
           <option value="">Trạng thái: Tất cả</option>
           {PROJECT_STATUSES.map(([n]) => <option key={n} value={n}>{n}</option>)}
-          <option value="-">(Chưa có trạng thái)</option>
+          <option value="-">(Chưa xác định)</option>
         </select>
         <select value={priorityF} className={priorityF ? 'filter-on' : ''} onChange={(e) => setPriorityF(e.target.value)}>
           <option value="">Ưu tiên: Tất cả</option>
@@ -78,7 +79,7 @@ export default function Projects() {
                 <td className="proj-name"><Link to={`/p/${p.key}`} className="row gap-sm" style={{ alignItems: 'flex-start' }}><span className="proj-dot" style={{ background: colorOf(p.key), flexShrink: 0 }}>{p.key.slice(0, 2)}</span> <b>{p.name}</b></Link></td>
                 <td>{p.customer}</td>
                 <td>{p.priority && <span className={lozengeOf(PROJECT_PRIORITIES, p.priority)}>{p.priority}</span>}</td>
-                <td>{p.project_status && <span className={lozengeOf(PROJECT_STATUSES, p.project_status)}>{p.project_status}</span>}</td>
+                <td><ProjectStatus p={p} /></td>
                 <td className="people">{p.pm}</td>
                 <td className="people">{p.ba}</td>
                 <td className="people">{p.dev}</td>
@@ -95,6 +96,15 @@ export default function Projects() {
       {creating && <CreateProjectModal onClose={() => setCreating(false)} />}
     </div>
   );
+}
+
+/** Trạng thái dự án: ghim tay (📌) hoặc tự tính theo giai đoạn Epic đang chạy (⚙, rê chuột xem lý do) */
+function ProjectStatus({ p }: { p: ProjectSummary }) {
+  const pinned = !!p.project_status;
+  const v = p.project_status || p.status_auto;
+  const tip = pinned ? 'Trạng thái ghim tay (đổi trong Cài đặt dự án → Thông tin chung; chọn "Tự động" để hệ thống tự cập nhật)' : `Tự động: ${p.status_reason}`;
+  if (!v) return <span className="muted small" data-tip={tip}>⚙ Chưa xác định</span>;
+  return <span className="nowrap" data-tip={tip}><span className={lozengeOf(PROJECT_STATUSES, v)}>{v}</span> <span className="muted small">{pinned ? '📌' : '⚙'}</span></span>;
 }
 
 function CreateProjectModal({ onClose }: { onClose: () => void }) {

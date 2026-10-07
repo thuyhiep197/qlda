@@ -3,6 +3,7 @@ import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
 import { addHistory } from '../issues.ts';
 import { runImport } from '../importer.ts';
+import { autoProjectStatuses, checkPhase } from '../phases.ts';
 import { mapStatusForType, projectStatuses, workflowConfig } from '../workflow.ts';
 import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission, requireUserPerm } from '../permissions.ts';
 
@@ -20,6 +21,7 @@ export function loadProject(req: Request, perm?: Permission) {
 // Thông tin quản lý dự án (chữ tự do): khách hàng, ưu tiên, trạng thái dự án, nhân sự
 const INFO_FIELDS = ['customer', 'priority', 'project_status', 'pm', 'ba', 'dev', 'tester', 'sales'] as const;
 function infoValues(b: any, project?: any) {
+  if (b.project_status !== undefined) checkPhase(b.project_status);
   return INFO_FIELDS.map((f) => b[f] !== undefined ? (String(b[f] ?? '').trim().slice(0, 500) || null) : (project?.[f] ?? null));
 }
 
@@ -47,6 +49,12 @@ r.get('/', (req, res) => {
         WHERE pm.project_id = p.id AND pm.user_id = ?) AS my_role
     FROM projects p LEFT JOIN users u ON u.id = p.lead_id
     WHERE p.is_archived = ? ORDER BY p.name`, req.user.id, showArchived ? 1 : 0);
+  // Trạng thái dự án: ghim tay (project_status) hoặc tự tính theo giai đoạn Epic đang chạy
+  const auto = autoProjectStatuses();
+  for (const p of rows) {
+    const a = auto.get(p.id) ?? { status: 'Chưa bắt đầu', reason: 'Chưa có công việc nào' };
+    p.status_auto = a.status; p.status_reason = a.reason;
+  }
   res.json(ids === 'all' ? rows : rows.filter((p) => ids.includes(p.id)));
 });
 

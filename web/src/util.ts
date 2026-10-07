@@ -20,10 +20,10 @@ export const SIDE_LABELS: Record<'so' | 'truong' | 'chung', string> = { so: 'S�
 export const PROJECT_PRIORITIES: [string, string][] = [
   ['Rất cao', 'red'], ['Cao', 'yellow'], ['Bình thường', 'blue'], ['Thấp', 'default'], ['Ổn định', 'green'], ['Pending', 'purple'],
 ];
+/** Trạng thái dự án = giai đoạn trong vòng đời dự án (cùng danh sách với "Giai đoạn dự án" của Epic, server/src/phases.ts) */
 export const PROJECT_STATUSES: [string, string][] = [
-  ['Chưa bắt đầu', 'default'], ['Đang làm hồ sơ', 'purple'], ['Đang phân tích', 'blue'], ['Đang thiết kế', 'blue'],
-  ['Đang phát triển', 'blue'], ['Đang kiểm thử', 'blue'], ['Đang xử lý vấn đề', 'red'], ['Chờ khách hàng', 'yellow'],
-  ['Chờ nội bộ', 'yellow'], ['Triển khai/Golive', 'green'], ['Hoàn thành', 'green'], ['Tạm dừng', 'default'], ['Hủy bỏ', 'default'],
+  ['Chưa bắt đầu', 'default'], ['Trình chủ trương', 'purple'], ['Lập HSYC', 'purple'], ['Khảo sát, phân tích', 'blue'],
+  ['Xây dựng', 'blue'], ['Kiểm thử', 'yellow'], ['Triển khai', 'green'], ['Nghiệm thu', 'green'], ['Hỗ trợ vận hành', 'default'],
 ];
 export const lozengeOf = (list: [string, string][], v: string | null) => `lozenge lozenge-${list.find(([n]) => n === v)?.[1] ?? 'default'}`;
 
@@ -31,7 +31,7 @@ export const FIELD_LABELS: Record<string, string> = {
   created: 'đã tạo issue', summary: 'Tiêu đề', description: 'Mô tả', type: 'Loại', priority: 'Độ ưu tiên',
   story_points: 'Điểm ước lượng', labels: 'Nhãn', start_date: 'Ngày bắt đầu', due_date: 'Hạn hoàn thành',
   assignee: 'Người thực hiện', parent: 'Issue cha', sprint: 'Sprint', status: 'Trạng thái',
-  attachment: 'Tệp đính kèm', link: 'Liên kết', version: 'Phiên bản', component: 'Mô-đun', ba: 'BA phụ trách', subtype: 'Loại việc con', original_estimate: 'Ước lượng thời gian',
+  attachment: 'Tệp đính kèm', link: 'Liên kết', version: 'Phiên bản', component: 'Mô-đun', ba: 'BA phụ trách', subtype: 'Loại việc con', phase: 'Giai đoạn dự án', original_estimate: 'Ước lượng thời gian',
   remaining_estimate: 'Thời gian còn lại', worklog: 'Ghi giờ', moved: 'Chuyển dự án', cloned: 'Nhân bản từ',
 };
 

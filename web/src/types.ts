@@ -110,6 +110,9 @@ export interface ProjectSummary {
   issue_count: number;
   my_role: string | null;
   is_archived: number;
+  /** Trạng thái tự tính theo giai đoạn Epic đang chạy (project_status = trạng thái ghim tay) */
+  status_auto: string | null;
+  status_reason: string;
   customer: string | null;
   priority: string | null;
   project_status: string | null;
@@ -197,6 +200,9 @@ export interface Issue {
   component_default_lead_name: string | null;
   /** Loại của việc con (Sub-task): story / task / bug; null = việc con thường */
   subtype: SubType | null;
+  /** Epic: giai đoạn dự án chọn tay (null = tự đoán theo tên, xem phase_guess) */
+  phase?: string | null;
+  phase_guess?: string | null;
   original_estimate: number | null;
   remaining_estimate: number | null;
   time_spent: number;

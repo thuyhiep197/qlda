@@ -374,6 +374,10 @@ const migrations: string[] = [
    ALTER TABLE projects ADD COLUMN dev TEXT;
    ALTER TABLE projects ADD COLUMN tester TEXT;
    ALTER TABLE projects ADD COLUMN sales TEXT;`,
+  // v15: giai đoạn dự án của Epic (NULL = tự đoán theo tên); trạng thái dự án = giai đoạn (project_status giờ là trạng thái ghim tay, NULL = tự động)
+  `ALTER TABLE issues ADD COLUMN phase TEXT;
+   UPDATE projects SET project_status = NULL WHERE project_status NOT IN
+     ('Chưa bắt đầu','Trình chủ trương','Lập HSYC','Khảo sát, phân tích','Xây dựng','Kiểm thử','Triển khai','Nghiệm thu','Hỗ trợ vận hành');`,
 ];
 
 export function migrate() {

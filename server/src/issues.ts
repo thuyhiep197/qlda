@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { all, get, now, run, tx, UPLOAD_DIR } from './db.ts';
 import { handleMentions, notify, watch, watchers } from './notify.ts';
+import { checkPhase, guessPhase } from './phases.ts';
 import { canTransition, initialStatus, isStatusAllowed, mapStatusForType, projectStatuses, typeStatuses } from './workflow.ts';
 import {
   accessibleProjectIds, badRequest, canEditIssue, forbidden, notFound,
@@ -39,6 +40,7 @@ export interface IssueRow {
   component_id: number | null;
   ba_id: number | null;
   subtype: string | null;
+  phase: string | null;
   original_estimate: number | null;
   remaining_estimate: number | null;
 }
@@ -70,7 +72,8 @@ LEFT JOIN users cu ON cu.id = cp.lead_id
 LEFT JOIN users bu ON bu.id = i.ba_id`;
 
 export function serialize(row: any) {
-  return { ...row, labels: row.labels ? String(row.labels).split(',').filter(Boolean) : [] };
+  return { ...row, labels: row.labels ? String(row.labels).split(',').filter(Boolean) : [],
+    ...(row.type === 'epic' ? { phase_guess: guessPhase(row.summary) } : {}) };
 }
 
 export function fetchIssue(where: 'id' | 'key', value: number | string) {
@@ -445,6 +448,12 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
           history.push(['subtype', issue.subtype, v, SUBTYPE_LABELS[issue.subtype ?? ''] ?? 'Sub-task', SUBTYPE_LABELS[v ?? ''] ?? 'Sub-task']);
         }
       }
+    }
+    if (has('phase')) {
+      requireEdit();
+      if (((sets.type as string | undefined) ?? issue.type) !== 'epic') throw badRequest('Chỉ Epic mới chọn được giai đoạn dự án');
+      const v = checkPhase(data.phase);
+      if (v !== issue.phase) { sets.phase = v; history.push(['phase', issue.phase, v, issue.phase ?? 'Tự động', v ?? 'Tự động']); }
     }
     if (has('priority') && data.priority !== issue.priority) {
       requireEdit();
