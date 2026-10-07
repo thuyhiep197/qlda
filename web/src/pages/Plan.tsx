@@ -157,6 +157,9 @@ export default function Plan() {
   const [epic, setEpic] = useState('');
   const [type, setType] = useState('');
   const [status, setStatus] = useState('');
+  // Mặc định ẩn việc đã Hoàn thành (tiến độ, đánh giá vẫn tính đủ); nhớ lựa chọn trên máy
+  const [showDone, setShowDoneState] = useState(() => { try { return localStorage.getItem('qlda:plan-show-done') === '1'; } catch { return false; } });
+  const setShowDone = (v: boolean) => { setShowDoneState(v); try { localStorage.setItem('qlda:plan-show-done', v ? '1' : '0'); } catch { /* bỏ qua */ } };
   // Dạng xem: bảng (cây) hoặc Kanban; nhớ lựa chọn trên máy
   const [view, setViewState] = useState<'table' | 'kanban'>(() => { try { return localStorage.getItem('qlda:plan-view') === 'kanban' ? 'kanban' : 'table'; } catch { return 'table'; } });
   const setView = (v: 'table' | 'kanban') => { setViewState(v); try { localStorage.setItem('qlda:plan-view', v); } catch { /* bỏ qua */ } };
@@ -232,7 +235,15 @@ export default function Plan() {
     return rowFilter && match(r) ? [{ ...r, children: [] }] : !rowFilter && r.level > 0 ? [{ ...r, children: [] }] : [];
   });
   const scope = epic ? tree.filter((e) => String(e.issue.id) === epic) : tree;
-  const shown = filtering ? visibleTree(scope) : scope;
+  // Đang lọc theo trạng thái/đánh giá Hoàn thành thì vẫn hiện việc đã xong
+  const wantDone = showDone || status !== '' && project.statuses.some((x) => x.name === status && x.category === 'done') || health === 'done' || health === 'done_late';
+  const dropDone = (rows: Row[]): Row[] => rows.flatMap((r) => {
+    const kids = dropDone(r.children);
+    return r.issue.status_category === 'done' && r.issue.id > 0 && !kids.length ? [] : [{ ...r, children: kids }];
+  });
+  const shownAll = filtering ? visibleTree(scope) : scope;
+  const shown = wantDone ? shownAll : dropDone(shownAll);
+  const hiddenDone = flatten(shownAll).length - flatten(shown).length;
   const lines: Row[] = [];
   const walk = (rows: Row[]) => rows.forEach((r) => { lines.push(r); if (filtering || isOpen(r)) walk(r.children); });
   walk(shown);
@@ -271,7 +282,7 @@ export default function Plan() {
     ];
     ws.getRow(1).font = { bold: true };
     const FILL: Partial<Record<Health, string>> = { late: 'FFFFD5D2', behind: 'FFF8E6A0', on_track: 'FFCCE0FF', done: 'FFBAF3DB', done_late: 'FFDFD8FD' };
-    for (const r of flatten(shown)) {
+    for (const r of flatten(shownAll)) { // Excel kế hoạch luôn gồm cả việc đã hoàn thành
       const row = ws.addRow({
         key: r.issue.key, lvl: r.level === 0 ? 'Giai đoạn' : r.level === 1 ? TYPE_LABELS[r.issue.type] : r.issue.subtype ? `Việc con (${TYPE_LABELS[r.issue.subtype]})` : 'Việc con',
         name: `${'    '.repeat(r.level)}${r.issue.summary}`, from: fmtDate(r.start), to: fmtDate(r.end),
@@ -359,6 +370,9 @@ export default function Plan() {
         </MoreFilters>
         {(filtering || epic) && <button className="btn btn-subtle btn-sm" onClick={clearFilters}>Xóa lọc</button>}
         {(filtering || epic) && <span className="muted small">{flatten(shown).filter((r) => r.level > 0).length} việc khớp</span>}
+        {view === 'table' && <label className="check small" data-tip="Mặc định ẩn việc đã Hoàn thành; tiến độ và đánh giá vẫn tính cả việc đã xong">
+          <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} /> Hiện việc đã hoàn thành{!wantDone && hiddenDone > 0 && <span className="muted"> ({hiddenDone})</span>}
+        </label>}
         <div className="spacer" />
         <div className="seg" role="group" aria-label="Dạng xem">
           <button className={view === 'table' ? 'on' : ''} onClick={() => setView('table')}><ListTree size={14} /> Dạng bảng</button>
@@ -373,7 +387,7 @@ export default function Plan() {
       </div>
 
       {view === 'kanban' ? (
-        <PlanKanban project={project} lanes={shown.map((e) => ({
+        <PlanKanban project={project} lanes={shownAll.map((e) => ({
           key: String(e.issue.id), title: e.issue.summary, epicKey: e.issue.id > 0 ? e.issue.key : undefined,
           items: flatten(e.children).filter((r) => r.issue.id > 0).map((r) => r.issue),
         }))} />

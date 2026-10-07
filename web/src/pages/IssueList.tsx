@@ -35,6 +35,10 @@ export default function IssueList() {
   const filter: Record<string, string> = {};
   FILTER_KEYS.forEach((k) => { const v = params.get(k); if (v) filter[k] = v; });
   if (projectKey) filter.project = projectKey;
+  // Mặc định không hiện issue Hoàn thành (trừ khi chọn nhóm trạng thái, trạng thái cụ thể hoặc đánh giá); 'all' = mọi nhóm
+  const catParam = params.get('statusCategory');
+  if (catParam === 'all') delete filter.statusCategory;
+  else if (!catParam && !filter.status && !filter.health) filter.statusCategory = 'todo,inprogress';
   const sort = filter.sort || 'updated';
 
   const { data: fetched, isLoading } = useQuery<Issue[]>({
@@ -113,9 +117,10 @@ export default function IssueList() {
           <option value="none">Chưa giao</option>
           {project?.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
         </select>
-        <select value={filter.statusCategory || ''} onChange={(e) => set('statusCategory', e.target.value)}>
-          <option value="">Mọi nhóm trạng thái</option>
+        <select value={catParam ?? (filter.statusCategory ? 'todo,inprogress' : 'all')} onChange={(e) => set('statusCategory', e.target.value === 'todo,inprogress' ? '' : e.target.value)}
+          className={catParam && catParam !== 'todo,inprogress' ? 'filter-on' : ''}>
           <option value="todo,inprogress">Chưa hoàn thành</option>
+          <option value="all">Mọi nhóm trạng thái</option>
           {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <MoreFilters count={(['type', 'status', 'priority', 'parent', 'sprint', 'version', 'component', 'ba', 'label', 'health'] as const).filter((k) => filter[k]).length}>
