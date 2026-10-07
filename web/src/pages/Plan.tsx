@@ -5,7 +5,7 @@ import { api, qs, refreshAll } from '../api';
 import { useIssueModal, can } from '../hooks';
 import type { Issue, SubType } from '../types';
 import { fmtDate, today as todayStr, TYPE_LABELS, canMove, statusesFor } from '../util';
-import { Avatar, Empty, Spinner, StatusBadge, TypeIcon, MoreFilters, toast, toastError } from '../components/ui';
+import { Avatar, Empty, FlagMark, Spinner, StatusBadge, TypeIcon, MoreFilters, toast, toastError } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
 import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
@@ -415,7 +415,7 @@ export default function Plan() {
               : <span className="plan-spacer" />}
             {i.id > 0 && <TypeIcon type={i.type} subtype={i.subtype} size={15} />}
             <a className="ellipsis" onClick={() => i.id > 0 && open(i.key)} data-tip={i.summary}>
-              {i.key && <span className="issue-key">{i.key}</span>} {i.summary}
+              {i.key && <span className="issue-key">{i.key}</span>} <FlagMark flagged={i.flagged} /> {i.summary}
             </a>
             {r.children.length > 0 && <span className="muted small nowrap">({r.children.length})</span>}
             {r.lateKids > 0 && <span className="lozenge lozenge-red" data-tip="Số việc bên trong đang trễ hạn">{r.lateKids} trễ</span>}

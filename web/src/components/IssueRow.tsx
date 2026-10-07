@@ -1,6 +1,6 @@
 import type { Issue } from '../types';
 import { colorOf, fmtDate, isOverdue } from '../util';
-import { Avatar, PriorityIcon, StatusBadge, TypeIcon } from './ui';
+import { Avatar, FlagMark, PriorityIcon, StatusBadge, TypeIcon } from './ui';
 
 export function EpicTag({ issue }: { issue: Pick<Issue, 'parent_key' | 'parent_summary' | 'parent_type'> }) {
   if (!issue.parent_key || issue.parent_type !== 'epic') return null;
@@ -14,6 +14,7 @@ export function IssueLine({ issue, onOpen }: { issue: Issue; onOpen: () => void 
     <div className="issue-line" onClick={onOpen}>
       <TypeIcon type={issue.type} subtype={issue.subtype} />
       <span className={`issue-key ${issue.status_category === 'done' ? 'done-text' : ''}`}>{issue.key}</span>
+      <FlagMark flagged={issue.flagged} />
       <span className="ellipsis grow">{issue.summary}</span>
       {issue.labels.slice(0, 2).map((l) => <span key={l} className="label-chip sm">{l}</span>)}
       <EpicTag issue={issue} />

@@ -5,7 +5,7 @@ import { api, qs, queryClient, refreshAll } from '../api';
 import { can, useIssueModal, useSprints } from '../hooks';
 import type { Issue, Status } from '../types';
 import { canMove, fmtDate, isOverdue, today } from '../util';
-import { Avatar, Empty, PriorityIcon, Spinner, toastError, TypeIcon, HelpTip } from '../components/ui';
+import { Avatar, Empty, FlagMark, PriorityIcon, Spinner, toastError, TypeIcon, HelpTip } from '../components/ui';
 import { FilterBar, useFilters } from '../components/FilterBar';
 import { EpicTag } from '../components/IssueRow';
 import { CompleteSprintModal } from '../components/SprintModals';
@@ -249,6 +249,7 @@ function Card({ issue, onOpen, dragging, selected }: { issue: Issue; onOpen: (e:
       <div className="card-foot">
         <TypeIcon type={issue.type} subtype={issue.subtype} />
         <span className="issue-key small">{issue.key}</span>
+        <FlagMark flagged={issue.flagged} />
         {issue.child_count > 0 && <span className="muted small nowrap" title="Sub-task hoàn thành"><SquareCheck size={12} /> {issue.child_done}/{issue.child_count}</span>}
         {issue.due_date && <span className={`small ${isOverdue(issue) ? 'overdue' : issue.due_date === today() ? 'warn' : 'muted'} icon-text`}><CalendarDays size={12} /> {fmtDate(issue.due_date).slice(0, 5)}</span>}
         <div className="spacer" />

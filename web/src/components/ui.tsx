@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { Bookmark, Bug, Check, ChevronDown, ChevronsDown, ChevronsUp, ChevronUp, Equal, Info, ListTree, SlidersHorizontal, UserRound, X, Zap, type LucideIcon } from 'lucide-react';
+import { Bookmark, Bug, Check, Flag, ChevronDown, ChevronsDown, ChevronsUp, ChevronUp, Equal, Info, ListTree, SlidersHorizontal, UserRound, X, Zap, type LucideIcon } from 'lucide-react';
 import type { Category, IssueType, Priority, SubType } from '../types';
 import { colorOf, initials, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
 
@@ -277,4 +277,10 @@ export function MoreFilters({ count, children }: { count: number; children: Reac
 /** Biểu tượng ⓘ: gợi ý cách dùng, chỉ hiện khi rê chuột (thay cho các dòng "Mẹo…"). */
 export function HelpTip({ text }: { text: string }) {
   return <span className="help-tip" data-tip={text} aria-label={text}><Info size={15} /></span>;
+}
+
+/** Cờ đỏ ⚑ của issue được đánh dấu quan trọng */
+export function FlagMark({ flagged, size = 13 }: { flagged?: number | boolean | null; size?: number }) {
+  if (!flagged) return null;
+  return <Flag size={size} className="flag-mark" fill="currentColor" aria-label="Quan trọng" data-tip="Được đánh dấu quan trọng" />;
 }

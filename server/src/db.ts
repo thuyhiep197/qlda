@@ -411,6 +411,8 @@ const migrations: string[] = [
    UPDATE projects SET ba = CASE WHEN pm IS NULL OR pm = '' THEN ba WHEN ba IS NULL OR ba = '' THEN pm WHEN ba = pm THEN ba ELSE pm || ', ' || ba END;
    ALTER TABLE projects DROP COLUMN pm;
    ALTER TABLE projects RENAME COLUMN sales TO am;`,
+  // v17: đánh dấu issue quan trọng (⚑, như Flag của Jira) — thông báo của issue này vào tab Quan trọng
+  `ALTER TABLE issues ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 export function migrate() {

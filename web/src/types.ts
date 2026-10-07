@@ -210,6 +210,8 @@ export interface Issue {
   /** Epic: giai đoạn dự án chọn tay (null = tự đoán theo tên, xem phase_guess) */
   phase?: string | null;
   phase_guess?: string | null;
+  /** 1 = đánh dấu quan trọng (⚑) */
+  flagged?: number;
   original_estimate: number | null;
   remaining_estimate: number | null;
   time_spent: number;

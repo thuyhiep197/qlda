@@ -41,6 +41,7 @@ export interface IssueRow {
   ba_id: number | null;
   subtype: string | null;
   phase: string | null;
+  flagged: number;
   original_estimate: number | null;
   remaining_estimate: number | null;
 }
@@ -455,6 +456,11 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       const v = checkPhase(data.phase);
       if (v !== issue.phase) { sets.phase = v; history.push(['phase', issue.phase, v, issue.phase ?? 'Tự động', v ?? 'Tự động']); }
     }
+    if (has('flagged')) {
+      requireEdit();
+      const v = data.flagged ? 1 : 0;
+      if (v !== issue.flagged) { sets.flagged = v; history.push(['flagged', issue.flagged, v, issue.flagged ? 'Quan trọng' : 'Không', v ? 'Quan trọng' : 'Không']); }
+    }
     if (has('priority') && data.priority !== issue.priority) {
       requireEdit();
       if (!PRIORITIES.includes(data.priority)) throw badRequest('Độ ưu tiên không hợp lệ');
@@ -605,6 +611,12 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       }
       const st = history.find((h) => h[0] === 'status');
       if (st) notify(watchers(issue.id), user.id, issue.id, 'status', `${st[3]} → ${st[4]}`);
+      // Đánh dấu quan trọng: người thực hiện và người theo dõi nhận thông báo (kèm lý do nếu có)
+      if (sets.flagged === 1) {
+        watch(issue.id, [user.id]);
+        notify([...watchers(issue.id), (sets.assignee_id as number | undefined) ?? issue.assignee_id].filter(Boolean) as number[], user.id, issue.id, 'flag',
+          typeof data.flag_note === 'string' && data.flag_note.trim() ? data.flag_note : null);
+      }
       if (sets.description !== undefined) handleMentions(issue.id, issue.project_id, user.id, sets.description as string, issue.description);
       // Epic cũ và Epic mới (nếu đổi Epic) tự cập nhật trạng thái
       if (sets.status_id !== undefined || sets.parent_id !== undefined || sets.type !== undefined) {

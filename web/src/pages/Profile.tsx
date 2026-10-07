@@ -119,11 +119,12 @@ function AppearanceTab({ me }: { me: Me }) {
   );
 }
 
-const NOTIFY: { key: 'mention' | 'assigned' | 'comment' | 'status'; label: string }[] = [
+const NOTIFY: { key: 'mention' | 'assigned' | 'comment' | 'status' | 'flag'; label: string }[] = [
   { key: 'mention', label: 'Có người @nhắc đến tôi' },
   { key: 'assigned', label: 'Tôi được giao một issue' },
   { key: 'comment', label: 'Issue tôi theo dõi có bình luận mới' },
   { key: 'status', label: 'Issue tôi theo dõi đổi trạng thái' },
+  { key: 'flag', label: 'Issue của tôi / tôi theo dõi được đánh dấu quan trọng' },
 ];
 
 function NotificationsTab({ me }: { me: Me }) {

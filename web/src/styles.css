@@ -839,3 +839,12 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .plan-draft .plan-name { gap: 8px; }
 .plan-draft select { width: auto; }
 .plan-draft input { min-width: 200px; }
+.flag-mark { color: #e2483d; flex-shrink: 0; vertical-align: -2px; }
+.icon-btn.flag-on { color: #e2483d; }
+.flag-banner { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 6px 10px; border-radius: 6px; background: var(--red-bg); color: var(--red-fg); font-size: 13px; }
+.flag-banner a { margin-left: auto; cursor: pointer; }
+.bell-tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--border); }
+.bell-tabs button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; padding: 7px 10px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.bell-tabs button.on { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.bell-count { font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 9px; background: var(--sunken); color: var(--text); }
+.bell-count.red { background: #e2483d; color: #fff; }

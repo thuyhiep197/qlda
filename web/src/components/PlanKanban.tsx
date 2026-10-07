@@ -4,7 +4,7 @@ import { api, refreshAll } from '../api';
 import { can, useIssueModal } from '../hooks';
 import type { Issue, Project, Status } from '../types';
 import { canMove, fmtDate, HEALTH_LABELS, issueHealth, type Health } from '../util';
-import { Avatar, PriorityIcon, toast, toastError, TypeIcon } from './ui';
+import { Avatar, FlagMark, PriorityIcon, toast, toastError, TypeIcon } from './ui';
 
 const HEALTH_TONE: Record<Health, string> = {
   late: 'red', behind: 'yellow', on_track: 'blue', not_started: 'default', done_late: 'purple', done: 'green', no_plan: 'default',
@@ -85,6 +85,7 @@ export function PlanKanban({ project, lanes }: { project: Project; lanes: Kanban
                               <div className="card-foot">
                                 <TypeIcon type={i.type} subtype={i.subtype} size={14} />
                                 <span className="issue-key">{i.key}</span>
+                                <FlagMark flagged={i.flagged} size={12} />
                                 <span className="spacer" />
                                 <PriorityIcon priority={i.priority} size={14} />
                                 {i.component_lead_name && <span className="muted small ellipsis pk-ba" data-tip={`BA phụ trách: ${i.component_lead_name}`}>BA: {i.component_lead_name.split(' ').slice(-1)[0]}</span>}

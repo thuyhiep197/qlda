@@ -4,12 +4,12 @@ import { api, queryClient } from '../api';
 import { useIssueModal, useUsersBasic } from '../hooks';
 import type { IssueType } from '../types';
 import { timeAgo } from '../util';
-import { Avatar, TypeIcon } from './ui';
+import { Avatar, FlagMark, TypeIcon } from './ui';
 import { Bell } from 'lucide-react';
 
 interface Notification {
   id: number;
-  type: 'mention' | 'assigned' | 'comment' | 'status';
+  type: 'mention' | 'assigned' | 'comment' | 'status' | 'flag';
   text: string | null;
   created_at: string;
   read_at: string | null;
@@ -17,6 +17,7 @@ interface Notification {
   issue_key: string;
   issue_summary: string;
   issue_type: IssueType;
+  issue_flagged: number;
 }
 
 const VERB: Record<Notification['type'], string> = {
@@ -24,6 +25,7 @@ const VERB: Record<Notification['type'], string> = {
   assigned: 'đã giao cho bạn',
   comment: 'đã bình luận trong',
   status: 'đã chuyển trạng thái',
+  flag: 'đã đánh dấu quan trọng',
 };
 
 /** Chuông thông báo trên thanh trên cùng, tự làm mới mỗi 30 giây. */
@@ -32,10 +34,12 @@ export default function NotificationBell() {
   const { data: users } = useUsersBasic();
   const [show, setShow] = useState(false);
   const [onlyUnread, setOnlyUnread] = useState(false);
+  // Tab: tất cả / quan trọng (issue được đánh dấu ⚑)
+  const [tab, setTab] = useState<'all' | 'important'>('all');
   const box = useRef<HTMLDivElement>(null);
-  const { data } = useQuery<{ unread: number; items: Notification[] }>({
-    queryKey: ['notifications'],
-    queryFn: () => api.get('/notifications'),
+  const { data } = useQuery<{ unread: number; unread_important: number; items: Notification[] }>({
+    queryKey: ['notifications', tab],
+    queryFn: () => api.get(`/notifications${tab === 'important' ? '?tab=important' : ''}`),
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   });
@@ -62,6 +66,7 @@ export default function NotificationBell() {
   const readAll = async () => { await api.post('/notifications/read-all'); refresh(); };
 
   const unread = data?.unread ?? 0;
+  const unreadImportant = data?.unread_important ?? 0;
   const items = (data?.items ?? []).filter((n) => !onlyUnread || !n.read_at);
 
   return (
@@ -78,15 +83,26 @@ export default function NotificationBell() {
             <div className="spacer" />
             {unread > 0 && <a className="small" onClick={readAll}>Đánh dấu tất cả đã đọc</a>}
           </div>
+          <div className="bell-tabs" role="tablist">
+            <button role="tab" aria-selected={tab === 'all'} className={tab === 'all' ? 'on' : ''} onClick={() => setTab('all')}>
+              Tất cả{unread > 0 && <span className="bell-count">{unread}</span>}
+            </button>
+            <button role="tab" aria-selected={tab === 'important'} className={tab === 'important' ? 'on' : ''} onClick={() => setTab('important')}
+              data-tip="Thông báo của các issue được đánh dấu quan trọng (⚑)">
+              <FlagMark flagged size={12} /> Quan trọng{unreadImportant > 0 && <span className="bell-count red">{unreadImportant}</span>}
+            </button>
+          </div>
           <div className="bell-list">
-            {items.length === 0 && <div className="empty small">{onlyUnread ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}</div>}
+            {items.length === 0 && <div className="empty small">{tab === 'important'
+              ? (onlyUnread ? 'Không có thông báo quan trọng chưa đọc' : 'Chưa có thông báo quan trọng. Bấm ⚑ trên issue để đánh dấu quan trọng.')
+              : onlyUnread ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}</div>}
             {items.map((n) => (
               <div key={n.id} className={`bell-item ${n.read_at ? '' : 'unread'}`} onClick={() => openItem(n)}>
                 <Avatar name={n.actor_name} size={30} />
                 <div className="grow">
                   <div><b>{n.actor_name || 'Hệ thống'}</b> {VERB[n.type]}</div>
                   <div className="row gap-xs small bell-issue">
-                    <TypeIcon type={n.issue_type} size={14} /> <span className="issue-key">{n.issue_key}</span>
+                    <TypeIcon type={n.issue_type} size={14} /> <span className="issue-key">{n.issue_key}</span> <FlagMark flagged={n.issue_flagged} size={12} />
                     <span className="ellipsis">{n.issue_summary}</span>
                   </div>
                   {n.text && n.type !== 'assigned' && <div className="bell-text small">{pretty(n.text)}</div>}

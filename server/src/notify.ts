@@ -2,11 +2,12 @@
  * Người theo dõi (watcher) và thông báo trong ứng dụng, theo cách Jira:
  *  - Tự theo dõi: người tạo, người được giao, người bình luận, người được @nhắc.
  *  - Thông báo: được @nhắc; được giao việc; issue đang theo dõi có bình luận mới hoặc đổi trạng thái.
+ *  - Issue được đánh dấu quan trọng (⚑): người thực hiện và người theo dõi nhận thông báo.
  *  - Không thông báo cho chính người thực hiện thao tác.
  */
 import { all, get, now, run } from './db.ts';
 
-export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status';
+export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status' | 'flag';
 
 /** @tên_đăng_nhập đứng đầu dòng hoặc sau khoảng trắng/ngoặc (không bắt nhầm email a@b.com). */
 const MENTION_RE = /(^|[\s(>])@([a-z0-9][a-z0-9._-]*[a-z0-9_-]|[a-z0-9])/gi;

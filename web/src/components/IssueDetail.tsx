@@ -8,7 +8,7 @@ import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PR
 import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
-import { ArrowRightLeft, Copy, Eye, EyeOff, Link as LinkIcon, Paperclip, Plus, Timer, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, Copy, Eye, EyeOff, Flag, Link as LinkIcon, Paperclip, Plus, Timer, Trash2, X } from 'lucide-react';
 
 export default function IssueDetailModal({ issueKey }: { issueKey: string }) {
   const { close } = useIssueModal();
@@ -193,6 +193,13 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
 
   const childPct = issue.child_count ? Math.round((issue.child_done / issue.child_count) * 100) : 0;
 
+  const toggleFlag = async () => {
+    if (issue.flagged) { await save({ flagged: false }); return; }
+    const note = window.prompt('Lý do đánh dấu quan trọng (không bắt buộc) — sẽ gửi kèm thông báo cho người thực hiện và người theo dõi:', '');
+    if (note === null) return;
+    await save({ flagged: true, flag_note: note });
+  };
+
   return (
     <div className="issue-detail">
       <div className="issue-head">
@@ -206,6 +213,10 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           <span className="row gap-xs"><TypeIcon type={issue.type} subtype={issue.subtype} size={14} /> <Link to={`/browse/${issue.key}`}>{issue.key}</Link></span>
         </div>
         <div className="row gap-xs">
+          {canEdit && (
+            <button className={`icon-btn ${issue.flagged ? 'flag-on' : ''}`} data-tip={issue.flagged ? 'Bỏ đánh dấu quan trọng' : 'Đánh dấu quan trọng (người thực hiện và người theo dõi nhận thông báo)'}
+              aria-pressed={!!issue.flagged} onClick={toggleFlag}><Flag size={16} fill={issue.flagged ? 'currentColor' : 'none'} /></button>
+          )}
           <button className="icon-btn" data-tip="Sao chép liên kết" onClick={copyLink}><LinkIcon size={16} /></button>
           {can(perms, 'issue.create') && (
             <button className="icon-btn" data-tip="Nhân bản issue" onClick={() => setCloning(true)}><Copy size={16} /></button>
@@ -217,6 +228,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           {onClose && <button className="icon-btn" data-tip="Đóng" onClick={onClose}><X size={18} /></button>}
         </div>
       </div>
+      {!!issue.flagged && <div className="flag-banner"><Flag size={14} fill="currentColor" /> Issue được đánh dấu <b>quan trọng</b>{canEdit && <a className="small" onClick={toggleFlag}>Bỏ đánh dấu</a>}</div>}
       {logging && <LogWorkModal issue={issue} onClose={() => setLogging(false)} />}
       {cloning && <CloneModal issue={issue} onClose={() => setCloning(false)} onDone={(key) => { setCloning(false); open(key); }} />}
       {moving && <MoveProjectModal issue={issue} onClose={() => setMoving(false)} onDone={(key) => { setMoving(false); open(key); }} />}

@@ -5,7 +5,7 @@ import { api, qs, refreshAll } from '../api';
 import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useVersions, hasPerm } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
 import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS, HEALTH_LABELS, issueHealth, type Health } from '../util';
-import { Avatar, Empty, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
+import { Avatar, Empty, FlagMark, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
 import { EpicTag } from '../components/IssueRow';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar } from '../components/BulkBar';
@@ -223,7 +223,7 @@ export default function IssueList() {
                       onChange={() => { const n = new Set(selected); n.has(i.id) ? n.delete(i.id) : n.add(i.id); setSelected(n); }} />
                   </td>
                   <td><TypeIcon type={i.type} subtype={i.subtype} /></td>
-                  <td className="nowrap"><span className={`issue-key ${i.status_category === 'done' ? 'done-text' : ''}`}>{i.key}</span></td>
+                  <td className="nowrap"><span className={`issue-key ${i.status_category === 'done' ? 'done-text' : ''}`}>{i.key}</span> <FlagMark flagged={i.flagged} /></td>
                   <td><div className="row gap-xs"><span className="ellipsis">{i.summary}</span><EpicTag issue={i} /></div></td>
                   <td><StatusBadge name={i.status_name} category={i.status_category} /></td>
                   <td><div className="row gap-xs"><PriorityIcon priority={i.priority} /> <span className="small">{PRIORITY_LABELS[i.priority]}</span></div></td>
