@@ -11,8 +11,8 @@ function scope(user: Express.Request['user']) {
   return ids.length ? `i.project_id IN (${ids.join(',')})` : '0=1';
 }
 
-// Thông báo quan trọng: của issue đang được đánh dấu ⚑, hoặc chính thông báo "đánh dấu quan trọng"
-const IMPORTANT = "(i.flagged = 1 OR n.type = 'flag')";
+// Thông báo quan trọng: có người nhắc (@) đến mình, issue đang được đánh dấu ⚑, hoặc chính thông báo "đánh dấu quan trọng"
+const IMPORTANT = "(n.type IN ('mention', 'flag') OR i.flagged = 1)";
 
 r.get('/', (req, res) => {
   const where = `n.user_id = ? AND ${scope(req.user)} AND p.is_archived = 0`;

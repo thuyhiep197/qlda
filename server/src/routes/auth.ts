@@ -73,7 +73,7 @@ r.get('/me', requireAuth, (req, res) => {
 // Cài đặt tài khoản cá nhân
 // ---------------------------------------------------------------------------
 const THEMES = ['light', 'dark', 'system'];
-const NOTIFY_TYPES = ['mention', 'assigned', 'comment', 'status'];
+const NOTIFY_TYPES = ['mention', 'assigned', 'comment', 'status', 'flag'];
 
 /** Giao diện và loại thông báo muốn nhận. Chỉ ghi các khóa hợp lệ. */
 r.put('/preferences', requireAuth, (req, res) => {

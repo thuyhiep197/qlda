@@ -88,13 +88,13 @@ export default function NotificationBell() {
               Tất cả{unread > 0 && <span className="bell-count">{unread}</span>}
             </button>
             <button role="tab" aria-selected={tab === 'important'} className={tab === 'important' ? 'on' : ''} onClick={() => setTab('important')}
-              data-tip="Thông báo của các issue được đánh dấu quan trọng (⚑)">
+              data-tip="Khi có người nhắc (@) đến bạn, và thông báo của các issue được đánh dấu quan trọng (⚑)">
               <FlagMark flagged size={12} /> Quan trọng{unreadImportant > 0 && <span className="bell-count red">{unreadImportant}</span>}
             </button>
           </div>
           <div className="bell-list">
             {items.length === 0 && <div className="empty small">{tab === 'important'
-              ? (onlyUnread ? 'Không có thông báo quan trọng chưa đọc' : 'Chưa có thông báo quan trọng. Bấm ⚑ trên issue để đánh dấu quan trọng.')
+              ? (onlyUnread ? 'Không có thông báo quan trọng chưa đọc' : 'Chưa có thông báo quan trọng (được nhắc @ đến, hoặc issue được đánh dấu ⚑).')
               : onlyUnread ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}</div>}
             {items.map((n) => (
               <div key={n.id} className={`bell-item ${n.read_at ? '' : 'unread'}`} onClick={() => openItem(n)}>
