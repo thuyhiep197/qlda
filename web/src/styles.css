@@ -836,7 +836,9 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .plan-row:hover .plan-add, .plan-add:focus-visible { opacity: 1; }
 @media (hover: none) { .plan-add { opacity: .7; } }
 .plan-draft td { background: var(--primary-soft) !important; }
-.plan-draft .plan-name { gap: 8px; }
+/* Dòng nhập nhanh: giới hạn độ rộng và dính mép trái để nút Tạo luôn trong tầm nhìn, không phải kéo ngang */
+.plan-draft .plan-name { gap: 8px; position: sticky; left: 8px; width: max-content; max-width: min(860px, calc(100vw - 340px)); }
+.plan-draft .plan-name input { width: 420px; }
 .plan-draft select { width: auto; }
 .plan-draft input { min-width: 200px; }
 .flag-mark { color: #e2483d; flex-shrink: 0; vertical-align: -2px; }
