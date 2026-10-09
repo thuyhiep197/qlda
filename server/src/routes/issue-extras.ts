@@ -153,7 +153,7 @@ r.post('/:key/clone', (req, res) => {
     const sprint = src.sprint_id ? get<{ state: string }>('SELECT state FROM sprints WHERE id = ?', src.sprint_id) : null;
     const assigneeOk = src.assignee_id && get('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', src.project_id, src.assignee_id);
     return createIssue(req.user, src.project_id, perms, {
-      type: src.type, summary: src.summary, description: src.description, priority: src.priority,
+      type: src.type, summary: src.summary, description: src.description, note: src.note, priority: src.priority,
       assignee_id: assigneeOk && (src.assignee_id === req.user.id || perms.has('issue.assign')) ? src.assignee_id : null,
       parent_id: src.parent_id, sprint_id: sprint && sprint.state !== 'closed' ? src.sprint_id : null,
       story_points: src.story_points, labels: src.labels ? src.labels.split(',') : [], start_date: src.start_date,

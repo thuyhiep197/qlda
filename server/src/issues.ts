@@ -9,6 +9,7 @@ import {
   type AuthUser, type Permission,
 } from './permissions.ts';
 import { avatarUrl } from './avatar.ts';
+import { checkIssueNote } from './issue-note.ts';
 
 export const ISSUE_TYPES = ['epic', 'story', 'task', 'bug', 'subtask'] as const;
 export const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest'] as const;
@@ -23,6 +24,7 @@ export interface IssueRow {
   type: string;
   summary: string;
   description: string | null;
+  note: string | null;
   status_id: number;
   priority: string;
   assignee_id: number | null;
@@ -377,11 +379,11 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     const status = get('SELECT category FROM statuses WHERE id = ?', statusId)!;
     const estimate = parseDuration(data.original_estimate, 'Ước lượng thời gian');
     const { id } = run(
-      `INSERT INTO issues(project_id, number, key, type, summary, description, status_id, priority, assignee_id,
+      `INSERT INTO issues(project_id, number, key, type, summary, description, note, status_id, priority, assignee_id,
         reporter_id, parent_id, sprint_id, story_points, labels, start_date, due_date, rank, resolved_at, created_at, updated_at,
         version_id, original_estimate, remaining_estimate, component_id, subtype)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      projectId, p.issue_seq, `${p.key}-${p.issue_seq}`, type, summary, data.description || null, statusId, priority,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      projectId, p.issue_seq, `${p.key}-${p.issue_seq}`, type, summary, data.description || null, checkIssueNote(data.note), statusId, priority,
       assigneeId, user.id, parentId, sprintId, checkPoints(data.story_points), checkLabels(data.labels),
       checkDate(data.start_date, 'Ngày bắt đầu'), checkDate(data.due_date, 'Hạn hoàn thành'),
       data.rank !== undefined ? Number(data.rank) : nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
@@ -418,6 +420,11 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       requireEdit();
       const v = data.description ? String(data.description) : null;
       if (v !== issue.description) { sets.description = v; history.push(['description', null, null]); }
+    }
+    if (has('note')) {
+      requireEdit();
+      const v = checkIssueNote(data.note);
+      if (v !== issue.note) { sets.note = v; history.push(['note', issue.note, v]); }
     }
     if (has('type') && data.type !== issue.type) {
       requireEdit();

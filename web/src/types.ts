@@ -171,6 +171,7 @@ export interface Issue {
   type: IssueType;
   summary: string;
   description: string | null;
+  note: string | null;
   status_id: number;
   status_name: string;
   status_category: Category;

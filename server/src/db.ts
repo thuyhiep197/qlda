@@ -415,6 +415,8 @@ const migrations: string[] = [
   `ALTER TABLE issues ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0;`,
   // v18: ảnh đại diện do người dùng tự tải lên
   `ALTER TABLE users ADD COLUMN avatar TEXT;`,
+  // v19: ghi chú ngắn cho issue
+  `ALTER TABLE issues ADD COLUMN note TEXT;`,
 ];
 
 export function migrate() {

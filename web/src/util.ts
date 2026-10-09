@@ -28,7 +28,7 @@ export const PROJECT_STATUSES: [string, string][] = [
 export const lozengeOf = (list: [string, string][], v: string | null) => `lozenge lozenge-${list.find(([n]) => n === v)?.[1] ?? 'default'}`;
 
 export const FIELD_LABELS: Record<string, string> = {
-  created: 'đã tạo issue', summary: 'Tiêu đề', description: 'Mô tả', type: 'Loại', priority: 'Độ ưu tiên',
+  created: 'đã tạo issue', summary: 'Tiêu đề', description: 'Mô tả', note: 'Ghi chú', type: 'Loại', priority: 'Độ ưu tiên',
   story_points: 'Điểm ước lượng', labels: 'Nhãn', start_date: 'Ngày bắt đầu', due_date: 'Hạn hoàn thành',
   assignee: 'Người thực hiện', parent: 'Issue cha', sprint: 'Sprint', status: 'Trạng thái',
   attachment: 'Tệp đính kèm', link: 'Liên kết', version: 'Phiên bản', component: 'Mô-đun', ba: 'BA phụ trách', subtype: 'Loại việc con', phase: 'Giai đoạn dự án', flagged: 'Đánh dấu quan trọng', original_estimate: 'Ước lượng thời gian',

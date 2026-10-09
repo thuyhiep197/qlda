@@ -29,8 +29,8 @@ export function LabelsInput({ value, onChange, suggestions = [] }: {
 }
 
 /** Văn bản sửa tại chỗ: bấm để sửa, Enter để lưu, Esc để hủy. */
-export function InlineText({ value, onSave, disabled, className, placeholder, type = 'text' }: {
-  value: string; onSave: (v: string) => void; disabled?: boolean; className?: string; placeholder?: string; type?: string;
+export function InlineText({ value, onSave, disabled, className, placeholder, type = 'text', maxLength }: {
+  value: string; onSave: (v: string) => void; disabled?: boolean; className?: string; placeholder?: string; type?: string; maxLength?: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(value);
@@ -44,7 +44,7 @@ export function InlineText({ value, onSave, disabled, className, placeholder, ty
   }
   const commit = () => { setEditing(false); if (text !== value) onSave(text); };
   return (
-    <input autoFocus type={type} className={`inline-input ${className || ''}`} value={text} onChange={(e) => setText(e.target.value)}
+    <input autoFocus type={type} maxLength={maxLength} className={`inline-input ${className || ''}`} value={text} onChange={(e) => setText(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') commit();

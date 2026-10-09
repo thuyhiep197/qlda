@@ -465,6 +465,10 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             <div className="prop-label">Người tạo</div>
             <div className="row gap-xs"><Avatar name={issue.reporter_name} src={issue.reporter_avatar_url} size={22} /> {issue.reporter_name}</div>
 
+            <div className="prop-label">Ghi chú</div>
+            <InlineText value={issue.note || ''} maxLength={100} disabled={!canEdit} placeholder="—"
+              onSave={(v) => save({ note: v })} />
+
             {issue.type !== 'epic' && <>
               <div className="prop-label">Loại</div>
               <select value={issue.type} disabled={!canEdit} onChange={(e) => changeType(e.target.value as IssueType)}>

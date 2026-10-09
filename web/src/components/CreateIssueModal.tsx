@@ -38,6 +38,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
   const [type, setType] = useState<IssueType>(defaults?.type || 'story');
   const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
+  const [note, setNote] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
   const [assignee, setAssignee] = useState('');
   const [parent, setParent] = useState(defaults?.parent_id ? String(defaults.parent_id) : '');
@@ -64,7 +65,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
     setBusy(true);
     try {
       const issue = await api.post<Issue>('/issues', {
-        project_key: key, type, summary, description, priority,
+        project_key: key, type, summary, description, note, priority,
         assignee_id: assignee || null,
         parent_id: type === 'epic' ? null : parent || null,
         sprint_id: type === 'epic' || type === 'subtask' ? null : sprint || null,
@@ -76,7 +77,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
       toast(`Đã tạo ${issue.key}`);
       await refreshAll();
       if (more) {
-        setSummary(''); setDescription(''); setPoints('');
+        setSummary(''); setDescription(''); setNote(''); setPoints('');
       } else {
         onClose();
         onCreated?.(issue);
@@ -128,6 +129,10 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         <label className="field span-2">
           <span>Mô tả <small className="muted">(hỗ trợ định dạng văn bản)</small></span>
           <MentionTextarea rows={6} value={description} onChange={setDescription} members={project?.members ?? []} />
+        </label>
+        <label className="field span-2">
+          <span>Ghi chú <small className="muted">({note.length}/100 ký tự)</small></span>
+          <textarea rows={2} value={note} maxLength={100} onChange={(e) => setNote(e.target.value)} />
         </label>
         {type !== 'epic' && (
           <label className="field span-2">
