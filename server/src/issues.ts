@@ -10,6 +10,7 @@ import {
 } from './permissions.ts';
 import { avatarUrl } from './avatar.ts';
 import { checkIssueNote } from './issue-note.ts';
+import { inStaffList } from './dev-roster.ts';
 
 export const ISSUE_TYPES = ['epic', 'story', 'task', 'bug', 'subtask'] as const;
 export const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest'] as const;
@@ -255,11 +256,14 @@ function checkLabels(v: unknown): string | null {
   return clean.length ? clean.join(',') : null;
 }
 
-function checkDev(v: unknown): number | null {
+/** Dev phụ trách: nhân sự vị trí Dev và phải nằm trong nhân sự Dev của chính dự án (mục Nhân sự trong Cài đặt dự án). */
+function checkDev(projectId: number, v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
   const id = Number(v);
-  const member = get<{ id: number }>("SELECT id FROM staff WHERE id = ? AND (',' || positions || ',') LIKE '%,dev,%'", id);
+  const member = get<{ id: number; full_name: string }>("SELECT id, full_name FROM staff WHERE id = ? AND (',' || positions || ',') LIKE '%,dev,%'", id);
   if (!member) throw badRequest('Dev phụ trách phải thuộc danh sách nhân sự vị trí Dev');
+  const roster = get<{ dev: string | null }>('SELECT dev FROM projects WHERE id = ?', projectId)?.dev;
+  if (!inStaffList(roster, member.full_name)) throw badRequest('Dev phụ trách phải thuộc nhân sự Dev của dự án');
   return member.id;
 }
 
@@ -403,7 +407,7 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
       checkDate(data.start_date, 'Ngày bắt đầu'), checkDate(data.due_date, 'Hạn hoàn thành'),
       data.rank !== undefined ? Number(data.rank) : nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
       checkVersion(projectId, data.version_id), estimate, estimate, componentId,
-      type === 'subtask' ? checkSubtype(data.subtype) : null, checkDev(data.dev_id),
+      type === 'subtask' ? checkSubtype(data.subtype) : null, checkDev(projectId, data.dev_id),
     );
     addHistory(id, user.id, 'created', null, null);
     if (sprintId) addHistory(id, user.id, 'sprint', null, sprintId, null, sprintName(sprintId));
@@ -568,7 +572,7 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
     }
     if (has('dev_id')) {
       requireEdit();
-      const v = checkDev(data.dev_id);
+      const v = checkDev(issue.project_id, data.dev_id);
       if (v !== issue.dev_id) {
         sets.dev_id = v;
         history.push(['dev', issue.dev_id, v, staffName(issue.dev_id) ?? 'Chưa có', staffName(v) ?? 'Chưa có']);

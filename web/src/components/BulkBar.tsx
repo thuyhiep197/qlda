@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, refreshAll } from '../api';
 import { can, useComponents, useMe, useProject, useSprints, useStaff, useVersions } from '../hooks';
 import type { Issue } from '../types';
-import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS } from '../util';
+import { PRIORITIES, PRIORITY_LABELS, projectDevOptions, TYPE_LABELS } from '../util';
 import { Avatar, toast } from './ui';
 import { Trash2, UserPlus } from 'lucide-react';
 
@@ -98,7 +98,7 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
         <select value="" disabled={busy} onChange={(e) => act({ dev_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã đổi Dev phụ trách')}>
           <option value="" disabled>Dev phụ trách…</option>
           <option value="none">— Chưa có —</option>
-          {staff?.filter((s) => s.positions.split(',').includes('dev'))
+          {projectDevOptions(staff, project.dev)
             .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
         </select>
       )}

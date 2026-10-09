@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
 import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useStaff, useUsersBasic, useVersions, hasPerm } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
-import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS, HEALTH_LABELS, issueHealth, type Health } from '../util';
+import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, projectDevOptions, RELEASES_ENABLED, TYPE_LABELS, HEALTH_LABELS, issueHealth, type Health } from '../util';
 import { Empty, FlagMark, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
 import { EpicTag } from '../components/IssueRow';
 import { ImportButton } from '../components/ImportIssues';
@@ -182,7 +182,7 @@ export default function IssueList() {
           <select value={filter.dev || ''} onChange={(e) => set('dev', e.target.value)}>
             <option value="">Mọi Dev phụ trách</option>
             <option value="none">Chưa có Dev phụ trách</option>
-            {staff?.filter((s) => s.positions.split(',').includes('dev'))
+            {projectDevOptions(staff, projectKey ? (project?.dev ?? '') : undefined)
               .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
           </select>
           <select value={filter.health || ''} onChange={(e) => set('health', e.target.value)}>

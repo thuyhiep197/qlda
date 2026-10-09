@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
 import { can, useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useStaff, useUsersBasic, useVersions } from '../hooks';
 import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, SubType, Worklog } from '../types';
-import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, PROJECT_STATUSES, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
+import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, PROJECT_STATUSES, projectDevOptions, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
 import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
@@ -85,6 +85,11 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const canEdit = issue.can_edit;
   const canAssign = can(perms, 'issue.assign');
   const canTransition = can(perms, 'issue.transition');
+  // Dev phụ trách chỉ chọn trong nhân sự Dev của dự án; giữ người đang chọn nếu đã bị gỡ khỏi dự án
+  const devOptions = projectDevOptions(staff, project?.dev ?? '');
+  if (issue.dev_id && !devOptions.some((s) => s.id === issue.dev_id))
+    devOptions.unshift({ id: issue.dev_id, full_name: issue.dev_name ?? `#${issue.dev_id}`, positions: '', note: null });
+
 
   const save = async (data: Record<string, unknown>) => {
     try {
@@ -545,8 +550,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               <div className="prop-label">Dev phụ trách</div>
               <select value={issue.dev_id ?? ''} disabled={!canEdit} onChange={(e) => save({ dev_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">— Chưa có —</option>
-                {staff?.filter((s) => s.positions.split(',').includes('dev'))
-                  .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                {devOptions.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
               </select>
             </>}
 

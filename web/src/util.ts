@@ -143,3 +143,11 @@ export const STAFF_POSITIONS: { key: 'ba_pm' | 'tester' | 'am' | 'dev'; label: s
   { key: 'ba_pm', label: 'BA/PM', field: 'ba' }, { key: 'dev', label: 'Dev', field: 'dev' },
   { key: 'tester', label: 'Tester', field: 'tester' }, { key: 'am', label: 'AM', field: 'am' },
 ];
+
+/** Dev phụ trách chỉ chọn trong nhân sự Dev của dự án (trường dev = tên trong Danh mục nhân sự, phân cách bởi dấu phẩy). Không có dự án (undefined) → tất cả Dev. */
+export function projectDevOptions<T extends { id: number; full_name: string; positions: string }>(staff: T[] | undefined, projectDev: string | null | undefined): T[] {
+  const devs = (staff ?? []).filter((s) => s.positions.split(',').includes('dev'));
+  if (projectDev === undefined) return devs;
+  const roster = new Set((projectDev ?? '').split(',').map((s) => s.trim()).filter(Boolean));
+  return devs.filter((s) => roster.has(s.full_name));
+}

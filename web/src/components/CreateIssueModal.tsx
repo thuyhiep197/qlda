@@ -4,7 +4,7 @@ import { api, qs, refreshAll } from '../api';
 import { can, useComponents, useIssueModal, useProject, useProjects, useSprints, useStaff, useVersions } from '../hooks';
 import { Plus } from 'lucide-react';
 import type { Issue, IssueType, Priority } from '../types';
-import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
+import { PRIORITIES, PRIORITY_LABELS, projectDevOptions, TYPE_LABELS, typeTip } from '../util';
 import { Modal, toast, toastError, TypeIcon } from './ui';
 
 const TYPE_HINTS: Record<IssueType, string> = {
@@ -194,7 +194,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
             <span>Dev phụ trách</span>
             <select value={dev} onChange={(e) => setDev(e.target.value)}>
               <option value="">— Chưa có —</option>
-              {staff?.filter((s) => s.positions.split(',').includes('dev'))
+              {projectDevOptions(staff, project?.dev ?? (key ? '' : undefined))
                 .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
             </select>
           </label>
