@@ -10,8 +10,8 @@
 
 ### Bộ lọc Người thực hiện mặc định
 
-- Áp dụng cho Danh sách issue toàn hệ thống, Danh sách issue trong dự án, Kế hoạch chi tiết, Backlog, Board và Roadmap.
-- Không tự lọc các biểu đồ, KPI hoặc bảng số liệu tổng hợp trên Dashboard và Báo cáo. Các số liệu đó tiếp tục phản ánh toàn bộ phạm vi dự án; chỉ danh sách issue có thể thao tác mới dùng mặc định “Tôi”.
+- Áp dụng cho Danh sách issue toàn hệ thống, Danh sách issue trong dự án, Kế hoạch chi tiết và Backlog.
+- Không áp dụng mặc định “Tôi” cho Board, Roadmap, Dashboard hoặc Báo cáo. Các màn hình và số liệu này tiếp tục phản ánh toàn bộ phạm vi dự án.
 - Khi URL không có tham số `assignee`, bộ lọc hiệu lực là `assignee=me` và ô chọn hiển thị “Tôi”.
 - Lựa chọn “Mọi người thực hiện” dùng giá trị URL tường minh `assignee=all`. Giá trị này chỉ biểu diễn trạng thái giao diện và không được gửi thành điều kiện lọc người thực hiện tới API.
 - Các lựa chọn `me`, `none` và ID người dùng tiếp tục dùng giao thức API hiện tại.
@@ -19,7 +19,6 @@
 - “Xóa lọc” quay về trạng thái mặc định của màn hình: người thực hiện là “Tôi”; tại Danh sách issue, nhóm trạng thái cũng quay về “Chưa hoàn thành”.
 - Bộ lọc đã lưu giữ nguyên lựa chọn người thực hiện. Bộ lọc đã lưu với `assignee=all` mở lại ở chế độ xem tất cả; bộ lọc không chứa `assignee` dùng mặc định “Tôi”.
 - Kế hoạch chi tiết giữ các nhánh cha cần thiết để thể hiện ngữ cảnh của issue khớp bộ lọc, nhưng không coi issue cha đó là kết quả được giao cho người dùng.
-- Roadmap giữ Epic làm ngữ cảnh khi có issue con khớp; Epic không có issue khớp bị ẩn, trừ khi chính Epic được giao cho người dùng.
 
 ### Thay đổi Người thực hiện trực tiếp
 
@@ -101,9 +100,9 @@ Luồng giao việc nhanh:
   - `assignee=all` không tạo điều kiện API;
   - `me`, `none` và ID được giữ nguyên;
   - xóa lọc quay về mặc định “Tôi”.
-- Test bộ lọc dùng chung trên Backlog và Board khởi tạo bằng ID tài khoản hiện tại, cho phép chuyển sang tất cả/người khác và xóa lọc quay về “Tôi”.
-- Test Kế hoạch chi tiết và Roadmap chỉ hiện issue khớp cùng các nhánh Epic/issue cha cần thiết để giữ ngữ cảnh.
-- Test Dashboard và Báo cáo không bị áp dụng ngầm bộ lọc “Tôi” vào KPI hoặc số liệu tổng hợp.
+- Test bộ lọc Backlog khởi tạo bằng ID tài khoản hiện tại, cho phép chuyển sang tất cả/người khác và xóa lọc quay về “Tôi”.
+- Test Kế hoạch chi tiết chỉ hiện issue khớp cùng các nhánh Epic/issue cha cần thiết để giữ ngữ cảnh.
+- Test Board, Roadmap, Dashboard và Báo cáo không bị áp dụng ngầm bộ lọc mặc định “Tôi”.
 - Test kiểm tra avatar:
   - chấp nhận chữ ký JPEG, PNG và WebP;
   - từ chối sai định dạng, MIME không khớp và tệp quá 2 MB;
