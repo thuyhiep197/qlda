@@ -7,3 +7,7 @@ export function issueListAssignee(param: string | null): { control: string; api?
 export function defaultAssignees(userId?: number): number[] | null {
   return userId == null ? null : [userId];
 }
+
+export function planAssigneeMembers<T extends { id: number }>(members: T[], assignedIds: Set<number>, currentUserId?: number): T[] {
+  return members.filter((member) => member.id === currentUserId || assignedIds.has(member.id));
+}

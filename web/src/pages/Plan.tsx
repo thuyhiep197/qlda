@@ -10,6 +10,7 @@ import { useProjectCtx } from './ProjectLayout';
 import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
+import { planAssigneeMembers } from '../issue-filter-defaults';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -265,7 +266,8 @@ export default function Plan() {
   const counts = (lvl: number) => all.filter((r) => r.level === lvl && r.issue.id > 0).length;
   const hCount = (h: Health) => all.filter((r) => r.level > 0 && r.health === h).length;
   const uniq = (v: (string | null | undefined)[]) => [...new Set(v.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'vi'));
-  const assignees = project.members.filter((m) => all.some((r) => r.level > 0 && r.issue.assignee_id === m.id));
+  const assignees = planAssigneeMembers(project.members,
+    new Set(all.filter((r) => r.level > 0 && r.issue.assignee_id != null).map((r) => r.issue.assignee_id!)), me?.id);
   const owners = uniq(all.map((r) => r.owner));
   const statuses = project.statuses.map((x) => x.name).filter((n) => all.some((r) => r.issue.status_name === n));
   const types = (['story', 'task', 'bug'] as const).filter((t) => all.some((r) => r.level === 1 && r.issue.type === t));

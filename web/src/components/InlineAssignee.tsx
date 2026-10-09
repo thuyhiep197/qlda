@@ -11,8 +11,10 @@ export function InlineAssignee({ issue, project: supplied }: { issue: Issue; pro
   const project = supplied ?? loaded;
   const [busy, setBusy] = useState(false);
   const member = project?.members.some((m) => m.id === me?.id) ?? false;
+  const canEdit = !!me && !!project && (can(project.permissions, 'issue.edit') ||
+    (can(project.permissions, 'issue.edit_own') && (issue.reporter_id === me.id || issue.assignee_id === me.id)));
   const access = me && project ? assigneeAccess({
-    assigneeId: issue.assignee_id, meId: me.id, isMember: member, canAssign: can(project.permissions, 'issue.assign'),
+    assigneeId: issue.assignee_id, meId: me.id, isMember: member, canAssign: can(project.permissions, 'issue.assign'), canEdit,
   }) : null;
 
   const change = async (raw: string) => {
