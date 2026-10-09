@@ -17,13 +17,15 @@ interface Props {
   placeholder?: string;
   autoFocus?: boolean;
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+  /** Báo cho form cha để chặn gửi nội dung khi tệp vẫn đang tải lên. */
+  onUploadingChange?: (uploading: boolean) => void;
 }
 
 /**
  * Ô soạn thảo kiểu Jira: gõ @ để nhắc thành viên (chèn @tên_đăng_nhập),
  * Ctrl+V ảnh chụp màn hình hoặc kéo thả tệp để đính kèm và chèn ngay vào nội dung.
  */
-export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, placeholder, autoFocus, onKeyDown }: Props) {
+export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, placeholder, autoFocus, onKeyDown, onUploadingChange }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const latest = useRef(value);
   latest.current = value;
@@ -41,6 +43,10 @@ export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, 
     : [];
 
   useEffect(() => { setActive(0); }, [query?.text]);
+  useEffect(() => {
+    onUploadingChange?.(uploading > 0);
+    return () => { if (uploading > 0) onUploadingChange?.(false); };
+  }, [uploading, onUploadingChange]);
 
   const detect = (el: HTMLTextAreaElement) => {
     const before = el.value.slice(0, el.selectionStart);

@@ -62,6 +62,9 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const [cloning, setCloning] = useState(false);
   const [moving, setMoving] = useState(false);
   const [comment, setComment] = useState('');
+  const [commentUploading, setCommentUploading] = useState(false);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const commentSubmittingRef = useRef(false);
   const [editingComment, setEditingComment] = useState<{ id: number; body: string } | null>(null);
   const [childText, setChildText] = useState('');
   const [childType, setChildType] = useState<SubType | ''>('');
@@ -111,12 +114,15 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
 
   const addComment = async (e: FormEvent) => {
     e.preventDefault();
-    if (!comment.trim()) return;
+    if (!comment.trim() || commentUploading || commentSubmittingRef.current) return;
+    commentSubmittingRef.current = true;
+    setCommentSubmitting(true);
     try {
       await api.post(`/issues/${issue.key}/comments`, { body: comment });
       setComment('');
       await refreshAll();
     } catch (err) { toastError(err); }
+    finally { commentSubmittingRef.current = false; setCommentSubmitting(false); }
   };
 
   const saveComment = async () => {
@@ -378,8 +384,11 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                     <div className="grow stack">
                       <MentionTextarea rows={comment ? 4 : 2} value={comment} onChange={setComment} members={project?.members ?? []} issueKey={issue.key}
                         placeholder="Viết bình luận… (Ctrl+Enter để gửi)"
+                        onUploadingChange={setCommentUploading}
                         onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) addComment(e as any); }} />
-                      {comment && <div><button className="btn btn-primary">Gửi</button></div>}
+                      {comment && <div><button className="btn btn-primary" disabled={commentUploading || commentSubmitting}>
+                        {commentUploading ? 'Đang tải tệp…' : commentSubmitting ? 'Đang gửi…' : 'Gửi'}
+                      </button></div>}
                     </div>
                   </form>
                 )}
