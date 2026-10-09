@@ -11,6 +11,7 @@ import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
 import { planAssigneeMembers } from '../issue-filter-defaults';
+import { filterTreeStrict } from '../plan-filter';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -237,7 +238,10 @@ export default function Plan() {
     if (r.level === 0 && type) return [];
     return rowFilter && match(r) ? [{ ...r, children: [] }] : !rowFilter && r.level > 0 ? [{ ...r, children: [] }] : [];
   });
-  const scope = epic ? tree.filter((e) => String(e.issue.id) === epic) : tree;
+  const assigneeScope = effectiveAssignee
+    ? filterTreeStrict(tree, (r) => effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee)
+    : tree;
+  const scope = epic ? assigneeScope.filter((e) => String(e.issue.id) === epic) : assigneeScope;
   // Đang lọc theo trạng thái/đánh giá Hoàn thành thì vẫn hiện việc đã xong
   const wantDone = showDone || status !== '' && project.statuses.some((x) => x.name === status && x.category === 'done') || health === 'done' || health === 'done_late';
   const dropDone = (rows: Row[]): Row[] => rows.flatMap((r) => {
@@ -349,7 +353,7 @@ export default function Plan() {
           <select value={effectiveAssignee} onChange={(e) => setAssignee(e.target.value)} className={effectiveAssignee ? 'filter-on' : ''}>
             <option value="">Người thực hiện</option>
             <option value="-">— Chưa giao —</option>
-            {assignees.map((p) => <option key={p.id} value={p.id}>{p.id === me?.id ? `Tôi · ${p.full_name}` : p.full_name}</option>)}
+            {assignees.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
           </select>
           <select value={owner} onChange={(e) => setOwner(e.target.value)} className={owner ? 'filter-on' : ''}>
             <option value="">Người phụ trách</option>

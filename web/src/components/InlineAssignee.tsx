@@ -37,7 +37,7 @@ export function InlineAssignee({ issue, project: supplied }: { issue: Issue; pro
       <select value={issue.assignee_id ?? ''} disabled={busy} aria-label={`Người thực hiện ${issue.key}`} onChange={(e) => change(e.target.value)}>
         {access.allowUnassign && <option value="">Chưa giao</option>}
         {access.selfOnly && <option value="" disabled>Chưa giao</option>}
-        {choices.map((m) => <option key={m.id} value={m.id}>{m.id === me!.id ? `Tôi · ${m.full_name}` : m.full_name}</option>)}
+        {choices.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
       </select>
     </div>
   );
