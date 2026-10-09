@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Issue, Project } from '../types';
 import { HEALTH_LABELS, issueHealth, TYPE_LABELS, type Health } from '../util';
 import { Avatar, MoreFilters } from './ui';
 import { useComponents } from '../hooks';
+import { defaultAssignees } from '../issue-filter-defaults';
 
 export interface Filters {
   q: string;
@@ -18,8 +19,11 @@ export interface Filters {
 
 export const emptyFilters: Filters = { q: '', assignees: [], epic: '', type: '', label: '', component: '', owner: '', status: '', health: '' };
 
-export function useFilters() {
-  const [f, setF] = useState<Filters>(emptyFilters);
+export function useFilters(defaultAssigneeId?: number) {
+  const [f, setF] = useState<Filters>(() => ({ ...emptyFilters, assignees: defaultAssignees(defaultAssigneeId) ?? [] }));
+  useEffect(() => {
+    if (defaultAssigneeId != null) setF((cur) => cur.assignees.length ? cur : { ...cur, assignees: [defaultAssigneeId] });
+  }, [defaultAssigneeId]);
   const apply = useMemo(() => (issues: Issue[]) => issues.filter((i) => {
     if (f.q) {
       const q = f.q.toLowerCase();
@@ -41,8 +45,8 @@ export function useFilters() {
   return { filters: f, setFilters: setF, apply, active };
 }
 
-export function FilterBar({ project, filters, setFilters, epics, children }: {
-  project: Project; filters: Filters; setFilters: (f: Filters) => void; epics?: Issue[]; children?: React.ReactNode;
+export function FilterBar({ project, filters, setFilters, epics, defaultAssigneeId, children }: {
+  project: Project; filters: Filters; setFilters: (f: Filters) => void; epics?: Issue[]; defaultAssigneeId?: number; children?: React.ReactNode;
 }) {
   const toggle = (id: number | 'none') => setFilters({
     ...filters,
@@ -56,7 +60,7 @@ export function FilterBar({ project, filters, setFilters, epics, children }: {
       <div className="avatar-filter">
         {project.members.map((m) => (
           <button key={m.id} className={filters.assignees.includes(m.id) ? 'on' : ''} onClick={() => toggle(m.id)} title={m.full_name}>
-            <Avatar name={m.full_name} size={28} />
+            <Avatar name={m.full_name} src={m.avatar_url} size={28} />
           </button>
         ))}
         <button className={filters.assignees.includes('none') ? 'on' : ''} onClick={() => toggle('none')} title="Chưa giao"><Avatar size={28} /></button>
@@ -106,7 +110,7 @@ export function FilterBar({ project, filters, setFilters, epics, children }: {
           </select>
         )}
       </MoreFilters>
-      {active && <button className="btn btn-subtle btn-sm" onClick={() => setFilters(emptyFilters)}>Xóa lọc</button>}
+      {active && <button className="btn btn-subtle btn-sm" onClick={() => setFilters({ ...emptyFilters, assignees: defaultAssigneeId == null ? [] : [defaultAssigneeId] })}>Xóa lọc</button>}
       <div className="spacer" />
       {children}
     </div>

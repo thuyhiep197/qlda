@@ -14,6 +14,7 @@ interface Notification {
   created_at: string;
   read_at: string | null;
   actor_name: string | null;
+  actor_avatar_url: string | null;
   issue_key: string;
   issue_summary: string;
   issue_type: IssueType;
@@ -98,7 +99,7 @@ export default function NotificationBell() {
               : onlyUnread ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}</div>}
             {items.map((n) => (
               <div key={n.id} className={`bell-item ${n.read_at ? '' : 'unread'}`} onClick={() => openItem(n)}>
-                <Avatar name={n.actor_name} size={30} />
+                <Avatar name={n.actor_name} src={n.actor_avatar_url} size={30} />
                 <div className="grow">
                   <div><b>{n.actor_name || 'Hệ thống'}</b> {VERB[n.type]}</div>
                   <div className="row gap-xs small bell-issue">

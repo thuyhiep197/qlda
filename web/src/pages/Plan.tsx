@@ -2,13 +2,14 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, ListTree, Plus, SquareKanban, X } from 'lucide-react';
 import { api, qs, refreshAll } from '../api';
-import { useIssueModal, can } from '../hooks';
+import { useIssueModal, useMe, can } from '../hooks';
 import type { Issue, SubType } from '../types';
 import { fmtDate, today as todayStr, TYPE_LABELS, canMove, statusesFor } from '../util';
 import { Avatar, Empty, FlagMark, Spinner, StatusBadge, TypeIcon, MoreFilters, toast, toastError } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
 import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
+import { InlineAssignee } from '../components/InlineAssignee';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -138,6 +139,7 @@ const flatten = (rows: Row[]): Row[] => rows.flatMap((r) => [r, ...flatten(r.chi
 
 export default function Plan() {
   const project = useProjectCtx();
+  const { data: me } = useMe();
   const { open } = useIssueModal();
   const today = todayStr();
   const { data: issues, isLoading } = useQuery<Issue[]>({
@@ -151,7 +153,7 @@ export default function Plan() {
   const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở hết (hiện mọi công việc)
   const [health, setHealth] = useState<Health | ''>('');
   const [q, setQ] = useState('');
-  const [assignee, setAssignee] = useState('');
+  const [assignee, setAssignee] = useState<string | null>(null);
   const [owner, setOwner] = useState('');
   const [epic, setEpic] = useState('');
   const [type, setType] = useState('');
@@ -213,11 +215,12 @@ export default function Plan() {
 
   // Lọc: giữ việc khớp và toàn bộ nhánh cha của nó; khi đang lọc thì mở sẵn các nhánh
   // Giai đoạn chỉ giới hạn phạm vi (không tính là đang lọc chi tiết); Loại áp cho đầu việc (việc con đi theo đầu việc)
-  const rowFilter = !!(health || q || assignee || owner || status);
+  const effectiveAssignee = assignee ?? (me ? String(me.id) : '');
+  const rowFilter = !!(health || q || effectiveAssignee || owner || status);
   const filtering = rowFilter || !!type;
-  const clearFilters = () => { setHealth(''); setQ(''); setAssignee(''); setOwner(''); setEpic(''); setType(''); setStatus(''); };
+  const clearFilters = () => { setHealth(''); setQ(''); setAssignee(null); setOwner(''); setEpic(''); setType(''); setStatus(''); };
   const match = (r: Row) => (!health || r.health === health)
-    && (!assignee || (assignee === '-' ? !r.issue.assignee_name && r.level > 0 : r.issue.assignee_name === assignee))
+    && (!effectiveAssignee || (effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee))
     && (!owner || r.owner === owner)
     && (!status || r.issue.status_name === status)
     && (!q || `${r.issue.key} ${r.issue.summary}`.toLowerCase().includes(q.toLowerCase()));
@@ -262,7 +265,7 @@ export default function Plan() {
   const counts = (lvl: number) => all.filter((r) => r.level === lvl && r.issue.id > 0).length;
   const hCount = (h: Health) => all.filter((r) => r.level > 0 && r.health === h).length;
   const uniq = (v: (string | null | undefined)[]) => [...new Set(v.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'vi'));
-  const assignees = uniq(all.filter((r) => r.level > 0).map((r) => r.issue.assignee_name));
+  const assignees = project.members.filter((m) => all.some((r) => r.level > 0 && r.issue.assignee_id === m.id));
   const owners = uniq(all.map((r) => r.owner));
   const statuses = project.statuses.map((x) => x.name).filter((n) => all.some((r) => r.issue.status_name === n));
   const types = (['story', 'task', 'bug'] as const).filter((t) => all.some((r) => r.level === 1 && r.issue.type === t));
@@ -341,10 +344,10 @@ export default function Plan() {
       <div className="filter-bar">
         <input className="filter-search" placeholder="Tìm công việc…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MoreFilters count={[assignee, owner, epic, type, status, health].filter(Boolean).length}>
-          <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={assignee ? 'filter-on' : ''}>
+          <select value={effectiveAssignee} onChange={(e) => setAssignee(e.target.value)} className={effectiveAssignee ? 'filter-on' : ''}>
             <option value="">Người thực hiện</option>
             <option value="-">— Chưa giao —</option>
-            {assignees.map((p) => <option key={p} value={p}>{p}</option>)}
+            {assignees.map((p) => <option key={p.id} value={p.id}>{p.id === me?.id ? `Tôi · ${p.full_name}` : p.full_name}</option>)}
           </select>
           <select value={owner} onChange={(e) => setOwner(e.target.value)} className={owner ? 'filter-on' : ''}>
             <option value="">Người phụ trách</option>
@@ -450,8 +453,8 @@ export default function Plan() {
           </div>
         </td>
         <td className={`nowrap small ${late ? 'overdue' : ''}`}>{r.start || r.end ? <>{fmtShort(r.start)} – {fmtShort(r.end)}</> : <span className="muted">—</span>}</td>
-        <td>{r.level > 0 && i.assignee_name ? <div className="row gap-xs"><Avatar name={i.assignee_name} size={20} /><span className="small ellipsis">{i.assignee_name}</span></div> : <span className="muted small">—</span>}</td>
-        <td>{r.owner ? <div className="row gap-xs"><Avatar name={r.owner} size={20} /><span className="small ellipsis">{r.owner}</span></div> : <span className="muted small">—</span>}</td>
+        <td>{r.level > 0 && i.id > 0 ? <InlineAssignee issue={i} project={project} /> : <span className="muted small">—</span>}</td>
+        <td>{r.owner ? <div className="row gap-xs"><Avatar name={r.owner} src={project.members.find((m) => m.full_name === r.owner)?.avatar_url} size={20} /><span className="small ellipsis">{r.owner}</span></div> : <span className="muted small">—</span>}</td>
         <td>{!i.status_name ? null
           : i.type !== 'epic' && i.id > 0 && can(project.permissions, 'issue.transition') ? <InlineStatus issue={i} />
             : <span data-tip={i.type === 'epic' ? 'Trạng thái Epic tự động theo các việc bên trong' : undefined}><StatusBadge name={i.status_name} category={i.status_category} /></span>}</td>

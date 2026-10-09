@@ -413,6 +413,8 @@ const migrations: string[] = [
    ALTER TABLE projects RENAME COLUMN sales TO am;`,
   // v17: đánh dấu issue quan trọng (⚑, như Flag của Jira) — thông báo của issue này vào tab Quan trọng
   `ALTER TABLE issues ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0;`,
+  // v18: ảnh đại diện do người dùng tự tải lên
+  `ALTER TABLE users ADD COLUMN avatar TEXT;`,
 ];
 
 export function migrate() {

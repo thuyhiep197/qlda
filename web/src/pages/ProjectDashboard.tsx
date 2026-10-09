@@ -19,14 +19,14 @@ interface DashData {
   overall: Measure & { start: string | null; end: string | null; pct_time: number; health: Health; done_week: number; upcoming_count?: number };
   epics: (Measure & { id: number; key: string; summary: string; start_date: string | null; due_date: string | null; health: Health })[];
   labels: (Measure & { name: string; start: string | null; end: string | null })[];
-  components: (Measure & { id: number; name: string; side: Side | null; lead_name: string | null; start: string | null; end: string | null })[];
+  components: (Measure & { id: number; name: string; side: Side | null; lead_name: string | null; lead_avatar_url?: string | null; start: string | null; end: string | null })[];
   sprints: (Measure & { id: number; name: string; start_date: string; end_date: string; goal: string | null; days_left: number; pct_time: number })[];
   next_sprint: { id: number; name: string; start_date: string | null; end_date: string | null } | null;
   byAssignee: { name: string; todo: number; inprogress: number; overdue: number }[];
   overdue: Issue[];
   upcoming: Issue[];
   milestones: { key: string; type: IssueType; summary: string; due_date: string; days: number }[];
-  activity: { id: number; field: string; new_label: string; created_at: string; user_name: string; key: string; summary: string; type: IssueType }[];
+  activity: { id: number; field: string; new_label: string; created_at: string; user_name: string; user_avatar_url?: string | null; key: string; summary: string; type: IssueType }[];
 }
 
 const HEALTH: Record<Health, { label: string; tone: string; tip: string }> = {
@@ -193,7 +193,7 @@ export default function ProjectDashboard() {
               {data.components.map((c) => (
                 <tr key={c.id}>
                   <td><Link to={`/p/${project.key}/issues?component=${c.id}`}>{c.name}</Link><div className="muted small">{range(c.start, c.end)}</div></td>
-                  <td className="nowrap"><div className="row gap-xs">{c.lead_name ? <><Avatar name={c.lead_name} size={20} /> <span className="small">{c.lead_name}</span></> : <span className="muted small">Chưa có</span>} <SideBadge side={c.side} /></div></td>
+                  <td className="nowrap"><div className="row gap-xs">{c.lead_name ? <><Avatar name={c.lead_name} src={c.lead_avatar_url} size={20} /> <span className="small">{c.lead_name}</span></> : <span className="muted small">Chưa có</span>} <SideBadge side={c.side} /></div></td>
                   <td><PlanBar m={c} /></td>
                   <td className="num nowrap">{c.done_issues}/{c.total_issues}{c.overdue ? <span className="overdue"> · {c.overdue} trễ</span> : null}</td>
                 </tr>
@@ -229,7 +229,7 @@ export default function ProjectDashboard() {
             <div className="load-list">
               {data.byAssignee.map((a) => (
                 <div key={a.name} className="load-row">
-                  <Avatar name={a.name === 'Chưa giao' ? null : a.name} size={24} />
+                  <Avatar name={a.name === 'Chưa giao' ? null : a.name} src={project.members.find((m) => m.full_name === a.name)?.avatar_url} size={24} />
                   <span className="ellipsis load-name">{a.name}</span>
                   <div className="load-bar" data-tip={`Cần làm ${a.todo} · Đang làm ${a.inprogress}${a.overdue ? ` · Quá hạn ${a.overdue}` : ''}`}>
                     <div className="lb-ip" style={{ width: `${(a.inprogress / maxLoad) * 100}%` }} />
@@ -260,7 +260,7 @@ export default function ProjectDashboard() {
             {data.activity.length === 0 && <div className="muted small">Chưa có hoạt động</div>}
             {data.activity.map((a) => (
               <div key={a.id} className="activity-row">
-                <Avatar name={a.user_name} size={24} />
+                <Avatar name={a.user_name} src={a.user_avatar_url} size={24} />
                 <div className="grow">
                   <div><b>{a.user_name}</b> {a.field === 'created' ? 'đã tạo' : a.field === 'status' ? <>chuyển <b>{a.new_label}</b></> : <>giao cho <b>{a.new_label || 'không ai'}</b></>}</div>
                   <a className="row gap-xs small" onClick={() => open(a.key)}><TypeIcon type={a.type} size={14} /> <span className="nowrap">{a.key}</span> <span className="ellipsis">{a.summary}</span></a>

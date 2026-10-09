@@ -111,7 +111,7 @@ function Members() {
         <tbody>
           {project.members.map((m) => (
             <tr key={m.id}>
-              <td><div className="row gap-sm"><Avatar name={m.full_name} size={26} /> {m.full_name} {!m.is_active && <span className="lozenge lozenge-red">Đã khóa</span>}</div></td>
+              <td><div className="row gap-sm"><Avatar name={m.full_name} src={m.avatar_url} size={26} /> {m.full_name} {!m.is_active && <span className="lozenge lozenge-red">Đã khóa</span>}</div></td>
               <td>@{m.username}</td>
               <td>{m.email}</td>
               <td><span className="lozenge lozenge-default">{m.role_name}</span></td>
@@ -139,7 +139,7 @@ function Members() {
                   <label key={u.id} className="check">
                     <input type="checkbox" checked={userIds.includes(u.id)}
                       onChange={(e) => setUserIds(e.target.checked ? [...userIds, u.id] : userIds.filter((x) => x !== u.id))} />
-                    <Avatar name={u.full_name} size={22} /> {u.full_name} <span className="muted small">@{u.username}</span>
+                    <Avatar name={u.full_name} src={u.avatar_url} size={22} /> {u.full_name} <span className="muted small">@{u.username}</span>
                     <span className="spacer" />
                     {u.default_role_name ? <span className="lozenge lozenge-default">{u.default_role_name}</span> : <span className="small danger">Chưa có vai trò</span>}
                   </label>
@@ -193,7 +193,7 @@ function Components() {
             <tr key={c.id}>
               <td><b>{c.name}</b>{c.description && <div className="muted small">{c.description}</div>}</td>
               <td>{c.side ? <SideBadge side={c.side} /> : <span className="muted">—</span>}</td>
-              <td>{c.lead_name ? <div className="row gap-xs"><Avatar name={c.lead_name} size={22} /> {c.lead_name}</div> : <span className="muted">Chưa có</span>}</td>
+              <td>{c.lead_name ? <div className="row gap-xs"><Avatar name={c.lead_name} src={project.members.find((m) => m.id === c.lead_id)?.avatar_url} size={22} /> {c.lead_name}</div> : <span className="muted">Chưa có</span>}</td>
               <td className="num">{c.done_count}/{c.issue_count}</td>
               <td className="num nowrap">
                 {can(project.permissions, 'component.edit') && <button className="btn btn-subtle btn-sm" onClick={() => setEditing(c)}>Sửa</button>}

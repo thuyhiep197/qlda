@@ -89,7 +89,7 @@ export default function Layout() {
           <NotificationBell />
           <div className="user-menu">
             <button className="user-btn" onClick={() => setMenu(!menu)}>
-              <Avatar name={me?.full_name} size={30} />
+              <Avatar name={me?.full_name} src={me?.avatar_url} size={30} />
               <span className="hide-sm">{me?.full_name}</span>
             </button>
             {menu && (

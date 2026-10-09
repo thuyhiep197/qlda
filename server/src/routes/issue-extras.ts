@@ -3,6 +3,7 @@
  * nhân bản, chuyển sang dự án khác.
  */
 import { Router } from 'express';
+import { avatarUrl } from '../avatar.ts';
 import { all, get, now, run, tx } from '../db.ts';
 import {
   addHistory, createIssue, deleteIssue, fetchIssue, fmtMinutes, getIssueRow, parseDuration, syncEpicStatus, updateIssue,
@@ -26,8 +27,9 @@ const checkWorkDate = (v: unknown) => {
 r.get('/:key/worklogs', (req, res) => {
   const row = getIssueRow(String(req.params.key));
   if (!requireProjectAccess(req.user, row.project_id).has('worklog.view')) throw forbidden('Bạn không có quyền xem giờ công');
-  res.json(all(`SELECT w.*, u.full_name AS user_name FROM worklogs w JOIN users u ON u.id = w.user_id
-    WHERE w.issue_id = ? ORDER BY w.work_date DESC, w.id DESC`, row.id));
+  const rows = all(`SELECT w.*, u.full_name AS user_name, u.avatar AS user_avatar FROM worklogs w JOIN users u ON u.id = w.user_id
+    WHERE w.issue_id = ? ORDER BY w.work_date DESC, w.id DESC`, row.id);
+  res.json(rows.map((w: any) => { const { user_avatar, ...worklog } = w; return { ...worklog, user_avatar_url: avatarUrl(user_avatar) }; }));
 });
 
 /**

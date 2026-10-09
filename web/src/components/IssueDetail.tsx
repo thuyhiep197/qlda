@@ -285,7 +285,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                     <span className={`ellipsis grow ${c.status_category === 'done' ? 'done-text' : ''}`}>{c.summary}</span>
                     <PriorityIcon priority={c.priority} />
                     {c.story_points != null && <span className="points" data-tip="Điểm ước lượng">{c.story_points}</span>}
-                    <Avatar name={c.assignee_name} size={22} />
+                    <Avatar name={c.assignee_name} src={c.assignee_avatar_url} size={22} />
                     <StatusBadge name={c.status_name} category={c.status_category} />
                   </div>
                 ))}
@@ -374,7 +374,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               <div className="stack">
                 {can(perms, 'comment.create') && (
                   <form onSubmit={addComment} className="comment-form">
-                    <Avatar name={me?.full_name} size={30} />
+                    <Avatar name={me?.full_name} src={me?.avatar_url} size={30} />
                     <div className="grow stack">
                       <MentionTextarea rows={comment ? 4 : 2} value={comment} onChange={setComment} members={project?.members ?? []} issueKey={issue.key}
                         placeholder="Viết bình luận… (Ctrl+Enter để gửi)"
@@ -385,7 +385,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                 )}
                 {[...issue.comments].reverse().map((c) => (
                   <div key={c.id} className="comment">
-                    <Avatar name={c.author_name} size={30} />
+                    <Avatar name={c.author_name} src={c.author_avatar_url} size={30} />
                     <div className="grow">
                       <div className="comment-head">
                         <b>{c.author_name}</b>
@@ -416,7 +416,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
               <div className="history">
                 {issue.history.map((h) => (
                   <div key={h.id} className="history-row">
-                    <Avatar name={h.user_name} size={22} />
+                    <Avatar name={h.user_name} src={h.user_avatar_url} size={22} />
                     <div>
                       <b>{h.user_name || 'Hệ thống'}</b>{' '}
                       {h.field === 'created' ? 'đã tạo issue'
@@ -463,7 +463,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             </div>
 
             <div className="prop-label">Người tạo</div>
-            <div className="row gap-xs"><Avatar name={issue.reporter_name} size={22} /> {issue.reporter_name}</div>
+            <div className="row gap-xs"><Avatar name={issue.reporter_name} src={issue.reporter_avatar_url} size={22} /> {issue.reporter_name}</div>
 
             {issue.type !== 'epic' && <>
               <div className="prop-label">Loại</div>
@@ -616,7 +616,7 @@ function Watchers({ issue, members, canManage, meId }: {
       <div className="watcher-list">
         {issue.watchers.map((w) => (
           <span key={w.id} className="watcher-chip" title={`@${w.username}`}>
-            <Avatar name={w.full_name} size={20} /> {w.full_name}
+            <Avatar name={w.full_name} src={w.avatar_url} size={20} /> {w.full_name}
             {canManage && w.id !== meId && (
               <button title="Bỏ khỏi danh sách theo dõi" onClick={() => call(() => api.del(`/issues/${issue.key}/watchers/${w.id}`))}><X size={12} /></button>
             )}
@@ -723,7 +723,7 @@ function WorklogList({ issue, meId, isAdmin, onLog }: { issue: TIssueDetail; meI
       {!logs.length && <div className="muted small">Chưa ai ghi thời gian cho issue này.</div>}
       {logs.map((w) => (
         <div key={w.id} className="history-row">
-          <Avatar name={w.user_name} size={24} />
+          <Avatar name={w.user_name} src={w.user_avatar_url} size={24} />
           <div className="grow">
             <b>{w.user_name}</b> đã làm <b>{fmtDuration(w.minutes)}</b> <span className="muted small">ngày {fmtDate(w.work_date)}</span>
             {w.comment && <div className="small">{w.comment}</div>}

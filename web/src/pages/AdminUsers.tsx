@@ -66,7 +66,7 @@ export default function AdminUsers() {
           <tbody>
             {list?.map((u) => (
               <tr key={u.id} className={u.is_active ? '' : 'inactive'}>
-                <td><div className="row gap-sm"><Avatar name={u.full_name} size={26} /> {u.full_name}</div></td>
+                <td><div className="row gap-sm"><Avatar name={u.full_name} src={u.avatar_url} size={26} /> {u.full_name}</div></td>
                 <td>@{u.username}</td>
                 <td className="nowrap">
                   {u.default_role_name ? <span className="lozenge lozenge-default">{u.default_role_name}</span> : <span className="small danger">Chưa chọn</span>}

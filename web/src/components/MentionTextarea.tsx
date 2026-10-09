@@ -144,7 +144,7 @@ export function MentionTextarea({ value, onChange, members, issueKey, rows = 4, 
           {matches.map((m, i) => (
             <div key={m.id} role="option" aria-selected={i === active} className={`mention-item ${i === active ? 'active' : ''}`}
               onMouseDown={(e) => { e.preventDefault(); pick(m); }} onMouseEnter={() => setActive(i)}>
-              <Avatar name={m.full_name} size={22} />
+              <Avatar name={m.full_name} src={m.avatar_url} size={22} />
               <span>{m.full_name}</span>
               <span className="muted small">@{m.username}</span>
             </div>

@@ -12,7 +12,7 @@ interface DashboardData {
   mine: Issue[];
   toTest: Issue[];
   myModules: { id: number; name: string; side: Side | null; project_key: string; total: number; done: number; inprogress: number }[];
-  activity: { id: number; field: string; old_label: string; new_label: string; created_at: string; user_name: string; key: string; summary: string; type: IssueType }[];
+  activity: { id: number; field: string; old_label: string; new_label: string; created_at: string; user_name: string; user_avatar_url?: string | null; key: string; summary: string; type: IssueType }[];
 }
 
 export default function Dashboard() {
@@ -76,7 +76,7 @@ export default function Dashboard() {
                 {data.activity.length === 0 && <div className="muted small">Chưa có hoạt động</div>}
                 {data.activity.map((a) => (
                   <div key={a.id} className="activity-row">
-                    <Avatar name={a.user_name} size={26} />
+                    <Avatar name={a.user_name} src={a.user_avatar_url} size={26} />
                     <div className="grow">
                       <div>
                         <b>{a.user_name}</b>{' '}

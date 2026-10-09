@@ -12,6 +12,7 @@ export interface Me {
   must_change_password: number;
   phone?: string | null;
   job_title?: string | null;
+    avatar_url?: string | null;
   role_name?: string | null;
   /** Quyền thực tế của tài khoản ở mọi dự án (nhóm người dùng + quyền riêng) */
   permissions?: string[];
@@ -24,6 +25,7 @@ export interface UserBasic {
   id: number;
   username: string;
   full_name: string;
+    avatar_url?: string | null;
   default_role_id?: number | null;
   default_role_name?: string | null;
 }
@@ -175,8 +177,10 @@ export interface Issue {
   priority: Priority;
   assignee_id: number | null;
   assignee_name: string | null;
+  assignee_avatar_url?: string | null;
   reporter_id: number | null;
   reporter_name: string | null;
+  reporter_avatar_url?: string | null;
   parent_id: number | null;
   parent_key: string | null;
   parent_summary: string | null;
@@ -224,19 +228,20 @@ export interface HistoryItem {
   new_label: string | null;
   created_at: string;
   user_name: string | null;
+  user_avatar_url?: string | null;
 }
 
 export interface IssueDetail extends Issue {
-  children: (Pick<Issue, 'id' | 'key' | 'type' | 'subtype' | 'summary' | 'priority' | 'story_points' | 'assignee_id' | 'assignee_name' | 'status_name' | 'status_category'>)[];
-  comments: { id: number; author_id: number; author_name: string; body: string; created_at: string; updated_at: string | null }[];
-  attachments: { id: number; filename: string; mime: string; size: number; created_at: string; uploader_id: number; uploader_name: string }[];
+  children: (Pick<Issue, 'id' | 'key' | 'type' | 'subtype' | 'summary' | 'priority' | 'story_points' | 'assignee_id' | 'assignee_name' | 'assignee_avatar_url' | 'status_name' | 'status_category'>)[];
+  comments: { id: number; author_id: number; author_name: string; author_avatar_url?: string | null; body: string; created_at: string; updated_at: string | null }[];
+  attachments: { id: number; filename: string; mime: string; size: number; created_at: string; uploader_id: number; uploader_name: string; uploader_avatar_url?: string | null }[];
   links: { id: number; type: string; direction: 'in' | 'out'; key: string; summary: string; issue_type: IssueType; status_name: string; status_category: Category }[];
   history: HistoryItem[];
   can_edit: boolean;
   permissions: string[];
   /** Trạng thái có thể chuyển tới (đã tính workflow của loại issue), gồm trạng thái hiện tại */
   next_status_ids: number[];
-  watchers: { id: number; username: string; full_name: string }[];
+  watchers: { id: number; username: string; full_name: string; avatar_url?: string | null }[];
   watching: boolean;
 }
 
@@ -277,6 +282,7 @@ export interface Worklog {
   issue_id: number;
   user_id: number;
   user_name: string;
+  user_avatar_url?: string | null;
   work_date: string;
   minutes: number;
   comment: string | null;

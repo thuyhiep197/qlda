@@ -1,10 +1,16 @@
 import { Router } from 'express';
+import multer from 'multer';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { get, now, run } from '../db.ts';
 import { COOKIE, DUMMY_HASH, hashPassword, issueToken, requireAuth, validatePassword, verifyPassword } from '../auth.ts';
 import { audit } from '../audit.ts';
 import { HttpError, userPermissions } from '../permissions.ts';
+import { AVATAR_DIR, MAX_AVATAR_BYTES, avatarExtension, avatarMime, avatarUrl, safeAvatarName } from '../avatar.ts';
 
 const r = Router();
+const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_AVATAR_BYTES, files: 1 } });
 
 // Chống dò mật khẩu (BẬT mặc định; chỉ tắt khi đặt LOGIN_LOCKOUT=off trong .env):
 // trong 15 phút, tối đa 5 lần sai cho mỗi tài khoản và 30 lần sai cho mỗi địa chỉ IP
@@ -59,14 +65,42 @@ r.post('/logout', (_req, res) => {
 });
 
 r.get('/me', requireAuth, (req, res) => {
-  const extra = get<{ preferences: string; phone: string | null; job_title: string | null; created_at: string; last_login_at: string | null; role_name: string | null; role_permissions: string | null }>(
-    `SELECT u.preferences, u.phone, u.job_title, u.created_at, u.last_login_at, r.name AS role_name, r.permissions AS role_permissions
+  const extra = get<{ preferences: string; phone: string | null; job_title: string | null; created_at: string; last_login_at: string | null; role_name: string | null; role_permissions: string | null; avatar: string | null }>(
+    `SELECT u.preferences, u.phone, u.job_title, u.created_at, u.last_login_at, u.avatar, r.name AS role_name, r.permissions AS role_permissions
      FROM users u LEFT JOIN roles r ON r.id = u.default_role_id WHERE u.id = ?`, req.user.id)!;
   let preferences = {};
   try { preferences = JSON.parse(extra.preferences || '{}'); } catch { /* giữ mặc định */ }
-  const { role_permissions: _rp, ...info } = extra;
+  const { role_permissions: _rp, avatar, ...info } = extra;
   // Quyền thực tế của tài khoản (nhóm + quyền riêng) — giao diện dùng để ẩn/hiện chức năng
-  res.json({ ...req.user, ...info, preferences, permissions: [...userPermissions(req.user)] });
+  res.json({ ...req.user, ...info, avatar_url: avatarUrl(avatar), preferences, permissions: [...userPermissions(req.user)] });
+});
+
+r.get('/avatars/:filename', requireAuth, (req, res) => {
+  const filename = String(req.params.filename);
+  if (!safeAvatarName(filename)) throw new HttpError(404, 'Không tìm thấy ảnh đại diện');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.sendFile(path.join(AVATAR_DIR, filename));
+});
+
+r.post('/avatar', requireAuth, avatarUpload.single('avatar'), async (req, res) => {
+  if (!req.file) throw new HttpError(400, 'Vui lòng chọn ảnh đại diện');
+  const detected = avatarMime(req.file.buffer);
+  if (!detected || detected !== req.file.mimetype) throw new HttpError(400, 'Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP hợp lệ');
+  const stored = `${crypto.randomUUID()}.${avatarExtension(detected)}`;
+  const target = path.join(AVATAR_DIR, stored);
+  const old = get<{ avatar: string | null }>('SELECT avatar FROM users WHERE id = ?', req.user.id)?.avatar ?? null;
+  await fs.writeFile(target, req.file.buffer, { flag: 'wx' });
+  try { run('UPDATE users SET avatar = ? WHERE id = ?', stored, req.user.id); }
+  catch (e) { await fs.unlink(target).catch(() => undefined); throw e; }
+  if (old && safeAvatarName(old)) await fs.unlink(path.join(AVATAR_DIR, old)).catch((e) => console.warn('Không xóa được avatar cũ', e));
+  res.status(201).json({ avatar_url: avatarUrl(stored) });
+});
+
+r.delete('/avatar', requireAuth, async (req, res) => {
+  const old = get<{ avatar: string | null }>('SELECT avatar FROM users WHERE id = ?', req.user.id)?.avatar ?? null;
+  run('UPDATE users SET avatar = NULL WHERE id = ?', req.user.id);
+  if (old && safeAvatarName(old)) await fs.unlink(path.join(AVATAR_DIR, old)).catch((e) => console.warn('Không xóa được avatar cũ', e));
+  res.json({ ok: true });
 });
 
 // ---------------------------------------------------------------------------

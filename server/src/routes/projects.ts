@@ -6,6 +6,7 @@ import { runImport } from '../importer.ts';
 import { autoProjectStatuses, checkPhase } from '../phases.ts';
 import { mapStatusForType, projectStatuses, workflowConfig } from '../workflow.ts';
 import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission, requireUserPerm } from '../permissions.ts';
+import { avatarUrl } from '../avatar.ts';
 
 const r = Router();
 
@@ -84,10 +85,12 @@ r.post('/', (req, res) => {
 r.get('/:key', (req, res) => {
   const { project, perms } = loadProject(req);
   const statuses = all('SELECT * FROM statuses WHERE project_id = ? ORDER BY position, id', project.id);
-  const members = all(`SELECT u.id, u.username, u.full_name, u.email, u.is_active, u.is_admin,
+  const members = all(`SELECT u.id, u.username, u.full_name, u.email, u.is_active, u.is_admin, u.avatar,
       COALESCE(u.default_role_id, pm.role_id) AS role_id, r.name AS role_name
     FROM project_members pm JOIN users u ON u.id = pm.user_id JOIN roles r ON r.id = COALESCE(u.default_role_id, pm.role_id)
-    WHERE pm.project_id = ? ORDER BY u.full_name`, project.id);
+    WHERE pm.project_id = ? ORDER BY u.full_name`, project.id).map((m: any) => {
+      const { avatar, ...member } = m; return { ...member, avatar_url: avatarUrl(avatar) };
+    });
   const { transitions, type_statuses } = workflowConfig(project.id);
   // Như Jira (sprint song song): có thể có nhiều sprint cùng chạy
   const activeSprints = all("SELECT * FROM sprints WHERE project_id = ? AND state = 'active' ORDER BY start_date, id", project.id);

@@ -43,7 +43,9 @@ export function PriorityIcon({ priority, size = 16 }: { priority: Priority; size
   return <Icon size={size} color={color} strokeWidth={2.5} className="prio-icon" aria-label={PRIORITY_LABELS[priority]} data-tip={PRIORITY_LABELS[priority]} />;
 }
 
-export function Avatar({ name, size = 24 }: { name?: string | null; size?: number }) {
+export function Avatar({ name, src, size = 24 }: { name?: string | null; src?: string | null; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
   if (!name) {
     return <span className="avatar avatar-empty" style={{ width: size, height: size }} title="Chưa giao">
       <UserRound size={Math.round(size * 0.62)} strokeWidth={2.2} aria-hidden />
@@ -51,7 +53,7 @@ export function Avatar({ name, size = 24 }: { name?: string | null; size?: numbe
   }
   return (
     <span className="avatar" title={name} style={{ width: size, height: size, fontSize: size * 0.4, background: colorOf(name) }}>
-      {initials(name)}
+      {src && !failed ? <img src={src} alt="" onError={() => setFailed(true)} /> : initials(name)}
     </span>
   );
 }

@@ -9,6 +9,7 @@
     "seed:demo": "node --env-file-if-exists=../.env --import tsx src/seed-demo.ts",
     "typecheck": "tsc --noEmit",
     "backup": "node --env-file-if-exists=../.env --import tsx src/backup.ts"
+    ,"test": "tsx --test"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useVersions, hasPerm } from '../hooks';
+import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions, hasPerm } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
 import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS, HEALTH_LABELS, issueHealth, type Health } from '../util';
-import { Avatar, Empty, FlagMark, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
+import { Empty, FlagMark, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
 import { EpicTag } from '../components/IssueRow';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar } from '../components/BulkBar';
 import { ChevronDown, Download, Star, X } from 'lucide-react';
+import { issueListAssignee } from '../issue-filter-defaults';
+import { InlineAssignee } from '../components/InlineAssignee';
 
 const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'component', 'ba', 'parent', 'label', 'health', 'q', 'sort'] as const;
 
@@ -21,6 +23,7 @@ export default function IssueList() {
   const projectKey = routeKey?.toUpperCase() || params.get('project') || '';
   const { data: projects } = useProjects();
   const { data: project } = useProject(projectKey || undefined);
+  const { data: users } = useUsersBasic();
   const { data: sprints } = useSprints(projectKey || undefined);
   const { data: versions } = useVersions(projectKey || undefined);
   const { data: components } = useComponents(projectKey || undefined);
@@ -34,6 +37,8 @@ export default function IssueList() {
 
   const filter: Record<string, string> = {};
   FILTER_KEYS.forEach((k) => { const v = params.get(k); if (v) filter[k] = v; });
+  const assigneeFilter = issueListAssignee(params.get('assignee'));
+  if (assigneeFilter.api) filter.assignee = assigneeFilter.api; else delete filter.assignee;
   if (projectKey) filter.project = projectKey;
   // Mặc định không hiện issue Hoàn thành (trừ khi chọn nhóm trạng thái, trạng thái cụ thể hoặc đánh giá); 'all' = mọi nhóm
   const catParam = params.get('statusCategory');
@@ -86,7 +91,7 @@ export default function IssueList() {
   const Th = ({ k, children }: { k: string; children: React.ReactNode }) => (
     <th className="sortable" onClick={() => set('sort', k)}>{children}{sort === k ? <ChevronDown size={13} className="sort-caret" /> : null}</th>
   );
-  const hasFilter = Object.keys(filter).some((k) => k !== 'project' && k !== 'sort');
+  const hasFilter = Object.keys(filter).some((k) => k !== 'project' && k !== 'sort' && !(k === 'assignee' && filter[k] === 'me'));
   const selectedIssues = issues?.filter((i) => selected.has(i.id)) ?? [];
   const allChecked = !!issues?.length && issues.every((i) => selected.has(i.id));
   const showVersion = !!versions?.length;
@@ -111,11 +116,11 @@ export default function IssueList() {
             {projects?.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
           </select>
         )}
-        <select value={filter.assignee || ''} onChange={(e) => set('assignee', e.target.value)}>
-          <option value="">Mọi người thực hiện</option>
+        <select value={assigneeFilter.control} onChange={(e) => set('assignee', e.target.value)}>
+          <option value="all">Mọi người thực hiện</option>
           <option value="me">Tôi</option>
           <option value="none">Chưa giao</option>
-          {project?.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+          {(project?.members ?? users ?? []).map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
         </select>
         <select value={catParam ?? (filter.statusCategory ? 'todo,inprogress' : 'all')} onChange={(e) => set('statusCategory', e.target.value === 'todo,inprogress' ? '' : e.target.value)}
           className={catParam && catParam !== 'todo,inprogress' ? 'filter-on' : ''}>
@@ -232,7 +237,7 @@ export default function IssueList() {
                   <td><div className="row gap-xs"><span className="ellipsis">{i.summary}</span><EpicTag issue={i} /></div></td>
                   <td><StatusBadge name={i.status_name} category={i.status_category} /></td>
                   <td><div className="row gap-xs"><PriorityIcon priority={i.priority} /> <span className="small">{PRIORITY_LABELS[i.priority]}</span></div></td>
-                  <td><div className="row gap-xs"><Avatar name={i.assignee_name} size={22} /> <span className="small">{i.assignee_name || 'Chưa giao'}</span></div></td>
+                  <td><InlineAssignee issue={i} project={project} /></td>
                   {project?.type !== 'kanban' && <td className="small">{i.sprint_name || ''}</td>}
                   {showComponent && <td className="small" data-tip={i.component_lead_name ? `BA phụ trách: ${i.component_lead_name}` : undefined}>{i.component_name || ''}</td>}
                   {showVersion && <td className="small">{i.version_name || ''}</td>}

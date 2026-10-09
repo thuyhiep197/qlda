@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type DragEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs, queryClient, refreshAll } from '../api';
-import { can, useIssueModal, useSprints } from '../hooks';
+import { can, useIssueModal, useMe, useSprints } from '../hooks';
 import type { Issue, IssueType, Sprint } from '../types';
 import { fmtDate, TYPE_LABELS } from '../util';
 import { Spinner, toast, toastError, HelpTip } from '../components/ui';
@@ -18,6 +18,7 @@ type Container = number | 'backlog';
 
 export default function Backlog() {
   const project = useProjectCtx();
+  const { data: me } = useMe();
   const { open } = useIssueModal();
   const { data: sprints } = useSprints(project.key, 'future,active');
   const issuesKey = ['issues', 'backlog', project.key];
@@ -34,7 +35,7 @@ export default function Backlog() {
     queryKey: ['issues', 'epics', project.key],
     queryFn: () => api.get(`/issues${qs({ project: project.key, type: 'epic' })}`),
   });
-  const { filters, setFilters, apply } = useFilters();
+  const { filters, setFilters, apply } = useFilters(me?.id);
   const [drag, setDrag] = useState<Issue | null>(null);
   const [drop, setDrop] = useState<{ c: Container; index: number } | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -143,7 +144,7 @@ export default function Backlog() {
 
   return (
     <div className={`page-pad ${selected.size ? 'has-selection' : ''}`}>
-      <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
+      <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics} defaultAssigneeId={me?.id}>
         {canNewSprint && <button className="btn btn-sm btn-primary" onClick={createSprint}><Plus size={14} strokeWidth={2.5} /> Tạo sprint</button>}
         {canNewSprint && sprints.length > 0 && <button className="btn btn-sm" onClick={() => setSeries(true)} data-tip="Tạo tiếp nhiều sprint theo độ dài và nhịp của các sprint đã có"><CalendarRange size={14} /> Tạo loạt sprint</button>}
         <ImportButton project={project} />

@@ -77,7 +77,7 @@ export default function Board() {
     visible.forEach((i) => { const k = String(i.assignee_id ?? 'none'); map.set(k, [...(map.get(k) || []), i]); });
     lanes = [...map.entries()].map(([k, items]) => ({
       key: k, items,
-      title: <><Avatar name={items[0].assignee_name} size={22} /> {items[0].assignee_name || 'Chưa giao'}</>,
+      title: <><Avatar name={items[0].assignee_name} src={items[0].assignee_avatar_url} size={22} /> {items[0].assignee_name || 'Chưa giao'}</>,
     })).sort((a, b) => (a.key === 'none' ? 1 : b.key === 'none' ? -1 : 0));
   } else if (group === 'epic') {
     const epicOf = (i: Issue) => (i.parent_type === 'epic' ? String(i.parent_id) : 'none');
@@ -255,7 +255,7 @@ function Card({ issue, onOpen, dragging, selected }: { issue: Issue; onOpen: (e:
         <div className="spacer" />
         <PriorityIcon priority={issue.priority} />
         {issue.story_points != null && <span className="points" data-tip="Điểm ước lượng">{issue.story_points}</span>}
-        <Avatar name={issue.assignee_name} size={24} />
+        <Avatar name={issue.assignee_name} src={issue.assignee_avatar_url} size={24} />
       </div>
     </div>
   );

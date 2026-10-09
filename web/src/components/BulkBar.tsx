@@ -120,7 +120,7 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
 
 /** Nút "Giao cho": tìm người theo tên, nhóm theo vai trò, có "Giao cho tôi" và "Bỏ giao". */
 function AssignPicker({ members, disabled, onPick }: {
-  members: { id: number; full_name: string; username: string; role_name: string | null; is_active?: number }[];
+  members: { id: number; full_name: string; username: string; role_name: string | null; avatar_url?: string | null; is_active?: number }[];
   disabled?: boolean; onPick: (id: number | null, name?: string) => void;
 }) {
   const { data: me } = useMe();
@@ -150,14 +150,14 @@ function AssignPicker({ members, disabled, onPick }: {
           <input autoFocus placeholder="Tìm theo tên, vai trò…" value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && list.length === 1) pick(list[0].id, list[0].full_name); }} />
           <div className="assign-list">
-            {!q && isMember && <button type="button" onClick={() => pick(me!.id, me!.full_name)}><Avatar name={me!.full_name} size={22} /> <b>Giao cho tôi</b></button>}
+            {!q && isMember && <button type="button" onClick={() => pick(me!.id, me!.full_name)}><Avatar name={me!.full_name} src={me!.avatar_url} size={22} /> <b>Giao cho tôi</b></button>}
             {!q && <button type="button" onClick={() => pick(null)}><Avatar size={22} /> Bỏ giao (chưa giao ai)</button>}
             {groups.map((g) => (
               <div key={g}>
                 <div className="assign-group">{g}</div>
                 {list.filter((m) => (m.role_name || 'Khác') === g).map((m) => (
                   <button type="button" key={m.id} onClick={() => pick(m.id, m.full_name)}>
-                    <Avatar name={m.full_name} size={22} /> {m.full_name} <span className="muted small">@{m.username}</span>
+                    <Avatar name={m.full_name} src={m.avatar_url} size={22} /> {m.full_name} <span className="muted small">@{m.username}</span>
                   </button>
                 ))}
               </div>

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, errMsg, queryClient } from '../api';
 import { useMe } from '../hooks';
@@ -8,6 +8,7 @@ import { fmtDateTime } from '../util';
 import { Avatar, toast, toastError } from '../components/ui';
 import { ChangePasswordForm } from './ChangePassword';
 import { Bell, Lock, Palette, UserRound, type LucideIcon } from 'lucide-react';
+import { validateAvatarFile } from '../avatar-client';
 
 type Tab = 'profile' | 'appearance' | 'notifications' | 'security';
 const TABS: [Tab, string, LucideIcon][] = [
@@ -26,7 +27,7 @@ export default function Profile() {
   return (
     <div className="page">
       <div className="account-head">
-        <Avatar name={me.full_name} size={56} />
+        <Avatar name={me.full_name} src={me.avatar_url} size={56} />
         <div>
           <h1>{me.full_name}</h1>
           <div className="muted">@{me.username}{me.role_name ? ` · ${me.role_name}` : ''}{me.is_admin ? ' · Quản trị hệ thống' : ''}</div>
@@ -55,6 +56,31 @@ function ProfileTab({ me }: { me: Me }) {
   const [phone, setPhone] = useState(me.phone || '');
   const [jobTitle, setJobTitle] = useState(me.job_title || '');
   const [busy, setBusy] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const preview = useMemo(() => avatarFile ? URL.createObjectURL(avatarFile) : null, [avatarFile]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  const pickAvatar = (file?: File) => {
+    if (!file) return;
+    const error = validateAvatarFile(file);
+    if (error) { toast(error, 'error'); return; }
+    setAvatarFile(file);
+  };
+  const saveAvatar = async () => {
+    if (!avatarFile) return;
+    setAvatarBusy(true);
+    try {
+      const body = new FormData(); body.append('avatar', avatarFile);
+      await api.post('/auth/avatar', body);
+      setAvatarFile(null); toast('Đã cập nhật ảnh đại diện'); await queryClient.invalidateQueries();
+    } catch (e) { toastError(e); } finally { setAvatarBusy(false); }
+  };
+  const removeAvatar = async () => {
+    setAvatarBusy(true);
+    try { await api.del('/auth/avatar'); setAvatarFile(null); toast('Đã xóa ảnh đại diện'); await queryClient.invalidateQueries(); }
+    catch (e) { toastError(e); } finally { setAvatarBusy(false); }
+  };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -67,6 +93,18 @@ function ProfileTab({ me }: { me: Me }) {
   return (
     <form className="card stack" onSubmit={submit}>
       <h3>Thông tin cá nhân</h3>
+      <div className="avatar-editor">
+        <Avatar name={me.full_name} src={preview || me.avatar_url} size={72} />
+        <div className="avatar-editor-actions">
+          <input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => pickAvatar(e.target.files?.[0])} />
+          <div className="row gap-sm wrap">
+            <button type="button" className="btn btn-sm" disabled={avatarBusy} onClick={() => input.current?.click()}>Đổi ảnh</button>
+            {avatarFile && <button type="button" className="btn btn-primary btn-sm" disabled={avatarBusy} onClick={saveAvatar}>Lưu ảnh</button>}
+            {(me.avatar_url || avatarFile) && <button type="button" className="btn btn-subtle btn-sm danger" disabled={avatarBusy} onClick={avatarFile ? () => setAvatarFile(null) : removeAvatar}>{avatarFile ? 'Hủy' : 'Xóa ảnh'}</button>}
+          </div>
+          <span className="muted small">JPEG, PNG hoặc WebP · tối đa 2 MB</span>
+        </div>
+      </div>
       <div className="form-grid">
         <label className="field"><span>Họ tên *</span><input value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={100} /></label>
         <label className="field"><span>Chức danh</span><input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="VD: Business Analyst" maxLength={100} /></label>

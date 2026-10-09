@@ -7,14 +7,16 @@ import {
   accountRoleId, ACTIONS, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound,
   requireUserPerm, userPermissions,
 } from '../permissions.ts';
+import { avatarUrl } from '../avatar.ts';
 
 /** Middleware: bắt buộc có quyền (theo tài khoản). */
 const need = (perm: string) => (req: Request, _res: Response, next: NextFunction) => { requireUserPerm(req.user, perm); next(); };
 
 const r = Router();
 
-const USER_COLS = `id, username, full_name, email, is_admin, is_active, must_change_password, created_at, last_login_at,
+const USER_COLS = `id, username, full_name, email, avatar, is_admin, is_active, must_change_password, created_at, last_login_at,
   default_role_id, (SELECT name FROM roles WHERE roles.id = users.default_role_id) AS default_role_name`;
+const userJson = (u: any) => { const { avatar, ...user } = u; return { ...user, avatar_url: avatarUrl(avatar) }; };
 
 function checkRole(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
@@ -25,8 +27,9 @@ function checkRole(v: unknown): number | null {
 
 /** Danh sách rút gọn cho mọi người dùng đã đăng nhập (dùng khi chọn người). */
 r.get('/users/basic', (_req, res) => {
-  res.json(all(`SELECT u.id, u.username, u.full_name, u.default_role_id, r.name AS default_role_name
-    FROM users u LEFT JOIN roles r ON r.id = u.default_role_id WHERE u.is_active = 1 ORDER BY u.full_name`));
+  const users = all(`SELECT u.id, u.username, u.full_name, u.avatar, u.default_role_id, r.name AS default_role_name
+    FROM users u LEFT JOIN roles r ON r.id = u.default_role_id WHERE u.is_active = 1 ORDER BY u.full_name`);
+  res.json(users.map((u: any) => { const { avatar, ...user } = u; return { ...user, avatar_url: avatarUrl(avatar) }; }));
 });
 
 function memberships(userId: number) {
@@ -47,7 +50,7 @@ function setProjects(userId: number, list: unknown) {
 
 r.get('/users', need('user.view'), (_req, res) => {
   const users = all(`SELECT ${USER_COLS} FROM users ORDER BY is_active DESC, full_name`);
-  res.json(users.map((u) => ({ ...u, memberships: memberships(u.id) })));
+  res.json(users.map((u: any) => { const { avatar, ...user } = u; return { ...user, avatar_url: avatarUrl(avatar), memberships: memberships(u.id) }; }));
 });
 
 function checkUsername(v: unknown) {
@@ -75,7 +78,7 @@ r.post('/users', need('user.create'), (req, res) => {
     return id;
   });
   audit(req, 'user_created', { target: username, detail: { full_name, role: get('SELECT name FROM roles WHERE id = ?', roleId)?.name, is_admin: !!b.is_admin } });
-  res.status(201).json(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id));
+  res.status(201).json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
 });
 
 r.patch('/users/:id', need('user.edit'), (req, res) => {
@@ -110,7 +113,7 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   if (after.email !== u.email) changes.email = `${u.email ?? '—'} → ${after.email ?? '—'}`;
   if (b.project_ids !== undefined) changes.du_an = 'Cập nhật danh sách dự án';
   audit(req, 'user_updated', { target: u.username, detail: changes });
-  res.json(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id));
+  res.json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
 });
 
 r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {

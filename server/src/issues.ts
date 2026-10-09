@@ -8,6 +8,7 @@ import {
   accessibleProjectIds, badRequest, canEditIssue, forbidden, notFound,
   type AuthUser, type Permission,
 } from './permissions.ts';
+import { avatarUrl } from './avatar.ts';
 
 export const ISSUE_TYPES = ['epic', 'story', 'task', 'bug', 'subtask'] as const;
 export const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest'] as const;
@@ -49,7 +50,7 @@ export interface IssueRow {
 const ISSUE_SELECT = `
 SELECT i.*, p.key AS project_key, p.name AS project_name,
   s.name AS status_name, s.category AS status_category,
-  a.full_name AS assignee_name, r.full_name AS reporter_name,
+  a.full_name AS assignee_name, a.avatar AS assignee_avatar, r.full_name AS reporter_name, r.avatar AS reporter_avatar,
   par.key AS parent_key, par.summary AS parent_summary, par.type AS parent_type,
   sp.name AS sprint_name, sp.state AS sprint_state,
   v.name AS version_name, v.status AS version_status,
@@ -73,7 +74,8 @@ LEFT JOIN users cu ON cu.id = cp.lead_id
 LEFT JOIN users bu ON bu.id = i.ba_id`;
 
 export function serialize(row: any) {
-  return { ...row, labels: row.labels ? String(row.labels).split(',').filter(Boolean) : [],
+  const { assignee_avatar, reporter_avatar, ...rest } = row;
+  return { ...rest, assignee_avatar_url: avatarUrl(assignee_avatar), reporter_avatar_url: avatarUrl(reporter_avatar), labels: row.labels ? String(row.labels).split(',').filter(Boolean) : [],
     ...(row.type === 'epic' ? { phase_guess: guessPhase(row.summary) } : {}) };
 }
 

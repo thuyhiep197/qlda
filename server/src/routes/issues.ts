@@ -11,6 +11,7 @@ import {
 import { handleMentions, notify, unwatch, watch, watchers } from '../notify.ts';
 import { canTransition, typeStatuses } from '../workflow.ts';
 import { badRequest, canEditIssue, forbidden, notFound, requirePerm, requireProjectAccess, requireUserPerm } from '../permissions.ts';
+import { avatarUrl } from '../avatar.ts';
 
 const r = Router();
 
@@ -41,28 +42,31 @@ r.get('/:key', (req, res) => {
   const perms = requireProjectAccess(req.user, row.project_id);
   if (!perms.has('issue.view')) throw forbidden('Bạn không có quyền xem issue');
   const issue = fetchIssue('id', row.id);
-  const children = all(`SELECT i.id, i.key, i.type, i.subtype, i.summary, i.priority, i.story_points, i.assignee_id,
-      u.full_name AS assignee_name, s.name AS status_name, s.category AS status_category
+  const withAvatar = (rows: any[], field: string, output: string) => rows.map((item) => {
+    const { [field]: avatar, ...rest } = item; return { ...rest, [output]: avatarUrl(avatar) };
+  });
+  const children = withAvatar(all(`SELECT i.id, i.key, i.type, i.subtype, i.summary, i.priority, i.story_points, i.assignee_id,
+      u.full_name AS assignee_name, u.avatar AS assignee_avatar, s.name AS status_name, s.category AS status_category
     FROM issues i JOIN statuses s ON s.id = i.status_id LEFT JOIN users u ON u.id = i.assignee_id
-    WHERE i.parent_id = ? ORDER BY i.rank, i.id`, row.id);
-  const comments = all(`SELECT c.*, u.full_name AS author_name FROM comments c JOIN users u ON u.id = c.author_id
-    WHERE c.issue_id = ? ORDER BY c.created_at`, row.id).filter(() => perms.has('comment.view'));
-  const attachments = all(`SELECT a.id, a.filename, a.mime, a.size, a.created_at, a.uploader_id, u.full_name AS uploader_name
-    FROM attachments a JOIN users u ON u.id = a.uploader_id WHERE a.issue_id = ? AND a.inline = 0 ORDER BY a.created_at`, row.id).filter(() => perms.has('attachment.view'));
+    WHERE i.parent_id = ? ORDER BY i.rank, i.id`, row.id), 'assignee_avatar', 'assignee_avatar_url');
+  const comments = withAvatar(all(`SELECT c.*, u.full_name AS author_name, u.avatar AS author_avatar FROM comments c JOIN users u ON u.id = c.author_id
+    WHERE c.issue_id = ? ORDER BY c.created_at`, row.id), 'author_avatar', 'author_avatar_url').filter(() => perms.has('comment.view'));
+  const attachments = withAvatar(all(`SELECT a.id, a.filename, a.mime, a.size, a.created_at, a.uploader_id, u.full_name AS uploader_name, u.avatar AS uploader_avatar
+    FROM attachments a JOIN users u ON u.id = a.uploader_id WHERE a.issue_id = ? AND a.inline = 0 ORDER BY a.created_at`, row.id), 'uploader_avatar', 'uploader_avatar_url').filter(() => perms.has('attachment.view'));
   const links = all(`
     SELECT l.id, l.type, 'out' AS direction, i.key, i.summary, i.type AS issue_type, s.name AS status_name, s.category AS status_category
       FROM issue_links l JOIN issues i ON i.id = l.target_id JOIN statuses s ON s.id = i.status_id WHERE l.source_id = ?
     UNION ALL
     SELECT l.id, l.type, 'in' AS direction, i.key, i.summary, i.type AS issue_type, s.name AS status_name, s.category AS status_category
       FROM issue_links l JOIN issues i ON i.id = l.source_id JOIN statuses s ON s.id = i.status_id WHERE l.target_id = ?`, row.id, row.id);
-  const history = all(`SELECT h.*, u.full_name AS user_name FROM issue_history h LEFT JOIN users u ON u.id = h.user_id
-    WHERE h.issue_id = ? ORDER BY h.created_at DESC, h.id DESC LIMIT 200`, row.id);
+  const history = withAvatar(all(`SELECT h.*, u.full_name AS user_name, u.avatar AS user_avatar FROM issue_history h LEFT JOIN users u ON u.id = h.user_id
+    WHERE h.issue_id = ? ORDER BY h.created_at DESC, h.id DESC LIMIT 200`, row.id), 'user_avatar', 'user_avatar_url');
   // Trạng thái có thể chuyển tới (theo workflow của loại issue và luồng chuyển), gồm cả trạng thái hiện tại
   const next_status_ids = typeStatuses(row.project_id, row.type)
     .filter((s) => canTransition(row.project_id, row.type, row.status_id, s.id)).map((s) => s.id);
   if (!next_status_ids.includes(row.status_id)) next_status_ids.unshift(row.status_id);
-  const watcherList = all(`SELECT u.id, u.username, u.full_name FROM issue_watchers w JOIN users u ON u.id = w.user_id
-    WHERE w.issue_id = ? AND u.is_active = 1 ORDER BY u.full_name`, row.id);
+  const watcherList = withAvatar(all(`SELECT u.id, u.username, u.full_name, u.avatar FROM issue_watchers w JOIN users u ON u.id = w.user_id
+    WHERE w.issue_id = ? AND u.is_active = 1 ORDER BY u.full_name`, row.id), 'avatar', 'avatar_url');
   res.json({
     ...issue, children, comments, attachments, links, history,
     watchers: watcherList, watching: watcherList.some((w) => w.id === req.user.id),

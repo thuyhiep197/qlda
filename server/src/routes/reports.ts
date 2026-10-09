@@ -3,6 +3,7 @@ import { all, get, localDate } from '../db.ts';
 import { accessibleProjectIds, badRequest, notFound } from '../permissions.ts';
 import { listIssues } from '../issues.ts';
 import { loadProject } from './projects.ts';
+import { avatarUrl } from '../avatar.ts';
 
 const r = Router();
 
@@ -31,7 +32,7 @@ r.get('/dashboard', (req, res) => {
     FROM issues i JOIN statuses s ON s.id = i.status_id JOIN projects p ON p.id = i.project_id
     WHERE p.is_archived = 0 AND ${scope}`, user.id, user.id, user.id, today, user.id, weekAgo, user.id);
   const activity = all(`
-    SELECT h.id, h.field, h.old_label, h.new_label, h.created_at, u.full_name AS user_name,
+    SELECT h.id, h.field, h.old_label, h.new_label, h.created_at, u.full_name AS user_name, u.avatar AS user_avatar,
       i.key, i.summary, i.type
     FROM issue_history h JOIN issues i ON i.id = h.issue_id LEFT JOIN users u ON u.id = h.user_id
     JOIN projects p ON p.id = i.project_id
@@ -45,7 +46,7 @@ r.get('/dashboard', (req, res) => {
       (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.component_id = c.id AND i.type NOT IN ('epic','subtask') AND s.category = 'done') AS done,
       (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.component_id = c.id AND i.type NOT IN ('epic','subtask') AND s.category = 'inprogress') AS inprogress
     FROM components c JOIN projects p ON p.id = c.project_id WHERE c.lead_id = ? AND p.is_archived = 0 ORDER BY p.key, c.position`, user.id);
-  res.json({ stats, mine, activity, toTest, myModules });
+  res.json({ stats, mine, activity: activity.map((a: any) => { const { user_avatar, ...item } = a; return { ...item, user_avatar_url: avatarUrl(user_avatar) }; }), toTest, myModules });
 });
 
 // ---------------------------------------------------------------------------
@@ -157,9 +158,9 @@ r.get('/projects/:key/dashboard', (req, res) => {
     .sort((a, b) => (a.start || '9').localeCompare(b.start || '9'));
 
   // Mô-đun (Component) kèm BA phụ trách
-  const components = all<{ id: number; name: string; side: string | null; lead_name: string | null }>(
-    'SELECT c.id, c.name, c.side, u.full_name AS lead_name FROM components c LEFT JOIN users u ON u.id = c.lead_id WHERE c.project_id = ? ORDER BY c.position, c.id', pid,
-  ).map((c) => { const list = work.filter((i) => i.component_id === c.id); return { ...c, ...measure(list), ...dates(list) }; });
+  const components = all<{ id: number; name: string; side: string | null; lead_name: string | null; lead_avatar: string | null }>(
+    'SELECT c.id, c.name, c.side, u.full_name AS lead_name, u.avatar AS lead_avatar FROM components c LEFT JOIN users u ON u.id = c.lead_id WHERE c.project_id = ? ORDER BY c.position, c.id', pid,
+  ).map((c) => { const { lead_avatar, ...component } = c; const list = work.filter((i) => i.component_id === c.id); return { ...component, lead_avatar_url: avatarUrl(lead_avatar), ...measure(list), ...dates(list) }; });
 
   const active = all<{ id: number; name: string; start_date: string; end_date: string; goal: string | null }>(
     `SELECT id, name, start_date, end_date, goal FROM sprints WHERE project_id = ? AND state = 'active' ORDER BY start_date, id`, pid);
@@ -190,7 +191,7 @@ r.get('/projects/:key/dashboard', (req, res) => {
     .sort((a, b) => a.due_date!.localeCompare(b.due_date!)).slice(0, 6)
     .map((i) => ({ key: i.key, type: i.type, summary: i.summary, due_date: i.due_date, days: Math.round((Date.parse(i.due_date!) - Date.parse(today)) / 86400_000) }));
 
-  const activity = all(`SELECT h.id, h.field, h.old_label, h.new_label, h.created_at, u.full_name AS user_name, i.key, i.summary, i.type
+  const activity = all(`SELECT h.id, h.field, h.old_label, h.new_label, h.created_at, u.full_name AS user_name, u.avatar AS user_avatar, i.key, i.summary, i.type
     FROM issue_history h JOIN issues i ON i.id = h.issue_id LEFT JOIN users u ON u.id = h.user_id
     WHERE i.project_id = ? AND h.field IN ('created','status','assignee') ORDER BY h.created_at DESC, h.id DESC LIMIT 12`, pid);
   const doneWeek = get<{ c: number }>(`SELECT COUNT(*) c FROM issues i JOIN statuses s ON s.id = i.status_id
@@ -198,7 +199,8 @@ r.get('/projects/:key/dashboard', (req, res) => {
   pid, dayStart(addDays(today, -6)).toISOString())!.c;
 
   res.json({ today, overall: { ...overall, ...span, pct_time: elapsed, health: health(overall, span.end), done_week: doneWeek, upcoming_count: upcomingAll.length },
-    epics, labels, components, sprints, next_sprint: next, byAssignee, overdue: overdueList, upcoming, milestones, activity });
+    epics, labels, components, sprints, next_sprint: next, byAssignee, overdue: overdueList, upcoming, milestones,
+    activity: activity.map((a: any) => { const { user_avatar, ...item } = a; return { ...item, user_avatar_url: avatarUrl(user_avatar) }; }) });
 });
 
 r.get('/projects/:key/velocity', (req, res) => {
@@ -283,7 +285,7 @@ r.get('/projects/:key/burndown', (req, res) => {
 r.get('/projects/:key/roadmap', (req, res) => {
   const { project } = loadProject(req, 'plan.view');
   const epics = all(`
-    SELECT e.id, e.key, e.summary, e.start_date, e.due_date, e.assignee_id, u.full_name AS assignee_name,
+    SELECT e.id, e.key, e.summary, e.start_date, e.due_date, e.assignee_id, u.full_name AS assignee_name, u.avatar AS assignee_avatar,
       s.name AS status_name, s.category AS status_category,
       (SELECT COUNT(*) FROM issues c WHERE c.parent_id = e.id) AS total,
       (SELECT COUNT(*) FROM issues c JOIN statuses cs ON cs.id = c.status_id WHERE c.parent_id = e.id AND cs.category = 'done') AS done,
@@ -297,14 +299,14 @@ r.get('/projects/:key/roadmap', (req, res) => {
   // Issue con của từng epic (mở rộng trên lộ trình như Jira Timeline)
   const children = all(`
     SELECT c.id, c.key, c.type, c.summary, c.parent_id, c.start_date, c.due_date, c.story_points,
-      u.full_name AS assignee_name, s.name AS status_name, s.category AS status_category,
+      u.full_name AS assignee_name, u.avatar AS assignee_avatar, s.name AS status_name, s.category AS status_category,
       sp.start_date AS sprint_start, sp.end_date AS sprint_end, sp.name AS sprint_name
     FROM issues c JOIN issues e ON e.id = c.parent_id AND e.type = 'epic'
     JOIN statuses s ON s.id = c.status_id LEFT JOIN users u ON u.id = c.assignee_id LEFT JOIN sprints sp ON sp.id = c.sprint_id
     WHERE e.project_id = ? ORDER BY c.rank, c.id`, project.id);
   const byEpic = new Map<number, any[]>();
-  for (const c of children) byEpic.set(c.parent_id, [...(byEpic.get(c.parent_id) || []), c]);
-  res.json(epics.map((e) => ({ ...e, children: byEpic.get(e.id) || [] })));
+  for (const c of children) { c.assignee_avatar_url = avatarUrl(c.assignee_avatar); delete c.assignee_avatar; byEpic.set(c.parent_id, [...(byEpic.get(c.parent_id) || []), c]); }
+  res.json(epics.map((e) => { e.assignee_avatar_url = avatarUrl(e.assignee_avatar); delete e.assignee_avatar; return { ...e, children: byEpic.get(e.id) || [] }; }));
 });
 
 /**

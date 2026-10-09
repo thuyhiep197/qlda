@@ -89,7 +89,7 @@ export function PlanKanban({ project, lanes }: { project: Project; lanes: Kanban
                                 <span className="spacer" />
                                 <PriorityIcon priority={i.priority} size={14} />
                                 {i.component_lead_name && <span className="muted small ellipsis pk-ba" data-tip={`BA phụ trách: ${i.component_lead_name}`}>BA: {i.component_lead_name.split(' ').slice(-1)[0]}</span>}
-                                <Avatar name={i.assignee_name} size={22} />
+                                <Avatar name={i.assignee_name} src={i.assignee_avatar_url} size={22} />
                               </div>
                             </div>
                           );

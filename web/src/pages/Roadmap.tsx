@@ -11,12 +11,12 @@ import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucid
 
 interface Child {
   id: number; key: string; type: IssueType; summary: string; start_date: string | null; due_date: string | null;
-  story_points: number | null; assignee_name: string | null; status_name: string; status_category: Category;
+  story_points: number | null; assignee_name: string | null; assignee_avatar_url?: string | null; status_name: string; status_category: Category;
   sprint_start: string | null; sprint_end: string | null; sprint_name: string | null;
 }
 interface Epic {
   id: number; key: string; summary: string; start_date: string | null; due_date: string | null;
-  assignee_name: string | null; status_name: string; status_category: Category;
+  assignee_name: string | null; assignee_avatar_url?: string | null; status_name: string; status_category: Category;
   total: number; done: number; inprogress: number; points: number; done_points: number;
   sprint_start: string | null; sprint_end: string | null; children: Child[];
 }
@@ -113,7 +113,7 @@ export default function Roadmap() {
                     </div>
                   </div>
                   <StatusBadge name={e.status_name} category={e.status_category} />
-                  <Avatar name={e.assignee_name} size={22} />
+                  <Avatar name={e.assignee_name} src={e.assignee_avatar_url} size={22} />
                 </div>
               );
             }
@@ -123,7 +123,7 @@ export default function Roadmap() {
                 <TypeIcon type={c.type} size={14} />
                 <div className="grow ellipsis small"><span className="issue-key">{c.key}</span> {c.summary}</div>
                 <StatusBadge name={c.status_name} category={c.status_category} />
-                <Avatar name={c.assignee_name} size={20} />
+                <Avatar name={c.assignee_name} src={c.assignee_avatar_url} size={20} />
               </div>
             );
           })}

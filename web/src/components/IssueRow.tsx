@@ -22,7 +22,7 @@ export function IssueLine({ issue, onOpen }: { issue: Issue; onOpen: () => void 
       <StatusBadge name={issue.status_name} category={issue.status_category} />
       <PriorityIcon priority={issue.priority} />
       <span className="points" data-tip="Điểm ước lượng">{issue.story_points ?? '-'}</span>
-      <Avatar name={issue.assignee_name} size={24} />
+      <Avatar name={issue.assignee_name} src={issue.assignee_avatar_url} size={24} />
     </div>
   );
 }

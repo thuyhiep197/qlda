@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { all, get, now, run } from '../db.ts';
 import { accessibleProjectIds } from '../permissions.ts';
+import { avatarUrl } from '../avatar.ts';
 
 const r = Router();
 
@@ -18,11 +19,12 @@ r.get('/', (req, res) => {
   const where = `n.user_id = ? AND ${scope(req.user)} AND p.is_archived = 0`;
   const tab = req.query.tab === 'important' ? ` AND ${IMPORTANT}` : '';
   const items = all(`
-    SELECT n.id, n.type, n.text, n.created_at, n.read_at, u.full_name AS actor_name,
+    SELECT n.id, n.type, n.text, n.created_at, n.read_at, u.full_name AS actor_name, u.avatar AS actor_avatar,
       i.key AS issue_key, i.summary AS issue_summary, i.type AS issue_type, i.flagged AS issue_flagged
     FROM notifications n JOIN issues i ON i.id = n.issue_id JOIN projects p ON p.id = i.project_id
     LEFT JOIN users u ON u.id = n.actor_id
     WHERE ${where}${tab} ORDER BY n.created_at DESC, n.id DESC LIMIT 50`, req.user.id);
+  for (const n of items) { n.actor_avatar_url = avatarUrl(n.actor_avatar); delete n.actor_avatar; }
   const count = (extra: string) => get<{ c: number }>(`SELECT COUNT(*) c FROM notifications n JOIN issues i ON i.id = n.issue_id
     JOIN projects p ON p.id = i.project_id WHERE ${where} AND n.read_at IS NULL${extra}`, req.user.id)!.c;
   res.json({ unread: count(''), unread_important: count(` AND ${IMPORTANT}`), items });
