@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions, hasPerm } from '../hooks';
+import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useStaff, useUsersBasic, useVersions, hasPerm } from '../hooks';
 import type { Issue, SavedFilter } from '../types';
 import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS, HEALTH_LABELS, issueHealth, type Health } from '../util';
 import { Empty, FlagMark, Modal, PriorityIcon, Spinner, StatusBadge, toast, toastError, TypeIcon, HelpTip, MoreFilters } from '../components/ui';
@@ -13,7 +13,7 @@ import { ChevronDown, Download, Star, X } from 'lucide-react';
 import { issueListAssignee } from '../issue-filter-defaults';
 import { InlineAssignee } from '../components/InlineAssignee';
 
-const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'component', 'ba', 'parent', 'label', 'health', 'q', 'sort'] as const;
+const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'component', 'ba', 'dev', 'parent', 'label', 'health', 'q', 'sort'] as const;
 
 export default function IssueList() {
   const { key: routeKey } = useParams();
@@ -27,6 +27,7 @@ export default function IssueList() {
   const { data: sprints } = useSprints(projectKey || undefined);
   const { data: versions } = useVersions(projectKey || undefined);
   const { data: components } = useComponents(projectKey || undefined);
+  const { data: staff } = useStaff();
   const showComponent = !!components?.length;
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', projectKey],
@@ -71,7 +72,7 @@ export default function IssueList() {
       ['Trạng thái', (i) => i.status_name], ['Độ ưu tiên', (i) => PRIORITY_LABELS[i.priority]],
       ['Người thực hiện', (i) => i.assignee_name], ['Người tạo', (i) => i.reporter_name],
       ['Epic/Issue cha', (i) => i.parent_key ? `${i.parent_key} ${i.parent_summary}` : ''], ['Sprint', (i) => i.sprint_name],
-      ['Mô-đun', (i) => i.component_name], ['BA phụ trách', (i) => i.component_lead_name],
+      ['Mô-đun', (i) => i.component_name], ['BA phụ trách', (i) => i.component_lead_name], ['Dev phụ trách', (i) => i.dev_name],
       ...(RELEASES_ENABLED ? [['Phiên bản', (i: Issue) => i.version_name] as [string, (i: Issue) => unknown]] : []), ['Điểm ước lượng', (i) => i.story_points], ['Nhãn', (i) => i.labels.join(', ')],
       ['Ngày bắt đầu', (i) => i.start_date], ['Hạn', (i) => i.due_date],
       ['Ước lượng (giờ)', (i) => (i.original_estimate != null ? i.original_estimate / 60 : '')],
@@ -178,6 +179,12 @@ export default function IssueList() {
               {[...new Map(components!.filter((c) => c.lead_id).map((c) => [c.lead_id, c.lead_name])).entries()].map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
             </select>
           )}
+          <select value={filter.dev || ''} onChange={(e) => set('dev', e.target.value)}>
+            <option value="">Mọi Dev phụ trách</option>
+            <option value="none">Chưa có Dev phụ trách</option>
+            {staff?.filter((s) => s.positions.split(',').includes('dev'))
+              .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+          </select>
           <select value={filter.health || ''} onChange={(e) => set('health', e.target.value)}>
             <option value="">Đánh giá</option>
             {(Object.keys(HEALTH_LABELS) as Health[]).map((h) => <option key={h} value={h}>{HEALTH_LABELS[h]}</option>)}
@@ -217,6 +224,7 @@ export default function IssueList() {
                 <th>Người thực hiện</th>
                 {project?.type !== 'kanban' && <th>Sprint</th>}
                 {showComponent && <th>Mô-đun</th>}
+                <th>Dev phụ trách</th>
                 {showVersion && <th>Phiên bản</th>}
                 <th className="num" data-tip="Điểm ước lượng (story point)">Điểm</th>
                 {showTime && <th className="num" data-tip="Thời gian đã ghi / ước lượng">Giờ công</th>}
@@ -240,6 +248,7 @@ export default function IssueList() {
                   <td><InlineAssignee issue={i} project={project} /></td>
                   {project?.type !== 'kanban' && <td className="small">{i.sprint_name || ''}</td>}
                   {showComponent && <td className="small" data-tip={i.component_lead_name ? `BA phụ trách: ${i.component_lead_name}` : undefined}>{i.component_name || ''}</td>}
+                  <td className="small">{i.dev_name || ''}</td>
                   {showVersion && <td className="small">{i.version_name || ''}</td>}
                   <td className="num">{i.story_points ?? ''}</td>
                   {showTime && <td className="num small nowrap">{i.time_spent ? fmtDuration(i.time_spent) : ''}{i.original_estimate != null ? ` / ${fmtDuration(i.original_estimate)}` : ''}</td>}

@@ -417,6 +417,8 @@ const migrations: string[] = [
   `ALTER TABLE users ADD COLUMN avatar TEXT;`,
   // v19: ghi chú ngắn cho issue
   `ALTER TABLE issues ADD COLUMN note TEXT;`,
+  // v20: Dev phụ trách issue, chọn từ danh mục nhân sự vị trí Dev
+  `ALTER TABLE issues ADD COLUMN dev_id INTEGER REFERENCES staff(id) ON DELETE SET NULL;`,
 ];
 
 export function migrate() {

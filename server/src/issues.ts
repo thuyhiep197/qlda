@@ -42,6 +42,7 @@ export interface IssueRow {
   version_id: number | null;
   component_id: number | null;
   ba_id: number | null;
+  dev_id: number | null;
   subtype: string | null;
   phase: string | null;
   flagged: number;
@@ -59,6 +60,7 @@ SELECT i.*, p.key AS project_key, p.name AS project_name,
   cp.name AS component_name, cp.side AS component_side,
   COALESCE(i.ba_id, cp.lead_id) AS component_lead_id, COALESCE(bu.full_name, cu.full_name) AS component_lead_name,
   cu.full_name AS component_default_lead_name,
+  ds.full_name AS dev_name,
   (SELECT COALESCE(SUM(w.minutes), 0) FROM worklogs w WHERE w.issue_id = i.id) AS time_spent,
   (SELECT COUNT(*) FROM issues c WHERE c.parent_id = i.id) AS child_count,
   (SELECT COUNT(*) FROM issues c JOIN statuses cs ON cs.id = c.status_id
@@ -73,7 +75,8 @@ LEFT JOIN sprints sp ON sp.id = i.sprint_id
 LEFT JOIN versions v ON v.id = i.version_id
 LEFT JOIN components cp ON cp.id = i.component_id
 LEFT JOIN users cu ON cu.id = cp.lead_id
-LEFT JOIN users bu ON bu.id = i.ba_id`;
+LEFT JOIN users bu ON bu.id = i.ba_id
+LEFT JOIN staff ds ON ds.id = i.dev_id`;
 
 export function serialize(row: any) {
   const { assignee_avatar, reporter_avatar, ...rest } = row;
@@ -100,6 +103,7 @@ export interface IssueFilter {
   version?: string;
   component?: string;
   ba?: string;
+  dev?: string;
   keys?: string;
   label?: string;
   q?: string;
@@ -164,6 +168,8 @@ export function listIssues(user: AuthUser, f: IssueFilter) {
   else if (f.component) { where.push('i.component_id = ?'); params.push(Number(f.component)); }
   // BA phụ trách = người phụ trách mô-đun của issue
   if (f.ba) { where.push('COALESCE(i.ba_id, cp.lead_id) = ?'); params.push(f.ba === 'me' ? user.id : Number(f.ba)); }
+  if (f.dev === 'none') where.push('i.dev_id IS NULL');
+  else if (f.dev) { where.push('i.dev_id = ?'); params.push(Number(f.dev)); }
   const keys = csv(f.keys).map((k) => k.toUpperCase());
   if (keys.length) { where.push(`i.key IN (${placeholders(keys.length)})`); params.push(...keys); }
   if (f.parent === 'none') where.push('i.parent_id IS NULL');
@@ -211,6 +217,7 @@ export function addHistory(issueId: number, userId: number | null, field: string
 
 const statusName = (id: number | null) => (id ? get('SELECT name FROM statuses WHERE id = ?', id)?.name : null);
 const userName = (id: number | null) => (id ? get('SELECT full_name FROM users WHERE id = ?', id)?.full_name : null);
+const staffName = (id: number | null) => (id ? get('SELECT full_name FROM staff WHERE id = ?', id)?.full_name : null);
 const versionName = (id: number | null) => (id ? get('SELECT name FROM versions WHERE id = ?', id)?.name : null);
 export const fmtMinutes = (m: number | null | undefined) => {
   if (m === null || m === undefined) return null;
@@ -246,6 +253,14 @@ function checkLabels(v: unknown): string | null {
   const arr = Array.isArray(v) ? v : String(v).split(',');
   const clean = [...new Set(arr.map((s) => String(s).trim().replace(/[,\s]+/g, '-')).filter(Boolean))];
   return clean.length ? clean.join(',') : null;
+}
+
+function checkDev(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const id = Number(v);
+  const member = get<{ id: number }>("SELECT id FROM staff WHERE id = ? AND (',' || positions || ',') LIKE '%,dev,%'", id);
+  if (!member) throw badRequest('Dev phụ trách phải thuộc danh sách nhân sự vị trí Dev');
+  return member.id;
 }
 
 /** Kiểm tra issue cha hợp lệ theo loại issue. Trả về id cha. */
@@ -381,14 +396,14 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     const { id } = run(
       `INSERT INTO issues(project_id, number, key, type, summary, description, note, status_id, priority, assignee_id,
         reporter_id, parent_id, sprint_id, story_points, labels, start_date, due_date, rank, resolved_at, created_at, updated_at,
-        version_id, original_estimate, remaining_estimate, component_id, subtype)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        version_id, original_estimate, remaining_estimate, component_id, subtype, dev_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       projectId, p.issue_seq, `${p.key}-${p.issue_seq}`, type, summary, data.description || null, checkIssueNote(data.note), statusId, priority,
       assigneeId, user.id, parentId, sprintId, checkPoints(data.story_points), checkLabels(data.labels),
       checkDate(data.start_date, 'Ngày bắt đầu'), checkDate(data.due_date, 'Hạn hoàn thành'),
       data.rank !== undefined ? Number(data.rank) : nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
       checkVersion(projectId, data.version_id), estimate, estimate, componentId,
-      type === 'subtask' ? checkSubtype(data.subtype) : null,
+      type === 'subtask' ? checkSubtype(data.subtype) : null, checkDev(data.dev_id),
     );
     addHistory(id, user.id, 'created', null, null);
     if (sprintId) addHistory(id, user.id, 'sprint', null, sprintId, null, sprintName(sprintId));
@@ -549,6 +564,14 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         sets.ba_id = v;
         history.push(['ba', issue.ba_id, v, userName(issue.ba_id) ?? 'Theo mô-đun', userName(v) ?? 'Theo mô-đun']);
         if (v) watch(issue.id, [v]);
+      }
+    }
+    if (has('dev_id')) {
+      requireEdit();
+      const v = checkDev(data.dev_id);
+      if (v !== issue.dev_id) {
+        sets.dev_id = v;
+        history.push(['dev', issue.dev_id, v, staffName(issue.dev_id) ?? 'Chưa có', staffName(v) ?? 'Chưa có']);
       }
     }
     if (has('component_id')) {

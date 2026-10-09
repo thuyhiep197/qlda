@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, refreshAll } from '../api';
-import { can, useComponents, useMe, useProject, useSprints, useVersions } from '../hooks';
+import { can, useComponents, useMe, useProject, useSprints, useStaff, useVersions } from '../hooks';
 import type { Issue } from '../types';
 import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS } from '../util';
 import { Avatar, toast } from './ui';
@@ -33,6 +33,7 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
   const { data: sprints } = useSprints(project?.type === 'scrum' ? single : undefined, 'future,active');
   const { data: versions } = useVersions(single);
   const { data: components } = useComponents(single);
+  const { data: staff } = useStaff();
   const [busy, setBusy] = useState(false);
   const [label, setLabel] = useState('');
 
@@ -91,6 +92,14 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
           <option value="" disabled>Mô-đun…</option>
           <option value="none">— Bỏ mô-đun —</option>
           {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` (BA: ${c.lead_name})` : ''}</option>)}
+        </select>
+      )}
+      {project && (
+        <select value="" disabled={busy} onChange={(e) => act({ dev_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã đổi Dev phụ trách')}>
+          <option value="" disabled>Dev phụ trách…</option>
+          <option value="none">— Chưa có —</option>
+          {staff?.filter((s) => s.positions.split(',').includes('dev'))
+            .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
         </select>
       )}
       {project && !!components?.length && (

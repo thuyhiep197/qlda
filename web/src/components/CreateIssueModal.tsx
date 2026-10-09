@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs, refreshAll } from '../api';
-import { can, useComponents, useIssueModal, useProject, useProjects, useSprints, useVersions } from '../hooks';
+import { can, useComponents, useIssueModal, useProject, useProjects, useSprints, useStaff, useVersions } from '../hooks';
 import { Plus } from 'lucide-react';
 import type { Issue, IssueType, Priority } from '../types';
 import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
@@ -34,6 +34,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
   const { data: sprints } = useSprints(key || undefined, 'future,active');
   const { data: versions } = useVersions(key || undefined);
   const { data: components } = useComponents(key || undefined);
+  const { data: staff } = useStaff();
 
   const [type, setType] = useState<IssueType>(defaults?.type || 'story');
   const [summary, setSummary] = useState('');
@@ -50,6 +51,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
   const [estimate, setEstimate] = useState('');
   const [version, setVersion] = useState('');
   const [component, setComponent] = useState('');
+  const [dev, setDev] = useState('');
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -73,6 +75,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         story_points: points || null, labels, start_date: startDate || null, due_date: dueDate || null,
         original_estimate: type !== 'epic' && estimate.trim() ? estimate : null, version_id: type !== 'subtask' && version ? Number(version) : null,
         component_id: type !== 'subtask' && type !== 'epic' && component ? Number(component) : null,
+        dev_id: type !== 'epic' && dev ? Number(dev) : null,
       });
       toast(`Đã tạo ${issue.key}`);
       await refreshAll();
@@ -183,6 +186,16 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
             <select value={component} onChange={(e) => setComponent(e.target.value)}>
               <option value="">— Không có —</option>
               {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` (BA: ${c.lead_name})` : ''}</option>)}
+            </select>
+          </label>
+        )}
+        {type !== 'epic' && (
+          <label className="field">
+            <span>Dev phụ trách</span>
+            <select value={dev} onChange={(e) => setDev(e.target.value)}>
+              <option value="">— Chưa có —</option>
+              {staff?.filter((s) => s.positions.split(',').includes('dev'))
+                .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
             </select>
           </label>
         )}

@@ -209,6 +209,9 @@ export interface Issue {
   component_lead_name: string | null;
   /** BA phụ trách chọn riêng trên issue (null = theo mô-đun) */
   ba_id: number | null;
+  /** Dev phụ trách chọn từ danh mục nhân sự có vị trí Dev. */
+  dev_id: number | null;
+  dev_name: string | null;
   component_default_lead_name: string | null;
   /** Loại của việc con (Sub-task): story / task / bug; null = việc con thường */
   subtype: SubType | null;
