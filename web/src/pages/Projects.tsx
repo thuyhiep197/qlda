@@ -30,15 +30,16 @@ export default function Projects() {
     } catch (e) { toastError(e); }
   };
 
-  // Sắp theo ưu tiên (Rất cao trước), cùng ưu tiên thì theo tên
+  // Sắp: dự án đang chạy trước, chưa chạy (Chưa bắt đầu / chưa rõ trạng thái) sau; trong mỗi nhóm theo ưu tiên (Rất cao trước) rồi theo tên
   const rank = (v: string | null) => { const i = PROJECT_PRIORITIES.findIndex(([n]) => n === v); return i < 0 ? 99 : i; };
   const q = filter.trim().toLowerCase();
   const statusOf = (p: ProjectSummary) => p.project_status || p.status_auto || '';
+  const notRunning = (p: ProjectSummary) => (!statusOf(p) || statusOf(p) === 'Chưa bắt đầu' ? 1 : 0);
   const list = projects
     ?.filter((p) => !q || [p.name, p.key, p.customer, p.ba, p.dev, p.tester, p.am].join(' ').toLowerCase().includes(q))
     .filter((p) => !statusF || statusOf(p) === (statusF === '-' ? '' : statusF))
     .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
-    .sort((a, b) => rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
+    .sort((a, b) => notRunning(a) - notRunning(b) || rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
   const canArchive = hasPerm(me, 'project.delete');
 
   return (
