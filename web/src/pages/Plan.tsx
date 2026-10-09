@@ -11,7 +11,7 @@ import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
 import { planAssigneeMembers } from '../issue-filter-defaults';
-import { filterTreeStrict } from '../plan-filter';
+import { filterTreeKeepingMatchingRoots } from '../plan-filter';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -239,7 +239,7 @@ export default function Plan() {
     return rowFilter && match(r) ? [{ ...r, children: [] }] : !rowFilter && r.level > 0 ? [{ ...r, children: [] }] : [];
   });
   const assigneeScope = effectiveAssignee
-    ? filterTreeStrict(tree, (r) => effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee)
+    ? filterTreeKeepingMatchingRoots(tree, (r) => effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee)
     : tree;
   const scope = epic ? assigneeScope.filter((e) => String(e.issue.id) === epic) : assigneeScope;
   // Đang lọc theo trạng thái/đánh giá Hoàn thành thì vẫn hiện việc đã xong
