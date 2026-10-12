@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultAssignees, issueListAssignee, planAssigneeMembers } from './issue-filter-defaults';
+import { defaultAssignees, issueListAssignee, planAssigneeMembers, withCreated } from './issue-filter-defaults';
 
 test('issue list defaults to me when the URL has no assignee', () => {
   assert.deepEqual(issueListAssignee(null), { control: 'me', api: 'me' });
@@ -24,4 +24,10 @@ test('client-side issue filters wait for the current user then default to that u
 test('plan assignee choices always include the current user even without assigned work', () => {
   const members = [{ id: 1 }, { id: 2 }];
   assert.deepEqual(planAssigneeMembers(members, new Set([2]), 1).map((m) => m.id), [1, 2]);
+});
+
+test('backlog keeps newly created issues visible even when the filter hides them', () => {
+  const items = [{ id: 1 }, { id: 2 }, { id: 3 }];
+  assert.deepEqual(withCreated(items, [{ id: 3 }], new Set([2])), [{ id: 2 }, { id: 3 }]);
+  assert.deepEqual(withCreated(items, [{ id: 1 }], new Set()), [{ id: 1 }]);
 });

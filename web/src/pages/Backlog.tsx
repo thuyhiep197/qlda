@@ -12,6 +12,7 @@ import CreateIssueModal from '../components/CreateIssueModal';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar, runBulk } from '../components/BulkBar';
 import { useProjectCtx } from './ProjectLayout';
+import { withCreated } from '../issue-filter-defaults';
 import { CalendarRange, ChevronDown, ChevronRight, Plus, Target } from 'lucide-react';
 
 type Container = number | 'backlog';
@@ -64,8 +65,7 @@ export default function Backlog() {
 
   if (isLoading || !sprints || !issues) return <Spinner />;
 
-  const matched = new Set(apply(issues).map((i) => i.id));
-  const visible = issues.filter((i) => matched.has(i.id) || created.has(i.id));
+  const visible = withCreated(issues, apply(issues), created);
   const subsOf = new Map<number, Issue[]>();
   for (const s of subtasks || []) if (s.parent_id) subsOf.set(s.parent_id, [...(subsOf.get(s.parent_id) || []), s]);
   const listFor = (c: Container) => visible.filter((i) =>
