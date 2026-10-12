@@ -45,6 +45,9 @@ export default function Backlog() {
   // Chọn nhiều issue (Ctrl/Shift + bấm, hoặc ô tick) để kéo cả nhóm hoặc sửa hàng loạt
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [anchor, setAnchor] = useState<number | null>(null);
+  // Issue vừa tạo luôn hiện ra dù không khớp bộ lọc (VD: lọc "Tôi" nhưng issue tạo nhanh chưa giao cho ai)
+  const [created, setCreated] = useState<Set<number>>(new Set());
+  const onCreated = (i: Issue) => setCreated((cur) => new Set(cur).add(i.id));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.modal')) setSelected(new Set()); };
@@ -61,7 +64,8 @@ export default function Backlog() {
 
   if (isLoading || !sprints || !issues) return <Spinner />;
 
-  const visible = apply(issues);
+  const matched = new Set(apply(issues).map((i) => i.id));
+  const visible = issues.filter((i) => matched.has(i.id) || created.has(i.id));
   const subsOf = new Map<number, Issue[]>();
   for (const s of subtasks || []) if (s.parent_id) subsOf.set(s.parent_id, [...(subsOf.get(s.parent_id) || []), s]);
   const listFor = (c: Container) => visible.filter((i) =>
@@ -198,7 +202,8 @@ export default function Backlog() {
               <div className="issue-lines">
                 {list.length === 0 && (
                   <div className="backlog-empty">
-                    {sprint ? 'Kéo issue từ Backlog vào đây để lên kế hoạch sprint' : 'Backlog trống'}
+                    {all.length > 0 ? `${all.length} issue bị ẩn do không khớp bộ lọc`
+                      : sprint ? 'Kéo issue từ Backlog vào đây để lên kế hoạch sprint' : 'Backlog trống'}
                   </div>
                 )}
                 {list.map((i, idx) => {
@@ -233,7 +238,7 @@ export default function Backlog() {
                 {drop?.c === c && drop.index === list.length && list.length > 0 && <div className="drop-line" />}
               </div>
             )}
-            {!isCollapsed && canCreate && <QuickCreate projectKey={project.key} sprintId={sprint?.id ?? null} />}
+            {!isCollapsed && canCreate && <QuickCreate projectKey={project.key} sprintId={sprint?.id ?? null} onCreated={onCreated} />}
           </section>
         );
       })}
@@ -251,8 +256,8 @@ export default function Backlog() {
   );
 }
 
-export function QuickCreate({ projectKey, sprintId, statusId, compact }: {
-  projectKey: string; sprintId?: number | null; statusId?: number; compact?: boolean;
+export function QuickCreate({ projectKey, sprintId, statusId, compact, onCreated }: {
+  projectKey: string; sprintId?: number | null; statusId?: number; compact?: boolean; onCreated?: (issue: Issue) => void;
 }) {
   const { open } = useIssueModal();
   const [active, setActive] = useState(false);
@@ -263,14 +268,15 @@ export function QuickCreate({ projectKey, sprintId, statusId, compact }: {
     e.preventDefault();
     if (!summary.trim()) return;
     try {
-      await api.post('/issues', { project_key: projectKey, type, summary, sprint_id: sprintId, status_id: statusId });
+      const issue = await api.post<Issue>('/issues', { project_key: projectKey, type, summary, sprint_id: sprintId, status_id: statusId });
       setSummary('');
+      onCreated?.(issue);
       await refreshAll();
     } catch (err) { toastError(err); }
   };
   const modal = full && (
     <CreateIssueModal projectKey={projectKey} defaults={{ type, sprint_id: sprintId ?? null, status_id: statusId }}
-      onClose={() => setFull(false)} onCreated={(issue) => open(issue.key)} />
+      onClose={() => setFull(false)} onCreated={(issue) => { onCreated?.(issue); open(issue.key); }} />
   );
   if (!active) {
     return <>
