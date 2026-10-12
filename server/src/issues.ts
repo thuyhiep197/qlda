@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { all, get, now, run, tx, UPLOAD_DIR } from './db.ts';
+import { all, get, localDate, now, run, tx, UPLOAD_DIR } from './db.ts';
+import { epicTargetCategory } from './epic-status.ts';
 import { handleMentions, notify, watch, watchers } from './notify.ts';
 import { checkPhase, guessPhase } from './phases.ts';
 import { canTransition, initialStatus, isStatusAllowed, mapStatusForType, projectStatuses, typeStatuses } from './workflow.ts';
@@ -661,6 +662,8 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         syncEpicStatus(issue.parent_id, user.id);
         if (sets.parent_id !== undefined) syncEpicStatus(sets.parent_id as number | null, user.id);
       }
+      // Đổi ngày kết thúc của Epic: tính lại trạng thái theo thời gian thực hiện
+      if (issue.type === 'epic' && sets.due_date !== undefined) syncEpicStatus(issue.id, user.id);
       if (sets.status_id !== undefined || sets.sprint_id !== undefined) autoStartSprint(sets.sprint_id !== undefined ? sets.sprint_id as number | null : issue.sprint_id);
     }
   });
@@ -707,7 +710,7 @@ export function syncEpicStatus(epicId: number | null | undefined, actorId: numbe
   const kids = all<{ category: string }>(`SELECT s.category FROM issues i JOIN statuses s ON s.id = i.status_id
     WHERE i.parent_id = ? AND i.type IN ${WORK_TYPES}`, epicId);
   if (!kids.length) return;
-  const target = kids.every((k) => k.category === 'done') ? 'done' : kids.every((k) => k.category === 'todo') ? 'todo' : 'inprogress';
+  const target = epicTargetCategory(kids.map((k) => k.category), epic.due_date, localDate());
   if (get<{ category: string }>('SELECT category FROM statuses WHERE id = ?', epic.status_id)?.category === target) return;
   const s = typeStatuses(epic.project_id, 'epic').find((x) => x.category === target)
     ?? projectStatuses(epic.project_id).find((x) => x.category === target);

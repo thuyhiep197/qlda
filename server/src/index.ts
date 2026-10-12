@@ -27,6 +27,8 @@ migrate();
 seedRoles();
 upgradeRolePermissions();
 syncAllEpics();
+// Epic đã xong hết việc tự chuyển Hoàn thành khi qua ngày kết thúc
+setInterval(syncAllEpics, 3600_000).unref();
 autoStartAllSprints();
 ensureAdmin();
 scheduleBackups();
