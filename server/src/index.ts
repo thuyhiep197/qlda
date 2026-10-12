@@ -20,12 +20,14 @@ import staffRoutes from './routes/staff.ts';
 import { pruneNotifications } from './notify.ts';
 import { pruneAudit } from './audit.ts';
 import { syncAllEpics } from './issues.ts';
+import { autoStartAllSprints } from './sprint-autostart.ts';
 import { scheduleBackups } from './backup.ts';
 
 migrate();
 seedRoles();
 upgradeRolePermissions();
 syncAllEpics();
+autoStartAllSprints();
 ensureAdmin();
 scheduleBackups();
 pruneNotifications();

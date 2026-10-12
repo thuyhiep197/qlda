@@ -11,6 +11,7 @@ import {
 import { avatarUrl } from './avatar.ts';
 import { checkIssueNote } from './issue-note.ts';
 import { inStaffList } from './dev-roster.ts';
+import { autoStartSprint } from './sprint-autostart.ts';
 
 export const ISSUE_TYPES = ['epic', 'story', 'task', 'bug', 'subtask'] as const;
 export const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest'] as const;
@@ -416,6 +417,7 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     if (assigneeId) notify([assigneeId], user.id, id, 'assigned', summary);
     handleMentions(id, projectId, user.id, data.description);
     if (type !== 'epic' && type !== 'subtask') syncEpicStatus(parentId, user.id);
+    autoStartSprint(sprintId);
     return fetchIssue('id', id);
   });
 }
@@ -659,6 +661,7 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         syncEpicStatus(issue.parent_id, user.id);
         if (sets.parent_id !== undefined) syncEpicStatus(sets.parent_id as number | null, user.id);
       }
+      if (sets.status_id !== undefined || sets.sprint_id !== undefined) autoStartSprint(sets.sprint_id !== undefined ? sets.sprint_id as number | null : issue.sprint_id);
     }
   });
   return fetchIssue('id', issue.id);
