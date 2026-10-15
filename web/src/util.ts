@@ -132,10 +132,9 @@ export function issueHealth(i: Pick<Issue, 'status_category' | 'start_date' | 'd
   const s = i.start_date || i.due_date!, e = i.due_date || i.start_date!;
   if (e < now) return 'late';
   if (s > now) return 'not_started';
-  const progress = i.status_category === 'inprogress' ? 50 : 0;
-  const expected = Math.round(Math.min(1, (d(s, now) + 1) / (d(s, e) + 1)) * 100);
-  if (progress === 0 && d(s, now) >= 1) return 'behind';
-  return progress + 15 < expected ? 'behind' : 'on_track';
+  // Việc đang làm và chưa quá hạn → đúng tiến độ (mức 50% chỉ là quy ước, không so với thời gian đã trôi qua)
+  if (i.status_category === 'inprogress') return 'on_track';
+  return d(s, now) >= 1 ? 'behind' : 'on_track';
 }
 
 /** Vị trí trong Danh mục nhân sự; field = trường nhân sự tương ứng của dự án */

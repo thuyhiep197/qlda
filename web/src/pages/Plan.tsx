@@ -24,8 +24,8 @@ const HEALTH: Record<Health, { label: string; tone: string; order: number }> = {
   done: { label: 'Hoàn thành', tone: 'green', order: 5 },
   no_plan: { label: 'Chưa có lịch', tone: 'default', order: 6 },
 };
-const HEALTH_HELP = 'Trễ hạn: đã qua hạn hoàn thành mà chưa xong · Chậm tiến độ: % hoàn thành thấp hơn % thời gian đã trôi qua quá 15 điểm'
-  + ' (hoặc đã đến ngày bắt đầu mà chưa làm) · Đúng tiến độ: theo kịp thời gian · Chưa đến hạn: chưa tới ngày bắt đầu';
+const HEALTH_HELP = 'Trễ hạn: đã qua hạn hoàn thành mà chưa xong · Chậm tiến độ: đã đến ngày bắt đầu mà chưa làm; với việc cha: % hoàn thành thấp hơn % thời gian đã trôi qua quá 15 điểm'
+  + ' · Đúng tiến độ: việc đang thực hiện còn trong hạn, hoặc theo kịp thời gian · Chưa đến hạn: chưa tới ngày bắt đầu';
 
 interface Row {
   issue: Issue;
@@ -59,6 +59,8 @@ function evaluate(r: Row, today: string) {
   if (e < today) { r.health = 'late'; r.note = `Trễ ${days(e, today)} ngày · đạt ${r.progress}%`; return; }
   if (s > today) { r.health = 'not_started'; r.note = `Bắt đầu sau ${days(today, s)} ngày`; return; }
   r.expected = Math.round(Math.min(1, (days(s, today) + 1) / (days(s, e) + 1)) * 100);
+  // Việc lá đang làm, chưa quá hạn → đúng tiến độ: mức 50% chỉ là quy ước nên không so với % thời gian
+  if (!r.children.length && i.status_category === 'inprogress') { r.health = 'on_track'; r.note = `Đang thực hiện · còn ${days(today, e)} ngày`; return; }
   if (r.progress === 0 && days(s, today) >= 1) { r.health = 'behind'; r.note = `Đã đến ngày bắt đầu nhưng chưa làm · cần ${r.expected}%`; return; }
   r.health = r.progress + 15 < r.expected ? 'behind' : 'on_track';
   r.note = `Đạt ${r.progress}% · kế hoạch ${r.expected}% · còn ${days(today, e)} ngày`;
