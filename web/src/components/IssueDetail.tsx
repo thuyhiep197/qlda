@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
 import { can, useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useStaff, useUsersBasic, useVersions } from '../hooks';
+import { typeOptions } from '../issue-type-options';
 import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, SubType, Worklog } from '../types';
 import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, PROJECT_STATUSES, projectDevOptions, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
 import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
@@ -100,6 +101,16 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
 
   // Như Jira: sub-task "Chuyển thành issue" (thuộc Epic của issue cha cũ); issue "Chuyển thành sub-task" (chọn issue cha)
   const changeType = async (type: IssueType) => {
+    if (type === 'epic') {
+      const notes = [issue.parent_key && `tách khỏi Epic ${issue.parent_key}`, issue.sprint_name && `rời sprint ${issue.sprint_name}`].filter(Boolean);
+      if (!confirm(`Chuyển ${issue.key} thành Epic?${notes.length ? ` Issue sẽ ${notes.join(' và ')}.` : ''}`)) return;
+      return save({ type });
+    }
+    if (issue.type === 'epic') {
+      if (issue.children.length) return toast(`Epic đang có ${issue.children.length} issue bên trong, hãy chuyển các issue đó ra trước khi đổi loại`, 'error');
+      if (!confirm(`Chuyển Epic ${issue.key} thành ${TYPE_LABELS[type]}?`)) return;
+      return save({ type });
+    }
     if (type !== 'subtask') {
       if (issue.type === 'subtask' && !confirm(`Chuyển ${issue.key} thành ${TYPE_LABELS[type]}? Issue sẽ tách khỏi ${issue.parent_key} và thuộc Epic của issue đó (nếu có).`)) return;
       return save({ type });
@@ -484,14 +495,15 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             <InlineText value={issue.note || ''} maxLength={100} disabled={!canEdit} placeholder="—"
               onSave={(v) => save({ note: v })} />
 
-            {issue.type !== 'epic' && <>
-              <div className="prop-label">Loại</div>
+            <div className="prop-label">Loại</div>
+            <div className="row gap-xs">
+              <TypeIcon type={issue.type} subtype={issue.subtype} />
               <select value={issue.type} disabled={!canEdit} onChange={(e) => changeType(e.target.value as IssueType)}>
-                {(['story', 'task', 'bug', 'subtask'] as IssueType[]).map((t) => <option key={t} value={t}>
-                  {t === issue.type ? TYPE_LABELS[t] : issue.type === 'subtask' ? `Chuyển thành ${TYPE_LABELS[t]}` : t === 'subtask' ? 'Chuyển thành Sub-task…' : TYPE_LABELS[t]}
+                {typeOptions(issue.type).map((t) => <option key={t} value={t}>
+                  {t === issue.type ? TYPE_LABELS[t] : issue.type === 'subtask' || issue.type === 'epic' || t === 'epic' ? `Chuyển thành ${TYPE_LABELS[t]}` : t === 'subtask' ? 'Chuyển thành Sub-task…' : TYPE_LABELS[t]}
                 </option>)}
               </select>
-            </>}
+            </div>
             {issue.type === 'subtask' && <>
               <div className="prop-label">Loại việc con</div>
               <div className="row gap-xs">

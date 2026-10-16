@@ -13,6 +13,7 @@ import { avatarUrl } from './avatar.ts';
 import { checkIssueNote } from './issue-note.ts';
 import { inStaffList } from './dev-roster.ts';
 import { autoStartSprint } from './sprint-autostart.ts';
+import { typeChangeError } from './issue-type.ts';
 
 export const ISSUE_TYPES = ['epic', 'story', 'task', 'bug', 'subtask'] as const;
 export const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest'] as const;
@@ -450,10 +451,18 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
     }
     if (has('type') && data.type !== issue.type) {
       requireEdit();
-      const convertible = [...STANDARD_TYPES, 'subtask'];
-      if (!convertible.includes(issue.type) || !convertible.includes(data.type)) {
-        throw badRequest('Chỉ có thể đổi qua lại giữa Story, Task, Bug và Sub-task (Epic không đổi được loại)');
+      const childCount = get<{ c: number }>('SELECT COUNT(*) c FROM issues WHERE parent_id = ?', issue.id)!.c;
+      const err = typeChangeError(issue.type, String(data.type), childCount);
+      if (err) throw badRequest(err);
+      if (data.type === 'epic') {
+        // Epic không có issue cha và không nằm trong sprint
+        if (issue.parent_id) data.parent_id = null;
+        if (issue.sprint_id) {
+          sets.sprint_id = null;
+          history.push(['sprint', issue.sprint_id, null, sprintName(issue.sprint_id), sprintName(null)]);
+        }
       }
+      if (issue.type === 'epic' && issue.phase) { sets.phase = null; history.push(['phase', issue.phase, null, issue.phase, 'Tự động']); }
       if (issue.type === 'subtask' && !has('parent_id')) {
         // Như Jira "Chuyển thành issue": issue mới thuộc Epic của issue cha cũ (nếu có)
         const oldParent = issue.parent_id ? get<IssueRow>('SELECT * FROM issues WHERE id = ?', issue.parent_id) : undefined;
@@ -462,9 +471,6 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       if (data.type === 'subtask') {
         // Như Jira "Chuyển thành sub-task": phải chọn issue cha, và issue không được đang có sub-task
         if (!has('parent_id') || !data.parent_id) throw badRequest('Chọn issue cha khi chuyển thành Sub-task');
-        if (get("SELECT 1 FROM issues WHERE parent_id = ? AND type = 'subtask'", issue.id)) {
-          throw badRequest('Issue đang có sub-task, không thể chuyển thành Sub-task');
-        }
       }
       sets.type = data.type; history.push(['type', issue.type, data.type]);
       if (data.type !== 'subtask' && issue.subtype) sets.subtype = null;
@@ -541,7 +547,7 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       if (v !== issue.sprint_id) {
         if (data.__subtaskSprint === undefined) {
           if (!perms.has('sprint.manage') && !canEdit) throw forbidden('Bạn không có quyền đổi sprint');
-          if (issue.type === 'epic') throw badRequest('Epic không thể đưa vào sprint');
+          if (((sets.type as string | undefined) ?? issue.type) === 'epic') throw badRequest('Epic không thể đưa vào sprint');
           if (((sets.type as string | undefined) ?? issue.type) === 'subtask') throw badRequest('Sub-task luôn thuộc sprint của issue cha');
         }
         sets.sprint_id = v;
