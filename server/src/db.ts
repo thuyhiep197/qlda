@@ -419,6 +419,51 @@ const migrations: string[] = [
   `ALTER TABLE issues ADD COLUMN note TEXT;`,
   // v20: Dev phụ trách issue, chọn từ danh mục nhân sự vị trí Dev
   `ALTER TABLE issues ADD COLUMN dev_id INTEGER REFERENCES staff(id) ON DELETE SET NULL;`,
+  // v21: module Khách hàng (CRM) — thông tin khách hàng, người liên hệ, lịch sử chăm sóc.
+  // Dự án gắn với khách hàng qua ô "Tên khách hàng" (projects.customer = customers.name); tạo sẵn khách hàng từ các dự án hiện có.
+  // Nhóm người dùng được tạo dự án thì được toàn quyền với khách hàng.
+  `CREATE TABLE customers (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+     kind TEXT,
+     status TEXT NOT NULL DEFAULT 'Đang hợp tác',
+     tax_code TEXT,
+     province TEXT,
+     address TEXT,
+     phone TEXT,
+     email TEXT,
+     website TEXT,
+     am TEXT,
+     note TEXT,
+     created_by INTEGER REFERENCES users(id),
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     updated_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   CREATE TABLE customer_contacts (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+     full_name TEXT NOT NULL,
+     position TEXT,
+     phone TEXT,
+     email TEXT,
+     is_primary INTEGER NOT NULL DEFAULT 0,
+     note TEXT,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   CREATE INDEX idx_customer_contacts ON customer_contacts(customer_id);
+   CREATE TABLE customer_activities (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+     user_id INTEGER REFERENCES users(id),
+     kind TEXT NOT NULL DEFAULT 'note',
+     activity_date TEXT NOT NULL,
+     content TEXT NOT NULL,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   CREATE INDEX idx_customer_activities ON customer_activities(customer_id, activity_date);
+   INSERT OR IGNORE INTO customers(name) SELECT DISTINCT customer FROM projects WHERE customer IS NOT NULL AND TRIM(customer) <> '';
+   UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete')
+     WHERE permissions LIKE '%"project.create"%' AND permissions NOT LIKE '%"customer.view"%';`,
 ];
 
 export function migrate() {

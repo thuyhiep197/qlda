@@ -304,3 +304,56 @@ export interface SavedFilter {
   query: string;
   shared: number;
 }
+
+/** Khách hàng (module CRM); dự án gắn với khách hàng qua ô "Tên khách hàng" */
+export interface Customer {
+  id: number;
+  name: string;
+  kind: string | null;
+  status: string;
+  tax_code: string | null;
+  province: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  /** AM phụ trách: họ tên theo Danh mục nhân sự, cách nhau dấu phẩy */
+  am: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+  project_count?: number;
+  contact_count?: number;
+  last_activity_date?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+}
+
+export interface CustomerContact {
+  id: number;
+  customer_id: number;
+  full_name: string;
+  position: string | null;
+  phone: string | null;
+  email: string | null;
+  is_primary: number;
+  note: string | null;
+}
+
+export type ActivityKind = 'call' | 'meeting' | 'email' | 'note';
+export interface CustomerActivity {
+  id: number;
+  customer_id: number;
+  user_id: number | null;
+  user_name: string | null;
+  kind: ActivityKind;
+  activity_date: string;
+  content: string;
+  created_at: string;
+}
+
+export interface CustomerDetail extends Customer {
+  contacts: CustomerContact[];
+  activities: CustomerActivity[];
+  projects: { id: number; key: string; name: string; priority: string | null; project_status: string | null; is_archived: number; ba: string | null; am: string | null }[];
+}

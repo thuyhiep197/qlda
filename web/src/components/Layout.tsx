@@ -8,7 +8,7 @@ import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
 import { colorOf } from '../util';
-import { FolderKanban, House, LogOut, Menu, Moon, Plus, Search, Settings, ScrollText, ShieldCheck, Sun, Users, Contact } from 'lucide-react';
+import { FolderKanban, House, LogOut, Menu, Moon, Plus, Search, Settings, ScrollText, ShieldCheck, Sun, Users, Contact, Building2 } from 'lucide-react';
 
 export default function Layout() {
   const { data: me } = useMe();
@@ -53,6 +53,7 @@ export default function Layout() {
           {/* Người dùng chỉ cần "Dự án của tôi"; quản trị cần trang này để tạo / lưu trữ dự án */}
           {(hasPerm(me, 'project.create') || hasPerm(me, 'project.delete')) && <NavLink to="/projects"><FolderKanban size={18} /> Quản lý dự án</NavLink>}
           {hasPerm(me, 'search.view') && <NavLink to="/issues" end><Search size={18} /> Tìm kiếm issue</NavLink>}
+          {hasPerm(me, 'customer.view') && <NavLink to="/customers"><Building2 size={18} /> Khách hàng</NavLink>}
         </nav>
         <div className="nav-section">Dự án của tôi</div>
         <nav className="nav nav-projects">

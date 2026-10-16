@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
-import { useStaff } from '../hooks';
+import { useCustomerNames, useStaff } from '../hooks';
+import { findCustomer } from '../customer-filter';
 import { PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 
 // Thông tin quản lý dự án — dùng chung cho form Tạo dự án và Cài đặt dự án
@@ -18,7 +19,7 @@ export function projectInfoOf(p?: Partial<Record<keyof ProjectInfo, string | nul
 export const splitNames = (v: string | null | undefined) => (v ? v.split(',').map((x) => x.trim()).filter(Boolean) : []);
 
 /** Chọn nhiều người từ Danh mục nhân sự theo vị trí; tên cũ không còn trong danh mục vẫn giữ (gạch chân chấm). */
-function StaffPicker({ position, value, onChange }: { position: string; value: string; onChange: (v: string) => void }) {
+export function StaffPicker({ position, value, onChange }: { position: string; value: string; onChange: (v: string) => void }) {
   const { data: staff } = useStaff();
   const chosen = splitNames(value);
   const known = new Set(staff?.map((s) => s.full_name));
@@ -42,12 +43,16 @@ function StaffPicker({ position, value, onChange }: { position: string; value: s
 
 export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onChange: (v: ProjectInfo) => void }) {
   const set = (k: keyof ProjectInfo, v: string) => onChange({ ...value, [k]: v });
+  const { data: customers } = useCustomerNames();
+  const unknownCustomer = !!customers && !!value.customer.trim() && !findCustomer(customers, value.customer);
   // Giữ được giá trị cũ không có trong danh mục
   const options = (list: [string, string][], cur: string) => [...list.map(([n]) => n), ...(cur && !list.some(([n]) => n === cur) ? [cur] : [])];
   return (
     <>
       <label className="field"><span>Tên khách hàng</span>
-        <input value={value.customer} onChange={(e) => set('customer', e.target.value)} placeholder="VD: Sở Tài chính - Đồng Nai" /></label>
+        <input list="customer-names" value={value.customer} onChange={(e) => set('customer', e.target.value)} placeholder="Chọn hoặc gõ tên — VD: Sở Tài chính - Đồng Nai" />
+        <datalist id="customer-names">{customers?.map((c) => <option key={c.id} value={c.name} />)}</datalist>
+        {unknownCustomer && <small className="muted">Chưa có trong danh mục Khách hàng — vẫn lưu được; thêm khách hàng ở menu Khách hàng để quản lý liên hệ, chăm sóc.</small>}</label>
       <div className="row gap-sm">
         <label className="field grow"><span>Ưu tiên</span>
           <select value={value.priority} onChange={(e) => set('priority', e.target.value)}>
