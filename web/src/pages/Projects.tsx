@@ -2,8 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
-import { useCustomerNames, useMe, useUsersBasic, hasPerm } from '../hooks';
-import { findCustomer } from '../customer-filter';
+import { useMe, useUsersBasic, hasPerm } from '../hooks';
 import type { ProjectSummary } from '../types';
 import { colorOf, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 import { ProjectInfoFields, projectInfoOf, splitNames } from '../components/ProjectInfoFields';
@@ -42,7 +41,6 @@ export default function Projects() {
     .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
     .sort((a, b) => notRunning(a) - notRunning(b) || rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
   const canArchive = hasPerm(me, 'project.delete');
-  const { data: customers } = useCustomerNames();
   const canSeeCustomer = hasPerm(me, 'customer.view');
 
   return (
@@ -75,13 +73,13 @@ export default function Projects() {
         <div className="table-wrap">
         <table className="table table-projects">
           <thead>
-            <tr><th>Tên dự án</th><th>Tên khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>BA/PM</th><th>Dev</th><th>Tester</th><th>AM</th><th>Loại</th>{canArchive && <th />}</tr>
+            <tr><th>Tên dự án</th><th>Khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>BA/PM</th><th>Dev</th><th>Tester</th><th>AM</th><th>Loại</th>{canArchive && <th />}</tr>
           </thead>
           <tbody>
             {list.map((p) => (
               <tr key={p.id}>
                 <td className="proj-name"><Link to={`/p/${p.key}`} className="row gap-sm" style={{ alignItems: 'flex-start' }}><span className="proj-dot" style={{ background: colorOf(p.key), flexShrink: 0 }}>{p.key.slice(0, 2)}</span> <b>{p.name}</b></Link></td>
-                <td>{(() => { const c = canSeeCustomer && findCustomer(customers, p.customer); return c ? <Link to={`/customers/${c.id}`}>{p.customer}</Link> : p.customer; })()}</td>
+                <td>{canSeeCustomer && p.customer_id ? <Link to={`/customers/${p.customer_id}`}>{p.customer}</Link> : p.customer}</td>
                 <td>{p.priority && <span className={lozengeOf(PROJECT_PRIORITIES, p.priority)}>{p.priority}</span>}</td>
                 <td><ProjectStatus p={p} /></td>
                 {STAFF_POSITIONS.map((sp) => <td key={sp.key} className="people">{splitNames(p[sp.field]).map((n) => <div key={n}>{n}</div>)}</td>)}

@@ -1,4 +1,4 @@
-import type { Customer } from './types';
+import type { Customer, CustomerDetail } from './types';
 
 // Danh mục của module Khách hàng (khớp với server/src/customer.ts); [tên, màu lozenge]
 export const CUSTOMER_KINDS = ['Cơ quan nhà nước', 'Trường học', 'Doanh nghiệp', 'Khác'];
@@ -20,8 +20,14 @@ export function filterCustomers<T extends Customer>(list: T[], f: CustomerFilter
     (!f.kind || (c.kind || '-') === f.kind));
 }
 
-/** Tên khách hàng của dự án có trong danh mục Khách hàng không (không phân biệt hoa/thường) */
-export function findCustomer<T extends { name: string }>(list: T[] | undefined, name: string | null | undefined): T | undefined {
-  const n = name?.trim().toLowerCase();
-  return n ? list?.find((c) => c.name.toLowerCase() === n) : undefined;
+/** Chỉ số tổng quan của một khách hàng: dự án đang làm, công việc đang mở / quá hạn, lần chăm sóc gần nhất */
+export function customerKpis(d: Pick<CustomerDetail, 'projects' | 'issues' | 'activities'>, today: string) {
+  const live = d.projects.filter((p) => !p.is_archived);
+  return {
+    projects: live.length,
+    running: live.filter((p) => (p.project_status || p.status_auto || 'Chưa bắt đầu') !== 'Chưa bắt đầu').length,
+    openIssues: d.issues.length,
+    overdue: d.issues.filter((i) => i.due_date && i.due_date < today).length,
+    lastCare: d.activities.reduce<string | null>((m, a) => (!m || a.activity_date > m ? a.activity_date : m), null),
+  };
 }

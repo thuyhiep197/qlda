@@ -96,6 +96,8 @@ export function fetchIssue(where: 'id' | 'key', value: number | string) {
 
 export interface IssueFilter {
   project?: string;
+  /** id khách hàng: công việc của mọi dự án thuộc khách hàng */
+  customer?: string;
   type?: string;
   status?: string;
   statusCategory?: string;
@@ -129,6 +131,7 @@ export function listIssues(user: AuthUser, f: IssueFilter) {
     where.push('p.key = ?');
     params.push(f.project.toUpperCase());
   }
+  if (f.customer) { where.push('p.customer_id = ?'); params.push(Number(f.customer)); }
   const ids = accessibleProjectIds(user);
   if (ids !== 'all') {
     if (ids.length === 0) return [];

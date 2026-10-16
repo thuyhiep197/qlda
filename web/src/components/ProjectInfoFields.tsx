@@ -1,17 +1,19 @@
 import { X } from 'lucide-react';
-import { useCustomerNames, useStaff } from '../hooks';
-import { findCustomer } from '../customer-filter';
+import { api, queryClient } from '../api';
+import { hasPerm, useCustomerNames, useMe, useStaff } from '../hooks';
+import { toastError } from './ui';
 import { PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 
 // Thông tin quản lý dự án — dùng chung cho form Tạo dự án và Cài đặt dự án
 export type ProjectInfo = {
-  customer: string; priority: string; project_status: string;
+  /** id khách hàng trong danh mục Khách hàng ('' = chưa gắn); customer = tên cũ để hiển thị */
+  customer_id: string; customer: string; priority: string; project_status: string;
   ba: string; dev: string; tester: string; am: string;
 };
 
-export function projectInfoOf(p?: Partial<Record<keyof ProjectInfo, string | null>>): ProjectInfo {
+export function projectInfoOf(p?: Partial<Record<Exclude<keyof ProjectInfo, 'customer_id'>, string | null>> & { customer_id?: number | null }): ProjectInfo {
   return {
-    customer: p?.customer ?? '', priority: p?.priority ?? '', project_status: p?.project_status ?? '',
+    customer_id: p?.customer_id ? String(p.customer_id) : '', customer: p?.customer ?? '', priority: p?.priority ?? '', project_status: p?.project_status ?? '',
     ba: p?.ba ?? '', dev: p?.dev ?? '', tester: p?.tester ?? '', am: p?.am ?? '',
   };
 }
@@ -43,16 +45,29 @@ export function StaffPicker({ position, value, onChange }: { position: string; v
 
 export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onChange: (v: ProjectInfo) => void }) {
   const set = (k: keyof ProjectInfo, v: string) => onChange({ ...value, [k]: v });
+  const { data: me } = useMe();
   const { data: customers } = useCustomerNames();
-  const unknownCustomer = !!customers && !!value.customer.trim() && !findCustomer(customers, value.customer);
+  // Thêm nhanh khách hàng mới ngay trong form dự án
+  const pickCustomer = async (v: string) => {
+    if (v !== '__new') return onChange({ ...value, customer_id: v, customer: customers?.find((c) => String(c.id) === v)?.name ?? '' });
+    const name = prompt('Tên khách hàng mới:')?.trim();
+    if (!name) return;
+    try {
+      const c = await api.post<{ id: number; name: string }>('/customers', { name });
+      await queryClient.invalidateQueries({ queryKey: ['customer-names'] });
+      onChange({ ...value, customer_id: String(c.id), customer: c.name });
+    } catch (e) { toastError(e); }
+  };
   // Giữ được giá trị cũ không có trong danh mục
   const options = (list: [string, string][], cur: string) => [...list.map(([n]) => n), ...(cur && !list.some(([n]) => n === cur) ? [cur] : [])];
   return (
     <>
-      <label className="field"><span>Tên khách hàng</span>
-        <input list="customer-names" value={value.customer} onChange={(e) => set('customer', e.target.value)} placeholder="Chọn hoặc gõ tên — VD: Sở Tài chính - Đồng Nai" />
-        <datalist id="customer-names">{customers?.map((c) => <option key={c.id} value={c.name} />)}</datalist>
-        {unknownCustomer && <small className="muted">Chưa có trong danh mục Khách hàng — vẫn lưu được; thêm khách hàng ở menu Khách hàng để quản lý liên hệ, chăm sóc.</small>}</label>
+      <label className="field"><span>Khách hàng</span>
+        <select value={value.customer_id} onChange={(e) => pickCustomer(e.target.value)}>
+          <option value="">{!value.customer_id && value.customer ? `${value.customer} (không có trong danh mục Khách hàng)` : '— Chưa gắn khách hàng —'}</option>
+          {customers?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {hasPerm(me, 'customer.create') && <option value="__new">+ Thêm khách hàng mới…</option>}
+        </select></label>
       <div className="row gap-sm">
         <label className="field grow"><span>Ưu tiên</span>
           <select value={value.priority} onChange={(e) => set('priority', e.target.value)}>

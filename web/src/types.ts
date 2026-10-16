@@ -124,6 +124,7 @@ export interface ProjectSummary {
   /** Trạng thái tự tính theo giai đoạn Epic đang chạy (project_status = trạng thái ghim tay) */
   status_auto: string | null;
   status_reason: string;
+  customer_id: number | null;
   customer: string | null;
   priority: string | null;
   project_status: string | null;
@@ -141,7 +142,11 @@ export interface Project {
   type: 'scrum' | 'kanban';
   lead_id: number;
   lead: { id: number; full_name: string } | null;
+  customer_id: number | null;
   customer: string | null;
+  /** Thông tin khách hàng của dự án (thành viên dự án đều xem được) */
+  customer_info: (Pick<Customer, 'id' | 'name' | 'kind' | 'status' | 'province' | 'address' | 'phone' | 'email' | 'website' | 'am'>
+    & { contacts: Pick<CustomerContact, 'id' | 'full_name' | 'position' | 'phone' | 'email' | 'is_primary'>[] }) | null;
   priority: string | null;
   project_status: string | null;
   ba: string | null;
@@ -352,8 +357,20 @@ export interface CustomerActivity {
   created_at: string;
 }
 
+export interface CustomerProject {
+  id: number; key: string; name: string; type: 'scrum' | 'kanban'; priority: string | null; project_status: string | null; is_archived: number;
+  ba: string | null; dev: string | null; tester: string | null; am: string | null; lead_name: string | null;
+  total_issues: number; done_issues: number; overdue_issues: number; start_date: string | null; end_date: string | null;
+  status_auto: string | null; status_reason: string;
+  /** Người xem là thành viên dự án (mới mở được dự án, xem được công việc) */
+  accessible: boolean;
+}
+
 export interface CustomerDetail extends Customer {
   contacts: CustomerContact[];
   activities: CustomerActivity[];
-  projects: { id: number; key: string; name: string; priority: string | null; project_status: string | null; is_archived: number; ba: string | null; am: string | null }[];
+  projects: CustomerProject[];
+  /** Công việc chưa xong của các dự án thuộc khách hàng (chỉ dự án người xem là thành viên) */
+  issues: Issue[];
+  recent: { id: number; field: string; new_label: string; created_at: string; user_name: string; user_avatar_url?: string | null; key: string; summary: string; type: IssueType; project_key: string }[];
 }

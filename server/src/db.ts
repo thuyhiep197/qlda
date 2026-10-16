@@ -420,7 +420,7 @@ const migrations: string[] = [
   // v20: Dev phụ trách issue, chọn từ danh mục nhân sự vị trí Dev
   `ALTER TABLE issues ADD COLUMN dev_id INTEGER REFERENCES staff(id) ON DELETE SET NULL;`,
   // v21: module Khách hàng (CRM) — thông tin khách hàng, người liên hệ, lịch sử chăm sóc.
-  // Dự án gắn với khách hàng qua ô "Tên khách hàng" (projects.customer = customers.name); tạo sẵn khách hàng từ các dự án hiện có.
+  // Dự án gắn với khách hàng qua projects.customer_id (projects.customer giữ tên để hiển thị); tạo sẵn khách hàng từ các dự án hiện có.
   // Nhóm người dùng được tạo dự án thì được toàn quyền với khách hàng.
   `CREATE TABLE customers (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -462,6 +462,9 @@ const migrations: string[] = [
    );
    CREATE INDEX idx_customer_activities ON customer_activities(customer_id, activity_date);
    INSERT OR IGNORE INTO customers(name) SELECT DISTINCT customer FROM projects WHERE customer IS NOT NULL AND TRIM(customer) <> '';
+   ALTER TABLE projects ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
+   UPDATE projects SET customer_id = (SELECT c.id FROM customers c WHERE c.name = projects.customer COLLATE NOCASE) WHERE customer IS NOT NULL;
+   CREATE INDEX idx_projects_customer ON projects(customer_id);
    UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete')
      WHERE permissions LIKE '%"project.create"%' AND permissions NOT LIKE '%"customer.view"%';`,
 ];

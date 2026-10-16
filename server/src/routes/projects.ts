@@ -7,6 +7,7 @@ import { autoProjectStatuses, checkPhase } from '../phases.ts';
 import { mapStatusForType, projectStatuses, workflowConfig } from '../workflow.ts';
 import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission, requireUserPerm } from '../permissions.ts';
 import { avatarUrl } from '../avatar.ts';
+import { sameName } from '../customer.ts';
 
 const r = Router();
 
@@ -21,9 +22,29 @@ export function loadProject(req: Request, perm?: Permission) {
 
 // Thông tin quản lý dự án: khách hàng, ưu tiên, trạng thái dự án (ghim), nhân sự (họ tên theo Danh mục nhân sự, cách nhau dấu phẩy)
 export const INFO_FIELDS = ['customer', 'priority', 'project_status', 'ba', 'dev', 'tester', 'am'] as const;
+/** Cột lưu thông tin quản lý dự án (thêm customer_id = khách hàng trong danh mục Khách hàng) */
+const INFO_COLS = [...INFO_FIELDS, 'customer_id'];
 function infoValues(b: any, project?: any) {
   if (b.project_status !== undefined) checkPhase(b.project_status);
-  return INFO_FIELDS.map((f) => b[f] !== undefined ? (String(b[f] ?? '').trim().slice(0, 500) || null) : (project?.[f] ?? null));
+  const link = customerLink(b, project);
+  return [...INFO_FIELDS.map((f) => f === 'customer' ? link.customer
+    : b[f] !== undefined ? (String(b[f] ?? '').trim().slice(0, 500) || null) : (project?.[f] ?? null)), link.customer_id];
+}
+
+/** Khách hàng của dự án: chọn theo customer_id (ưu tiên) hoặc theo tên có trong danh mục; tên được lưu kèm để hiển thị */
+function customerLink(b: any, project?: any): { customer: string | null; customer_id: number | null } {
+  if (b.customer_id !== undefined) {
+    if (b.customer_id === null || b.customer_id === '') return { customer: null, customer_id: null };
+    const c = get<{ id: number; name: string }>('SELECT id, name FROM customers WHERE id = ?', Number(b.customer_id));
+    if (!c) throw badRequest('Khách hàng không hợp lệ');
+    return { customer: c.name, customer_id: c.id };
+  }
+  if (b.customer !== undefined) {
+    const name = String(b.customer ?? '').trim().slice(0, 500) || null;
+    const c = name ? all<{ id: number; name: string }>('SELECT id, name FROM customers').find((x) => sameName(x.name, name)) : undefined;
+    return { customer: c?.name ?? name, customer_id: c?.id ?? null };
+  }
+  return { customer: project?.customer ?? null, customer_id: project?.customer_id ?? null };
 }
 
 const DEFAULT_STATUSES: [string, string][] = [
@@ -72,7 +93,7 @@ r.post('/', (req, res) => {
   if (!get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', leadId)) throw badRequest('Trưởng dự án không hợp lệ');
 
   const id = tx(() => {
-    const { id } = run(`INSERT INTO projects(key, name, description, type, lead_id, ${INFO_FIELDS.join(', ')}) VALUES (?,?,?,?,?${',?'.repeat(INFO_FIELDS.length)})`,
+    const { id } = run(`INSERT INTO projects(key, name, description, type, lead_id, ${INFO_COLS.join(', ')}) VALUES (?,?,?,?,?${',?'.repeat(INFO_COLS.length)})`,
       key, name, b.description || null, type, leadId, ...infoValues(b));
     DEFAULT_STATUSES.forEach(([n, c], i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', id, n, c, i));
     run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, accountRoleId(leadId));
@@ -99,8 +120,10 @@ r.get('/:key', (req, res) => {
   for (const row of all<{ labels: string }>('SELECT DISTINCT labels FROM issues WHERE project_id = ? AND labels IS NOT NULL', project.id)) {
     row.labels.split(',').forEach((l) => l && labels.add(l));
   }
+  const customerInfo = project.customer_id ? get('SELECT id, name, kind, status, province, address, phone, email, website, am FROM customers WHERE id = ?', project.customer_id) : null;
+  if (customerInfo) customerInfo.contacts = all('SELECT id, full_name, position, phone, email, is_primary FROM customer_contacts WHERE customer_id = ? ORDER BY is_primary DESC, full_name', customerInfo.id);
   res.json({
-    ...project, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
+    ...project, customer_info: customerInfo ?? null, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
     labels: [...labels].sort(), permissions: [...perms],
   });
 });
@@ -112,7 +135,7 @@ r.patch('/:key', (req, res) => {
   if (!name) throw badRequest('Tên dự án không được để trống');
   const type = b.type !== undefined ? (b.type === 'kanban' ? 'kanban' : 'scrum') : project.type;
   const leadId = b.lead_id !== undefined ? Number(b.lead_id) : project.lead_id;
-  run(`UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ?, ${INFO_FIELDS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
+  run(`UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ?, ${INFO_COLS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
     name, b.description !== undefined ? b.description || null : project.description, type, leadId, ...infoValues(b, project), project.id);
   res.json({ ok: true });
 });
