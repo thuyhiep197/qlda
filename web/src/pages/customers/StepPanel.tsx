@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Lock, Mail, MessageSquareText, Phone, Plus, Trash2, Users, X } from 'lucide-react';
+import { Lock, Mail, Phone, Plus, Trash2, Users, X } from 'lucide-react';
 import { api } from '../../api';
 import { hasPerm, useMe, useUsersBasic } from '../../hooks';
 import type { ActivityKind, CustomerDetail, StepDetail, StepStatus } from '../../types';
@@ -11,12 +11,12 @@ import { refreshCustomer, STEP_STATUS } from './JourneyPane';
 import { PersonChip, UserPickerPopover } from '../../components/UserPicker';
 import { Block, FileList, Props, UploadButton } from './CustomerSide';
 
-const KIND: Record<ActivityKind, { label: string; icon: ReactNode }> = {
-  internal: { label: 'Nội bộ', icon: <Lock size={13} /> },
+/** Loại trao đổi; ghi chú gộp vào Nội bộ (dữ liệu ghi chú cũ hiển thị như Nội bộ) */
+const KIND: Partial<Record<ActivityKind, { label: string; icon: ReactNode }>> = {
+  internal: { label: 'Nội bộ / Ghi chú', icon: <Lock size={13} /> },
   call: { label: 'Gọi điện', icon: <Phone size={13} /> },
   meeting: { label: 'Gặp mặt', icon: <Users size={13} /> },
   email: { label: 'Email', icon: <Mail size={13} /> },
-  note: { label: 'Ghi chú', icon: <MessageSquareText size={13} /> },
 };
 
 /** Cột phải khi chọn một bước của hành trình (như một issue của kinh doanh): Phòng thực hiện, Phòng phối hợp, Trạng thái; Trao đổi và Tài liệu của bước */
@@ -78,7 +78,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
                 {(Object.keys(STEP_STATUS) as StepStatus[]).map((k) => <option key={k} value={k}>{STEP_STATUS[k].label}</option>)}</select>
             : <span className={`lozenge lozenge-${STEP_STATUS[s.status].tone}`}>{STEP_STATUS[s.status].label}</span>],
           ['Hạn', canEdit ? <input type="date" value={s.due_date ?? ''} onChange={(e) => patch({ due_date: e.target.value || null })} /> : fmtDate(s.due_date)],
-          ['Ping', canEdit
+          ['Nhắc nhở', canEdit
             ? <select value={s.ping_days} onChange={(e) => patch({ ping_days: Number(e.target.value) })}
                 data-tip="Nhắc người thực hiện qua chuông thông báo, mỗi ngày từ N ngày trước hạn cho tới khi Kết thúc">
                 {s.ping_options.map((d) => <option key={d} value={d}>{d ? `Trước hạn ${d} ngày` : 'Tắt'}</option>)}</select>
@@ -122,7 +122,7 @@ function Talk({ customerId, step, canAdd, users }: { customerId: number; step: S
           <div key={a.id} className="cw-msg">
             <Avatar name={a.user_name} size={26} />
             <div className="grow" style={{ minWidth: 0 }}>
-              <div className="small"><b>{a.user_name ?? '—'}</b> <span className="muted">· {KIND[a.kind]?.icon} {KIND[a.kind]?.label} · {a.kind === 'internal' ? timeAgo(a.created_at) : fmtDate(a.activity_date)}</span></div>
+              <div className="small"><b>{a.user_name ?? '—'}</b> <span className="muted">· {(KIND[a.kind] ?? KIND.internal)!.icon} {(KIND[a.kind] ?? KIND.internal)!.label} · {a.kind === 'internal' ? timeAgo(a.created_at) : fmtDate(a.activity_date)}</span></div>
               {a.kind === 'internal' ? <Markdown text={a.content} users={users} /> : <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{a.content}</div>}
             </div>
             {(hasPerm(me, 'customer.delete') || (canAdd && a.user_id === me?.id)) &&
@@ -133,7 +133,7 @@ function Talk({ customerId, step, canAdd, users }: { customerId: number; step: S
       {canAdd && (
         <form className="stack-sm mt" onSubmit={send}>
           <div className="seg seg-sm" role="group" aria-label="Loại trao đổi">
-            {(Object.keys(KIND) as ActivityKind[]).map((k) => <button type="button" key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k].icon} {KIND[k].label}</button>)}
+            {(Object.keys(KIND) as ActivityKind[]).map((k) => <button type="button" key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k]!.icon} {KIND[k]!.label}</button>)}
           </div>
           {kind !== 'internal' && <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} aria-label="Ngày làm việc với khách hàng" />}
           {kind === 'internal'

@@ -33,12 +33,12 @@ const VERB: Record<Notification['type'], string> = {
   comment: 'đã bình luận trong',
   status: 'đã chuyển trạng thái',
   flag: 'đã đánh dấu quan trọng',
-  ping: 'nhắc hạn',
+  ping: 'nhắc nhở',
 };
 const CUSTOMER_VERB: Partial<Record<Notification['type'], string>> = {
   mention: 'đã nhắc đến bạn trong trao đổi nội bộ của khách hàng',
   assigned: 'đã giao cho bạn việc của khách hàng',
-  ping: 'Nhắc hạn bước trong hành trình khách hàng',
+  ping: 'Nhắc nhở bước trong hành trình khách hàng',
 };
 
 
