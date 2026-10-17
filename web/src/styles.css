@@ -1022,3 +1022,13 @@ a.kpi:hover { background: var(--table-hover); }
 .j-section-plus { float: right; }
 .j-add-row td { background: var(--primary-soft); }
 .j-add-row input { width: min(520px, 60%); margin-right: 6px; }
+
+/* Dự án, Quản trị: cùng bố cục cột trái + nội dung như Khách hàng */
+.cw-page { min-width: 0; min-height: 0; overflow: auto; }
+.project-in-shell { padding: 16px 24px; }
+a.cw-item, .cw-item.active { text-decoration: none; }
+a.cw-item { color: var(--text); }
+.cw-left .cw-sub .lucide { color: var(--muted); flex-shrink: 0; }
+.cw-parent-active .cw-group-link { color: var(--primary); font-weight: 600; }
+.proj-dot.sm { width: 18px; height: 18px; font-size: 9px; border-radius: 4px; }
+@media (max-width: 1100px) { .cw-page { overflow: visible; } }

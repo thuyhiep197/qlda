@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
 import { useMe, useUsersBasic, hasPerm } from '../hooks';
+import { useProjectGroup } from './ProjectShell';
 import type { ProjectSummary } from '../types';
 import { colorOf, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 import { ProjectInfoFields, projectInfoOf, splitNames } from '../components/ProjectInfoFields';
@@ -35,8 +36,10 @@ export default function Projects() {
   const q = filter.trim().toLowerCase();
   const statusOf = (p: ProjectSummary) => p.project_status || p.status_auto || '';
   const notRunning = (p: ProjectSummary) => (!statusOf(p) || statusOf(p) === 'Chưa bắt đầu' ? 1 : 0);
+  const group = useProjectGroup(projects);
   const list = projects
-    ?.filter((p) => !q || [p.name, p.key, p.customer, p.ba, p.dev, p.tester, p.am].join(' ').toLowerCase().includes(q))
+    ?.filter((p) => archived || group === 'all' || p.my_role)
+    .filter((p) => !q || [p.name, p.key, p.customer, p.ba, p.dev, p.tester, p.am].join(' ').toLowerCase().includes(q))
     .filter((p) => !statusF || statusOf(p) === (statusF === '-' ? '' : statusF))
     .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
     .sort((a, b) => notRunning(a) - notRunning(b) || rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
@@ -46,7 +49,7 @@ export default function Projects() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Quản lý dự án</h1>
+        <h1>{archived ? 'Dự án đã lưu trữ' : group === 'mine' ? 'Dự án của tôi' : 'Tất cả dự án'}</h1>
         <div className="spacer" />
         {hasPerm(me, 'project.delete') && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem dự án đã lưu trữ</label>}
         {hasPerm(me, 'project.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Tạo dự án</button>}

@@ -50,7 +50,7 @@ export default function ProjectLayout() {
   const visibleTabs = tabs.filter(([p]) => p === 'settings' || p === 'info' || can(project.permissions, TAB_PERM[p] ?? ''));
 
   return (
-    <div className="project">
+    <div className="project project-in-shell">
       <div className="project-head">
         <span className="proj-dot lg" style={{ background: colorOf(project.key) }}>{project.key.slice(0, 2)}</span>
         <div>

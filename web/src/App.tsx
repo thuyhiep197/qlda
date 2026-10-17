@@ -21,7 +21,11 @@ import AdminUsers from './pages/AdminUsers';
 import AdminRoles from './pages/AdminRoles';
 import AdminAudit from './pages/AdminAudit';
 import CustomerWorkspace from './pages/customers/CustomerWorkspace';
-import AdminCatalogs from './pages/AdminCatalogs';
+import AdminGeo from './pages/AdminGeo';
+import AdminProducts from './pages/AdminProducts';
+import AdminStaff from './pages/AdminStaff';
+import AdminDepartments from './pages/AdminDepartments';
+import ProjectShell from './pages/ProjectShell';
 import AdminLayout from './pages/AdminLayout';
 import ProjectInfo from './pages/ProjectInfo';
 import Profile from './pages/Profile';
@@ -43,6 +47,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Landing />} />
           <Route path="home" element={<Dashboard />} />
+          <Route element={<ProjectShell />}>
           <Route path="projects" element={<Projects />} />
           <Route path="issues" element={<IssueList />} />
           <Route path="p/:key" element={<ProjectLayout />}>
@@ -57,6 +62,7 @@ export default function App() {
             {RELEASES_ENABLED && <Route path="releases" element={<Releases />} />}
             <Route path="settings" element={<ProjectSettings />} />
           </Route>
+          </Route>
           <Route path="browse/:issueKey" element={<IssuePage />} />
           <Route path="profile" element={<Profile />} />
           <Route path="admin" element={<AdminLayout />}>
@@ -64,7 +70,11 @@ export default function App() {
             {hasPerm(me, 'user.view') && <Route path="users" element={<AdminUsers />} />}
             {hasPerm(me, 'role.view') && <Route path="roles" element={<AdminRoles />} />}
             {hasPerm(me, 'user.view') && <Route path="audit" element={<AdminAudit />} />}
-            {(hasPerm(me, 'department.view') || hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && <Route path="catalogs" element={<AdminCatalogs />} />}
+            <Route path="catalogs" element={null} />
+            {hasPerm(me, 'department.view') && <Route path="departments" element={<AdminDepartments />} />}
+            {hasPerm(me, 'geo.view') && <Route path="geo" element={<AdminGeo />} />}
+            {hasPerm(me, 'product.view') && <Route path="products" element={<AdminProducts />} />}
+            {hasPerm(me, 'staff.view') && <Route path="staff" element={<AdminStaff />} />}
           </Route>
           {hasPerm(me, 'customer.view') && <Route path="customers" element={<CustomerWorkspace />} />}
           {hasPerm(me, 'customer.view') && <Route path="customers/:id" element={<CustomerWorkspace />} />}
