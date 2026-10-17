@@ -2,7 +2,7 @@ import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
 import { badRequest, forbidden, notFound, requireUserPerm, userPermissions } from '../permissions.ts';
 import { cleanTask } from '../customer.ts';
-import { branchIds, journeyProgress, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus } from '../journey.ts';
+import { branchIds, journeyProgress, MAX_DEPTH, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus } from '../journey.ts';
 import { notifyCustomer } from '../notify.ts';
 import { loadCustomer as loadVisible, visibleCustomersSql } from '../customer-access.ts';
 import type { Permission } from '../permissions.ts';
@@ -143,11 +143,11 @@ r.patch('/:id/journey/:sid', (req, res) => {
   res.json({ ok: true, status_label: STEP_STATUS_LABELS[status as StepStatus] });
 });
 
-/** Thêm bước con vào cuối nhánh của một bước (tối đa 3 cấp dưới phần I–IV) */
+/** Thêm bước con vào cuối nhánh của một bước (tối đa MAX_DEPTH cấp) */
 r.post('/:id/journey/:sid/children', (req, res) => {
   const c = loadCustomer(req, 'customer.edit');
   const parent = loadStep(req, c.id);
-  if (parent.depth >= 3) throw badRequest('Không thêm được bước con ở cấp này');
+  if (parent.depth >= MAX_DEPTH) throw badRequest(`Chỉ chia tối đa ${MAX_DEPTH} cấp việc con`);
   const title = String(req.body?.title ?? '').trim().slice(0, 300);
   if (!title) throw badRequest('Tên bước không được để trống');
   const steps = journeySteps(c.id);

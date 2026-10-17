@@ -8,7 +8,7 @@ import { fmtDate, timeAgo, today } from '../../util';
 import { overdueDays } from '../../customer-filter';
 import { Avatar, Markdown, Spinner, toast, toastError } from '../../components/ui';
 import { MentionTextarea } from '../../components/MentionTextarea';
-import { refreshCustomer, STEP_STATUS } from './JourneyPane';
+import { MAX_DEPTH, refreshCustomer, STEP_STATUS } from './JourneyPane';
 import { PersonChip, UserPickerPopover } from '../../components/UserPicker';
 import { Block, FileList, Props, UploadButton } from './CustomerSide';
 
@@ -71,7 +71,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
         <div className="j-late-banner"><AlertTriangle size={15} /> Quá hạn {overdueDays(s.due_date, s.status, today())} ngày (hạn {fmtDate(s.due_date)}) — bước chưa hoàn thành</div>
       )}
       <Block title="Thông tin bước" extra={canEdit && <>
-        {s.depth < 3 && <button className="icon-btn" aria-label="Thêm bước con" data-tip="Thêm bước con" onClick={addChild}><Plus size={14} /></button>}
+        {s.depth < MAX_DEPTH && <button className="icon-btn" aria-label="Thêm bước con" data-tip="Thêm bước con" onClick={addChild}><Plus size={14} /></button>}
         <button className="icon-btn" aria-label="Bỏ bước" data-tip="Bỏ bước (cùng bước con)" onClick={remove}><Trash2 size={14} /></button>
       </>}>
         <Props rows={[

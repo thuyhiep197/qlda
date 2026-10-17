@@ -3,7 +3,10 @@ import path from 'node:path';
 
 /**
  * Hành trình khách hàng theo quy trình I–IV (Giải pháp → Hợp đồng → Triển khai → Nghiệm thu – Thanh toán).
- * depth: 0 = phần (I, II…), 1 = giai đoạn (1, 1.1…), 2 = đầu việc (+), 3 = việc chi tiết (-).
+ * depth: 0 = phần (I, II…), 1 = giai đoạn (1, 1.1…), 2 = đầu việc (+), 3 = việc chi tiết (-), sâu hơn = việc con do người dùng thêm (tối đa MAX_DEPTH).
+ */
+export const MAX_DEPTH = 6;
+/**
  */
 export const STEP_STATUSES = ['todo', 'doing', 'done'] as const;
 export type StepStatus = (typeof STEP_STATUSES)[number];

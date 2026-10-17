@@ -12,6 +12,8 @@ import { PersonChip, UserPickerPopover } from '../../components/UserPicker';
 export const STEP_STATUS: Record<StepStatus, { label: string; tone: string }> = {
   todo: { label: 'Chưa bắt đầu', tone: 'default' }, doing: { label: 'Đang thực hiện', tone: 'blue' }, done: { label: 'Hoàn thành', tone: 'green' },
 };
+/** Số cấp tối đa (khớp server/src/journey.ts) */
+export const MAX_DEPTH = 6;
 export const UNITS = ['KD', 'AM', 'BA', 'DEV', 'HC', 'BGĐ', 'Đối tác'];
 
 export const refreshCustomer = (customerId: number) => Promise.all([
@@ -133,7 +135,7 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
       </td>
     </tr>
   );
-  const plus = (s: JourneyStep) => canEdit && !filtered && s.depth < 3 && (
+  const plus = (s: JourneyStep) => canEdit && !filtered && s.depth < MAX_DEPTH && (
     <button className="icon-btn j-plus" aria-label="Thêm bước con" data-tip={s.depth === 0 ? 'Thêm giai đoạn' : 'Thêm bước con'}
       onClick={(e) => { e.stopPropagation(); startAdd(s); }}><Plus size={14} /></button>
   );
@@ -189,7 +191,7 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
                   <td className="j-title" style={{ paddingLeft: filtered ? 8 : 8 + (s.depth - 1) * 18 }}>
                     {!filtered && s.depth === 1 && hasChildren(s)
                       ? <span onClick={(e) => { e.stopPropagation(); toggle(s.id); }} className="j-toggle">{closed.has(s.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</span> : null}
-                    {s.code ? `${s.code} ` : s.depth === 3 ? '– ' : ''}{s.title}
+                    {s.code ? `${s.code} ` : s.depth >= 3 ? '– ' : ''}{s.title}{plus(s)}
                   </td>
                   {cell(s, 'assignee')}
                   {cell(s, 'supporters')}
@@ -199,7 +201,6 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
                   <td className="nowrap muted small">
                     {s.talk_count > 0 && <span data-tip="Trao đổi"><MessageSquare size={12} /> {s.talk_count} </span>}
                     {s.files.length > 0 && <span data-tip="Tài liệu kết quả"><Paperclip size={12} /> {s.files.length}</span>}
-                    {plus(s)}
                   </td>
                 </tr>
               );
