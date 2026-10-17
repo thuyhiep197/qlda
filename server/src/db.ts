@@ -626,6 +626,14 @@ const migrations: string[] = [
 
 export function migrate() {
   const current = Number((db.prepare('PRAGMA user_version').get() as any).user_version);
+  // Có dữ liệu cũ cần nâng cấp → sao lưu nguyên trạng trước (tên không bắt đầu bằng "qlda-" nên không bị xoay vòng xóa)
+  if (current > 0 && current < migrations.length) {
+    const dir = path.join(DATA_DIR, 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `truoc-nang-cap-v${current}-${new Date().toISOString().replace(/[:.]/g, '-')}.db`);
+    db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+    console.log(`[db] đã sao lưu trước khi nâng cấp: ${file}`);
+  }
   for (let v = current; v < migrations.length; v++) {
     tx(() => {
       db.exec(migrations[v]);
