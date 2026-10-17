@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { customerKpis, descriptionOf, filterCustomers, wardCodeOf } from './customer-filter';
+import { customerKpis, descriptionOf, filterCustomers, filterSteps, wardCodeOf } from './customer-filter';
 import type { Customer } from './types';
 
 const c = (o: Partial<Customer>): Customer => ({
@@ -51,7 +51,22 @@ test('overview counts live projects, running ones, open and overdue work, last c
   const k = customerKpis({
     projects: [p({}), p({ status_auto: 'Chưa bắt đầu' }), p({ is_archived: 1 }), p({ status_auto: 'Chưa bắt đầu', project_status: 'Lập HSYC' })],
     issues: [{ due_date: '2026-10-01' }, { due_date: '2026-10-16' }, { due_date: null }] as any,
-    activities: [{ activity_date: '2026-09-01' }, { activity_date: '2026-10-05' }] as any,
+    activities: [{ activity_date: '2026-09-01', kind: 'call' }, { activity_date: '2026-10-05', kind: 'meeting' }, { activity_date: '2026-10-10', kind: 'internal' }] as any,
+    tasks: [{ status: 'todo', due_date: '2026-10-01' }, { status: 'doing', due_date: null }, { status: 'done', due_date: '2026-09-01' }] as any,
   }, '2026-10-16');
-  assert.deepEqual(k, { projects: 3, running: 2, openIssues: 3, overdue: 1, lastCare: '2026-10-05' });
+  assert.deepEqual(k, { projects: 3, running: 2, openTasks: 2, overdueTasks: 1, openIssues: 3, overdue: 1, lastCare: '2026-10-05' });
+});
+
+test('journey steps filter by status, unit (performing or supporting), mine and keyword; no filter keeps the tree', () => {
+  const st = (id: number, o: object) => ({ id, depth: 2, status: 'todo', unit: null, support: null, assignee_id: null, title: '', ...o });
+  const steps = [st(1, { depth: 0, title: 'GIẢI PHÁP' }), st(2, { unit: 'AM', support: 'BA+DEV', title: 'Giải pháp V.2' }),
+    st(3, { unit: 'KD', support: 'BGĐ', status: 'done', assignee_id: 7, title: 'Tiếp nhận thông tin' })];
+  const ids = (f: Partial<{ status: string; unit: string; mine: number | null; q: string }>) =>
+    filterSteps(steps, { status: '', unit: '', mine: null, q: '', ...f })?.map((s) => s.id) ?? null;
+  assert.equal(ids({}), null);
+  assert.deepEqual(ids({ status: 'done' }), [3]);
+  assert.deepEqual(ids({ unit: 'DEV' }), [2]);
+  assert.deepEqual(ids({ unit: 'KD' }), [3]);
+  assert.deepEqual(ids({ mine: 7 }), [3]);
+  assert.deepEqual(ids({ q: 'giai phap' }), [2]);
 });

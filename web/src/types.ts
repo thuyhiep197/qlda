@@ -335,6 +335,10 @@ export interface Customer {
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
+  /** Hành trình: % bước đã kết thúc, giai đoạn đang thực hiện (null = chưa áp dụng quy trình) */
+  journey_pct?: number | null;
+  journey_stage?: string | null;
+  open_tasks?: number;
 }
 
 /** Đầu mối liên hệ — đầu mối đầu tiên là đầu mối chính */
@@ -353,6 +357,30 @@ export interface CustomerFile {
   created_at: string;
   uploader_id: number | null;
   uploader_name: string | null;
+  /** Tài liệu kết quả của một bước trong hành trình */
+  step_id?: number | null;
+  step_title?: string | null;
+}
+
+export type StepStatus = 'todo' | 'doing' | 'done';
+/** Bước trong hành trình khách hàng; depth 0 = phần I–IV, 1 = giai đoạn, 2 = đầu việc, 3 = việc chi tiết */
+export interface JourneyStep {
+  id: number; position: number; depth: number; code: string | null; title: string; unit: string | null; support: string | null;
+  status: StepStatus; assignee_id: number | null; assignee_name: string | null; due_date: string | null; ping_days: number; note: string | null;
+  files: { id: number; filename: string; size: number }[];
+}
+export interface JourneySection { id: number; title: string; total: number; done: number; doing: number; overdue: number }
+export interface JourneyData {
+  steps: JourneyStep[];
+  progress: { sections: JourneySection[]; current: JourneyStep | null; total: number; done: number; pct: number };
+  ping_days: number[];
+}
+
+/** Công việc kinh doanh của khách hàng */
+export interface CustomerTask {
+  id: number; customer_id: number; title: string; description: string | null; assignee_id: number | null; assignee_name: string | null;
+  due_date: string | null; status: StepStatus; created_by: number | null; created_by_name: string | null; created_at: string; done_at: string | null;
+  customer_name?: string;
 }
 
 /** Danh mục địa chính */
@@ -362,7 +390,8 @@ export interface GeoWard { code: string; province_code: string; name: string; cu
 export interface ProductType { id: number; name: string; position: number; product_count: number }
 export interface Product { id: number; type_id: number; type_name: string; name: string; description: string | null; customer_count: number }
 
-export type ActivityKind = 'call' | 'meeting' | 'email' | 'note';
+/** Trao đổi: làm việc với khách hàng (gọi điện, gặp mặt, email, ghi chú) hoặc thảo luận nội bộ */
+export type ActivityKind = 'call' | 'meeting' | 'email' | 'note' | 'internal';
 export interface CustomerActivity {
   id: number;
   customer_id: number;
@@ -386,6 +415,8 @@ export interface CustomerProject {
 export interface CustomerDetail extends Customer {
   contacts: CustomerContact[];
   files: CustomerFile[];
+  tasks: CustomerTask[];
+  journey: { total: number; done: number; pct: number; sections: JourneySection[]; current: { id: number; code: string | null; title: string } | null };
   activities: CustomerActivity[];
   projects: CustomerProject[];
   /** Công việc chưa xong của các dự án thuộc khách hàng (chỉ dự án người xem là thành viên) */

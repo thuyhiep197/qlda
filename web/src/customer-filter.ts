@@ -31,14 +31,30 @@ export function wardCodeOf(wards: { code: string; name: string }[] | undefined, 
 /** Chọn sản phẩm → mô tả lấy theo danh mục; sản phẩm chưa có mô tả thì để trống cho người dùng điền */
 export const descriptionOf = (product: Pick<Product, 'description'> | undefined) => product?.description ?? '';
 
-/** Chỉ số tổng quan của một khách hàng: dự án đang làm, công việc đang mở / quá hạn, lần chăm sóc gần nhất */
-export function customerKpis(d: Pick<CustomerDetail, 'projects' | 'issues' | 'activities'>, today: string) {
+/** Chỉ số tổng quan của một khách hàng: dự án đang làm, việc kinh doanh đang mở / quá hạn, việc dự án quá hạn, lần làm việc với KH gần nhất */
+export function customerKpis(d: Pick<CustomerDetail, 'projects' | 'issues' | 'activities' | 'tasks'>, today: string) {
   const live = d.projects.filter((p) => !p.is_archived);
+  const openTasks = d.tasks.filter((t) => t.status !== 'done');
   return {
     projects: live.length,
     running: live.filter((p) => (p.project_status || p.status_auto || 'Chưa bắt đầu') !== 'Chưa bắt đầu').length,
+    openTasks: openTasks.length,
+    overdueTasks: openTasks.filter((t) => t.due_date && t.due_date < today).length,
     openIssues: d.issues.length,
     overdue: d.issues.filter((i) => i.due_date && i.due_date < today).length,
-    lastCare: d.activities.reduce<string | null>((m, a) => (!m || a.activity_date > m ? a.activity_date : m), null),
+    lastCare: d.activities.filter((a) => a.kind !== 'internal').reduce<string | null>((m, a) => (!m || a.activity_date > m ? a.activity_date : m), null),
   };
+}
+
+/** Lọc bước hành trình: trạng thái, đơn vị (thực hiện hoặc phối hợp), việc của tôi, từ khóa; không lọc gì → null (hiện dạng cây) */
+export function filterSteps<T extends { depth: number; status: string; unit: string | null; support: string | null; assignee_id: number | null; title: string }>(
+  steps: T[], f: { status: string; unit: string; mine: number | null; q: string },
+): T[] | null {
+  if (!f.status && !f.unit && !f.mine && !f.q.trim()) return null;
+  const q = fold(f.q.trim());
+  return steps.filter((s) => s.depth > 0 &&
+    (!f.status || s.status === f.status) &&
+    (!f.unit || `${s.unit ?? ''}+${s.support ?? ''}`.split('+').map((x) => x.trim()).includes(f.unit)) &&
+    (!f.mine || s.assignee_id === f.mine) &&
+    (!q || fold(s.title).includes(q)));
 }

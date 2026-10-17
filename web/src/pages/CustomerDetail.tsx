@@ -2,29 +2,32 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle, CalendarClock, ChevronLeft, ContactRound, Download, FileText, FolderKanban, History, LayoutDashboard, ListTodo, Mail,
-  MessageSquareText, Paperclip, Pencil, Phone, Trash2, Users, type LucideIcon,
+  CalendarClock, ChevronLeft, ContactRound, Download, FileText, FolderKanban, Info, ListTodo, Lock, Mail, MessageSquareText,
+  MessagesSquare, Paperclip, Pencil, Phone, Route, Trash2, Users, type LucideIcon,
 } from 'lucide-react';
 import { api, refreshAll } from '../api';
-import { hasPerm, useIssueModal, useMe } from '../hooks';
-import type { ActivityKind, CustomerContact, CustomerDetail as Detail, CustomerProject } from '../types';
+import { hasPerm, useIssueModal, useMe, useUsersBasic } from '../hooks';
+import type { ActivityKind, CustomerDetail as Detail, CustomerProject } from '../types';
 import { splitNames } from '../components/ProjectInfoFields';
 import { customerKpis, CUSTOMER_STATUSES } from '../customer-filter';
 import { colorOf, fmtDate, fmtDateTime, fmtSize, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, timeAgo, today } from '../util';
 import { CustomerModal } from './Customers';
-import { Avatar, Empty, Spinner, toast, toastError, TypeIcon } from '../components/ui';
-import { IssueLine } from '../components/IssueRow';
+import { Avatar, Empty, Markdown, Spinner, toast, toastError, TypeIcon } from '../components/ui';
+import { MentionTextarea } from '../components/MentionTextarea';
+import Journey from './customer/Journey';
+import Tasks from './customer/Tasks';
 
 const ACTIVITY: Record<ActivityKind, { label: string; icon: ReactNode }> = {
   call: { label: 'Gọi điện', icon: <Phone size={14} /> },
   meeting: { label: 'Gặp mặt', icon: <Users size={14} /> },
   email: { label: 'Email', icon: <Mail size={14} /> },
   note: { label: 'Ghi chú', icon: <MessageSquareText size={14} /> },
+  internal: { label: 'Thảo luận nội bộ', icon: <Lock size={14} /> },
 };
 
-type Tab = 'overview' | 'projects' | 'issues' | 'contacts' | 'files' | 'care';
+type Tab = 'info' | 'journey' | 'tasks' | 'files' | 'talk';
 
-/** Trang khách hàng — xem toàn bộ thông tin liên quan: thông tin chung, dự án, công việc, người liên hệ, lịch sử chăm sóc */
+/** Phân hệ Quản lý khách hàng — các module của một khách hàng: Thông tin khách hàng, Hành trình khách hàng, Công việc, Tài liệu, Trao đổi */
 export default function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -37,20 +40,19 @@ export default function CustomerDetail() {
   if (isLoading) return <Spinner />;
   if (!c) return <div className="page"><Empty title={error instanceof Error ? error.message : 'Không tìm thấy khách hàng'} /></div>;
 
-  const tab = (params.get('tab') as Tab) || 'overview';
-  const go = (t: Tab) => setParams((p) => { const n = new URLSearchParams(p); if (t === 'overview') n.delete('tab'); else n.set('tab', t); return n; }, { replace: true });
-  const k = customerKpis(c, today());
   const tabs: [Tab, string, LucideIcon][] = [
-    ['overview', 'Tổng quan', LayoutDashboard],
-    ['projects', `Dự án (${k.projects})`, FolderKanban],
-    ['issues', `Công việc (${k.openIssues})`, ListTodo],
-    ['contacts', `Đầu mối liên hệ (${c.contacts.length})`, ContactRound],
+    ['info', 'Thông tin khách hàng', Info],
+    ['journey', `Hành trình khách hàng${c.journey.total ? ` (${c.journey.pct}%)` : ''}`, Route],
+    ['tasks', 'Công việc', ListTodo],
     ['files', `Tài liệu (${c.files.length})`, FileText],
-    ['care', `Lịch sử chăm sóc (${c.activities.length})`, History],
+    ['talk', `Trao đổi (${c.activities.length})`, MessagesSquare],
   ];
+  const tab: Tab = tabs.some(([t]) => t === params.get('tab')) ? params.get('tab') as Tab : 'info';
+  const go = (t: Tab) => setParams((p) => { const n = new URLSearchParams(p); if (t === 'info') n.delete('tab'); else n.set('tab', t); return n; }, { replace: true });
+  const k = customerKpis(c, today());
 
   const remove = async () => {
-    if (!confirm(`Xóa khách hàng ${c.name}? Đầu mối liên hệ, tài liệu và lịch sử chăm sóc sẽ bị xóa theo. Các dự án sẽ được gỡ khỏi khách hàng này (dữ liệu dự án vẫn giữ nguyên).`)) return;
+    if (!confirm(`Xóa khách hàng ${c.name}? Đầu mối liên hệ, hành trình, công việc kinh doanh, tài liệu và trao đổi sẽ bị xóa theo. Các dự án sẽ được gỡ khỏi khách hàng này (dữ liệu dự án vẫn giữ nguyên).`)) return;
     try { await api.del(`/customers/${c.id}`); toast('Đã xóa khách hàng'); await refreshAll(); navigate('/customers'); } catch (e) { toastError(e); }
   };
 
@@ -69,19 +71,18 @@ export default function CustomerDetail() {
         {tabs.map(([t, label, Icon]) => <button key={t} className={tab === t ? 'active' : ''} onClick={() => go(t)}><Icon size={16} /> {label}</button>)}
       </nav>
 
-      {tab === 'overview' && <Overview c={c} k={k} go={go} />}
-      {tab === 'projects' && <div className="card"><ProjectTable projects={c.projects} /></div>}
-      {tab === 'issues' && <Issues c={c} />}
-      {tab === 'contacts' && <Contacts c={c} canEdit={canEdit} onEdit={() => setEditing(true)} />}
+      {tab === 'info' && <Overview c={c} k={k} go={go} canEdit={canEdit} onEdit={() => setEditing(true)} />}
+      {tab === 'journey' && <Journey customerId={c.id} canEdit={canEdit} canReset={canDelete} />}
+      {tab === 'tasks' && <Tasks c={c} canEdit={canEdit} canDeleteAll={canDelete} />}
       {tab === 'files' && <Files c={c} canAdd={canEdit} canDeleteAll={canDelete} meId={me?.id} />}
-      {tab === 'care' && <Activities customer={c} canAdd={canEdit} canDeleteAll={canDelete} meId={me?.id} />}
+      {tab === 'talk' && <Activities customer={c} canAdd={canEdit} canDeleteAll={canDelete} meId={me?.id} />}
 
       {editing && <CustomerModal customer={c} contacts={c.contacts} onClose={() => setEditing(false)} />}
     </div>
   );
 }
 
-function Overview({ c, k, go }: { c: Detail; k: ReturnType<typeof customerKpis>; go: (t: Tab) => void }) {
+function Overview({ c, k, go, canEdit, onEdit }: { c: Detail; k: ReturnType<typeof customerKpis>; go: (t: Tab) => void; canEdit: boolean; onEdit: () => void }) {
   const { open } = useIssueModal();
   const primary = c.contacts[0];
   const info: [string, ReactNode][] = [
@@ -90,32 +91,32 @@ function Overview({ c, k, go }: { c: Detail; k: ReturnType<typeof customerKpis>;
     ['Nguồn khách hàng', c.source], ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
     ['Nhân viên phụ trách', splitNames(c.am).join(', ')],
   ];
-  const lastCare = c.activities[0];
+  const lastCare = c.activities.find((a) => a.kind !== 'internal');
   return (
     <div className="stack">
       <div className="kpi-row">
-        <a className="kpi" onClick={() => go('projects')}>
+        <a className="kpi" onClick={() => go('journey')}>
+          <div className="kpi-label"><Route size={15} /> Hành trình</div>
+          <div className="kpi-num">{c.journey.total ? `${c.journey.pct}%` : '—'}</div>
+          <div className="muted small ellipsis">{c.journey.current ? `Đang ở: ${c.journey.current.code ?? ''} ${c.journey.current.title}` : c.journey.total ? 'Đã hoàn thành' : 'Chưa áp dụng quy trình'}</div>
+        </a>
+        <a className={`kpi ${k.overdueTasks ? 'kpi-danger' : ''}`} onClick={() => go('tasks')}>
+          <div className="kpi-label"><ListTodo size={15} /> Việc kinh doanh</div>
+          <div className="kpi-num">{k.openTasks}</div>
+          <div className="muted small">{k.overdueTasks ? `${k.overdueTasks} việc quá hạn` : 'Việc chưa xong'}</div>
+        </a>
+        <a className={`kpi ${k.overdue ? 'kpi-danger' : ''}`} onClick={() => go('tasks')}>
           <div className="kpi-label"><FolderKanban size={15} /> Dự án</div>
           <div className="kpi-num">{k.projects}</div>
-          <div className="muted small">{k.running} dự án đang thực hiện</div>
+          <div className="muted small">{k.overdue ? `${k.overdue} việc dự án quá hạn` : `${k.running} dự án đang thực hiện`}</div>
         </a>
-        <a className="kpi" onClick={() => go('issues')}>
-          <div className="kpi-label"><ListTodo size={15} /> Công việc đang mở</div>
-          <div className="kpi-num">{k.openIssues}</div>
-          <div className="muted small">Chưa hoàn thành, mọi dự án</div>
-        </a>
-        <a className={`kpi ${k.overdue ? 'kpi-danger' : ''}`} onClick={() => go('issues')}>
-          <div className="kpi-label"><AlertTriangle size={15} /> Quá hạn</div>
-          <div className="kpi-num">{k.overdue}</div>
-          <div className="muted small">Công việc đã qua hạn</div>
-        </a>
-        <a className="kpi" onClick={() => go('contacts')}>
+        <div className="kpi">
           <div className="kpi-label"><ContactRound size={15} /> Đầu mối liên hệ</div>
           <div className="kpi-num">{c.contacts.length}</div>
-          <div className="muted small ellipsis">{primary ? `Đầu mối: ${primary.full_name}` : 'Chưa có đầu mối'}</div>
-        </a>
-        <a className="kpi" onClick={() => go('care')}>
-          <div className="kpi-label"><CalendarClock size={15} /> Chăm sóc gần nhất</div>
+          <div className="muted small ellipsis">{primary ? primary.full_name : 'Chưa có đầu mối'}</div>
+        </div>
+        <a className="kpi" onClick={() => go('talk')}>
+          <div className="kpi-label"><CalendarClock size={15} /> Làm việc gần nhất</div>
           <div className="kpi-num" style={{ fontSize: 20, paddingTop: 6 }}>{k.lastCare ? fmtDate(k.lastCare) : '—'}</div>
           <div className="muted small ellipsis">{lastCare ? `${ACTIVITY[lastCare.kind]?.label}: ${lastCare.content}` : 'Chưa ghi nhận'}</div>
         </a>
@@ -129,19 +130,11 @@ function Overview({ c, k, go }: { c: Detail; k: ReturnType<typeof customerKpis>;
               {info.map(([key, v]) => <div key={key} style={{ display: 'contents' }}><span className="prop-label">{key}</span><span>{v || <span className="muted">—</span>}</span></div>)}
             </div>
           </div>
-          <div className="card">
-            <div className="card-head"><h3>Đầu mối liên hệ</h3><a className="small" onClick={() => go('contacts')}>Xem tất cả</a></div>
-            {!c.contacts.length ? <p className="muted small">Chưa có đầu mối liên hệ</p>
-              : <div className="stack-sm">{c.contacts.slice(0, 3).map((ct) => <ContactLine key={ct.id} ct={ct} />)}</div>}
-          </div>
-          <div className="card">
-            <div className="card-head"><h3>Tài liệu</h3><a className="small" onClick={() => go('files')}>Xem tất cả</a></div>
-            {!c.files.length ? <p className="muted small">Chưa có tài liệu</p> : <FileRows c={c} files={c.files.slice(0, 5)} />}
-          </div>
+          <Contacts c={c} canEdit={canEdit} onEdit={onEdit} />
         </div>
         <div className="stack">
           <div className="card">
-            <div className="card-head"><h3>Dự án</h3><a className="small" onClick={() => go('projects')}>Chi tiết</a></div>
+            <div className="card-head"><h3>Dự án</h3><a className="small" onClick={() => go('tasks')}>Tiến độ dự án</a></div>
             <ProjectTable projects={c.projects.filter((p) => !p.is_archived)} compact />
           </div>
           <div className="card">
@@ -205,45 +198,6 @@ function ProjectTable({ projects, compact }: { projects: CustomerProject[]; comp
   );
 }
 
-/** Công việc chưa hoàn thành của mọi dự án thuộc khách hàng, sắp theo hạn */
-function Issues({ c }: { c: Detail }) {
-  const { open } = useIssueModal();
-  const [project, setProject] = useState('');
-  const [overdueOnly, setOverdueOnly] = useState(false);
-  const now = today();
-  const list = c.issues.filter((i) => (!project || i.project_key === project) && (!overdueOnly || (i.due_date && i.due_date < now)));
-  const hidden = c.projects.filter((p) => !p.accessible && !p.is_archived).length;
-  const projectsWithWork = c.projects.filter((p) => c.issues.some((i) => i.project_key === p.key));
-  return (
-    <div className="card">
-      <div className="filter-bar">
-        <select value={project} className={project ? 'filter-on' : ''} onChange={(e) => setProject(e.target.value)}>
-          <option value="">Dự án: Tất cả</option>
-          {projectsWithWork.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
-        </select>
-        <label className="check"><input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} /> Chỉ việc quá hạn</label>
-        <span className="muted small">{list.length} việc chưa hoàn thành</span>
-      </div>
-      {hidden > 0 && <p className="muted small">Có {hidden} dự án bạn chưa là thành viên nên không hiện công việc.</p>}
-      {!list.length ? <Empty title="Không có công việc nào đang mở" /> : (
-        <div className="issue-lines">{list.map((i) => <IssueLine key={i.id} issue={i} onOpen={() => open(i.key)} />)}</div>
-      )}
-    </div>
-  );
-}
-
-function ContactLine({ ct }: { ct: CustomerContact }) {
-  return (
-    <div>
-      <b>{ct.full_name}</b>
-      <div className="row gap-sm small" style={{ flexWrap: 'wrap' }}>
-        {ct.phone && <a href={`tel:${ct.phone}`} className="row gap-xs"><Phone size={13} /> {ct.phone}</a>}
-        {ct.email && <a href={`mailto:${ct.email}`} className="row gap-xs"><Mail size={13} /> {ct.email}</a>}
-      </div>
-    </div>
-  );
-}
-
 /** Đầu mối liên hệ — thêm/sửa/bỏ trong form Sửa thông tin khách hàng */
 function Contacts({ c, canEdit, onEdit }: { c: Detail; canEdit: boolean; onEdit: () => void }) {
   return (
@@ -278,7 +232,7 @@ function FileRows({ c, files, canDelete }: { c: Detail; files: Detail['files']; 
           <FileText size={16} className="muted" />
           <div className="grow" style={{ minWidth: 0 }}>
             <a className="ellipsis" style={{ display: 'block' }} href={`/api/customers/${c.id}/files/${f.id}`}>{f.filename}</a>
-            <div className="muted small">{fmtSize(f.size)} · {f.uploader_name ?? '—'} · {fmtDateTime(f.created_at)}</div>
+            <div className="muted small">{f.step_title && <span className="unit-chip" data-tip="Tài liệu kết quả của bước trong hành trình">{f.step_title}</span>} {fmtSize(f.size)} · {f.uploader_name ?? '—'} · {fmtDateTime(f.created_at)}</div>
           </div>
           <a className="icon-btn" aria-label={`Tải ${f.filename}`} data-tip="Tải về" href={`/api/customers/${c.id}/files/${f.id}`}><Download size={15} /></a>
           {canDelete?.(f) && <button className="icon-btn" aria-label={`Xóa ${f.filename}`} data-tip="Xóa" onClick={() => remove(f.id, f.filename)}><Trash2 size={15} /></button>}
@@ -313,8 +267,10 @@ function Files({ c, canAdd, canDeleteAll, meId }: { c: Detail; canAdd: boolean; 
   );
 }
 
-/** Lịch sử chăm sóc khách hàng — mới nhất ở trên */
+/** Trao đổi: làm việc với khách hàng (gọi điện, gặp mặt, email, ghi chú) và thảo luận nội bộ (@nhắc tên để báo cho đồng nghiệp) — mới nhất ở trên */
 function Activities({ customer, canAdd, canDeleteAll, meId }: { customer: Detail; canAdd: boolean; canDeleteAll: boolean; meId?: number }) {
+  const { data: users } = useUsersBasic();
+  const [show, setShow] = useState<'all' | 'customer' | 'internal'>('all');
   const [kind, setKind] = useState<ActivityKind>('call');
   const [date, setDate] = useState(today());
   const [content, setContent] = useState('');
@@ -323,13 +279,14 @@ function Activities({ customer, canAdd, canDeleteAll, meId }: { customer: Detail
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post(`/customers/${customer.id}/activities`, { kind, activity_date: date, content });
+      await api.post(`/customers/${customer.id}/activities`, { kind, activity_date: kind === 'internal' ? today() : date, content });
       setContent('');
       await refreshAll();
     } catch (err) { toastError(err); } finally { setBusy(false); }
   };
+  const list = customer.activities.filter((a) => show === 'all' || (show === 'internal') === (a.kind === 'internal'));
   const remove = async (id: number) => {
-    if (!confirm('Xóa hoạt động này?')) return;
+    if (!confirm('Xóa trao đổi này?')) return;
     try { await api.del(`/customers/${customer.id}/activities/${id}`); await refreshAll(); } catch (e) { toastError(e); }
   };
   return (
@@ -342,20 +299,27 @@ function Activities({ customer, canAdd, canDeleteAll, meId }: { customer: Detail
                 <button type="button" key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{ACTIVITY[k].icon} {ACTIVITY[k].label}</button>
               ))}
             </div>
-            <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} aria-label="Ngày" />
+            {kind !== 'internal' && <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} aria-label="Ngày" />}
           </div>
-          <textarea rows={3} required value={content} onChange={(e) => setContent(e.target.value)} placeholder="Nội dung trao đổi, kết quả, việc cần làm tiếp…" />
+          {kind === 'internal'
+            ? <MentionTextarea value={content} onChange={setContent} members={users ?? []} rows={3} placeholder="Trao đổi nội bộ về khách hàng — gõ @ để nhắc đồng nghiệp (họ sẽ nhận thông báo)" />
+            : <textarea rows={3} required value={content} onChange={(e) => setContent(e.target.value)} placeholder="Nội dung làm việc với khách hàng, kết quả, việc cần làm tiếp…" />}
           <div className="row"><div className="spacer" /><button className="btn btn-primary btn-sm" disabled={busy || !content.trim()}>Ghi lại</button></div>
         </form>
       )}
-      {!customer.activities.length ? <p className="muted small">Chưa có hoạt động nào</p> : (
+      <div className="seg mb" role="group" aria-label="Lọc trao đổi">
+        <button className={show === 'all' ? 'on' : ''} onClick={() => setShow('all')}>Tất cả ({customer.activities.length})</button>
+        <button className={show === 'customer' ? 'on' : ''} onClick={() => setShow('customer')}>Làm việc với khách hàng ({customer.activities.filter((a) => a.kind !== 'internal').length})</button>
+        <button className={show === 'internal' ? 'on' : ''} onClick={() => setShow('internal')}><Lock size={12} /> Nội bộ ({customer.activities.filter((a) => a.kind === 'internal').length})</button>
+      </div>
+      {!list.length ? <p className="muted small">Chưa có trao đổi nào</p> : (
         <div className="history">
-          {customer.activities.map((a) => (
+          {list.map((a) => (
             <div key={a.id} className="history-row">
               <span className="muted" style={{ paddingTop: 2 }}>{ACTIVITY[a.kind]?.icon}</span>
               <div className="grow" style={{ minWidth: 0 }}>
-                <div className="small"><b>{ACTIVITY[a.kind]?.label ?? a.kind}</b> · {fmtDate(a.activity_date)} <span className="muted">· {a.user_name ?? '—'}</span></div>
-                <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{a.content}</div>
+                <div className="small"><b>{ACTIVITY[a.kind]?.label ?? a.kind}</b> · {a.kind === 'internal' ? timeAgo(a.created_at) : fmtDate(a.activity_date)} <span className="muted">· {a.user_name ?? '—'}</span></div>
+                {a.kind === 'internal' ? <Markdown text={a.content} users={users} /> : <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{a.content}</div>}
               </div>
               {(canDeleteAll || (canAdd && a.user_id === meId)) && (
                 <button className="icon-btn" aria-label="Xóa hoạt động" data-tip="Xóa" onClick={() => remove(a.id)}><Trash2 size={14} /></button>

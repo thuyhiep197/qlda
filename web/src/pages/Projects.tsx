@@ -46,7 +46,7 @@ export default function Projects() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Dự án</h1>
+        <h1>Quản lý dự án</h1>
         <div className="spacer" />
         {hasPerm(me, 'project.delete') && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem dự án đã lưu trữ</label>}
         {hasPerm(me, 'project.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Tạo dự án</button>}

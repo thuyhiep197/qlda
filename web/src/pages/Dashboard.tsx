@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { useIssueModal, useMe, useProjects } from '../hooks';
+import { hasPerm, useIssueModal, useMe, useProjects } from '../hooks';
+import CustomerDashboard from '../components/CustomerDashboard';
 import type { Issue, IssueType, Side } from '../types';
 import { colorOf, FIELD_LABELS, timeAgo } from '../util';
 import { Avatar, Empty, SideBadge, Spinner, TypeIcon } from '../components/ui';
@@ -27,6 +28,8 @@ export default function Dashboard() {
   return (
     <div className="page">
       <h1>{greet}, {me?.full_name}</h1>
+      {hasPerm(me, 'customer.view') && <CustomerDashboard />}
+      <h3>Công việc dự án</h3>
       {isLoading || !data ? <Spinner /> : (
         <>
           <div className="stat-cards stat-cards-3">

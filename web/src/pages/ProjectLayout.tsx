@@ -4,20 +4,19 @@ import { can, hasPerm, useMe, useProject, useProjects } from '../hooks';
 import type { Project } from '../types';
 import { colorOf, RELEASES_ENABLED } from '../util';
 import { Spinner } from '../components/ui';
-import { Building2, Mail, Phone, UserRound, ChartColumn, LayoutDashboard, ListTree, ChartGantt, List, ListTodo, Rocket, Settings, SquareKanban, type LucideIcon } from 'lucide-react';
+import { Building2, Info, Mail, Phone, UserRound, LayoutDashboard, ListTree, ChartGantt, List, ListTodo, Rocket, Settings, SquareKanban, type LucideIcon } from 'lucide-react';
 
 const LAST_PROJECT = 'qlda:last-project';
 
 /** Quyền Xem cần có để thấy từng tab. Kanban: bảng theo quyền xem issue. */
 export const TAB_PERM: Record<string, string> = {
   dashboard: 'dashboard.view', plan: 'plan.view', board: 'sprint.view', backlog: 'backlog.view', issues: 'search.view',
-  roadmap: 'plan.view', releases: 'backlog.view', reports: 'report.view',
+  roadmap: 'plan.view', releases: 'backlog.view',
 };
 const canSettings = (perms: string[]) => ['project.edit', 'component.create', 'component.edit', 'component.delete'].some((p) => can(perms, p));
-/** Tab đầu tiên được phép xem — dùng khi mở dự án. */
+/** Mở dự án → module Thông tin dự án (mọi thành viên đều xem được). */
 export function firstTab(project: Project) {
-  const order = ['dashboard', 'roadmap', 'plan', 'board', 'issues', 'backlog', 'reports'];
-  return order.find((t) => can(project.permissions, TAB_PERM[t]) && (t !== 'backlog' || project.type === 'scrum')) ?? (canSettings(project.permissions) ? 'settings' : 'dashboard');
+  return 'info';
 }
 
 export const useProjectCtx = () => useOutletContext<Project>();
@@ -32,6 +31,7 @@ export default function ProjectLayout() {
   if (error || !project) return <div className="page"><h2>Không truy cập được dự án</h2><p className="muted">{error instanceof Error ? error.message : ''}</p></div>;
 
   const tabs: [string, string, LucideIcon][] = [
+    ['info', 'Thông tin dự án', Info],
     ['dashboard', 'Dashboard', LayoutDashboard],
     ['roadmap', 'Kế hoạch tổng quan', ChartGantt],
     ['plan', 'Kế hoạch chi tiết', ListTree],
@@ -39,7 +39,6 @@ export default function ProjectLayout() {
     ['issues', 'Danh sách issue', List],
     ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ...(RELEASES_ENABLED ? [['releases', 'Phát hành', Rocket] as [string, string, LucideIcon]] : []),
-    ['reports', 'Báo cáo', ChartColumn],
     ...(canSettings(project.permissions) ? [['settings', 'Cài đặt', Settings] as [string, string, LucideIcon]] : []),
   ];
   // Mở thẳng một tab không có quyền xem (VD gõ địa chỉ) → về tab đầu tiên được phép
@@ -48,7 +47,7 @@ export default function ProjectLayout() {
     return <Navigate to={`/p/${project.key}/${firstTab(project)}`} replace />;
   }
   // Chỉ hiện tab người dùng có quyền Xem
-  const visibleTabs = tabs.filter(([p]) => p === 'settings' || can(project.permissions, TAB_PERM[p] ?? ''));
+  const visibleTabs = tabs.filter(([p]) => p === 'settings' || p === 'info' || can(project.permissions, TAB_PERM[p] ?? ''));
 
   return (
     <div className="project">

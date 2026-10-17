@@ -8,7 +8,7 @@ import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
 import { colorOf } from '../util';
-import { FolderKanban, House, LogOut, Menu, Moon, Plus, Search, Settings, ScrollText, ShieldCheck, Sun, Users, Contact, Building2, Package, MapPinned } from 'lucide-react';
+import { BookMarked, Building2, FolderKanban, LayoutDashboard, LogOut, Menu, Moon, Plus, Search, Settings, ScrollText, ShieldCheck, Sun, Users } from 'lucide-react';
 
 export default function Layout() {
   const { data: me } = useMe();
@@ -48,12 +48,12 @@ export default function Layout() {
           <img src="/favicon.svg" width={28} height={28} alt="" />
           <span>QLDA</span>
         </NavLink>
+        {/* 4 phân hệ: Dashboard · Quản lý khách hàng · Quản lý dự án · Quản trị hệ thống */}
         <nav className="nav">
-          <NavLink to="/home"><House size={18} /> Trang chủ</NavLink>
-          {/* Người dùng chỉ cần "Dự án của tôi"; quản trị cần trang này để tạo / lưu trữ dự án */}
-          {(hasPerm(me, 'project.create') || hasPerm(me, 'project.delete')) && <NavLink to="/projects"><FolderKanban size={18} /> Quản lý dự án</NavLink>}
-          {hasPerm(me, 'search.view') && <NavLink to="/issues" end><Search size={18} /> Tìm kiếm issue</NavLink>}
-          {hasPerm(me, 'customer.view') && <NavLink to="/customers"><Building2 size={18} /> Khách hàng</NavLink>}
+          <NavLink to="/home"><LayoutDashboard size={18} /> Dashboard</NavLink>
+          {hasPerm(me, 'customer.view') && <NavLink to="/customers"><Building2 size={18} /> Quản lý khách hàng</NavLink>}
+          <NavLink to="/projects"><FolderKanban size={18} /> Quản lý dự án</NavLink>
+          {hasPerm(me, 'search.view') && <NavLink to="/issues" end className="nav-sub"><Search size={16} /> Tìm kiếm issue</NavLink>}
         </nav>
         <div className="nav-section">Dự án của tôi</div>
         <nav className="nav nav-projects">
@@ -65,22 +65,13 @@ export default function Layout() {
           ))}
           {projects?.length === 0 && <div className="muted small pad">Bạn chưa tham gia dự án nào</div>}
         </nav>
-        {(hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && (
-          <>
-            <div className="nav-section">Danh mục dùng chung</div>
-            <nav className="nav">
-              {hasPerm(me, 'geo.view') && <NavLink to="/admin/geo"><MapPinned size={18} /> Danh mục địa chính</NavLink>}
-              {hasPerm(me, 'product.view') && <NavLink to="/admin/products"><Package size={18} /> Danh mục sản phẩm</NavLink>}
-              {hasPerm(me, 'staff.view') && <NavLink to="/admin/staff"><Contact size={18} /> Danh mục nhân sự</NavLink>}
-            </nav>
-          </>
-        )}
-        {(hasPerm(me, 'user.view') || hasPerm(me, 'role.view')) && (
+        {(hasPerm(me, 'user.view') || hasPerm(me, 'role.view') || hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && (
           <>
             <div className="nav-section">Quản trị hệ thống</div>
             <nav className="nav">
               {hasPerm(me, 'user.view') && <NavLink to="/admin/users"><Users size={18} /> Người dùng</NavLink>}
-              {hasPerm(me, 'role.view') && <NavLink to="/admin/roles"><ShieldCheck size={18} /> Nhóm người dùng & phân quyền</NavLink>}
+              {hasPerm(me, 'role.view') && <NavLink to="/admin/roles"><ShieldCheck size={18} /> Phân quyền</NavLink>}
+              {(hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && <NavLink to="/admin/catalogs"><BookMarked size={18} /> Danh mục</NavLink>}
               {hasPerm(me, 'user.view') && <NavLink to="/admin/audit"><ScrollText size={18} /> Nhật ký bảo mật</NavLink>}
             </nav>
           </>

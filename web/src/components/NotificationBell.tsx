@@ -1,24 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, queryClient } from '../api';
+import { useNavigate } from 'react-router-dom';
 import { useIssueModal, useUsersBasic } from '../hooks';
 import type { IssueType } from '../types';
 import { timeAgo } from '../util';
 import { Avatar, FlagMark, TypeIcon } from './ui';
-import { Bell } from 'lucide-react';
+import { Bell, Building2 } from 'lucide-react';
 
 interface Notification {
   id: number;
-  type: 'mention' | 'assigned' | 'comment' | 'status' | 'flag';
+  type: 'mention' | 'assigned' | 'comment' | 'status' | 'flag' | 'ping';
   text: string | null;
   created_at: string;
   read_at: string | null;
   actor_name: string | null;
   actor_avatar_url: string | null;
-  issue_key: string;
-  issue_summary: string;
-  issue_type: IssueType;
-  issue_flagged: number;
+  issue_key: string | null;
+  issue_summary: string | null;
+  issue_type: IssueType | null;
+  issue_flagged: number | null;
+  /** Thông báo của khách hàng: link = module cần mở */
+  customer_id: number | null;
+  customer_name: string | null;
+  link: 'journey' | 'tasks' | 'talk' | null;
 }
 
 const VERB: Record<Notification['type'], string> = {
@@ -27,11 +32,19 @@ const VERB: Record<Notification['type'], string> = {
   comment: 'đã bình luận trong',
   status: 'đã chuyển trạng thái',
   flag: 'đã đánh dấu quan trọng',
+  ping: 'nhắc hạn',
 };
+const CUSTOMER_VERB: Partial<Record<Notification['type'], string>> = {
+  mention: 'đã nhắc đến bạn trong trao đổi nội bộ của khách hàng',
+  assigned: 'đã giao cho bạn việc của khách hàng',
+  ping: 'Nhắc hạn bước trong hành trình khách hàng',
+};
+const CUSTOMER_TAB = { journey: 'journey', tasks: 'tasks', talk: 'talk' } as const;
 
 /** Chuông thông báo trên thanh trên cùng, tự làm mới mỗi 30 giây. */
 export default function NotificationBell() {
   const { open } = useIssueModal();
+  const navigate = useNavigate();
   const { data: users } = useUsersBasic();
   const [show, setShow] = useState(false);
   const [onlyUnread, setOnlyUnread] = useState(false);
@@ -61,7 +74,8 @@ export default function NotificationBell() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['notifications'] });
   const openItem = async (n: Notification) => {
     setShow(false);
-    open(n.issue_key);
+    if (n.customer_id) navigate(`/customers/${n.customer_id}${n.link ? `?tab=${CUSTOMER_TAB[n.link]}` : ''}`);
+    else if (n.issue_key) open(n.issue_key);
     if (!n.read_at) { await api.post(`/notifications/${n.id}/read`); refresh(); }
   };
   const readAll = async () => { await api.post('/notifications/read-all'); refresh(); };
@@ -101,12 +115,18 @@ export default function NotificationBell() {
               <div key={n.id} className={`bell-item ${n.read_at ? '' : 'unread'}`} onClick={() => openItem(n)}>
                 <Avatar name={n.actor_name} src={n.actor_avatar_url} size={30} />
                 <div className="grow">
-                  <div><b>{n.actor_name || 'Hệ thống'}</b> {VERB[n.type]}</div>
-                  <div className="row gap-xs small bell-issue">
-                    <TypeIcon type={n.issue_type} size={14} /> <span className="issue-key">{n.issue_key}</span> <FlagMark flagged={n.issue_flagged} size={12} />
-                    <span className="ellipsis">{n.issue_summary}</span>
-                  </div>
-                  {n.text && n.type !== 'assigned' && <div className="bell-text small">{pretty(n.text)}</div>}
+                  {n.customer_id ? <>
+                    <div>{n.actor_name && <b>{n.actor_name} </b>}{CUSTOMER_VERB[n.type] ?? VERB[n.type]}</div>
+                    <div className="row gap-xs small bell-issue"><Building2 size={14} /> <span className="ellipsis">{n.customer_name}</span></div>
+                    {n.text && <div className="bell-text small">{pretty(n.text)}</div>}
+                  </> : <>
+                    <div><b>{n.actor_name || 'Hệ thống'}</b> {VERB[n.type]}</div>
+                    <div className="row gap-xs small bell-issue">
+                      {n.issue_type && <TypeIcon type={n.issue_type} size={14} />} <span className="issue-key">{n.issue_key}</span> <FlagMark flagged={n.issue_flagged} size={12} />
+                      <span className="ellipsis">{n.issue_summary}</span>
+                    </div>
+                    {n.text && n.type !== 'assigned' && <div className="bell-text small">{pretty(n.text)}</div>}
+                  </>}
                   <div className="muted small">{timeAgo(n.created_at)}</div>
                 </div>
                 {!n.read_at && <span className="bell-dot" />}

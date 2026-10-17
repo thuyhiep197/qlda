@@ -57,7 +57,7 @@ export default function Customers() {
       ) : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Tên cơ quan/đơn vị</th><th>Tỉnh/TP · Phường/Xã</th><th>Loại sản phẩm</th><th>Sản phẩm</th><th>Tình trạng</th><th>Đầu mối liên hệ</th><th>Nhân viên phụ trách</th><th>Nguồn</th><th className="num">Dự án</th><th>Chăm sóc gần nhất</th></tr></thead>
+            <thead><tr><th>Tên cơ quan/đơn vị</th><th>Tỉnh/TP · Phường/Xã</th><th>Loại sản phẩm</th><th>Sản phẩm</th><th>Tình trạng</th><th>Hành trình</th><th>Đầu mối liên hệ</th><th>Nhân viên phụ trách</th><th>Nguồn</th><th className="num">Dự án</th><th>Chăm sóc gần nhất</th></tr></thead>
             <tbody>
               {list.map((c) => (
                 <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/customers/${c.id}`)}>
@@ -66,6 +66,10 @@ export default function Customers() {
                   <td>{c.product_type_name}</td>
                   <td>{c.product_name}</td>
                   <td><span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span></td>
+                  <td style={{ minWidth: 150 }}>{c.journey_pct == null ? <span className="muted small">Chưa áp dụng</span> : <>
+                    <div className="cust-bar"><div style={{ width: `${c.journey_pct}%` }} /></div>
+                    <div className="small ellipsis" style={{ maxWidth: 220 }} title={c.journey_stage ?? ''}>{c.journey_stage ?? 'Đã hoàn thành'} · {c.journey_pct}%</div>
+                  </>}</td>
                   <td>{c.contact_name}{(c.contact_phone || c.contact_email) && <div className="muted small">{[c.contact_phone, c.contact_email].filter(Boolean).join(' · ')}</div>}
                     {(c.contact_count ?? 0) > 1 && <div className="muted small">+{(c.contact_count ?? 0) - 1} đầu mối khác</div>}</td>
                   <td>{splitNames(c.am).map((n) => <div key={n}>{n}</div>)}</td>

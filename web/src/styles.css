@@ -876,3 +876,34 @@ a.kpi:hover { background: var(--table-hover); }
 .geo-item:hover { background: var(--hover); }
 .geo-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 @media (max-width: 900px) { .geo-layout { grid-template-columns: minmax(0, 1fr); } .geo-list { max-height: 240px; } }
+/* ---------- Hành trình khách hàng ---------- */
+.journey-phases { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.journey-phase { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 0; border-top: 3px solid var(--st-todo-bg); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); padding: 10px 12px; cursor: pointer; font: inherit; color: var(--text); min-width: 0; }
+.journey-phase:hover { background: var(--hover); }
+.journey-phase.cur { border-top-color: var(--primary); }
+.journey-phase.done { border-top-color: var(--success); }
+.journey-table td { vertical-align: middle; }
+.journey-table select, .journey-table input[type="date"] { font-size: 12px; padding: 2px 4px; max-width: 150px; }
+.j-section td { background: var(--sunken); font-weight: 700; cursor: pointer; }
+.j-section .lucide { vertical-align: -2px; }
+.j-d1 .j-title { font-weight: 600; }
+.j-d3 .j-title { color: var(--muted); font-size: 13px; }
+.j-title a { color: inherit; cursor: pointer; }
+.j-done .j-title { text-decoration: line-through; color: var(--muted); }
+.j-status.j-doing { color: var(--st-ip-fg); font-weight: 600; }
+.j-status.j-done { color: var(--st-done-fg); font-weight: 600; }
+.j-files { max-width: 200px; }
+.j-files a { display: block; }
+.j-attach { color: var(--primary); cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+.unit-chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 3px; background: var(--st-todo-bg); color: var(--st-todo-fg); white-space: nowrap; }
+.task-add { display: grid; grid-template-columns: minmax(0, 1fr) 200px 150px auto; gap: 8px; margin-bottom: 12px; }
+@media (max-width: 900px) { .journey-phases { grid-template-columns: repeat(2, minmax(0, 1fr)); } .task-add { grid-template-columns: minmax(0, 1fr); } }
+.catalog-tabs { padding: 16px 32px 0; max-width: 1400px; }
+.nav a.nav-sub { padding-left: 34px; font-size: 13px; }
+.status-funnel { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.funnel-step { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+.funnel-step:hover { background: var(--hover); text-decoration: none; }
+.funnel-step b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.dash-line { display: flex; align-items: center; gap: 8px; color: var(--text); padding: 4px 0; border-bottom: 1px solid var(--border); min-width: 0; }
+.dash-line:hover { text-decoration: none; background: var(--hover); }
+@media (max-width: 900px) { .status-funnel { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
