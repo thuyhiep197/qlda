@@ -8,6 +8,7 @@ import { mapStatusForType, projectStatuses, workflowConfig } from '../workflow.t
 import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission, requireUserPerm } from '../permissions.ts';
 import { avatarUrl } from '../avatar.ts';
 import { sameName } from '../customer.ts';
+import { syncProjectProduct } from '../project-product.ts';
 
 const r = Router();
 
@@ -99,6 +100,7 @@ r.post('/', (req, res) => {
     run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, accountRoleId(leadId));
     return id;
   });
+  syncProjectProduct(id);
   audit(req, 'project_created', { target: key, detail: name });
   res.status(201).json(get('SELECT * FROM projects WHERE id = ?', id));
 });
@@ -141,6 +143,7 @@ r.patch('/:key', (req, res) => {
   const leadId = b.lead_id !== undefined ? Number(b.lead_id) : project.lead_id;
   run(`UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ?, ${INFO_COLS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
     name, b.description !== undefined ? b.description || null : project.description, type, leadId, ...infoValues(b, project), project.id);
+  syncProjectProduct(project.id);
   res.json({ ok: true });
 });
 

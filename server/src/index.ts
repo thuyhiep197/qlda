@@ -24,6 +24,7 @@ import geoRoutes from './routes/geo.ts';
 import departmentRoutes from './routes/departments.ts';
 import searchRoutes from './routes/search.ts';
 import { seedGeo } from './geo.ts';
+import { syncAllProjectProducts } from './project-product.ts';
 import { pruneNotifications } from './notify.ts';
 import { pruneAudit } from './audit.ts';
 import { syncAllEpics } from './issues.ts';
@@ -33,6 +34,8 @@ import { scheduleBackups } from './backup.ts';
 migrate();
 seedRoles();
 seedGeo();
+// Danh mục sản phẩm loại Dự án = các dự án
+syncAllProjectProducts();
 upgradeRolePermissions();
 syncAllEpics();
 // Epic đã xong hết việc tự chuyển Hoàn thành khi qua ngày kết thúc

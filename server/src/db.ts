@@ -468,15 +468,19 @@ const migrations: string[] = [
    CREATE TABLE product_types (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+     -- 1 = loại "Dự án": sản phẩm loại này chính là các dự án của phân hệ Dự án
+     is_project INTEGER NOT NULL DEFAULT 0,
      position INTEGER NOT NULL DEFAULT 0,
      created_at TEXT NOT NULL DEFAULT ${TS}
    );
-   INSERT INTO product_types(name, position) VALUES ('Dự án', 0), ('Sản phẩm có sẵn', 1);
+   INSERT INTO product_types(name, is_project, position) VALUES ('Dự án', 1, 0), ('Sản phẩm có sẵn', 0, 1);
    CREATE TABLE products (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      type_id INTEGER NOT NULL REFERENCES product_types(id),
      name TEXT NOT NULL,
      description TEXT,
+     -- Sản phẩm loại Dự án: dự án tương ứng (tạo dự án → tự có trong danh mục; dự án đang có được đưa vào khi khởi động)
+     project_id INTEGER UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
      created_at TEXT NOT NULL DEFAULT ${TS},
      UNIQUE (type_id, name)
    );

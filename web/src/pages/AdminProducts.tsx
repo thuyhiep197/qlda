@@ -4,6 +4,8 @@ import { api, refreshAll } from '../api';
 import { hasPerm, useMe, useProducts, useProductTypes } from '../hooks';
 import type { Product, ProductType } from '../types';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
+import { Link } from 'react-router-dom';
+import { CreateProjectModal } from './Projects';
 
 type Draft = { id?: number; type_id: string; name: string; description: string };
 
@@ -15,6 +17,8 @@ export default function AdminProducts() {
   const [typeF, setTypeF] = useState('');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<Draft | null>(null);
+  // Thêm sản phẩm loại Dự án = tạo dự án
+  const [creatingProject, setCreatingProject] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<Partial<ProductType> | null>(null);
   const canCreate = hasPerm(me, 'product.create'), canEdit = hasPerm(me, 'product.edit'), canDelete = hasPerm(me, 'product.delete');
   const list = (products || []).filter((p) => (!typeF || String(p.type_id) === typeF) && (!q || p.name.toLowerCase().includes(q.toLowerCase())));
@@ -34,9 +38,10 @@ export default function AdminProducts() {
         <h1>Danh mục sản phẩm</h1>
         <div className="spacer" />
         {canCreate && <button className="btn" onClick={() => setEditingType({})}>+ Thêm loại sản phẩm</button>}
-        {canCreate && <button className="btn btn-primary" onClick={() => setEditing({ type_id: typeF || String(types?.[0]?.id ?? ''), name: '', description: '' })}>+ Thêm sản phẩm</button>}
+        {canCreate && <button className="btn btn-primary" onClick={() => types?.find((t) => String(t.id) === typeF)?.is_project
+          ? setCreatingProject('') : setEditing({ type_id: typeF || String(types?.find((t) => !t.is_project)?.id ?? ''), name: '', description: '' })}>+ Thêm sản phẩm</button>}
       </div>
-      <p className="muted small">Khi chọn sản phẩm cho khách hàng, mô tả ở đây được tự điền vào ô "Mô tả sản phẩm" của khách hàng. Sửa mô tả ở đây không đổi mô tả đã ghi ở các khách hàng.</p>
+      <p className="muted small">Loại <b>Dự án</b> là các dự án trong phân hệ Dự án: tạo dự án là tự có trong danh mục, sửa tên / mô tả ở đây cũng là sửa dự án. Khi chọn sản phẩm cho khách hàng, mô tả ở đây được tự điền vào ô "Mô tả sản phẩm" của khách hàng. Sửa mô tả ở đây không đổi mô tả đã ghi ở các khách hàng.</p>
 
       <div className="card">
         <div className="card-head"><h3>Loại sản phẩm</h3></div>
@@ -65,7 +70,8 @@ export default function AdminProducts() {
             <tbody>
               {list.map((p) => (
                 <tr key={p.id}>
-                  <td><b>{p.name}</b></td>
+                  <td><b>{p.name}</b>{p.project_key && <> <Link to={`/p/${p.project_key}/info?g=all`} className="unit-chip" data-tip="Mở dự án">{p.project_key}</Link></>}
+                    {!!p.project_archived && <span className="muted small"> (đã lưu trữ)</span>}</td>
                   <td>{p.type_name}</td>
                   <td className="small" style={{ whiteSpace: 'pre-wrap', maxWidth: 480 }}>{p.description || <span className="muted">Chưa có mô tả</span>}</td>
                   <td className="num">{p.customer_count || ''}</td>
@@ -73,7 +79,7 @@ export default function AdminProducts() {
                     <td className="num nowrap">
                       {canEdit && <button className="icon-btn" aria-label={`Sửa ${p.name}`} data-tip="Sửa"
                         onClick={() => setEditing({ id: p.id, type_id: String(p.type_id), name: p.name, description: p.description || '' })}><Pencil size={15} /></button>}
-                      {canDelete && <button className="icon-btn" aria-label={`Xóa ${p.name}`} data-tip="Xóa" onClick={() => remove(p)}><Trash2 size={15} /></button>}
+                      {canDelete && !p.project_id && <button className="icon-btn" aria-label={`Xóa ${p.name}`} data-tip="Xóa" onClick={() => remove(p)}><Trash2 size={15} /></button>}
                     </td>
                   )}
                 </tr>
@@ -82,22 +88,30 @@ export default function AdminProducts() {
           </table>
         </div>
       )}
-      {editing && <ProductModal draft={editing} types={types || []} onClose={() => setEditing(null)} />}
+      {editing && <ProductModal draft={editing} types={types || []} onClose={() => setEditing(null)} onProject={(n) => setCreatingProject(n)} />}
+      {creatingProject !== null && <CreateProjectModal initialName={creatingProject} onClose={() => setCreatingProject(null)} onCreated={() => undefined} />}
       {editingType && <TypeModal type={editingType} onClose={() => setEditingType(null)} />}
     </div>
   );
 }
 
-function ProductModal({ draft, types, onClose }: { draft: Draft; types: ProductType[]; onClose: () => void }) {
+/** Thêm / sửa sản phẩm. Chọn loại Dự án khi thêm mới → chuyển sang form Tạo dự án (onProject) */
+export function ProductModal({ draft, types, onClose, onSaved, onProject }: {
+  draft: Draft; types: ProductType[]; onClose: () => void; onSaved?: (id: number) => void; onProject?: (name: string) => void;
+}) {
   const [d, setD] = useState(draft);
+  const isProjectType = !!types.find((t) => String(t.id) === d.type_id)?.is_project;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
       const body = { type_id: d.type_id, name: d.name, description: d.description };
-      if (d.id) await api.patch(`/products/${d.id}`, body); else await api.post('/products', body);
+      if (!d.id && isProjectType) { onClose(); onProject?.(d.name); return; }
+      const id = d.id ?? (await api.post<{ id: number }>('/products', body)).id;
+      if (d.id) await api.patch(`/products/${d.id}`, body);
       toast(d.id ? 'Đã lưu' : 'Đã thêm sản phẩm');
       await refreshAll();
       onClose();
+      onSaved?.(id);
     } catch (err) { toastError(err); }
   };
   return (

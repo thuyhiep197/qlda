@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Paperclip, Plus, X } from 'lucide-react';
-import { api, refreshAll } from '../api';
-import { useProducts, useProductTypes, useProvinces, useStaff, useWards } from '../hooks';
-import type { Customer, CustomerContact } from '../types';
+import { api, queryClient, refreshAll } from '../api';
+import { ProductModal } from './AdminProducts';
+import { CreateProjectModal } from './Projects';
+import { hasPerm, useMe, useProducts, useProductTypes, useProvinces, useStaff, useWards } from '../hooks';
+import type { Customer, CustomerContact, Product } from '../types';
 import { CUSTOMER_SOURCES, CUSTOMER_STATUSES, descriptionOf, wardCodeOf } from '../customer-filter';
 import { Modal, toast, toastError } from '../components/ui';
 
@@ -36,7 +38,17 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof Draft) => (e: { target: { value: string } }) => setD({ ...d, [k]: e.target.value });
-  const typeProducts = (products || []).filter((p) => !d.product_type_id || String(p.type_id) === d.product_type_id);
+  const typeProducts = (products || []).filter((p) => (!d.product_type_id || String(p.type_id) === d.product_type_id) && !p.project_archived);
+  const { data: me } = useMe();
+  const isProjectType = !!types?.find((t) => String(t.id) === d.product_type_id)?.is_project;
+  const canAddProduct = !!d.product_type_id && hasPerm(me, isProjectType ? 'project.create' : 'product.create');
+  const [adding, setAdding] = useState<'product' | 'project' | null>(null);
+  // Thêm xong → chọn luôn sản phẩm / dự án vừa tạo (mô tả lấy theo danh mục)
+  const selectNew = async (match: (p: Product) => boolean) => {
+    const list = await queryClient.fetchQuery<Product[]>({ queryKey: ['products'], queryFn: () => api.get('/products'), staleTime: 0 });
+    const p = list.find(match);
+    if (p) setD((cur) => ({ ...cur, product_id: String(p.id), product_type_id: String(p.type_id), product_description: descriptionOf(p) }));
+  };
   const pickType = (v: string) => {
     const keep = products?.find((p) => String(p.id) === d.product_id && String(p.type_id) === v);
     setD({ ...d, product_type_id: v, product_id: keep ? d.product_id : '' });
@@ -94,11 +106,15 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
               <option value="">—</option>
               {types?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select></label>
-          <label className="field"><span>Sản phẩm</span>
-            <select value={d.product_id} onChange={(e) => pickProduct(e.target.value)}>
-              <option value="">{typeProducts.length ? '—' : 'Chưa có sản phẩm trong danh mục'}</option>
-              {typeProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select></label>
+          <div className="field"><span>Sản phẩm</span>
+            <div className="row gap-xs">
+              <select className="grow" value={d.product_id} onChange={(e) => pickProduct(e.target.value)} aria-label="Sản phẩm">
+                <option value="">{typeProducts.length ? '—' : 'Chưa có sản phẩm trong danh mục'}</option>
+                {typeProducts.map((p) => <option key={p.id} value={p.id}>{p.name}{p.project_key ? ` (${p.project_key})` : ''}</option>)}
+              </select>
+              {canAddProduct && <button type="button" className="btn btn-sm" data-tip={isProjectType ? 'Tạo dự án mới (tự có trong danh mục)' : 'Thêm sản phẩm vào danh mục'}
+                onClick={() => (isProjectType ? setAdding('project') : setAdding('product'))}>+ Thêm mới</button>}
+            </div></div>
         </div>
         <label className="field"><span>Mô tả sản phẩm <small className="muted">(tự lấy từ danh mục khi chọn sản phẩm; sửa được)</small></span>
           <textarea rows={3} value={d.product_description} onChange={set('product_description')} /></label>
@@ -137,6 +153,10 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
           </div>
         )}
       </form>
+      {/* Popup thêm mới đặt ngoài form khách hàng (tránh form lồng nhau) */}
+      {adding === 'product' && <ProductModal types={types ?? []} draft={{ type_id: d.product_type_id, name: '', description: '' }}
+        onClose={() => setAdding(null)} onSaved={(id) => selectNew((p) => p.id === id)} />}
+      {adding === 'project' && <CreateProjectModal onClose={() => setAdding(null)} onCreated={(pr) => selectNew((p) => p.project_id === pr.id)} />}
     </Modal>
   );
 }

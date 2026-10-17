@@ -423,8 +423,12 @@ export interface CustomerTask {
 export interface GeoProvince { code: string; name: string; ward_count: number; customer_count: number }
 export interface GeoWard { code: string; province_code: string; name: string; customer_count: number }
 
-export interface ProductType { id: number; name: string; position: number; product_count: number }
-export interface Product { id: number; type_id: number; type_name: string; name: string; description: string | null; customer_count: number }
+/** is_project = 1: loại "Dự án" — sản phẩm loại này chính là các dự án (tạo dự án → tự có trong danh mục) */
+export interface ProductType { id: number; name: string; is_project: number; position: number; product_count: number }
+export interface Product {
+  id: number; type_id: number; type_name: string; name: string; description: string | null; customer_count: number;
+  is_project: number; project_id: number | null; project_key: string | null; project_archived: number | null;
+}
 
 /** Trao đổi: làm việc với khách hàng (gọi điện, gặp mặt, email, ghi chú) hoặc thảo luận nội bộ */
 export type ActivityKind = 'call' | 'meeting' | 'email' | 'note' | 'internal';

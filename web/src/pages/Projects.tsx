@@ -105,11 +105,12 @@ function ProjectStatus({ p }: { p: ProjectSummary }) {
   return <span className="nowrap" data-tip={tip}><span className={lozengeOf(PROJECT_STATUSES, v)}>{v}</span> <span className="muted small">{pinned ? '📌' : '⚙'}</span></span>;
 }
 
-export function CreateProjectModal({ onClose }: { onClose: () => void }) {
+/** Tạo dự án (dự án tự có trong Danh mục sản phẩm loại Dự án). onCreated: mở từ form khác → không chuyển sang trang dự án */
+export function CreateProjectModal({ onClose, onCreated, initialName }: { onClose: () => void; onCreated?: (p: { id: number; key: string; name: string }) => void; initialName?: string }) {
   const navigate = useNavigate();
   const { data: me } = useMe();
   const { data: users } = useUsersBasic();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName ?? '');
   const [key, setKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
   const [type, setType] = useState<'scrum' | 'kanban'>('scrum');
@@ -123,11 +124,11 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/projects', { name, key, type, lead_id: Number(lead), description, ...info });
-      toast('Đã tạo dự án');
+      const created = await api.post<{ id: number; key: string; name: string }>('/projects', { name, key, type, lead_id: Number(lead), description, ...info });
+      toast('Đã tạo dự án — đã có trong Danh mục sản phẩm (loại Dự án)');
       await refreshAll();
       onClose();
-      navigate(`/p/${key.toUpperCase()}`);
+      if (onCreated) onCreated(created); else navigate(`/p/${key.toUpperCase()}`);
     } catch (err) { toastError(err); }
   };
 

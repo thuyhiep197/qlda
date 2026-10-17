@@ -62,6 +62,14 @@ function validate(body: any) {
   return v;
 }
 
+/** Khách hàng chọn sản phẩm là một dự án: dự án chưa gắn khách hàng nào thì gắn với khách hàng này */
+function linkProjectOfProduct(customerId: number, productId: number | null) {
+  const pr = productId ? get<{ project_id: number | null }>('SELECT project_id FROM products WHERE id = ?', productId) : null;
+  if (!pr?.project_id) return;
+  const c = get<{ name: string }>('SELECT name FROM customers WHERE id = ?', customerId)!;
+  run('UPDATE projects SET customer_id = ?, customer = ? WHERE id = ? AND customer_id IS NULL', customerId, c.name, pr.project_id);
+}
+
 /** Ghi lại danh sách đầu mối theo thứ tự trên form: sửa dòng có sẵn, thêm dòng mới, xóa dòng bị bỏ */
 function saveContacts(customerId: number, list: ReturnType<typeof cleanContacts>) {
   const keep = new Set<number>();
@@ -130,6 +138,7 @@ r.post('/', (req, res) => {
       ...FIELDS.map((f) => v[f]), req.user.id);
     saveContacts(id, contacts);
     saveOwners(id, v.owner_ids);
+    linkProjectOfProduct(id, v.product_id);
     return id;
   });
   audit(req, 'customer_created', { target: v.name });
@@ -195,6 +204,7 @@ r.patch('/:id', (req, res) => {
     if (v.name !== cur.name) run('UPDATE projects SET customer = ? WHERE customer_id = ?', v.name, cur.id);
     if (contacts) saveContacts(cur.id, contacts);
     saveOwners(cur.id, v.owner_ids);
+    if (v.product_id !== cur.product_id) linkProjectOfProduct(cur.id, v.product_id);
   });
   audit(req, 'customer_updated', { target: cur.name, detail: v.name !== cur.name ? `→ ${v.name}` : undefined });
   res.json({ ok: true });

@@ -13,7 +13,7 @@ function check<T>(fn: () => T): T {
 
 // Mọi người đã đăng nhập đều xem được (để chọn sản phẩm cho khách hàng)
 r.get('/types', (_req, res) => {
-  res.json(all(`SELECT t.id, t.name, t.position, (SELECT COUNT(*) FROM products p WHERE p.type_id = t.id) AS product_count
+  res.json(all(`SELECT t.id, t.name, t.is_project, t.position, (SELECT COUNT(*) FROM products p WHERE p.type_id = t.id) AS product_count
     FROM product_types t ORDER BY t.position, t.name`));
 });
 
@@ -49,6 +49,7 @@ r.delete('/types/:id', (req, res) => {
   requireUserPerm(req.user, 'product.delete');
   const t = get('SELECT * FROM product_types WHERE id = ?', Number(req.params.id));
   if (!t) throw notFound();
+  if (t.is_project) throw badRequest('Không xóa được loại Dự án');
   if (get('SELECT 1 FROM products WHERE type_id = ?', t.id)) throw badRequest('Loại sản phẩm đang có sản phẩm, hãy xóa hoặc chuyển các sản phẩm đó trước');
   run('DELETE FROM product_types WHERE id = ?', t.id);
   audit(req, 'product_type_deleted', { target: t.name });
@@ -56,9 +57,9 @@ r.delete('/types/:id', (req, res) => {
 });
 
 r.get('/', (_req, res) => {
-  res.json(all(`SELECT p.id, p.type_id, p.name, p.description, t.name AS type_name,
+  res.json(all(`SELECT p.id, p.type_id, p.name, p.description, t.name AS type_name, t.is_project, p.project_id, pr.key AS project_key, pr.is_archived AS project_archived,
       (SELECT COUNT(*) FROM customers c WHERE c.product_id = p.id) AS customer_count
-    FROM products p JOIN product_types t ON t.id = p.type_id ORDER BY t.position, p.name`));
+    FROM products p JOIN product_types t ON t.id = p.type_id LEFT JOIN projects pr ON pr.id = p.project_id ORDER BY t.position, p.name`));
 });
 
 function validProduct(body: any, exceptId?: number) {
@@ -73,6 +74,7 @@ function validProduct(body: any, exceptId?: number) {
 r.post('/', (req, res) => {
   requireUserPerm(req.user, 'product.create');
   const v = validProduct(req.body || {});
+  if (get('SELECT 1 FROM product_types WHERE id = ? AND is_project = 1', v.type_id)) throw badRequest('Sản phẩm loại Dự án được tạo bằng cách tạo dự án');
   const { id } = run('INSERT INTO products(type_id, name, description) VALUES (?,?,?)', v.type_id, v.name, v.description);
   audit(req, 'product_created', { target: v.name });
   res.status(201).json({ id, ...v });
@@ -84,6 +86,13 @@ r.patch('/:id', (req, res) => {
   const p = get('SELECT * FROM products WHERE id = ?', Number(req.params.id));
   if (!p) throw notFound();
   const v = validProduct({ ...p, ...req.body }, p.id);
+  if (p.project_id) {
+    // Sản phẩm của dự án: sửa tên / mô tả cũng là sửa dự án; không đổi được loại
+    if (v.type_id !== p.type_id) throw badRequest('Không đổi được loại của sản phẩm Dự án');
+    run('UPDATE projects SET name = ?, description = ? WHERE id = ?', v.name, v.description, p.project_id);
+  } else if (get('SELECT 1 FROM product_types WHERE id = ? AND is_project = 1', v.type_id)) {
+    throw badRequest('Sản phẩm loại Dự án được tạo bằng cách tạo dự án');
+  }
   run('UPDATE products SET type_id = ?, name = ?, description = ? WHERE id = ?', v.type_id, v.name, v.description, p.id);
   if (v.type_id !== p.type_id) run('UPDATE customers SET product_type_id = ? WHERE product_id = ?', v.type_id, p.id);
   res.json({ ok: true });
@@ -94,6 +103,7 @@ r.delete('/:id', (req, res) => {
   requireUserPerm(req.user, 'product.delete');
   const p = get('SELECT * FROM products WHERE id = ?', Number(req.params.id));
   if (!p) throw notFound();
+  if (p.project_id) throw badRequest('Sản phẩm Dự án gắn với dự án — lưu trữ dự án ở phân hệ Dự án');
   run('DELETE FROM products WHERE id = ?', p.id);
   audit(req, 'product_deleted', { target: p.name });
   res.json({ ok: true });
