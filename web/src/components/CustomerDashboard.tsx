@@ -41,7 +41,7 @@ export default function CustomerDashboard() {
           <div className="card-head"><h3>Việc kinh doanh của tôi ({data.my_tasks.length})</h3></div>
           {!data.my_tasks.length ? <div className="muted small">Không có việc kinh doanh nào đang chờ bạn</div> : (
             <div className="stack-sm">{data.my_tasks.map((t) => (
-              <Link key={t.id} to={`/customers/${t.customer_id}?tab=tasks`} className="dash-line">
+              <Link key={t.id} to={`/customers/${t.customer_id}`} className="dash-line">
                 <span className="grow ellipsis"><b>{t.title}</b> <span className="muted small">· {t.customer_name}</span></span>{due(t.due_date)}
               </Link>
             ))}</div>
@@ -51,7 +51,7 @@ export default function CustomerDashboard() {
           <div className="card-head"><h3>Bước hành trình tôi phụ trách ({data.my_steps.length})</h3></div>
           {!data.my_steps.length ? <div className="muted small">Không có bước nào đang chờ bạn</div> : (
             <div className="stack-sm">{data.my_steps.map((s) => (
-              <Link key={s.id} to={`/customers/${s.customer_id}?tab=journey`} className="dash-line">
+              <Link key={s.id} to={`/customers/${s.customer_id}?step=${s.id}`} className="dash-line">
                 <span className="grow ellipsis"><b>{s.code ? `${s.code} ` : ''}{s.title}</b> <span className="muted small">· {s.customer_name}</span></span>{due(s.due_date)}
               </Link>
             ))}</div>

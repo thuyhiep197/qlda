@@ -5,14 +5,14 @@ import type { Customer } from './types';
 
 const c = (o: Partial<Customer>): Customer => ({
   id: 1, name: '', province_code: null, ward_code: null, product_type_id: null, product_id: null, product_description: null,
-  source: null, status: 'Mới', am: null, created_at: '', updated_at: '', ...o,
+  source: null, status: 'Mới', created_at: '', updated_at: '', ...o,
 });
 const list = [
   c({ id: 1, name: 'Sở Tài chính Đồng Nai', province_code: '75', province_name: 'Thành phố Đồng Nai', ward_name: 'Phường Trấn Biên', contact_name: 'Lê Văn B', product_type_id: 1 }),
-  c({ id: 2, name: 'Trường THPT Chu Văn An', status: 'Đang tư vấn', am: 'Phạm Văn Phương', product_type_id: 2, product_name: 'Phần mềm QL thiết bị' }),
+  c({ id: 2, name: 'Trường THPT Chu Văn An', status: 'Đang tư vấn', owner_names: 'Phạm Văn Phương', is_mine: 1, product_type_id: 2, product_name: 'Phần mềm QL thiết bị' }),
   c({ id: 3, name: 'Công ty ABC', source: 'Đối tác giới thiệu', contact_email: 'kd@abc.vn' }),
 ];
-const ids = (f: Partial<{ q: string; status: string; productType: string; province: string }>) =>
+const ids = (f: Partial<{ q: string; status: string; productType: string; province: string; mine: boolean }>) =>
   filterCustomers(list, { q: '', status: '', productType: '', province: '', ...f }).map((x) => x.id);
 
 test('search ignores Vietnamese accents and matches ward, contact, staff, product, source', () => {
@@ -31,6 +31,7 @@ test('filters by status, product type and province, with "-" for not set', () =>
   assert.deepEqual(ids({ productType: '-' }), [3]);
   assert.deepEqual(ids({ province: '75' }), [1]);
   assert.deepEqual(ids({ province: '-' }), [2, 3]);
+  assert.deepEqual(ids({ mine: true }), [2]);
 });
 
 test('picking a product fills its catalog description, or leaves it blank', () => {

@@ -17,7 +17,7 @@ export default function AdminCatalogs() {
   return (
     <>
       <div className="catalog-tabs">
-        <nav className="tabs">
+        <nav className="tabs tabs-sub">
           {tabs.map(([t, label, Icon]) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setParams({ tab: t }, { replace: true })}><Icon size={16} /> {label}</button>
           ))}

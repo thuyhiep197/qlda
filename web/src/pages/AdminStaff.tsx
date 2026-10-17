@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { api, refreshAll } from '../api';
-import { hasPerm, useMe, useStaff } from '../hooks';
+import { hasPerm, useMe, useStaff, useUsersBasic } from '../hooks';
 import type { StaffMember, StaffPosition } from '../types';
 import { STAFF_POSITION_LABELS as STAFF_POSITIONS } from '../util';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
 
-type Draft = { id?: number; full_name: string; positions: StaffPosition[]; note: string };
+type Draft = { id?: number; full_name: string; positions: StaffPosition[]; note: string; user_id: string };
 
 /** Danh mục nhân sự dùng chung: người nào làm được vị trí nào (BA/PM, Dev, Tester, AM) — dùng để chọn nhân sự cho dự án. */
 export default function AdminStaff() {
@@ -30,7 +30,7 @@ export default function AdminStaff() {
       <div className="page-head">
         <h1>Danh mục nhân sự</h1>
         <div className="spacer" />
-        {canCreate && <button className="btn btn-primary" onClick={() => setEditing({ full_name: '', positions: pos ? [pos] : [], note: '' })}>+ Thêm nhân sự</button>}
+        {canCreate && <button className="btn btn-primary" onClick={() => setEditing({ full_name: '', positions: pos ? [pos] : [], note: '', user_id: '' })}>+ Thêm nhân sự</button>}
       </div>
       <p className="muted small">Danh sách dùng chung để chọn BA/PM, Dev, Tester, AM cho từng dự án (Cài đặt dự án → Thông tin chung) và Nhân viên phụ trách khách hàng (Kinh doanh, AM). Một người có thể giữ nhiều vị trí. Đổi họ tên ở đây sẽ cập nhật luôn tên đó trong các dự án.</p>
       <div className="filter-bar">
@@ -47,17 +47,18 @@ export default function AdminStaff() {
       {isLoading ? <Spinner /> : !list.length ? <Empty title="Chưa có ai trong danh mục" /> : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Họ tên</th>{STAFF_POSITIONS.map((p) => <th key={p.key} className="center">{p.label}</th>)}<th>Ghi chú</th>{(canEdit || canDelete) && <th />}</tr></thead>
+            <thead><tr><th>Họ tên</th>{STAFF_POSITIONS.map((p) => <th key={p.key} className="center">{p.label}</th>)}<th>Tài khoản đăng nhập</th><th>Ghi chú</th>{(canEdit || canDelete) && <th />}</tr></thead>
             <tbody>
               {list.map((s) => (
                 <tr key={s.id}>
                   <td><b>{s.full_name}</b></td>
                   {STAFF_POSITIONS.map((p) => <td key={p.key} className="center">{has(s, p.key) ? '✓' : ''}</td>)}
+                  <td className="small">{s.username ? `@${s.username}` : <span className="muted">—</span>}</td>
                   <td className="muted">{s.note}</td>
                   {(canEdit || canDelete) && (
                     <td className="num nowrap">
                       {canEdit && <button className="icon-btn" aria-label={`Sửa ${s.full_name}`} data-tip="Sửa"
-                        onClick={() => setEditing({ id: s.id, full_name: s.full_name, positions: s.positions.split(',').filter(Boolean) as StaffPosition[], note: s.note || '' })}><Pencil size={15} /></button>}
+                        onClick={() => setEditing({ id: s.id, full_name: s.full_name, positions: s.positions.split(',').filter(Boolean) as StaffPosition[], note: s.note || '', user_id: s.user_id ? String(s.user_id) : '' })}><Pencil size={15} /></button>}
                       {canDelete && <button className="icon-btn" aria-label={`Xóa ${s.full_name}`} data-tip="Xóa" onClick={() => remove(s)}><Trash2 size={15} /></button>}
                     </td>
                   )}
@@ -74,11 +75,12 @@ export default function AdminStaff() {
 
 function StaffModal({ draft, onClose }: { draft: Draft; onClose: () => void }) {
   const [d, setD] = useState(draft);
+  const { data: users } = useUsersBasic();
   const toggle = (p: StaffPosition) => setD({ ...d, positions: d.positions.includes(p) ? d.positions.filter((x) => x !== p) : [...d.positions, p] });
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: d.full_name, positions: d.positions, note: d.note };
+      const body = { full_name: d.full_name, positions: d.positions, note: d.note, user_id: d.user_id || null };
       if (d.id) await api.patch(`/staff/${d.id}`, body); else await api.post('/staff', body);
       toast(d.id ? 'Đã lưu' : 'Đã thêm vào danh mục');
       await refreshAll();
@@ -101,6 +103,11 @@ function StaffModal({ draft, onClose }: { draft: Draft; onClose: () => void }) {
             ))}
           </div>
         </div>
+        <label className="field"><span>Tài khoản đăng nhập <small className="muted">(để nhân sự Kinh doanh/AM xem được khách hàng mình phụ trách)</small></span>
+          <select value={d.user_id} onChange={(e) => setD({ ...d, user_id: e.target.value })}>
+            <option value="">— Chưa gắn —</option>
+            {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name} (@{u.username})</option>)}
+          </select></label>
         <label className="field"><span>Ghi chú</span>
           <input value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} placeholder="VD: TTS, CTV…" /></label>
       </form>

@@ -106,6 +106,9 @@ export interface StaffMember {
   full_name: string;
   positions: string;
   note: string | null;
+  /** Tài khoản đăng nhập gắn với nhân sự (để phân quyền khách hàng phụ trách) */
+  user_id?: number | null;
+  username?: string | null;
 }
 
 export interface ProjectSummary {
@@ -145,7 +148,7 @@ export interface Project {
   customer_id: number | null;
   customer: string | null;
   /** Thông tin khách hàng của dự án (thành viên dự án đều xem được) */
-  customer_info: (Pick<Customer, 'id' | 'name' | 'status' | 'province_name' | 'ward_name' | 'source' | 'am'> & { contacts: CustomerContact[] }) | null;
+  customer_info: (Pick<Customer, 'id' | 'name' | 'status' | 'province_name' | 'ward_name' | 'source' | 'owner_names'> & { contacts: CustomerContact[] }) | null;
   priority: string | null;
   project_status: string | null;
   ba: string | null;
@@ -323,8 +326,10 @@ export interface Customer {
   product_description: string | null;
   source: string | null;
   status: string;
-  /** Nhân viên phụ trách: họ tên theo Danh mục nhân sự, cách nhau dấu phẩy */
-  am: string | null;
+  /** Nhân viên phụ trách (Kinh doanh/AM): họ tên, cách nhau dấu phẩy */
+  owner_names?: string | null;
+  /** Tôi là một trong các nhân viên phụ trách */
+  is_mine?: number;
   created_at: string;
   updated_at: string;
   product_type_name?: string | null;
@@ -368,6 +373,15 @@ export interface JourneyStep {
   id: number; position: number; depth: number; code: string | null; title: string; unit: string | null; support: string | null;
   status: StepStatus; assignee_id: number | null; assignee_name: string | null; due_date: string | null; ping_days: number; note: string | null;
   files: { id: number; filename: string; size: number }[];
+  /** Số trao đổi của bước */
+  talk_count: number;
+}
+/** Chi tiết một bước (như một issue của kinh doanh): đường dẫn phần/giai đoạn, trao đổi, tài liệu */
+export interface StepDetail extends Omit<JourneyStep, 'files'> {
+  path: { id: number; code: string | null; title: string }[];
+  activities: CustomerActivity[];
+  files: CustomerFile[];
+  ping_options: number[];
 }
 export interface JourneySection { id: number; title: string; total: number; done: number; doing: number; overdue: number }
 export interface JourneyData {
@@ -401,6 +415,8 @@ export interface CustomerActivity {
   activity_date: string;
   content: string;
   created_at: string;
+  step_id?: number | null;
+  step_title?: string | null;
 }
 
 export interface CustomerProject {
@@ -412,7 +428,10 @@ export interface CustomerProject {
   accessible: boolean;
 }
 
+export interface CustomerOwner { id: number; full_name: string; user_id: number | null }
 export interface CustomerDetail extends Customer {
+  owners: CustomerOwner[];
+  owner_ids: number[];
   contacts: CustomerContact[];
   files: CustomerFile[];
   tasks: CustomerTask[];

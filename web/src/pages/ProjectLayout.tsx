@@ -82,7 +82,7 @@ function ProjectCustomer({ project }: { project: Project }) {
         {primary.email && <> · <a href={`mailto:${primary.email}`}><Mail size={12} /> {primary.email}</a></>}
         {c.contacts.length > 1 && <span> (+{c.contacts.length - 1})</span>}
       </span>}
-      {c.am && <span>Nhân viên phụ trách: <b>{c.am}</b></span>}
+      {c.owner_names && <span>Nhân viên phụ trách: <b>{c.owner_names}</b></span>}
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default function ProjectInfo() {
                   ['Cơ quan/đơn vị', <b>{c.name}</b>],
                   ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
                   ['Địa chỉ', [c.ward_name, c.province_name].filter(Boolean).join(', ')],
-                  ['Nhân viên phụ trách', splitNames(c.am).join(', ')],
+                  ['Nhân viên phụ trách', c.owner_names],
                 ]} />
                 <div className="prop-label">Đầu mối liên hệ</div>
                 {!c.contacts.length ? <span className="muted small">Chưa có đầu mối</span> : c.contacts.map((ct) => (

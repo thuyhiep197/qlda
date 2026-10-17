@@ -20,9 +20,9 @@ import IssuePage from './pages/IssuePage';
 import AdminUsers from './pages/AdminUsers';
 import AdminRoles from './pages/AdminRoles';
 import AdminAudit from './pages/AdminAudit';
-import Customers from './pages/Customers';
-import CustomerDetail from './pages/CustomerDetail';
+import CustomerWorkspace from './pages/customers/CustomerWorkspace';
 import AdminCatalogs from './pages/AdminCatalogs';
+import AdminLayout from './pages/AdminLayout';
 import ProjectInfo from './pages/ProjectInfo';
 import Profile from './pages/Profile';
 import Releases from './pages/Releases';
@@ -59,12 +59,15 @@ export default function App() {
           </Route>
           <Route path="browse/:issueKey" element={<IssuePage />} />
           <Route path="profile" element={<Profile />} />
-          {hasPerm(me, 'user.view') && <Route path="admin/users" element={<AdminUsers />} />}
-          {hasPerm(me, 'role.view') && <Route path="admin/roles" element={<AdminRoles />} />}
-          {hasPerm(me, 'user.view') && <Route path="admin/audit" element={<AdminAudit />} />}
-          {hasPerm(me, 'customer.view') && <Route path="customers" element={<Customers />} />}
-          {hasPerm(me, 'customer.view') && <Route path="customers/:id" element={<CustomerDetail />} />}
-          {(hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && <Route path="admin/catalogs" element={<AdminCatalogs />} />}
+          <Route path="admin" element={<AdminLayout />}>
+            <Route index element={null} />
+            {hasPerm(me, 'user.view') && <Route path="users" element={<AdminUsers />} />}
+            {hasPerm(me, 'role.view') && <Route path="roles" element={<AdminRoles />} />}
+            {hasPerm(me, 'user.view') && <Route path="audit" element={<AdminAudit />} />}
+            {(hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && <Route path="catalogs" element={<AdminCatalogs />} />}
+          </Route>
+          {hasPerm(me, 'customer.view') && <Route path="customers" element={<CustomerWorkspace />} />}
+          {hasPerm(me, 'customer.view') && <Route path="customers/:id" element={<CustomerWorkspace />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

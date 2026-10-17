@@ -23,7 +23,8 @@ interface Notification {
   /** Thông báo của khách hàng: link = module cần mở */
   customer_id: number | null;
   customer_name: string | null;
-  link: 'journey' | 'tasks' | 'talk' | null;
+  /** step:<id> = mở bước trong hành trình; tasks/info = trang khách hàng */
+  link: string | null;
 }
 
 const VERB: Record<Notification['type'], string> = {
@@ -39,7 +40,7 @@ const CUSTOMER_VERB: Partial<Record<Notification['type'], string>> = {
   assigned: 'đã giao cho bạn việc của khách hàng',
   ping: 'Nhắc hạn bước trong hành trình khách hàng',
 };
-const CUSTOMER_TAB = { journey: 'journey', tasks: 'tasks', talk: 'talk' } as const;
+
 
 /** Chuông thông báo trên thanh trên cùng, tự làm mới mỗi 30 giây. */
 export default function NotificationBell() {
@@ -74,7 +75,7 @@ export default function NotificationBell() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['notifications'] });
   const openItem = async (n: Notification) => {
     setShow(false);
-    if (n.customer_id) navigate(`/customers/${n.customer_id}${n.link ? `?tab=${CUSTOMER_TAB[n.link]}` : ''}`);
+    if (n.customer_id) navigate(`/customers/${n.customer_id}${n.link?.startsWith('step:') ? `?step=${n.link.slice(5)}` : ''}`);
     else if (n.issue_key) open(n.issue_key);
     if (!n.read_at) { await api.post(`/notifications/${n.id}/read`); refresh(); }
   };

@@ -10,16 +10,17 @@ export const CUSTOMER_SOURCES = ['BGĐ giao', 'Khách hàng liên hệ', 'Đối
 /** Bỏ dấu tiếng Việt, chữ thường — để tìm "so tai chinh" ra "Sở Tài chính" */
 export const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
-export interface CustomerFilter { q: string; status: string; productType: string; province: string }
+export interface CustomerFilter { q: string; status: string; productType: string; province: string; mine?: boolean }
 
-/** Lọc khách hàng theo từ khóa (tên, tỉnh, phường/xã, sản phẩm, nguồn, nhân viên phụ trách, đầu mối), tình trạng, loại sản phẩm, mã tỉnh ('-' = chưa có) */
+/** Lọc khách hàng theo từ khóa (tên, tỉnh, phường/xã, sản phẩm, nguồn, nhân viên phụ trách, đầu mối), tình trạng, loại sản phẩm, mã tỉnh ('-' = chưa có), của tôi */
 export function filterCustomers<T extends Customer>(list: T[], f: CustomerFilter): T[] {
   const q = fold(f.q.trim());
   return list.filter((c) =>
-    (!q || fold([c.name, c.province_name, c.ward_name, c.product_name, c.source, c.am, c.contact_name, c.contact_phone, c.contact_email].filter(Boolean).join(' ')).includes(q)) &&
+    (!q || fold([c.name, c.province_name, c.ward_name, c.product_name, c.source, c.owner_names, c.contact_name, c.contact_phone, c.contact_email].filter(Boolean).join(' ')).includes(q)) &&
     (!f.status || c.status === f.status) &&
     (!f.productType || String(c.product_type_id ?? '-') === f.productType) &&
-    (!f.province || (c.province_code || '-') === f.province));
+    (!f.province || (c.province_code || '-') === f.province) &&
+    (!f.mine || !!c.is_mine));
 }
 
 /** Tên phường/xã gõ vào ô chọn → mã trong danh mục (không phân biệt hoa/thường, dấu cách thừa); không khớp → undefined */

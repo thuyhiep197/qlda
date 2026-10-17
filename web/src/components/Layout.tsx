@@ -2,17 +2,16 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { api, logout, queryClient } from '../api';
 import { applyTheme } from '../theme';
-import { hasPerm, useIssueModal, useMe, useProjects } from '../hooks';
+import { hasPerm, useIssueModal, useMe } from '../hooks';
 import { Avatar } from './ui';
 import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
-import { colorOf } from '../util';
-import { BookMarked, Building2, FolderKanban, LayoutDashboard, LogOut, Menu, Moon, Plus, Search, Settings, ScrollText, ShieldCheck, Sun, Users } from 'lucide-react';
+import { Building2, FolderKanban, LayoutDashboard, LogOut, Menu, Moon, Plus, Search, Settings, Sun, Wrench } from 'lucide-react';
+import { adminTabs } from '../pages/AdminLayout';
 
 export default function Layout() {
   const { data: me } = useMe();
-  const { data: projects } = useProjects();
   const navigate = useNavigate();
   const match = useMatch('/p/:key/*');
   const { current, open } = useIssueModal();
@@ -48,34 +47,13 @@ export default function Layout() {
           <img src="/favicon.svg" width={28} height={28} alt="" />
           <span>QLDA</span>
         </NavLink>
-        {/* 4 phân hệ: Dashboard · Quản lý khách hàng · Quản lý dự án · Quản trị hệ thống */}
-        <nav className="nav">
+        {/* 4 phân hệ: Dashboard · Khách hàng · Dự án · Quản trị */}
+        <nav className="nav nav-main">
           <NavLink to="/home"><LayoutDashboard size={18} /> Dashboard</NavLink>
-          {hasPerm(me, 'customer.view') && <NavLink to="/customers"><Building2 size={18} /> Quản lý khách hàng</NavLink>}
-          <NavLink to="/projects"><FolderKanban size={18} /> Quản lý dự án</NavLink>
-          {hasPerm(me, 'search.view') && <NavLink to="/issues" end className="nav-sub"><Search size={16} /> Tìm kiếm issue</NavLink>}
+          {hasPerm(me, 'customer.view') && <NavLink to="/customers"><Building2 size={18} /> Khách hàng</NavLink>}
+          <NavLink to="/projects" className={({ isActive }) => (isActive || match ? 'active' : '')}><FolderKanban size={18} /> Dự án</NavLink>
+          {adminTabs(me).length > 0 && <NavLink to="/admin"><Wrench size={18} /> Quản trị</NavLink>}
         </nav>
-        <div className="nav-section">Dự án của tôi</div>
-        <nav className="nav nav-projects">
-          {projects?.map((p) => (
-            <NavLink key={p.id} to={`/p/${p.key}`} className={match?.params.key === p.key ? 'active' : ''}>
-              <span className="proj-dot" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span>
-              <span className="ellipsis">{p.name}</span>
-            </NavLink>
-          ))}
-          {projects?.length === 0 && <div className="muted small pad">Bạn chưa tham gia dự án nào</div>}
-        </nav>
-        {(hasPerm(me, 'user.view') || hasPerm(me, 'role.view') || hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && (
-          <>
-            <div className="nav-section">Quản trị hệ thống</div>
-            <nav className="nav">
-              {hasPerm(me, 'user.view') && <NavLink to="/admin/users"><Users size={18} /> Người dùng</NavLink>}
-              {hasPerm(me, 'role.view') && <NavLink to="/admin/roles"><ShieldCheck size={18} /> Phân quyền</NavLink>}
-              {(hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && <NavLink to="/admin/catalogs"><BookMarked size={18} /> Danh mục</NavLink>}
-              {hasPerm(me, 'user.view') && <NavLink to="/admin/audit"><ScrollText size={18} /> Nhật ký bảo mật</NavLink>}
-            </nav>
-          </>
-        )}
       </aside>
 
       <div className="main">
