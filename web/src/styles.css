@@ -1045,3 +1045,4 @@ a.cw-item { color: var(--text); }
 .cw-proj-link:last-child { border-bottom: 0; }
 a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .cw-proj-link.disabled { color: var(--muted); }
+.cw-project.disabled { color: var(--muted); cursor: default; }

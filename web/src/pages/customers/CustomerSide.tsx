@@ -106,19 +106,24 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
             </div>
           </div>
         ))}
-        <div className="prop-label mt">Dự án ({c.projects.filter((p) => !p.is_archived).length})</div>
+      </Block>
+      <Block title={`Thông tin dự án (${c.projects.filter((p) => !p.is_archived).length})`}>
         {!c.projects.some((p) => !p.is_archived) ? <p className="muted small">Chưa có dự án nào gắn với khách hàng này</p>
           : c.projects.filter((p) => !p.is_archived).map((p) => {
             const st = p.project_status || p.status_auto;
+            const pct = p.total_issues ? Math.round((p.done_issues / p.total_issues) * 100) : 0;
             const body = <>
-              <span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span>
-              <span className="grow ellipsis">{p.name}</span>
-              {st && <span className={lozengeOf(PROJECT_STATUSES, st)}>{st}</span>}
+              <div className="row gap-sm" style={{ minWidth: 0 }}>
+                <span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span>
+                <b className="grow ellipsis">{p.name}</b>
+                {st && <span className={lozengeOf(PROJECT_STATUSES, st)}>{st}</span>}
+              </div>
+              <div className="muted small">{p.key}{p.ba ? ` · BA/PM: ${p.ba}` : ''}{p.total_issues ? ` · ${p.done_issues}/${p.total_issues} việc (${pct}%)` : ''}</div>
             </>;
-            // Mở dự án trong phân hệ Dự án (mặc định vào Kế hoạch chi tiết); chưa là thành viên thì chỉ xem tên
+            // Mở màn Thông tin của dự án trong phân hệ Dự án; chưa là thành viên thì chỉ xem tên
             return p.accessible
-              ? <Link key={p.id} to={`/p/${p.key}?g=all`} className="cw-proj-link" data-tip="Mở dự án trong phân hệ Dự án">{body}</Link>
-              : <div key={p.id} className="cw-proj-link disabled" data-tip="Bạn chưa là thành viên dự án này">{body}</div>;
+              ? <Link key={p.id} to={`/p/${p.key}/info?g=all`} className="cw-project" data-tip="Mở thông tin dự án">{body}</Link>
+              : <div key={p.id} className="cw-project disabled" data-tip="Bạn chưa là thành viên dự án này">{body}</div>;
           })}
       </Block>
       <Tasks c={c} canEdit={canEdit} canDeleteAll={canDelete} />
