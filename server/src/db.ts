@@ -467,6 +467,12 @@ const migrations: string[] = [
      created_at TEXT NOT NULL DEFAULT ${TS},
      UNIQUE (type_id, name)
    );
+   -- Danh sách sản phẩm có sẵn của công ty (mô tả bổ sung sau trong Danh mục sản phẩm)
+   INSERT INTO products(type_id, name) SELECT t.id, p.name FROM product_types t, (
+     SELECT 'Trợ lý VBĐH (imate)' AS name UNION ALL SELECT 'Trợ lý công chức AI' UNION ALL SELECT 'Trợ lý họp thông minh'
+     UNION ALL SELECT 'Phần mềm quản lý chợ' UNION ALL SELECT 'Phần mềm thu phí VSMT'
+     UNION ALL SELECT 'Trợ lý tư vấn pháp luật cho người dân & doanh nghiệp') p
+   WHERE t.name = 'Sản phẩm có sẵn';
    CREATE TABLE customers (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
