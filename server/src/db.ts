@@ -436,10 +436,21 @@ const migrations: string[] = [
    INSERT INTO departments(code, name, position) VALUES ('BGĐ', 'Ban Giám đốc', 0);
    INSERT INTO departments(code, name, parent_id, position) VALUES
      ('P.KD', 'Phòng Kinh doanh', 1, 1), ('P.DA', 'Phòng Dự án', 1, 2), ('P.SP', 'Phòng Sản phẩm', 1, 3), ('P.HC', 'Phòng Hành chính', 1, 4);
+   -- Phòng Kinh doanh chia Sale / AM; Phòng Dự án, Phòng Sản phẩm chia nhóm Dev / BA / Tester; Phòng Hành chính chia Kế toán / Nhân sự / Hành chính nhân sự
+   INSERT INTO departments(code, name, parent_id, position) SELECT 'P.KD.' || c.code, c.name, p.id, p.position * 10 + c.pos FROM departments p,
+     (SELECT 'SALE' AS code, 'Sale' AS name, 1 AS pos UNION ALL SELECT 'AM', 'AM', 2) c WHERE p.code = 'P.KD';
+   INSERT INTO departments(code, name, parent_id, position) SELECT p.code || '.' || c.code, c.name, p.id, p.position * 10 + c.pos FROM departments p,
+     (SELECT 'DEV' AS code, 'Dev' AS name, 1 AS pos UNION ALL SELECT 'BA', 'BA', 2 UNION ALL SELECT 'TEST', 'Tester', 3) c WHERE p.code IN ('P.DA', 'P.SP');
+   INSERT INTO departments(code, name, parent_id, position) SELECT 'P.HC.' || c.code, c.name, p.id, p.position * 10 + c.pos FROM departments p,
+     (SELECT 'KT' AS code, 'Kế toán' AS name, 1 AS pos UNION ALL SELECT 'NS', 'Nhân sự', 2 UNION ALL SELECT 'HCNS', 'Hành chính nhân sự', 3) c WHERE p.code = 'P.HC';
    ALTER TABLE staff ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL;
-   UPDATE staff SET department_id = CASE
-     WHEN ',' || positions || ',' LIKE '%,kd,%' OR ',' || positions || ',' LIKE '%,am,%' THEN (SELECT id FROM departments WHERE code = 'P.KD')
-     ELSE (SELECT id FROM departments WHERE code = 'P.DA') END;
+   -- Nhân sự đang có: KD → nhóm Sale, AM → nhóm AM (Phòng Kinh doanh); còn lại → nhóm của Phòng Dự án theo vị trí (BA trước, rồi Dev, Tester)
+   UPDATE staff SET department_id = (SELECT id FROM departments WHERE code = CASE
+     WHEN ',' || positions || ',' LIKE '%,kd,%' THEN 'P.KD.SALE'
+     WHEN ',' || positions || ',' LIKE '%,am,%' THEN 'P.KD.AM'
+     WHEN ',' || positions || ',' LIKE '%,ba_pm,%' THEN 'P.DA.BA'
+     WHEN ',' || positions || ',' LIKE '%,dev,%' THEN 'P.DA.DEV'
+     ELSE 'P.DA.TEST' END);
    CREATE TABLE geo_provinces (
      code TEXT PRIMARY KEY,
      name TEXT NOT NULL UNIQUE,

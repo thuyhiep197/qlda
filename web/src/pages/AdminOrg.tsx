@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Pencil, Plus, Search, Trash2, UserRound } from 'lucide-react';
+import { FolderPlus, Pencil, Plus, Search, Trash2, UserRound } from 'lucide-react';
 import { api, refreshAll } from '../api';
 import { hasPerm, useDepartments, useMe, useStaff, useUsersBasic } from '../hooks';
 import type { Department, StaffMember, StaffPosition } from '../types';
@@ -8,6 +8,11 @@ import { STAFF_POSITION_LABELS } from '../util';
 import { Modal, Spinner, toast, toastError } from '../components/ui';
 
 const posLabel = (p: string) => STAFF_POSITION_LABELS.find((x) => x.key === p);
+/** Tên đầy đủ của phòng ban theo cấp, VD "Phòng Dự án › Dev" (bỏ Ban Giám đốc ở gốc) */
+const depPath = (deps: Department[], d: Department): string => {
+  const parent = deps.find((x) => x.id === d.parent_id);
+  return parent && parent.parent_id ? `${depPath(deps, parent)} › ${d.name}` : d.name;
+};
 
 /**
  * Quản trị → Danh mục → Phòng ban & Nhân sự: sơ đồ tổ chức (Ban Giám đốc đứng đầu, dưới là các phòng),
@@ -36,27 +41,44 @@ export default function AdminOrg() {
     try { await api.del(`/staff/${x.id}`); toast('Đã xóa'); await refreshAll(); } catch (e) { toastError(e); }
   };
 
-  const card = (d: Department) => (
+  // Tổng nhân sự của phòng ban, gồm cả các nhóm / bộ phận bên trong
+  const total = (d: Department): number => d.staff.length + children(d.id).reduce((n, k) => n + total(k), 0);
+  const actions = (d: Department, kind: 'phòng ban' | 'nhóm') => <>
+    {canStaff.create && <button className="icon-btn" aria-label={`Thêm nhân sự vào ${d.name}`} data-tip="Thêm nhân sự" onClick={() => setEditStaff({ department_id: d.id, positions: '' })}><Plus size={14} /></button>}
+    {canDep.edit && <button className="icon-btn" aria-label={`Sửa ${d.name}`} data-tip={`Sửa ${kind}`} onClick={() => setEditDep(d)}><Pencil size={14} /></button>}
+    {canDep.del && <button className="icon-btn" aria-label={`Xóa ${d.name}`} data-tip={`Xóa ${kind}`} onClick={() => removeDep(d)}><Trash2 size={14} /></button>}
+  </>;
+  const people = (d: Department) => d.staff.filter(match).map((x) => <StaffRow key={x.id} x={x} onEdit={canStaff.edit ? () => setEditStaff(x) : undefined} onDelete={canStaff.del ? () => removeStaff(x) : undefined} />);
+  // Nhóm / bộ phận bên trong một phòng (cấp 3 trở xuống): hiện thành từng mục trong ô của phòng
+  const section = (d: Department): React.ReactNode => (
+    <div key={d.id} className="org-section">
+      <div className="org-section-head"><span className="grow ellipsis"><b>{d.name}</b> <span className="muted small">· {total(d)}</span></span>{actions(d, 'nhóm')}</div>
+      {people(d)}
+      {children(d.id).map(section)}
+      {!total(d) && <div className="muted small org-empty">Chưa có nhân sự</div>}
+    </div>
+  );
+  const card = (d: Department, nested: boolean) => (
     <div className="org-card">
       <div className="org-card-head">
-        <div className="grow" style={{ minWidth: 0 }}><b className="ellipsis">{d.name}</b><div className="muted small">{d.code} · {d.staff.length} nhân sự</div></div>
-        {canStaff.create && <button className="icon-btn" aria-label={`Thêm nhân sự vào ${d.name}`} data-tip="Thêm nhân sự" onClick={() => setEditStaff({ department_id: d.id, positions: '' })}><Plus size={14} /></button>}
-        {canDep.edit && <button className="icon-btn" aria-label={`Sửa ${d.name}`} data-tip="Sửa phòng ban" onClick={() => setEditDep(d)}><Pencil size={14} /></button>}
-        {canDep.del && <button className="icon-btn" aria-label={`Xóa ${d.name}`} data-tip="Xóa phòng ban" onClick={() => removeDep(d)}><Trash2 size={14} /></button>}
+        <div className="grow" style={{ minWidth: 0 }}><b className="ellipsis">{d.name}</b><div className="muted small">{d.code} · {total(d)} nhân sự</div></div>
+        {canDep.create && nested && <button className="icon-btn" aria-label={`Thêm nhóm vào ${d.name}`} data-tip="Thêm nhóm / bộ phận" onClick={() => setEditDep({ parent_id: d.id })}><FolderPlus size={14} /></button>}
+        {actions(d, 'phòng ban')}
       </div>
       <div className="org-staff">
-        {d.staff.filter(match).map((x) => <StaffRow key={x.id} x={x} onEdit={canStaff.edit ? () => setEditStaff(x) : undefined} onDelete={canStaff.del ? () => removeStaff(x) : undefined} />)}
-        {!d.staff.length && <div className="muted small">Chưa có nhân sự</div>}
+        {people(d)}
+        {nested && children(d.id).map(section)}
+        {!total(d) && <div className="muted small">Chưa có nhân sự</div>}
       </div>
     </div>
   );
-  // Vẽ cây: phòng ban, bên dưới là hàng các phòng ban cấp dưới
-  const tree = (d: Department): React.ReactNode => {
+  // Vẽ cây: Ban Giám đốc ở trên; hàng dưới là các phòng, nhóm / bộ phận của mỗi phòng nằm trong ô của phòng đó
+  const tree = (d: Department, level: number): React.ReactNode => {
     const kids = children(d.id);
     return (
       <div key={d.id} className="org-node">
-        {card(d)}
-        {kids.length > 0 && <div className="org-children">{kids.map((k) => tree(k))}</div>}
+        {card(d, level > 0)}
+        {level === 0 && kids.length > 0 && <div className="org-children">{kids.map((k) => tree(k, 1))}</div>}
       </div>
     );
   };
@@ -71,7 +93,7 @@ export default function AdminOrg() {
         {canStaff.create && <button className="btn btn-primary" onClick={() => setEditStaff({ positions: '' })}>+ Thêm nhân sự</button>}
       </div>
       <p className="muted small">Mỗi nhân sự thuộc một phòng ban, có vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC) và gắn với tài khoản đăng nhập. Mã vị trí hiện cạnh tên Người thực hiện / phối hợp trong hành trình khách hàng; nhân sự Kinh doanh, AM được chọn làm Nhân viên phụ trách khách hàng.</p>
-      <div className="org-tree">{children(null).map((d) => tree(d))}</div>
+      <div className="org-tree">{children(null).map((d) => tree(d, 0))}</div>
       {unassigned.length > 0 && (
         <div className="org-card org-unassigned">
           <div className="org-card-head"><b className="grow">Chưa xếp phòng ban ({unassigned.length})</b></div>
@@ -125,7 +147,7 @@ function DepModal({ d, deps, onClose }: { d: Partial<Department>; deps: Departme
         <label className="field"><span>Trực thuộc</span>
           <select value={parent} onChange={(e) => setParent(e.target.value)}>
             <option value="">— Cấp cao nhất —</option>
-            {deps.filter((x) => x.id !== d.id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            {deps.filter((x) => x.id !== d.id).map((x) => <option key={x.id} value={x.id}>{depPath(deps, x)}</option>)}
           </select></label>
       </form>
     </Modal>
@@ -159,7 +181,7 @@ function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Depar
         <label className="field"><span>Phòng ban</span>
           <select value={d.department_id} onChange={(e) => setD({ ...d, department_id: e.target.value })}>
             <option value="">— Chưa xếp phòng ban —</option>
-            {deps.map((x2) => <option key={x2.id} value={x2.id}>{x2.name}</option>)}
+            {deps.map((x2) => <option key={x2.id} value={x2.id}>{depPath(deps, x2)}</option>)}
           </select></label>
         <div className="field"><span>Vị trí * <small className="muted">(chọn một hoặc nhiều)</small></span>
           <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>

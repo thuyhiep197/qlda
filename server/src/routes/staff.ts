@@ -29,8 +29,9 @@ function clean(b: any) {
 
 // Mọi người đã đăng nhập đều xem được (để chọn nhân sự cho dự án)
 r.get('/', (_req, res) => {
-  res.json(all(`SELECT s.id, s.full_name, s.positions, s.note, s.user_id, u.username, s.department_id, d.name AS department_name
-    FROM staff s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN departments d ON d.id = s.department_id ORDER BY s.full_name`));
+  res.json(all(`SELECT s.id, s.full_name, s.positions, s.note, s.user_id, u.username, s.department_id, CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END AS department_name
+    FROM staff s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN departments d ON d.id = s.department_id LEFT JOIN departments pd ON pd.id = d.parent_id
+    ORDER BY s.full_name`));
 });
 
 r.post('/', (req, res) => {

@@ -1073,3 +1073,9 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .warn-text { color: var(--warn); }
 .org-unassigned { margin: 20px auto 0; border-top-color: var(--muted); width: min(100%, 520px); }
 @media (max-width: 900px) { .org-children { flex-direction: column; align-items: center; } .org-children > .org-node::before, .org-children > .org-node::after { display: none; } }
+/* Nhóm / bộ phận bên trong một phòng */
+.org-section { margin-top: 6px; border-left: 2px solid var(--primary-soft); padding-left: 6px; }
+.org-section-head { display: flex; align-items: center; gap: 2px; padding: 4px 2px; font-size: 13px; text-transform: none; border-bottom: 1px dashed var(--border); }
+.org-section .org-section { margin-left: 4px; }
+.org-empty { padding: 4px 6px; }
+.org-card .org-staff { max-height: 520px; }

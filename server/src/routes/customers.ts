@@ -26,12 +26,12 @@ const nameTaken = (name: string, exceptId?: number) =>
 
 const FIELDS = ['name', 'province_code', 'ward_code', 'product_type_id', 'product_id', 'product_description', 'source', 'status'] as const;
 
-/** Nhân viên phụ trách: nhân sự vị trí Kinh doanh hoặc AM trong Danh mục nhân sự */
+/** Nhân viên phụ trách: nhân sự vị trí Sale (KD) hoặc AM */
 function checkOwners(ids: number[]) {
   for (const id of ids) {
     const st = get<{ positions: string }>('SELECT positions FROM staff WHERE id = ?', id);
     if (!st) throw badRequest('Nhân viên phụ trách không có trong Danh mục nhân sự');
-    if (!st.positions.split(',').some((p) => p === 'kd' || p === 'am')) throw badRequest('Nhân viên phụ trách phải là nhân sự Kinh doanh hoặc AM');
+    if (!st.positions.split(',').some((p) => p === 'kd' || p === 'am')) throw badRequest('Nhân viên phụ trách phải là nhân sự Sale hoặc AM');
   }
 }
 function saveOwners(customerId: number, ids: number[]) {

@@ -126,7 +126,7 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
               {CUSTOMER_STATUSES.map(([n]) => <option key={n}>{n}</option>)}
             </select></label>
         </div>
-        <div className="field"><span>Nhân viên phụ trách <small className="muted">(nhân sự Kinh doanh hoặc AM trong Danh mục nhân sự)</small></span>
+        <div className="field"><span>Nhân viên phụ trách <small className="muted">(nhân sự Sale hoặc AM — Phòng Kinh doanh)</small></span>
           <OwnerPicker value={owners} onChange={setOwners} /></div>
         {!customer && (
           <div className="field"><span>Tài liệu</span>
@@ -141,7 +141,7 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
   );
 }
 
-/** Chọn Nhân viên phụ trách: nhân sự vị trí Kinh doanh hoặc AM trong Danh mục nhân sự (người phụ trách mới xem được khách hàng) */
+/** Chọn Nhân viên phụ trách: nhân sự vị trí Sale (KD) hoặc AM (người phụ trách mới xem được khách hàng) */
 function OwnerPicker({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
   const { data: staff } = useStaff();
   const pool = (staff || []).filter((x) => x.positions.split(',').some((p) => p === 'kd' || p === 'am'));
