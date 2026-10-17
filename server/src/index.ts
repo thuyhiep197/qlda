@@ -18,6 +18,7 @@ import reportRoutes from './routes/reports.ts';
 import notificationRoutes from './routes/notifications.ts';
 import staffRoutes from './routes/staff.ts';
 import customerRoutes from './routes/customers.ts';
+import customerWorkRoutes, { pingJourney } from './routes/customer-work.ts';
 import productRoutes from './routes/products.ts';
 import geoRoutes from './routes/geo.ts';
 import { seedGeo } from './geo.ts';
@@ -35,6 +36,9 @@ syncAllEpics();
 // Epic đã xong hết việc tự chuyển Hoàn thành khi qua ngày kết thúc
 setInterval(syncAllEpics, 3600_000).unref();
 autoStartAllSprints();
+// Nhắc hạn (Ping) các bước trong hành trình khách hàng
+pingJourney();
+setInterval(pingJourney, 3600_000).unref();
 ensureAdmin();
 scheduleBackups();
 pruneNotifications();
@@ -73,6 +77,7 @@ app.use('/api/issues', issueRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/customers', customerWorkRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/geo', geoRoutes);

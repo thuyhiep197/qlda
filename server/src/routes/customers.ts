@@ -9,6 +9,9 @@ import { autoProjectStatuses } from '../phases.ts';
 import { avatarUrl } from '../avatar.ts';
 import { upload, utf8Name } from '../upload.ts';
 import { cleanActivity, cleanContacts, cleanCustomer, sameName } from '../customer.ts';
+import { journeyProgress } from '../journey.ts';
+import { journeySteps, TASK_SELECT } from './customer-work.ts';
+import { mentionedCustomerUsers, notifyCustomer } from '../notify.ts';
 
 const r = Router();
 
@@ -75,6 +78,14 @@ const FIRST_CONTACT = (col: string) => `(SELECT cc.${col} FROM customer_contacts
 
 r.get('/', (req, res) => {
   requireUserPerm(req.user, 'customer.view');
+  const today = localDate();
+  const stepsByCustomer = new Map<number, any[]>();
+  for (const st of all('SELECT id, customer_id, depth, position, code, title, status, due_date FROM journey_steps ORDER BY customer_id, position, id')) {
+    if (!stepsByCustomer.has(st.customer_id)) stepsByCustomer.set(st.customer_id, []);
+    stepsByCustomer.get(st.customer_id)!.push(st);
+  }
+  const openTasks = new Map(all<{ customer_id: number; n: number }>("SELECT customer_id, COUNT(*) n FROM customer_tasks WHERE status <> 'done' GROUP BY customer_id")
+    .map((x) => [x.customer_id, x.n]));
   res.json(all(`
     SELECT c.*, pt.name AS product_type_name, p.name AS product_name, gp.name AS province_name, gw.name AS ward_name,
       (SELECT COUNT(*) FROM projects pr WHERE pr.customer_id = c.id AND pr.is_archived = 0) AS project_count,
@@ -83,7 +94,11 @@ r.get('/', (req, res) => {
       ${FIRST_CONTACT('full_name')} AS contact_name, ${FIRST_CONTACT('phone')} AS contact_phone, ${FIRST_CONTACT('email')} AS contact_email
     FROM customers c LEFT JOIN product_types pt ON pt.id = c.product_type_id LEFT JOIN products p ON p.id = c.product_id
       LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code
-    ORDER BY c.name`));
+    ORDER BY c.name`).map((c: any) => {
+    const j = journeyProgress(stepsByCustomer.get(c.id) ?? [], today);
+    return { ...c, journey_pct: j.total ? j.pct : null, journey_stage: j.current ? `${j.current.code ?? ''} ${j.current.title}`.trim() : null,
+      open_tasks: openTasks.get(c.id) ?? 0 };
+  }));
 });
 
 r.post('/', (req, res) => {
@@ -109,8 +124,13 @@ r.get('/:id', (req, res) => {
   c.province_name = c.province_code ? get('SELECT name FROM geo_provinces WHERE code = ?', c.province_code)?.name ?? null : null;
   c.ward_name = c.ward_code ? get('SELECT name FROM geo_wards WHERE code = ?', c.ward_code)?.name ?? null : null;
   c.contacts = all('SELECT id, full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY position, id', c.id);
-  c.files = all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name
-    FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id WHERE f.customer_id = ? ORDER BY f.created_at DESC`, c.id);
+  c.files = all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name, f.step_id, s.title AS step_title
+    FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id LEFT JOIN journey_steps s ON s.id = f.step_id
+    WHERE f.customer_id = ? ORDER BY f.created_at DESC`, c.id);
+  c.tasks = all(`${TASK_SELECT} WHERE t.customer_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, c.id);
+  const j = journeyProgress(journeySteps(c.id), localDate());
+  c.journey = { total: j.total, done: j.done, pct: j.pct, sections: j.sections,
+    current: j.current ? { id: j.current.id, code: j.current.code, title: j.current.title } : null };
   c.activities = all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
     WHERE a.customer_id = ? ORDER BY a.activity_date DESC, a.id DESC`, c.id);
   // Dự án của khách hàng kèm tiến độ; công việc chỉ hiện ở dự án người xem là thành viên
@@ -173,9 +193,11 @@ r.post('/:id/files', upload.array('files'), (req, res) => {
   try {
     requireUserPerm(req.user, 'customer.edit');
     const c = loadCustomer(req);
+    const step = req.query.step ? get<{ id: number }>('SELECT id FROM journey_steps WHERE id = ? AND customer_id = ?', Number(req.query.step), c.id) : null;
+    if (req.query.step && !step) throw badRequest('Không tìm thấy bước trong hành trình');
     for (const f of files) {
-      run('INSERT INTO customer_files(customer_id, uploader_id, filename, stored_name, mime, size, created_at) VALUES (?,?,?,?,?,?,?)',
-        c.id, req.user.id, utf8Name(f.originalname), f.filename, f.mimetype, f.size, now());
+      run('INSERT INTO customer_files(customer_id, uploader_id, filename, stored_name, mime, size, created_at, step_id) VALUES (?,?,?,?,?,?,?,?)',
+        c.id, req.user.id, utf8Name(f.originalname), f.filename, f.mimetype, f.size, now(), step?.id ?? null);
     }
     res.status(201).json({ ok: true, count: files.length });
   } catch (e) {
@@ -220,6 +242,7 @@ r.post('/:id/activities', (req, res) => {
   const v = check(() => cleanActivity(req.body || {}, localDate()));
   const { id } = run('INSERT INTO customer_activities(customer_id, user_id, kind, activity_date, content) VALUES (?,?,?,?,?)',
     c.id, req.user.id, v.kind, v.activity_date, v.content);
+  notifyCustomer(mentionedCustomerUsers(v.content), req.user.id, c.id, 'mention', 'talk', v.content);
   res.status(201).json(get('SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id WHERE a.id = ?', id));
 });
 

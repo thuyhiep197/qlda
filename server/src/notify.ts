@@ -6,8 +6,9 @@
  *  - Không thông báo cho chính người thực hiện thao tác.
  */
 import { all, get, now, run } from './db.ts';
+import { userPermissions } from './permissions.ts';
 
-export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status' | 'flag';
+export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status' | 'flag' | 'ping';
 
 /** @tên_đăng_nhập đứng đầu dòng hoặc sau khoảng trắng/ngoặc (không bắt nhầm email a@b.com). */
 const MENTION_RE = /(^|[\s(>])@([a-z0-9][a-z0-9._-]*[a-z0-9_-]|[a-z0-9])/gi;
@@ -46,15 +47,45 @@ const snippet = (text?: string | null) => {
   return s.length > 160 ? `${s.slice(0, 157)}…` : s;
 };
 
+/** Tôn trọng cài đặt cá nhân: người dùng có thể tắt từng loại thông báo */
+function wants(userId: number, type: NotificationType) {
+  const pref = get<{ p: string }>('SELECT preferences p FROM users WHERE id = ?', userId)?.p;
+  try { return !(pref && JSON.parse(pref)?.notify?.[type] === false); } catch { return true; /* cài đặt hỏng → vẫn thông báo */ }
+}
+
 export function notify(userIds: Iterable<number>, actorId: number, issueId: number, type: NotificationType, text?: string | null) {
   const ts = now();
   for (const id of new Set(userIds)) {
-    if (id === actorId) continue;
-    // Tôn trọng cài đặt cá nhân: người dùng có thể tắt từng loại thông báo
-    const pref = get<{ p: string }>('SELECT preferences p FROM users WHERE id = ?', id)?.p;
-    try { if (pref && JSON.parse(pref)?.notify?.[type] === false) continue; } catch { /* cài đặt hỏng → vẫn thông báo */ }
+    if (id === actorId || !wants(id, type)) continue;
     run('INSERT INTO notifications(user_id, actor_id, issue_id, type, text, created_at) VALUES (?,?,?,?,?,?)',
       id, actorId, issueId, type, snippet(text), ts);
+  }
+}
+
+/** Người được @nhắc trong trao đổi của khách hàng: tài khoản đang hoạt động có quyền xem khách hàng */
+export function mentionedCustomerUsers(text: string | null | undefined): number[] {
+  if (!text) return [];
+  const ids: number[] = [];
+  for (const username of new Set([...text.matchAll(MENTION_RE)].map((m) => m[2].toLowerCase()))) {
+    const u = get<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE username = ? AND is_active = 1', username);
+    if (u && userPermissions(u).has('customer.view')) ids.push(u.id);
+  }
+  return ids;
+}
+
+/**
+ * Thông báo gắn với khách hàng (link = tab cần mở: journey | tasks | talk). Chỉ gửi cho người có quyền xem khách hàng;
+ * actorId = null là hệ thống (VD nhắc hạn Ping).
+ */
+export function notifyCustomer(userIds: Iterable<number | null | undefined>, actorId: number | null, customerId: number, type: NotificationType,
+  link: 'journey' | 'tasks' | 'talk', text?: string | null) {
+  const ts = now();
+  for (const id of new Set(userIds)) {
+    if (!id || id === actorId || !wants(id, type)) continue;
+    const u = get<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE id = ? AND is_active = 1', id);
+    if (!u || !userPermissions(u).has('customer.view')) continue;
+    run('INSERT INTO notifications(user_id, actor_id, customer_id, link, type, text, created_at) VALUES (?,?,?,?,?,?,?)',
+      id, actorId, customerId, link, type, snippet(text), ts);
   }
 }
 

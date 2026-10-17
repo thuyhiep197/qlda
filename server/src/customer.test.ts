@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanActivity, cleanContact, cleanContacts, cleanCustomer, cleanProduct, sameName } from './customer';
+import { cleanActivity, cleanContact, cleanContacts, cleanCustomer, cleanProduct, cleanTask, sameName } from './customer';
 
 test('customer needs an organisation name and starts as a new customer', () => {
   assert.throws(() => cleanCustomer({ name: '   ' }), /Tên cơ quan\/đơn vị/);
@@ -49,4 +49,17 @@ test('product needs a name and a type', () => {
 test('names compare case-insensitively including Vietnamese letters', () => {
   assert.equal(sameName('Sở Tài chính Đồng Nai', 'sở tài chính đồng nai'), true);
   assert.equal(sameName('Sở Tài chính Đồng Nai', 'Sở Tài chính Đông Nai'), false);
+});
+
+test('sales task needs a title; status, due date and assignee are checked', () => {
+  assert.throws(() => cleanTask({ title: ' ' }), /Tên công việc/);
+  assert.deepEqual(cleanTask({ title: 'Gửi báo giá', assignee_id: '3', due_date: '2026-10-20' }),
+    { title: 'Gửi báo giá', description: null, assignee_id: 3, due_date: '2026-10-20', status: 'todo' });
+  assert.throws(() => cleanTask({ title: 'x', due_date: '20/10/2026' }), /Hạn hoàn thành/);
+  assert.throws(() => cleanTask({ title: 'x', status: 'xong' }), /Trạng thái/);
+  assert.throws(() => cleanTask({ title: 'x', assignee_id: 'abc' }), /Người thực hiện/);
+});
+
+test('internal discussion is an accepted conversation kind', () => {
+  assert.equal(cleanActivity({ kind: 'internal', content: 'Nhờ @hiep xem lại báo giá' }, '2026-10-17').kind, 'internal');
 });

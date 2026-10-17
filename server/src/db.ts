@@ -419,7 +419,8 @@ const migrations: string[] = [
   `ALTER TABLE issues ADD COLUMN note TEXT;`,
   // v20: Dev phụ trách issue, chọn từ danh mục nhân sự vị trí Dev
   `ALTER TABLE issues ADD COLUMN dev_id INTEGER REFERENCES staff(id) ON DELETE SET NULL;`,
-  // v21: module Khách hàng (CRM) — thông tin cơ quan/đơn vị, đầu mối liên hệ, tài liệu, lịch sử chăm sóc;
+  // v21: phân hệ Quản lý khách hàng — thông tin cơ quan/đơn vị, đầu mối liên hệ, hành trình khách hàng (quy trình I–IV),
+  // công việc kinh doanh, tài liệu, trao đổi (làm việc với KH + thảo luận nội bộ); thông báo gắn với khách hàng;
   // danh mục Loại sản phẩm & Sản phẩm (mô tả sản phẩm tự điền vào khách hàng khi chọn); Danh mục địa chính (tỉnh/thành phố, phường/xã — nạp sẵn khi khởi động).
   // Dự án gắn với khách hàng qua projects.customer_id (projects.customer giữ tên để hiển thị); tạo sẵn khách hàng từ các dự án hiện có.
   // Nhóm người dùng được tạo dự án thì được toàn quyền với khách hàng và danh mục sản phẩm.
@@ -496,6 +497,42 @@ const migrations: string[] = [
      created_at TEXT NOT NULL DEFAULT ${TS}
    );
    CREATE INDEX idx_customer_activities ON customer_activities(customer_id, activity_date);
+   CREATE TABLE journey_steps (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+     position INTEGER NOT NULL,
+     depth INTEGER NOT NULL,
+     code TEXT,
+     title TEXT NOT NULL,
+     unit TEXT,
+     support TEXT,
+     status TEXT NOT NULL DEFAULT 'todo',
+     assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+     due_date TEXT,
+     ping_days INTEGER NOT NULL DEFAULT 0,
+     pinged_on TEXT,
+     note TEXT,
+     updated_at TEXT
+   );
+   CREATE INDEX idx_journey_customer ON journey_steps(customer_id, position);
+   ALTER TABLE customer_files ADD COLUMN step_id INTEGER REFERENCES journey_steps(id) ON DELETE SET NULL;
+   CREATE TABLE customer_tasks (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+     title TEXT NOT NULL,
+     description TEXT,
+     assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+     due_date TEXT,
+     status TEXT NOT NULL DEFAULT 'todo',
+     created_by INTEGER REFERENCES users(id),
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     updated_at TEXT,
+     done_at TEXT
+   );
+   CREATE INDEX idx_customer_tasks ON customer_tasks(customer_id);
+   CREATE INDEX idx_customer_tasks_assignee ON customer_tasks(assignee_id, status);
+   ALTER TABLE notifications ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE;
+   ALTER TABLE notifications ADD COLUMN link TEXT;
    INSERT OR IGNORE INTO customers(name, status) SELECT DISTINCT customer, 'Đã ký hợp đồng' FROM projects WHERE customer IS NOT NULL AND TRIM(customer) <> '';
    ALTER TABLE projects ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
    UPDATE projects SET customer_id = (SELECT c.id FROM customers c WHERE c.name = projects.customer COLLATE NOCASE) WHERE customer IS NOT NULL;
