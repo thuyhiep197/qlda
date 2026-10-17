@@ -1015,3 +1015,10 @@ a.kpi:hover { background: var(--table-hover); }
 .overdue.strong { font-weight: 700; }
 .cw-task.j-late { background: var(--error-row-bg); box-shadow: inset 3px 0 0 var(--danger); padding-left: 6px; }
 .j-late-banner { display: flex; align-items: center; gap: 6px; margin: 10px 12px 0; padding: 8px 10px; border-radius: 6px; background: var(--error-bg); color: var(--danger); font-weight: 600; font-size: 13px; }
+/* Nút + thêm bước trong bảng hành trình */
+.j-plus { opacity: 0; margin-left: 4px; padding: 2px; vertical-align: middle; }
+.journey-table tr:hover .j-plus, .j-plus:focus-visible { opacity: 1; }
+.j-section td { position: relative; }
+.j-section-plus { float: right; }
+.j-add-row td { background: var(--primary-soft); }
+.j-add-row input { width: min(520px, 60%); margin-right: 6px; }

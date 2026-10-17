@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Paperclip } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Paperclip, Plus } from 'lucide-react';
 import { api, queryClient } from '../../api';
 import { hasPerm, useDepartments, useMe } from '../../hooks';
 import type { CustomerDetail, JourneyData, JourneyStep, StepStatus } from '../../types';
@@ -31,6 +31,8 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
   const [f, setF] = useState({ status: '', unit: '', mine: false, q: '' });
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState<{ id: number; field: 'assignee' | 'supporters' } | null>(null);
+  // Thêm bước (issue) mới ngay trong bảng: bước con của phần / giai đoạn / đầu việc đang chọn
+  const [adding, setAdding] = useState<{ parent: number; title: string } | null>(null);
   const now = today();
 
   const head = (
@@ -96,6 +98,45 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
     return out;
   })();
   const hasChildren = (s: JourneyStep) => { const i = steps.indexOf(s); return !!steps[i + 1] && steps[i + 1].depth > s.depth; };
+  const startAdd = (parent: JourneyStep) => {
+    if (closed.has(parent.id)) { const n = new Set(closed); n.delete(parent.id); setCollapsed(n); }
+    setAdding({ parent: parent.id, title: '' });
+  };
+  const saveAdd = async () => {
+    if (!adding?.title.trim()) { setAdding(null); return; }
+    try {
+      const r = await api.post<{ id: number }>(`/customers/${c.id}/journey/${adding.parent}/children`, { title: adding.title.trim() });
+      setAdding(null);
+      await refreshCustomer(c.id);
+      onSelect(r.id);
+    } catch (e) { toastError(e); }
+  };
+  // Dòng nhập nằm sau bước con cuối cùng đang hiện của bước cha
+  const addAfter = (() => {
+    if (!adding) return null;
+    const i = visible.findIndex((x) => x.id === adding.parent);
+    if (i < 0) return null;
+    let j = i;
+    while (visible[j + 1] && visible[j + 1].depth > visible[i].depth) j++;
+    return visible[j].id;
+  })();
+  const parentOf = adding ? steps.find((x) => x.id === adding.parent) : null;
+  const addRow = adding && parentOf && (
+    <tr className="j-add-row">
+      <td colSpan={6} style={{ paddingLeft: 8 + parentOf.depth * 18 }}>
+        <input autoFocus value={adding.title} placeholder={`Tên bước mới trong "${parentOf.code ? `${parentOf.code}. ` : ''}${parentOf.title}" — Enter để lưu, Esc để hủy`}
+          onChange={(e) => setAdding({ ...adding, title: e.target.value })}
+          onKeyDown={(e) => { if (e.key === 'Enter') saveAdd(); if (e.key === 'Escape') setAdding(null); }}
+          onBlur={() => { if (!adding.title.trim()) setAdding(null); }} />
+        <button className="btn btn-primary btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={saveAdd}>Thêm</button>
+        <button className="btn btn-subtle btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={() => setAdding(null)}>Hủy</button>
+      </td>
+    </tr>
+  );
+  const plus = (s: JourneyStep) => canEdit && !filtered && s.depth < 3 && (
+    <button className="icon-btn j-plus" aria-label="Thêm bước con" data-tip={s.depth === 0 ? 'Thêm giai đoạn' : 'Thêm bước con'}
+      onClick={(e) => { e.stopPropagation(); startAdd(s); }}><Plus size={14} /></button>
+  );
 
   return (
     <>
@@ -130,20 +171,21 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
           <thead><tr><th>Nội dung</th><th>Người thực hiện</th><th>Người phối hợp</th><th>Trạng thái</th><th>Hạn</th><th /></tr></thead>
           <tbody>
             {filtered && !filtered.length && <tr><td colSpan={6} className="muted center">Không có bước phù hợp</td></tr>}
-            {visible.map((s) => {
+            {visible.map((s) => <Fragment key={s.id}>{(() => {
               if (s.depth === 0) {
                 const sec = progress.sections.find((x) => x.id === s.id);
                 return (
-                  <tr key={s.id} className="j-section" onClick={() => toggle(s.id)}>
+                  <tr className="j-section" onClick={() => toggle(s.id)}>
                     <td colSpan={6}>{closed.has(s.id) ? <ChevronRight size={15} /> : <ChevronDown size={15} />} {s.code}. {s.title}
                       {sec && <span className="muted small" style={{ fontWeight: 400 }}> · {sec.done}/{sec.total} bước</span>}
-                      {!!sec?.overdue && <span className="lozenge lozenge-red j-late-badge"><AlertTriangle size={11} /> {sec.overdue} việc quá hạn</span>}</td>
+                      {!!sec?.overdue && <span className="lozenge lozenge-red j-late-badge"><AlertTriangle size={11} /> {sec.overdue} việc quá hạn</span>}
+                      <span className="j-section-plus">{plus(s)}</span></td>
                   </tr>
                 );
               }
               const late = overdueDays(s.due_date, s.status, now);
               return (
-                <tr key={s.id} className={`j-d${s.depth} click-row ${s.status === 'done' ? 'j-done' : ''} ${late ? 'j-late' : ''} ${selected === s.id ? 'j-selected' : ''}`} onClick={() => onSelect(s.id)}>
+                <tr className={`j-d${s.depth} click-row ${s.status === 'done' ? 'j-done' : ''} ${late ? 'j-late' : ''} ${selected === s.id ? 'j-selected' : ''}`} onClick={() => onSelect(s.id)}>
                   <td className="j-title" style={{ paddingLeft: filtered ? 8 : 8 + (s.depth - 1) * 18 }}>
                     {!filtered && s.depth === 1 && hasChildren(s)
                       ? <span onClick={(e) => { e.stopPropagation(); toggle(s.id); }} className="j-toggle">{closed.has(s.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</span> : null}
@@ -157,10 +199,11 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
                   <td className="nowrap muted small">
                     {s.talk_count > 0 && <span data-tip="Trao đổi"><MessageSquare size={12} /> {s.talk_count} </span>}
                     {s.files.length > 0 && <span data-tip="Tài liệu kết quả"><Paperclip size={12} /> {s.files.length}</span>}
+                    {plus(s)}
                   </td>
                 </tr>
               );
-            })}
+            })()}{addAfter === s.id && addRow}</Fragment>)}
           </tbody>
         </table>
       </div>
