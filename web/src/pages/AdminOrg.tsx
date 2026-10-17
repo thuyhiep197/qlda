@@ -50,35 +50,34 @@ export default function AdminOrg() {
   </>;
   const people = (d: Department) => d.staff.filter(match).map((x) => <StaffRow key={x.id} x={x} onEdit={canStaff.edit ? () => setEditStaff(x) : undefined} onDelete={canStaff.del ? () => removeStaff(x) : undefined} />);
   // Nhóm / bộ phận bên trong một phòng (cấp 3 trở xuống): hiện thành từng mục trong ô của phòng
-  const section = (d: Department): React.ReactNode => (
-    <div key={d.id} className="org-section">
-      <div className="org-section-head"><span className="grow ellipsis"><b>{d.name}</b> <span className="muted small">· {total(d)}</span></span>{actions(d, 'nhóm')}</div>
-      {people(d)}
-      {children(d.id).map(section)}
-      {!total(d) && <div className="muted small org-empty">Chưa có nhân sự</div>}
-    </div>
-  );
-  const card = (d: Department, nested: boolean) => (
-    <div className="org-card">
-      <div className="org-card-head">
-        <div className="grow" style={{ minWidth: 0 }}><b className="ellipsis">{d.name}</b><div className="muted small">{d.code} · {total(d)} nhân sự</div></div>
-        {canDep.create && nested && <button className="icon-btn" aria-label={`Thêm nhóm vào ${d.name}`} data-tip="Thêm nhóm / bộ phận" onClick={() => setEditDep({ parent_id: d.id })}><FolderPlus size={14} /></button>}
-        {actions(d, 'phòng ban')}
+  // Mỗi phòng ban / nhóm là một ô; ô chỉ liệt kê nhân sự trực tiếp của nó, các nhóm con là các nhánh ngang hàng bên dưới
+  const card = (d: Department, level: number) => {
+    const kids = children(d.id);
+    const own = d.staff.length;
+    return (
+      <div className={`org-card org-level-${Math.min(level, 2)}`}>
+        <div className="org-card-head">
+          <div className="grow" style={{ minWidth: 0 }}>
+            <b className="ellipsis">{d.name}</b>
+            <div className="muted small">{d.code} · {kids.length ? `${total(d)} nhân sự · ${kids.length} ${level === 0 ? 'phòng' : 'nhóm'}` : `${own} nhân sự`}</div>
+          </div>
+          {canDep.create && level > 0 && <button className="icon-btn" aria-label={`Thêm nhóm vào ${d.name}`} data-tip="Thêm nhóm / bộ phận" onClick={() => setEditDep({ parent_id: d.id })}><FolderPlus size={14} /></button>}
+          {actions(d, level > 1 ? 'nhóm' : 'phòng ban')}
+        </div>
+        {(own > 0 || !kids.length) && <div className="org-staff">
+          {people(d)}
+          {!own && <div className="muted small org-empty">Chưa có nhân sự</div>}
+        </div>}
       </div>
-      <div className="org-staff">
-        {people(d)}
-        {nested && children(d.id).map(section)}
-        {!total(d) && <div className="muted small">Chưa có nhân sự</div>}
-      </div>
-    </div>
-  );
-  // Vẽ cây: Ban Giám đốc ở trên; hàng dưới là các phòng, nhóm / bộ phận của mỗi phòng nằm trong ô của phòng đó
+    );
+  };
+  // Vẽ cây: Ban Giám đốc → các phòng → các nhóm (mỗi cấp là một hàng ngang, có đường nối)
   const tree = (d: Department, level: number): React.ReactNode => {
     const kids = children(d.id);
     return (
       <div key={d.id} className="org-node">
-        {card(d, level > 0)}
-        {level === 0 && kids.length > 0 && <div className="org-children">{kids.map((k) => tree(k, 1))}</div>}
+        {card(d, level)}
+        {kids.length > 0 && <div className="org-children">{kids.map((k) => tree(k, level + 1))}</div>}
       </div>
     );
   };

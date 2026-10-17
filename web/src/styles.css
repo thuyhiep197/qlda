@@ -1079,3 +1079,12 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .org-section .org-section { margin-left: 4px; }
 .org-empty { padding: 4px 6px; }
 .org-card .org-staff { max-height: 520px; }
+/* Sơ đồ phân nhánh: phòng ban gọn, nhóm ngang hàng bên dưới */
+.org-tree { align-items: flex-start; }
+.org-tree > .org-node { margin: 0 auto; }
+.org-card { width: 210px; }
+.org-card.org-level-0 { width: 300px; border-top-color: var(--warn); }
+.org-card.org-level-1 { width: 220px; }
+.org-card.org-level-2 { width: 200px; border-top-color: var(--success); }
+.org-children { gap: 12px; }
+.org-card .org-staff { max-height: 420px; }
