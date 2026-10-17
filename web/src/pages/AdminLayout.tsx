@@ -42,11 +42,11 @@ export default function AdminLayout() {
         {hasPerm(me, 'role.view') && item(['roles', 'Phân quyền', ShieldCheck])}
         {cats.length > 0 && (
           <div className="cw-group">
-            <div className={`cw-item ${cats.some(([k]) => k === seg) ? 'cw-parent-active' : ''}`}>
-              <button className="cw-caret" aria-label={catOpen ? 'Thu gọn' : 'Mở rộng'} onClick={() => setCatOpen(!catOpen)}>
-                {catOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button>
-              <span className="cw-group-link"><BookMarked size={16} /><span className="grow">Danh mục</span></span>
-            </div>
+            {/* Cùng cấp với Người dùng / Phân quyền; mũi tên thu gọn đặt cuối dòng để thẳng hàng */}
+            <button className={`cw-item ${cats.some(([k]) => k === seg) ? 'cw-parent-active' : ''}`} aria-expanded={catOpen} onClick={() => setCatOpen(!catOpen)}>
+              <BookMarked size={16} /><span className="grow">Danh mục</span>
+              {catOpen ? <ChevronDown size={14} className="muted" /> : <ChevronRight size={14} className="muted" />}
+            </button>
             {catOpen && cats.map((c) => item(c, true))}
           </div>
         )}

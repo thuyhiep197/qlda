@@ -1046,3 +1046,7 @@ a.cw-item { color: var(--text); }
 a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .cw-proj-link.disabled { color: var(--muted); }
 .cw-project.disabled { color: var(--muted); cursor: default; }
+/* Quản trị: mục con của Danh mục thụt vào ngang chữ mục cha */
+.cw-left > .cw-group > .cw-sub { padding-left: 34px; }
+.cw-parent-active { color: var(--primary); font-weight: 600; }
+.cw-parent-active .lucide { color: var(--primary); }
