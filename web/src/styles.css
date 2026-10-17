@@ -1041,3 +1041,7 @@ a.cw-item { color: var(--text); }
 .gs-item { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; text-align: left; padding: 7px 8px; border-radius: 6px; cursor: pointer; font: inherit; color: var(--text); min-width: 0; }
 .gs-item.on { background: var(--primary-soft); }
 .gs-meta { max-width: 180px; }
+.cw-proj-link { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px dashed var(--border); color: var(--text); font-size: 13px; min-width: 0; }
+.cw-proj-link:last-child { border-bottom: 0; }
+a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
+.cw-proj-link.disabled { color: var(--muted); }

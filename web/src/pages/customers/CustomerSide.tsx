@@ -106,6 +106,20 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
             </div>
           </div>
         ))}
+        <div className="prop-label mt">Dự án ({c.projects.filter((p) => !p.is_archived).length})</div>
+        {!c.projects.some((p) => !p.is_archived) ? <p className="muted small">Chưa có dự án nào gắn với khách hàng này</p>
+          : c.projects.filter((p) => !p.is_archived).map((p) => {
+            const st = p.project_status || p.status_auto;
+            const body = <>
+              <span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span>
+              <span className="grow ellipsis">{p.name}</span>
+              {st && <span className={lozengeOf(PROJECT_STATUSES, st)}>{st}</span>}
+            </>;
+            // Mở dự án trong phân hệ Dự án (mặc định vào Kế hoạch chi tiết); chưa là thành viên thì chỉ xem tên
+            return p.accessible
+              ? <Link key={p.id} to={`/p/${p.key}?g=all`} className="cw-proj-link" data-tip="Mở dự án trong phân hệ Dự án">{body}</Link>
+              : <div key={p.id} className="cw-proj-link disabled" data-tip="Bạn chưa là thành viên dự án này">{body}</div>;
+          })}
       </Block>
       <Tasks c={c} canEdit={canEdit} canDeleteAll={canDelete} />
       <Block title={`Tài liệu (${c.files.length})`} extra={canEdit && <UploadButton customerId={c.id} />}>
