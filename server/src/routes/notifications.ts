@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { all, get, now, run } from '../db.ts';
 import { accessibleProjectIds, userPermissions } from '../permissions.ts';
+import { visibleCustomersSql } from '../customer-access.ts';
 import { avatarUrl } from '../avatar.ts';
 
 const r = Router();
@@ -9,7 +10,10 @@ const r = Router();
 function scope(user: Express.Request['user']) {
   const ids = accessibleProjectIds(user);
   const issues = ids === 'all' ? '1=1' : ids.length ? `i.project_id IN (${ids.join(',')})` : '0=1';
-  const customers = userPermissions(user).has('customer.view') ? 'n.customer_id IS NOT NULL' : '0=1';
+  const v = visibleCustomersSql(user);
+  // Điều kiện xem khách hàng (bí danh c) chỉ dùng tham số id người dùng → thay trực tiếp vì là số nguyên của phiên đăng nhập
+  const customers = userPermissions(user).has('customer.view')
+    ? `n.customer_id IS NOT NULL AND EXISTS (SELECT 1 FROM customers c WHERE c.id = n.customer_id AND ${v.sql.replaceAll('?', String(Number(user.id)))})` : '0=1';
   return `((n.issue_id IS NOT NULL AND ${issues} AND p.is_archived = 0) OR (n.issue_id IS NULL AND ${customers}))`;
 }
 

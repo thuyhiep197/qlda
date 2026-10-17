@@ -9,6 +9,8 @@ test('customer needs an organisation name and starts as a new customer', () => {
   assert.equal(c.status, 'Mới');
   assert.equal(c.ward_code, null);
   assert.equal(c.product_id, null);
+  assert.deepEqual(c.owner_ids, []);
+  assert.deepEqual(cleanCustomer({ name: 'A', owner_ids: [3, '3', 5, 'x', -1] }).owner_ids, [3, 5]);
 });
 
 test('customer rejects unknown status and bad product ids', () => {

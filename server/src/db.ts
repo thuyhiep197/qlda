@@ -461,11 +461,21 @@ const migrations: string[] = [
      product_description TEXT,
      source TEXT,
      status TEXT NOT NULL DEFAULT 'Mới',
-     am TEXT,
      created_by INTEGER REFERENCES users(id),
      created_at TEXT NOT NULL DEFAULT ${TS},
      updated_at TEXT NOT NULL DEFAULT ${TS}
    );
+   -- Nhân viên phụ trách khách hàng (Kinh doanh/AM trong Danh mục nhân sự); nhân sự gắn với tài khoản đăng nhập để phân quyền xem khách hàng
+   ALTER TABLE staff ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+   CREATE UNIQUE INDEX idx_staff_user ON staff(user_id) WHERE user_id IS NOT NULL;
+   UPDATE staff SET user_id = (SELECT u.id FROM users u WHERE u.full_name = staff.full_name AND u.is_active = 1
+     AND (SELECT COUNT(*) FROM users u2 WHERE u2.full_name = staff.full_name) = 1);
+   CREATE TABLE customer_owners (
+     customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+     staff_id INTEGER NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+     PRIMARY KEY (customer_id, staff_id)
+   );
+   CREATE INDEX idx_customer_owners_staff ON customer_owners(staff_id);
    CREATE TABLE customer_contacts (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -516,6 +526,9 @@ const migrations: string[] = [
    );
    CREATE INDEX idx_journey_customer ON journey_steps(customer_id, position);
    ALTER TABLE customer_files ADD COLUMN step_id INTEGER REFERENCES journey_steps(id) ON DELETE SET NULL;
+   -- Trao đổi theo từng bước của hành trình
+   ALTER TABLE customer_activities ADD COLUMN step_id INTEGER REFERENCES journey_steps(id) ON DELETE CASCADE;
+   CREATE INDEX idx_customer_activities_step ON customer_activities(step_id);
    CREATE TABLE customer_tasks (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -537,7 +550,7 @@ const migrations: string[] = [
    ALTER TABLE projects ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
    UPDATE projects SET customer_id = (SELECT c.id FROM customers c WHERE c.name = projects.customer COLLATE NOCASE) WHERE customer IS NOT NULL;
    CREATE INDEX idx_projects_customer ON projects(customer_id);
-   UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete',
+   UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer_all.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete',
        '$[#]', 'product.view', '$[#]', 'product.create', '$[#]', 'product.edit', '$[#]', 'product.delete',
        '$[#]', 'geo.view', '$[#]', 'geo.create', '$[#]', 'geo.edit', '$[#]', 'geo.delete')
      WHERE permissions LIKE '%"project.create"%' AND permissions NOT LIKE '%"customer.view"%';`,

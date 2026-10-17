@@ -6,7 +6,7 @@
  *  - Không thông báo cho chính người thực hiện thao tác.
  */
 import { all, get, now, run } from './db.ts';
-import { userPermissions } from './permissions.ts';
+import { canSeeCustomer } from './customer-access.ts';
 
 export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status' | 'flag' | 'ping';
 
@@ -62,28 +62,28 @@ export function notify(userIds: Iterable<number>, actorId: number, issueId: numb
   }
 }
 
-/** Người được @nhắc trong trao đổi của khách hàng: tài khoản đang hoạt động có quyền xem khách hàng */
-export function mentionedCustomerUsers(text: string | null | undefined): number[] {
+/** Người được @nhắc trong trao đổi của khách hàng: tài khoản đang hoạt động được xem khách hàng đó */
+export function mentionedCustomerUsers(text: string | null | undefined, customerId: number): number[] {
   if (!text) return [];
   const ids: number[] = [];
   for (const username of new Set([...text.matchAll(MENTION_RE)].map((m) => m[2].toLowerCase()))) {
     const u = get<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE username = ? AND is_active = 1', username);
-    if (u && userPermissions(u).has('customer.view')) ids.push(u.id);
+    if (u && canSeeCustomer(u, customerId)) ids.push(u.id);
   }
   return ids;
 }
 
 /**
- * Thông báo gắn với khách hàng (link = tab cần mở: journey | tasks | talk). Chỉ gửi cho người có quyền xem khách hàng;
+ * Thông báo gắn với khách hàng (link = phần cần mở: step:<id> | tasks). Chỉ gửi cho người được xem khách hàng đó;
  * actorId = null là hệ thống (VD nhắc hạn Ping).
  */
 export function notifyCustomer(userIds: Iterable<number | null | undefined>, actorId: number | null, customerId: number, type: NotificationType,
-  link: 'journey' | 'tasks' | 'talk', text?: string | null) {
+  link: string, text?: string | null) {
   const ts = now();
   for (const id of new Set(userIds)) {
     if (!id || id === actorId || !wants(id, type)) continue;
     const u = get<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE id = ? AND is_active = 1', id);
-    if (!u || !userPermissions(u).has('customer.view')) continue;
+    if (!u || !canSeeCustomer(u, customerId)) continue;
     run('INSERT INTO notifications(user_id, actor_id, customer_id, link, type, text, created_at) VALUES (?,?,?,?,?,?,?)',
       id, actorId, customerId, link, type, snippet(text), ts);
   }

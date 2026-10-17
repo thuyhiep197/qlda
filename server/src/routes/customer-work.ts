@@ -4,15 +4,14 @@ import { badRequest, forbidden, notFound, requireUserPerm, userPermissions } fro
 import { cleanTask } from '../customer.ts';
 import { branchIds, journeyProgress, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus } from '../journey.ts';
 import { notifyCustomer } from '../notify.ts';
+import { loadCustomer as loadVisible, visibleCustomersSql } from '../customer-access.ts';
+import type { Permission } from '../permissions.ts';
 
 /** Hành trình khách hàng (quy trình I–IV) và công việc kinh doanh của khách hàng */
 const r = Router();
 
-function loadCustomer(req: Request) {
-  const c = get<{ id: number; name: string }>('SELECT id, name FROM customers WHERE id = ?', Number(req.params.id));
-  if (!c) throw notFound('Không tìm thấy khách hàng');
-  return c;
-}
+/** Khách hàng theo :id — kiểm tra quyền và người dùng được xem khách hàng này */
+const loadCustomer = (req: Request, perm: Permission = 'customer.view') => loadVisible(req, perm) as { id: number; name: string };
 
 const STEP_SELECT = `SELECT s.*, u.full_name AS assignee_name FROM journey_steps s LEFT JOIN users u ON u.id = s.assignee_id`;
 export const journeySteps = (customerId: number) => all(`${STEP_SELECT} WHERE s.customer_id = ? ORDER BY s.position, s.id`, customerId);
@@ -26,15 +25,16 @@ const activeUser = (id: number | null) => {
 r.get('/summary', (req, res) => {
   requireUserPerm(req.user, 'customer.view');
   const today = localDate();
-  const byStatus = all<{ status: string; n: number }>('SELECT status, COUNT(*) n FROM customers GROUP BY status');
+  const vis = visibleCustomersSql(req.user);
+  const byStatus = all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM customers c WHERE ${vis.sql} GROUP BY status`, ...vis.params);
   const myTasks = all(`${TASK_SELECT.replace('SELECT t.*', 'SELECT t.*, c.name AS customer_name')} JOIN customers c ON c.id = t.customer_id
     WHERE t.assignee_id = ? AND t.status <> 'done' ORDER BY t.due_date IS NULL, t.due_date, t.id LIMIT 30`, req.user.id);
   const mySteps = all(`SELECT s.id, s.customer_id, s.code, s.title, s.status, s.due_date, c.name AS customer_name FROM journey_steps s
     JOIN customers c ON c.id = s.customer_id WHERE s.assignee_id = ? AND s.status <> 'done' AND s.depth > 0
     ORDER BY s.due_date IS NULL, s.due_date, s.position LIMIT 30`, req.user.id);
   const overdue = {
-    tasks: get<{ n: number }>("SELECT COUNT(*) n FROM customer_tasks WHERE status <> 'done' AND due_date < ?", today)!.n,
-    steps: get<{ n: number }>("SELECT COUNT(*) n FROM journey_steps WHERE status <> 'done' AND depth > 0 AND due_date < ?", today)!.n,
+    tasks: get<{ n: number }>(`SELECT COUNT(*) n FROM customer_tasks t2 JOIN customers c ON c.id = t2.customer_id WHERE t2.status <> 'done' AND t2.due_date < ? AND ${vis.sql}`, today, ...vis.params)!.n,
+    steps: get<{ n: number }>(`SELECT COUNT(*) n FROM journey_steps j2 JOIN customers c ON c.id = j2.customer_id WHERE j2.status <> 'done' AND j2.depth > 0 AND j2.due_date < ? AND ${vis.sql}`, today, ...vis.params)!.n,
   };
   const total = byStatus.reduce((n, x) => n + x.n, 0);
   res.json({ total, by_status: byStatus, my_tasks: myTasks, my_steps: mySteps, overdue, today });
@@ -44,9 +44,11 @@ r.get('/summary', (req, res) => {
 // Hành trình khách hàng
 // ---------------------------------------------------------------------------
 r.get('/:id/journey', (req, res) => {
-  requireUserPerm(req.user, 'customer.view');
   const c = loadCustomer(req);
   const steps = journeySteps(c.id);
+  const talk = new Map(all<{ step_id: number; n: number }>('SELECT step_id, COUNT(*) n FROM customer_activities WHERE customer_id = ? AND step_id IS NOT NULL GROUP BY step_id', c.id)
+    .map((x) => [x.step_id, x.n]));
+  for (const st of steps) st.talk_count = talk.get(st.id) ?? 0;
   const files = all<{ id: number; step_id: number; filename: string; size: number }>(
     'SELECT id, step_id, filename, size FROM customer_files WHERE customer_id = ? AND step_id IS NOT NULL ORDER BY created_at', c.id);
   for (const s of steps) s.files = files.filter((f) => f.step_id === s.id);
@@ -55,8 +57,7 @@ r.get('/:id/journey', (req, res) => {
 
 /** Tạo hành trình từ quy trình mẫu (chỉ khi khách hàng chưa có hành trình) */
 r.post('/:id/journey/apply', (req, res) => {
-  requireUserPerm(req.user, 'customer.edit');
-  const c = loadCustomer(req);
+  const c = loadCustomer(req, 'customer.edit');
   if (get('SELECT 1 FROM journey_steps WHERE customer_id = ?', c.id)) throw badRequest('Khách hàng đã có hành trình');
   const rows = loadTemplate();
   tx(() => rows.forEach((t, i) => run('INSERT INTO journey_steps(customer_id, position, depth, code, title, unit, support) VALUES (?,?,?,?,?,?,?)',
@@ -66,8 +67,7 @@ r.post('/:id/journey/apply', (req, res) => {
 
 /** Xóa toàn bộ hành trình (để áp dụng lại quy trình mẫu) */
 r.delete('/:id/journey', (req, res) => {
-  requireUserPerm(req.user, 'customer.delete');
-  const c = loadCustomer(req);
+  const c = loadCustomer(req, 'customer.delete');
   run('DELETE FROM journey_steps WHERE customer_id = ?', c.id);
   res.json({ ok: true });
 });
@@ -78,10 +78,29 @@ function loadStep(req: Request, customerId: number) {
   return s;
 }
 
+/** Một bước của hành trình (như một issue của kinh doanh): phần/giai đoạn chứa nó, trao đổi, tài liệu kết quả */
+r.get('/:id/journey/:sid', (req, res) => {
+  const c = loadCustomer(req);
+  const s = get(`${STEP_SELECT} WHERE s.id = ? AND s.customer_id = ?`, Number(req.params.sid), c.id);
+  if (!s) throw notFound('Không tìm thấy bước trong hành trình');
+  const before = all<{ id: number; depth: number; code: string | null; title: string }>(
+    'SELECT id, depth, code, title FROM journey_steps WHERE customer_id = ? AND (position < ? OR (position = ? AND id < ?)) ORDER BY position DESC, id DESC', c.id, s.position, s.position, s.id);
+  // Đường dẫn: các bước cha gần nhất có cấp nhỏ hơn
+  const path: { id: number; code: string | null; title: string }[] = [];
+  let depth = s.depth;
+  for (const b of before) if (b.depth < depth) { path.unshift({ id: b.id, code: b.code, title: b.title }); depth = b.depth; if (depth === 0) break; }
+  s.path = path;
+  s.activities = all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
+    WHERE a.step_id = ? ORDER BY a.created_at, a.id`, s.id);
+  s.files = all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name FROM customer_files f
+    LEFT JOIN users u ON u.id = f.uploader_id WHERE f.step_id = ? ORDER BY f.created_at DESC`, s.id);
+  s.ping_options = PING_DAYS;
+  res.json(s);
+});
+
 /** Cập nhật một bước: trạng thái, người phụ trách, hạn, Ping, ghi chú, tên, đơn vị */
 r.patch('/:id/journey/:sid', (req, res) => {
-  requireUserPerm(req.user, 'customer.edit');
-  const c = loadCustomer(req);
+  const c = loadCustomer(req, 'customer.edit');
   const s = loadStep(req, c.id);
   const b = req.body || {};
   const status = b.status !== undefined ? String(b.status) : s.status;
@@ -98,14 +117,13 @@ r.patch('/:id/journey/:sid', (req, res) => {
   const pinged = due !== s.due_date || ping !== s.ping_days ? null : s.pinged_on;
   run(`UPDATE journey_steps SET status = ?, assignee_id = ?, due_date = ?, ping_days = ?, pinged_on = ?, note = ?, title = ?, unit = ?, support = ?, updated_at = ?
     WHERE id = ?`, status, assignee, due, ping, pinged, text('note', 2000), title, text('unit', 50), text('support', 80), now(), s.id);
-  if (assignee && assignee !== s.assignee_id) notifyCustomer([assignee], req.user.id, c.id, 'assigned', 'journey', `${c.name}: ${title}`);
+  if (assignee && assignee !== s.assignee_id) notifyCustomer([assignee], req.user.id, c.id, 'assigned', `step:${s.id}`, `${c.name}: ${title}`);
   res.json({ ok: true, status_label: STEP_STATUS_LABELS[status as StepStatus] });
 });
 
 /** Thêm bước con vào cuối nhánh của một bước (tối đa 3 cấp dưới phần I–IV) */
 r.post('/:id/journey/:sid/children', (req, res) => {
-  requireUserPerm(req.user, 'customer.edit');
-  const c = loadCustomer(req);
+  const c = loadCustomer(req, 'customer.edit');
   const parent = loadStep(req, c.id);
   if (parent.depth >= 3) throw badRequest('Không thêm được bước con ở cấp này');
   const title = String(req.body?.title ?? '').trim().slice(0, 300);
@@ -126,8 +144,7 @@ r.post('/:id/journey/:sid/children', (req, res) => {
 
 /** Bỏ một bước cùng toàn bộ bước con (nhánh không áp dụng cho khách hàng này) */
 r.delete('/:id/journey/:sid', (req, res) => {
-  requireUserPerm(req.user, 'customer.edit');
-  const c = loadCustomer(req);
+  const c = loadCustomer(req, 'customer.edit');
   const s = loadStep(req, c.id);
   const ids = branchIds(journeySteps(c.id), s.id);
   tx(() => ids.forEach((id) => run('DELETE FROM journey_steps WHERE id = ?', id)));
@@ -142,7 +159,7 @@ export function pingJourney() {
   for (const s of rows) {
     if (!pingDue(s, today)) continue;
     const late = s.due_date < today ? 'đã quá hạn' : s.due_date === today ? 'đến hạn hôm nay' : `hạn ${s.due_date.split('-').reverse().join('/')}`;
-    notifyCustomer([s.assignee_id], null, s.customer_id, 'ping', 'journey', `${s.customer_name}: ${s.title} (${late})`);
+    notifyCustomer([s.assignee_id], null, s.customer_id, 'ping', `step:${s.id}`, `${s.customer_name}: ${s.title} (${late})`);
     run('UPDATE journey_steps SET pinged_on = ? WHERE id = ?', today, s.id);
   }
 }
@@ -158,8 +175,7 @@ function check<T>(fn: () => T): T {
 }
 
 r.post('/:id/tasks', (req, res) => {
-  requireUserPerm(req.user, 'customer.edit');
-  const c = loadCustomer(req);
+  const c = loadCustomer(req, 'customer.edit');
   const v = check(() => cleanTask(req.body || {}));
   activeUser(v.assignee_id);
   const { id } = run(`INSERT INTO customer_tasks(customer_id, title, description, assignee_id, due_date, status, created_by, done_at)
@@ -175,8 +191,7 @@ function loadTask(req: Request, customerId: number) {
 }
 
 r.patch('/:id/tasks/:tid', (req, res) => {
-  requireUserPerm(req.user, 'customer.edit');
-  const c = loadCustomer(req);
+  const c = loadCustomer(req, 'customer.edit');
   const t = loadTask(req, c.id);
   const v = check(() => cleanTask({ ...t, ...req.body }));
   activeUser(v.assignee_id);
@@ -189,7 +204,7 @@ r.patch('/:id/tasks/:tid', (req, res) => {
 
 /** Xóa công việc: người tạo tự xóa được; việc của người khác cần quyền xóa khách hàng */
 r.delete('/:id/tasks/:tid', (req, res) => {
-  const c = loadCustomer(req);
+  const c = loadCustomer(req, 'customer.edit');
   const t = loadTask(req, c.id);
   const perms = userPermissions(req.user);
   if (!(perms.has('customer.edit') && t.created_by === req.user.id) && !perms.has('customer.delete')) throw forbidden('Bạn chỉ xóa được công việc do mình tạo');

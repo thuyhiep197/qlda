@@ -19,34 +19,38 @@ function clean(b: any) {
   if (list.some((p: string) => !(POSITIONS as readonly string[]).includes(p))) throw badRequest('Vị trí không hợp lệ');
   const positions = POSITIONS.filter((p) => list.includes(p)).join(',');
   const note = String(b.note ?? '').trim().slice(0, 200) || null;
-  return { full_name, positions, note };
+  const user_id = b.user_id ? Number(b.user_id) : null;
+  if (user_id && !get('SELECT 1 FROM users WHERE id = ?', user_id)) throw badRequest('Tài khoản đăng nhập không hợp lệ');
+  return { full_name, positions, note, user_id };
 }
 
 // Mọi người đã đăng nhập đều xem được (để chọn nhân sự cho dự án)
 r.get('/', (_req, res) => {
-  res.json(all('SELECT id, full_name, positions, note FROM staff ORDER BY full_name'));
+  res.json(all('SELECT s.id, s.full_name, s.positions, s.note, s.user_id, u.username FROM staff s LEFT JOIN users u ON u.id = s.user_id ORDER BY s.full_name'));
 });
 
 r.post('/', (req, res) => {
   requireUserPerm(req.user, 'staff.create');
   const v = clean(req.body || {});
   if (get('SELECT 1 FROM staff WHERE full_name = ?', v.full_name)) throw badRequest('Đã có người này trong danh mục');
-  const { id } = run('INSERT INTO staff(full_name, positions, note) VALUES (?,?,?)', v.full_name, v.positions, v.note);
+  if (v.user_id && get('SELECT 1 FROM staff WHERE user_id = ?', v.user_id)) throw badRequest('Tài khoản này đã gắn với một nhân sự khác');
+  const { id } = run('INSERT INTO staff(full_name, positions, note, user_id) VALUES (?,?,?,?)', v.full_name, v.positions, v.note, v.user_id);
   audit(req, 'staff_created', { target: v.full_name, detail: v.positions });
-  res.status(201).json(get('SELECT id, full_name, positions, note FROM staff WHERE id = ?', id));
+  res.status(201).json(get('SELECT id, full_name, positions, note, user_id FROM staff WHERE id = ?', id));
 });
 
-/** Đổi họ tên → cập nhật luôn tên đó trong các trường nhân sự của dự án và Nhân viên phụ trách của khách hàng */
+/** Đổi họ tên → cập nhật luôn tên đó trong các trường nhân sự của dự án (khách hàng gắn theo id nên tự đúng) */
 r.patch('/:id', (req, res) => {
   requireUserPerm(req.user, 'staff.edit');
   const cur = get('SELECT * FROM staff WHERE id = ?', Number(req.params.id));
   if (!cur) throw notFound();
   const v = clean({ ...cur, ...req.body });
   if (v.full_name !== cur.full_name && get('SELECT 1 FROM staff WHERE full_name = ?', v.full_name)) throw badRequest('Đã có người này trong danh mục');
+  if (v.user_id && get('SELECT 1 FROM staff WHERE user_id = ? AND id <> ?', v.user_id, cur.id)) throw badRequest('Tài khoản này đã gắn với một nhân sự khác');
   tx(() => {
-    run('UPDATE staff SET full_name = ?, positions = ?, note = ? WHERE id = ?', v.full_name, v.positions, v.note, cur.id);
+    run('UPDATE staff SET full_name = ?, positions = ?, note = ?, user_id = ? WHERE id = ?', v.full_name, v.positions, v.note, v.user_id, cur.id);
     if (v.full_name !== cur.full_name) {
-      const targets = [...Object.values(PROJECT_FIELD).map((f) => ['projects', f]), ['customers', 'am']];
+      const targets = Object.values(PROJECT_FIELD).map((f) => ['projects', f]);
       for (const [table, f] of targets) {
         for (const p of all(`SELECT id, ${f} AS v FROM ${table} WHERE ${f} IS NOT NULL`)) {
           const names = String(p.v).split(',').map((x) => x.trim());

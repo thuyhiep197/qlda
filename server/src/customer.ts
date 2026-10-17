@@ -11,6 +11,9 @@ const text = (v: unknown, max: number) => String(v ?? '').replace(/\s+/g, ' ').t
 const longText = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max) || null;
 const optId = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : NaN);
 
+/** Danh sách id (nhân viên phụ trách…) — bỏ trùng, bỏ giá trị không hợp lệ */
+const idList = (v: unknown) => [...new Set((Array.isArray(v) ? v : []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+
 function email(v: unknown) {
   const e = text(v, 200);
   if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw badRequest(`Email không hợp lệ: ${e}`);
@@ -40,7 +43,7 @@ export function cleanCustomer(b: any) {
     product_description: longText(b.product_description, 4000),
     source: text(b.source, 200),
     status: oneOf(b.status, CUSTOMER_STATUSES, 'Tình trạng', 'Mới')!,
-    am: text(b.am, 500),
+    owner_ids: idList(b.owner_ids),
   };
 }
 
