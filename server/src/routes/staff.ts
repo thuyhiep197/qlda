@@ -3,7 +3,8 @@ import { all, get, run, tx } from '../db.ts';
 import { audit } from '../audit.ts';
 import { badRequest, notFound, requireUserPerm } from '../permissions.ts';
 
-import { POSITIONS, type Position } from '../positions.ts';
+import { allowedPositions, POSITION_CODES, POSITIONS, type Position } from '../positions.ts';
+import { departmentCodes } from './departments.ts';
 
 /** Vị trí trong danh mục nhân sự ↔ trường nhân sự của dự án (KD, HC, BGĐ không có trường tương ứng) */
 const PROJECT_FIELD: Partial<Record<Position, string>> = { ba_pm: 'ba', tester: 'tester', am: 'am', dev: 'dev' };
@@ -24,6 +25,12 @@ function clean(b: any) {
   if (user_id && !get('SELECT 1 FROM users WHERE id = ?', user_id)) throw badRequest('Tài khoản đăng nhập không hợp lệ');
   const department_id = b.department_id ? Number(b.department_id) : null;
   if (department_id && !get('SELECT 1 FROM departments WHERE id = ?', department_id)) throw badRequest('Phòng ban không hợp lệ');
+  // Vị trí phải thuộc bộ vị trí của phòng (VD Phòng Kinh doanh: Sale, AM)
+  if (department_id) {
+    const { allowed } = allowedPositions(departmentCodes(department_id));
+    const wrong = positions.split(',').filter((p) => p && !(allowed as string[]).includes(p));
+    if (wrong.length) throw badRequest(`Vị trí ${wrong.map((p) => POSITION_CODES[p as Position] ?? p).join(', ')} không thuộc phòng ban này`);
+  }
   return { full_name, positions, note, user_id, department_id };
 }
 

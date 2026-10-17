@@ -37,7 +37,11 @@ export interface UserBasic {
 }
 
 /** Phòng ban trong sơ đồ tổ chức (parent_id = phòng ban cấp trên) kèm nhân sự */
-export interface Department { id: number; code: string; name: string; parent_id: number | null; position: number; staff: StaffMember[] }
+export interface Department {
+  id: number; code: string; name: string; parent_id: number | null; position: number; staff: StaffMember[];
+  /** Vị trí được chọn khi thêm nhân sự vào phòng ban (VD Phòng Kinh doanh: kd, am); preset_position = vị trí tích sẵn của nhóm */
+  allowed_positions: StaffPosition[]; preset_position: StaffPosition | null;
+}
 
 export interface User extends UserBasic {
   email: string | null;

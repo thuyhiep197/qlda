@@ -156,15 +156,26 @@ function DepModal({ d, deps, onClose }: { d: Partial<Department>; deps: Departme
 
 function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Department[]; onClose: () => void }) {
   const { data: users } = useUsersBasic();
+  const depOf = (id: string) => deps.find((x2) => String(x2.id) === id);
+  const startDep = x.department_id ? String(x.department_id) : '';
   const [d, setD] = useState({
-    full_name: x.full_name ?? '', positions: (x.positions ?? '').split(',').filter(Boolean) as StaffPosition[], note: x.note ?? '',
-    user_id: x.user_id ? String(x.user_id) : '', department_id: x.department_id ? String(x.department_id) : '',
+    full_name: x.full_name ?? '', note: x.note ?? '', user_id: x.user_id ? String(x.user_id) : '', department_id: startDep,
+    // Thêm mới vào một nhóm: tích sẵn vị trí của nhóm (VD nhóm Sale → Sale)
+    positions: (x.id ? (x.positions ?? '').split(',').filter(Boolean) : depOf(startDep)?.preset_position ? [depOf(startDep)!.preset_position!] : []) as StaffPosition[],
   });
+  // Vị trí được chọn theo phòng ban (Kinh doanh: Sale, AM; Dự án / Sản phẩm: Dev, BA/PM, Tester…)
+  const allowed = depOf(d.department_id)?.allowed_positions ?? STAFF_POSITION_LABELS.map((p) => p.key);
+  const dropped = d.positions.filter((p) => !allowed.includes(p));
+  const changeDep = (id: string) => {
+    const dep = depOf(id);
+    const keep = d.positions.filter((p) => (dep?.allowed_positions ?? allowed).includes(p));
+    setD({ ...d, department_id: id, positions: keep.length ? keep : dep?.preset_position ? [dep.preset_position] : [] });
+  };
   const toggle = (p: StaffPosition) => setD({ ...d, positions: d.positions.includes(p) ? d.positions.filter((v) => v !== p) : [...d.positions, p] });
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: d.full_name, positions: d.positions, note: d.note, user_id: d.user_id || null, department_id: d.department_id || null };
+      const body = { full_name: d.full_name, positions: d.positions.filter((p) => allowed.includes(p)), note: d.note, user_id: d.user_id || null, department_id: d.department_id || null };
       if (x.id) await api.patch(`/staff/${x.id}`, body); else await api.post('/staff', body);
       toast(x.id ? 'Đã lưu' : 'Đã thêm nhân sự');
       await refreshAll();
@@ -179,16 +190,17 @@ function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Depar
       <form id="staff-form" className="stack" onSubmit={submit}>
         <label className="field"><span>Họ tên *</span><input autoFocus required value={d.full_name} onChange={(e) => setD({ ...d, full_name: e.target.value })} placeholder="VD: Nguyễn Văn A" /></label>
         <label className="field"><span>Phòng ban</span>
-          <select value={d.department_id} onChange={(e) => setD({ ...d, department_id: e.target.value })}>
+          <select value={d.department_id} onChange={(e) => changeDep(e.target.value)}>
             <option value="">— Chưa xếp phòng ban —</option>
             {deps.map((x2) => <option key={x2.id} value={x2.id}>{depPath(deps, x2)}</option>)}
           </select></label>
         <div className="field"><span>Vị trí * <small className="muted">(chọn một hoặc nhiều)</small></span>
           <div className="row gap-sm" style={{ flexWrap: 'wrap' }}>
-            {STAFF_POSITION_LABELS.map((p) => (
+            {STAFF_POSITION_LABELS.filter((p) => allowed.includes(p.key)).map((p) => (
               <label key={p.key} className="check"><input type="checkbox" checked={d.positions.includes(p.key)} onChange={() => toggle(p.key)} /> {p.label} <span className="muted small">({p.code})</span></label>
             ))}
           </div>
+          {dropped.length > 0 && <small className="warn-text">Vị trí {dropped.map((p) => STAFF_POSITION_LABELS.find((x2) => x2.key === p)?.label ?? p).join(', ')} không thuộc phòng ban này, sẽ bị bỏ khi lưu</small>}
         </div>
         <label className="field"><span>Tài khoản đăng nhập <small className="muted">(để nhận việc, xem khách hàng mình phụ trách)</small></span>
           <select value={d.user_id} onChange={(e) => setD({ ...d, user_id: e.target.value })}>

@@ -2,6 +2,19 @@ import { Router } from 'express';
 import { all, get, run } from '../db.ts';
 import { audit } from '../audit.ts';
 import { badRequest, notFound, requireUserPerm } from '../permissions.ts';
+import { allowedPositions } from '../positions.ts';
+
+/** Mã phòng ban từ chính nó lên các cấp trên */
+export function departmentCodes(id: number): string[] {
+  const out: string[] = [];
+  for (let cur: number | null = id, guard = 0; cur && guard < 20; guard++) {
+    const d: { code: string; parent_id: number | null } | undefined = get<{ code: string; parent_id: number | null }>('SELECT code, parent_id FROM departments WHERE id = ?', cur);
+    if (!d) break;
+    out.push(d.code);
+    cur = d.parent_id;
+  }
+  return out;
+}
 
 /**
  * Phòng ban & Nhân sự (sơ đồ tổ chức): Ban Giám đốc đứng đầu, dưới là các phòng (parent_id);
@@ -32,7 +45,8 @@ r.get('/', (_req, res) => {
   const deps = all(`SELECT d.id, d.code, d.name, d.parent_id, d.position FROM departments d ORDER BY d.position, d.name`);
   const staff = all(`SELECT s.id, s.full_name, s.positions, s.note, s.user_id, s.department_id, u.username, u.is_active
     FROM staff s LEFT JOIN users u ON u.id = s.user_id ORDER BY s.full_name`);
-  res.json(deps.map((d: any) => ({ ...d, staff: staff.filter((x: any) => x.department_id === d.id) })));
+  // allowed_positions: vị trí được chọn khi thêm nhân sự vào phòng ban; preset: vị trí tích sẵn của nhóm
+  res.json(deps.map((d: any) => { const a = allowedPositions(departmentCodes(d.id)); return { ...d, allowed_positions: a.allowed, preset_position: a.preset, staff: staff.filter((x: any) => x.department_id === d.id) }; }));
 });
 
 r.post('/', (req, res) => {
