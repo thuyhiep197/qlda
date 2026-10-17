@@ -111,6 +111,7 @@ function StaffRow({ x, onEdit, onDelete }: { x: StaffMember; onEdit?: () => void
       <UserRound size={14} className="muted" />
       <div className="grow" style={{ minWidth: 0 }}>
         <div className="ellipsis">{x.full_name}{x.note && <span className="muted small"> ({x.note})</span>}</div>
+        {x.manager_name && <div className="muted small ellipsis">Quản lý: {x.manager_name}</div>}
         <div className="row gap-xs" style={{ flexWrap: 'wrap' }}>
           {x.positions.split(',').filter(Boolean).map((p) => <span key={p} className="unit-chip">{posLabel(p)?.code ?? p}</span>)}
           {x.username ? <span className="muted small">@{x.username}</span> : <span className="small warn-text" data-tip="Gắn tài khoản để người này nhận việc và xem khách hàng mình phụ trách">Chưa gắn tài khoản</span>}
@@ -155,10 +156,18 @@ function DepModal({ d, deps, onClose }: { d: Partial<Department>; deps: Departme
 
 function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Department[]; onClose: () => void }) {
   const { data: users } = useUsersBasic();
+  const { data: staff } = useStaff();
   const depOf = (id: string) => deps.find((x2) => String(x2.id) === id);
+  // Phòng cấp phòng (con trực tiếp của Ban Giám đốc) chứa một phòng ban / nhóm — để xếp người cùng phòng lên trước
+  const depRoot = (id: number | null | undefined): number | null => {
+    let cur = deps.find((x2) => x2.id === id);
+    while (cur && cur.parent_id && deps.find((x2) => x2.id === cur!.parent_id)?.parent_id) cur = deps.find((x2) => x2.id === cur!.parent_id);
+    return cur?.id ?? null;
+  };
   const startDep = x.department_id ? String(x.department_id) : '';
   const [d, setD] = useState({
     full_name: x.full_name ?? '', note: x.note ?? '', user_id: x.user_id ? String(x.user_id) : '', department_id: startDep,
+    manager_id: x.manager_id ? String(x.manager_id) : '',
     // Thêm mới vào một nhóm: tích sẵn vị trí của nhóm (VD nhóm Sale → Sale)
     positions: (x.id ? (x.positions ?? '').split(',').filter(Boolean) : depOf(startDep)?.preset_position ? [depOf(startDep)!.preset_position!] : []) as StaffPosition[],
   });
@@ -174,7 +183,7 @@ function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Depar
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: d.full_name, positions: d.positions.filter((p) => allowed.includes(p)), note: d.note, user_id: d.user_id || null, department_id: d.department_id || null };
+      const body = { full_name: d.full_name, positions: d.positions.filter((p) => allowed.includes(p)), note: d.note, user_id: d.user_id || null, department_id: d.department_id || null, manager_id: d.manager_id || null };
       if (x.id) await api.patch(`/staff/${x.id}`, body); else await api.post('/staff', body);
       toast(x.id ? 'Đã lưu' : 'Đã thêm nhân sự');
       await refreshAll();
@@ -201,6 +210,14 @@ function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Depar
           </div>
           {dropped.length > 0 && <small className="warn-text">Vị trí {dropped.map((p) => STAFF_POSITION_LABELS.find((x2) => x2.key === p)?.label ?? p).join(', ')} không thuộc phòng ban này, sẽ bị bỏ khi lưu</small>}
         </div>
+        <label className="field"><span>Quản lý <small className="muted">(chọn từ danh sách nhân sự)</small></span>
+          <select value={d.manager_id} onChange={(e) => setD({ ...d, manager_id: e.target.value })}>
+            <option value="">— Không có —</option>
+            {/* Người cùng phòng lên trước; không chọn được chính mình */}
+            {[...(staff ?? [])].filter((m) => m.id !== x.id)
+              .sort((a, b) => Number(depRoot(b.department_id) === depRoot(Number(d.department_id) || null)) - Number(depRoot(a.department_id) === depRoot(Number(d.department_id) || null)) || a.full_name.localeCompare(b.full_name, 'vi'))
+              .map((m) => <option key={m.id} value={m.id}>{m.full_name}{m.department_name ? ` — ${m.department_name}` : ''}</option>)}
+          </select></label>
         <label className="field"><span>Tài khoản đăng nhập <small className="muted">(để nhận việc, xem khách hàng mình phụ trách)</small></span>
           <select value={d.user_id} onChange={(e) => setD({ ...d, user_id: e.target.value })}>
             <option value="">— Chưa gắn —</option>

@@ -43,7 +43,8 @@ function checkNoCycle(id: number, parentId: number | null) {
 // Mọi người đã đăng nhập đều xem được: phòng ban kèm danh sách nhân sự
 r.get('/', (_req, res) => {
   const deps = all(`SELECT d.id, d.code, d.name, d.parent_id, d.position FROM departments d ORDER BY d.position, d.name`);
-  const staff = all(`SELECT s.id, s.full_name, s.positions, s.note, s.user_id, s.department_id, u.username, u.is_active
+  const staff = all(`SELECT s.id, s.full_name, s.positions, s.note, s.user_id, s.department_id, u.username, u.is_active,
+      s.manager_id, (SELECT m.full_name FROM staff m WHERE m.id = s.manager_id) AS manager_name
     FROM staff s LEFT JOIN users u ON u.id = s.user_id ORDER BY s.full_name`);
   // allowed_positions: vị trí được chọn khi thêm nhân sự vào phòng ban; preset: vị trí tích sẵn của nhóm
   res.json(deps.map((d: any) => { const a = allowedPositions(departmentCodes(d.id)); return { ...d, allowed_positions: a.allowed, preset_position: a.preset, staff: staff.filter((x: any) => x.department_id === d.id) }; }));

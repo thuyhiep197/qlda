@@ -444,6 +444,8 @@ const migrations: string[] = [
    INSERT INTO departments(code, name, parent_id, position) SELECT 'P.HC.' || c.code, c.name, p.id, p.position * 10 + c.pos FROM departments p,
      (SELECT 'KT' AS code, 'Kế toán' AS name, 1 AS pos UNION ALL SELECT 'NS', 'Nhân sự', 2 UNION ALL SELECT 'HCNS', 'Hành chính nhân sự', 3) c WHERE p.code = 'P.HC';
    ALTER TABLE staff ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL;
+   -- Quản lý trực tiếp của nhân sự (một nhân sự khác)
+   ALTER TABLE staff ADD COLUMN manager_id INTEGER REFERENCES staff(id) ON DELETE SET NULL;
    -- Nhân sự đang có: KD → nhóm Sale, AM → nhóm AM (Phòng Kinh doanh); còn lại → nhóm của Phòng Dự án theo vị trí (BA trước, rồi Dev, Tester)
    UPDATE staff SET department_id = (SELECT id FROM departments WHERE code = CASE
      WHEN ',' || positions || ',' LIKE '%,kd,%' THEN 'P.KD.SALE'

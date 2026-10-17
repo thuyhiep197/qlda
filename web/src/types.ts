@@ -125,6 +125,9 @@ export interface StaffMember {
   /** Phòng ban (sơ đồ tổ chức) */
   department_id?: number | null;
   department_name?: string | null;
+  /** Quản lý trực tiếp (một nhân sự khác) */
+  manager_id?: number | null;
+  manager_name?: string | null;
 }
 
 export interface ProjectSummary {
