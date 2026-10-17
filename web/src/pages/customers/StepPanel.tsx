@@ -1,10 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Lock, Mail, Phone, Plus, Trash2, Users, X } from 'lucide-react';
+import { AlertTriangle, Lock, Mail, Phone, Plus, Trash2, Users, X } from 'lucide-react';
 import { api } from '../../api';
 import { hasPerm, useMe, useUsersBasic } from '../../hooks';
 import type { ActivityKind, CustomerDetail, StepDetail, StepStatus } from '../../types';
 import { fmtDate, timeAgo, today } from '../../util';
+import { overdueDays } from '../../customer-filter';
 import { Avatar, Markdown, Spinner, toast, toastError } from '../../components/ui';
 import { MentionTextarea } from '../../components/MentionTextarea';
 import { refreshCustomer, STEP_STATUS } from './JourneyPane';
@@ -66,6 +67,9 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
         </div>
         <button className="icon-btn" aria-label="Đóng, về thông tin khách hàng" data-tip="Về thông tin khách hàng" onClick={onClose}><X size={16} /></button>
       </div>
+      {overdueDays(s.due_date, s.status, today()) > 0 && (
+        <div className="j-late-banner"><AlertTriangle size={15} /> Quá hạn {overdueDays(s.due_date, s.status, today())} ngày (hạn {fmtDate(s.due_date)}) — bước chưa hoàn thành</div>
+      )}
       <Block title="Thông tin bước" extra={canEdit && <>
         {s.depth < 3 && <button className="icon-btn" aria-label="Thêm bước con" data-tip="Thêm bước con" onClick={addChild}><Plus size={14} /></button>}
         <button className="icon-btn" aria-label="Bỏ bước" data-tip="Bỏ bước (cùng bước con)" onClick={remove}><Trash2 size={14} /></button>
@@ -80,7 +84,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
           ['Hạn', canEdit ? <input type="date" value={s.due_date ?? ''} onChange={(e) => patch({ due_date: e.target.value || null })} /> : fmtDate(s.due_date)],
           ['Nhắc nhở', canEdit
             ? <select value={s.ping_days} onChange={(e) => patch({ ping_days: Number(e.target.value) })}
-                data-tip="Nhắc người thực hiện qua chuông thông báo, mỗi ngày từ N ngày trước hạn cho tới khi Kết thúc">
+                data-tip="Nhắc người thực hiện qua chuông thông báo, mỗi ngày từ N ngày trước hạn cho tới khi Hoàn thành">
                 {s.ping_options.map((d) => <option key={d} value={d}>{d ? `Trước hạn ${d} ngày` : 'Tắt'}</option>)}</select>
             : s.ping_days ? `Trước hạn ${s.ping_days} ngày` : 'Tắt'],
         ]} />

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { customerKpis, descriptionOf, filterCustomers, filterSteps, wardCodeOf } from './customer-filter';
+import { customerKpis, descriptionOf, filterCustomers, filterSteps, overdueDays, wardCodeOf } from './customer-filter';
 import type { Customer } from './types';
 
 const c = (o: Partial<Customer>): Customer => ({
@@ -70,4 +70,11 @@ test('journey steps filter by status, unit (performing or supporting), mine and 
   assert.deepEqual(ids({ unit: 'KD' }), [3]);
   assert.deepEqual(ids({ mine: 7 }), [3]);
   assert.deepEqual(ids({ q: 'giai phap' }), [2]);
+});
+
+test('overdue days count only unfinished work past its due date', () => {
+  assert.equal(overdueDays('2026-10-14', 'doing', '2026-10-17'), 3);
+  assert.equal(overdueDays('2026-10-17', 'todo', '2026-10-17'), 0);
+  assert.equal(overdueDays('2026-10-01', 'done', '2026-10-17'), 0);
+  assert.equal(overdueDays(null, 'todo', '2026-10-17'), 0);
 });

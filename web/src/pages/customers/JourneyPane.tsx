@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, MessageSquare, Paperclip } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Paperclip } from 'lucide-react';
 import { api, queryClient } from '../../api';
 import { hasPerm, useDepartments, useMe } from '../../hooks';
 import type { CustomerDetail, JourneyData, JourneyStep, StepStatus } from '../../types';
-import { CUSTOMER_STATUSES, filterSteps } from '../../customer-filter';
+import { CUSTOMER_STATUSES, filterSteps, overdueDays } from '../../customer-filter';
 import { fmtDate, lozengeOf, today } from '../../util';
 import { Empty, Spinner, toast, toastError } from '../../components/ui';
 import { PersonChip, UserPickerPopover } from '../../components/UserPicker';
 
 export const STEP_STATUS: Record<StepStatus, { label: string; tone: string }> = {
-  todo: { label: 'Chưa bắt đầu', tone: 'default' }, doing: { label: 'Bắt đầu', tone: 'blue' }, done: { label: 'Kết thúc', tone: 'green' },
+  todo: { label: 'Chưa bắt đầu', tone: 'default' }, doing: { label: 'Đang thực hiện', tone: 'blue' }, done: { label: 'Hoàn thành', tone: 'green' },
 };
 export const UNITS = ['KD', 'AM', 'BA', 'DEV', 'HC', 'BGĐ', 'Đối tác'];
 
@@ -136,13 +136,14 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
                 return (
                   <tr key={s.id} className="j-section" onClick={() => toggle(s.id)}>
                     <td colSpan={6}>{closed.has(s.id) ? <ChevronRight size={15} /> : <ChevronDown size={15} />} {s.code}. {s.title}
-                      {sec && <span className="muted small" style={{ fontWeight: 400 }}> · {sec.done}/{sec.total} bước</span>}</td>
+                      {sec && <span className="muted small" style={{ fontWeight: 400 }}> · {sec.done}/{sec.total} bước</span>}
+                      {!!sec?.overdue && <span className="lozenge lozenge-red j-late-badge"><AlertTriangle size={11} /> {sec.overdue} việc quá hạn</span>}</td>
                   </tr>
                 );
               }
-              const late = s.status !== 'done' && s.due_date && s.due_date < now;
+              const late = overdueDays(s.due_date, s.status, now);
               return (
-                <tr key={s.id} className={`j-d${s.depth} click-row ${s.status === 'done' ? 'j-done' : ''} ${selected === s.id ? 'j-selected' : ''}`} onClick={() => onSelect(s.id)}>
+                <tr key={s.id} className={`j-d${s.depth} click-row ${s.status === 'done' ? 'j-done' : ''} ${late ? 'j-late' : ''} ${selected === s.id ? 'j-selected' : ''}`} onClick={() => onSelect(s.id)}>
                   <td className="j-title" style={{ paddingLeft: filtered ? 8 : 8 + (s.depth - 1) * 18 }}>
                     {!filtered && s.depth === 1 && hasChildren(s)
                       ? <span onClick={(e) => { e.stopPropagation(); toggle(s.id); }} className="j-toggle">{closed.has(s.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</span> : null}
@@ -150,8 +151,9 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
                   </td>
                   {cell(s, 'assignee')}
                   {cell(s, 'supporters')}
-                  <td><span className={`lozenge lozenge-${STEP_STATUS[s.status].tone}`}>{STEP_STATUS[s.status].label}</span></td>
-                  <td className={`small nowrap ${late ? 'overdue' : 'muted'}`}>{s.due_date ? fmtDate(s.due_date) : ''}</td>
+                  <td className="nowrap"><span className={`lozenge lozenge-${STEP_STATUS[s.status].tone}`}>{STEP_STATUS[s.status].label}</span>
+                    {late > 0 && <span className="lozenge lozenge-red j-late-badge"><AlertTriangle size={11} /> Quá hạn {late} ngày</span>}</td>
+                  <td className={`small nowrap ${late ? 'overdue strong' : 'muted'}`}>{s.due_date ? fmtDate(s.due_date) : ''}</td>
                   <td className="nowrap muted small">
                     {s.talk_count > 0 && <span data-tip="Trao đổi"><MessageSquare size={12} /> {s.talk_count} </span>}
                     {s.files.length > 0 && <span data-tip="Tài liệu kết quả"><Paperclip size={12} /> {s.files.length}</span>}

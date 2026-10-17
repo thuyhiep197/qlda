@@ -59,3 +59,9 @@ export function filterSteps<T extends { depth: number; status: string; unit: str
     (!f.mine || s.assignee_id === f.mine) &&
     (!q || fold(s.title).includes(q)));
 }
+
+/** Số ngày quá hạn của việc chưa hoàn thành (0 = chưa quá hạn / đã xong / không có hạn) */
+export function overdueDays(due: string | null | undefined, status: string, today: string) {
+  if (!due || status === 'done' || due >= today) return 0;
+  return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86400_000);
+}

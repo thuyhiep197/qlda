@@ -1007,3 +1007,11 @@ a.kpi:hover { background: var(--table-hover); }
 .j-person-field { position: relative; display: flex; flex-direction: column; gap: 3px; }
 .j-person-btn { display: flex; flex-wrap: wrap; align-items: center; min-height: 32px; text-align: left; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); padding: 3px 8px; cursor: pointer; font: inherit; color: var(--text); }
 .j-person-btn:disabled { cursor: default; border-color: transparent; padding-left: 0; }
+
+/* Cảnh báo đỏ: việc quá hạn chưa hoàn thành */
+.j-late td { background: var(--error-row-bg); }
+.j-late td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+.j-late-badge { margin-left: 6px; display: inline-flex; align-items: center; gap: 3px; }
+.overdue.strong { font-weight: 700; }
+.cw-task.j-late { background: var(--error-row-bg); box-shadow: inset 3px 0 0 var(--danger); padding-left: 6px; }
+.j-late-banner { display: flex; align-items: center; gap: 6px; margin: 10px 12px 0; padding: 8px 10px; border-radius: 6px; background: var(--error-bg); color: var(--danger); font-weight: 600; font-size: 13px; }

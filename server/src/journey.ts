@@ -7,8 +7,8 @@ import path from 'node:path';
  */
 export const STEP_STATUSES = ['todo', 'doing', 'done'] as const;
 export type StepStatus = (typeof STEP_STATUSES)[number];
-export const STEP_STATUS_LABELS: Record<StepStatus, string> = { todo: 'Chưa bắt đầu', doing: 'Bắt đầu', done: 'Kết thúc' };
-/** Ping: nhắc người phụ trách trước hạn bao nhiêu ngày */
+export const STEP_STATUS_LABELS: Record<StepStatus, string> = { todo: 'Chưa bắt đầu', doing: 'Đang thực hiện', done: 'Hoàn thành' };
+/** Nhắc nhở: nhắc người thực hiện trước hạn bao nhiêu ngày */
 export const PING_DAYS = [0, 1, 2, 3, 5, 7, 10, 14, 30];
 
 export interface TemplateRow { code: string; title: string; unit: string; support: string; depth: number }

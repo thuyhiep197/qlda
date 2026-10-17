@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, Download, FileText, Mail, Paperclip, Pencil,
 import { api, refreshAll } from '../../api';
 import { hasPerm, useMe, useUsersBasic } from '../../hooks';
 import type { CustomerDetail, CustomerFile, CustomerTask } from '../../types';
-import { CUSTOMER_STATUSES } from '../../customer-filter';
+import { CUSTOMER_STATUSES, overdueDays } from '../../customer-filter';
 import { colorOf, fmtDate, fmtDateTime, fmtSize, lozengeOf, PROJECT_STATUSES, today } from '../../util';
 import { CustomerModal } from '../Customers';
 import { toast, toastError } from '../../components/ui';
@@ -116,7 +116,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
   );
 }
 
-const TASK_STATUS = { todo: 'Cần làm', doing: 'Đang làm', done: 'Hoàn thành' } as const;
+const TASK_STATUS = { todo: 'Chưa bắt đầu', doing: 'Đang thực hiện', done: 'Hoàn thành' } as const;
 
 /** Công việc: Kinh doanh (mặc định) và Dự án (tiến độ; bấm để mở Kế hoạch chi tiết của dự án) */
 function Tasks({ c, canEdit, canDeleteAll }: { c: CustomerDetail; canEdit: boolean; canDeleteAll: boolean }) {
@@ -167,13 +167,13 @@ function Tasks({ c, canEdit, canDeleteAll }: { c: CustomerDetail; canEdit: boole
           </form>
         )}
         {!list.length ? <p className="muted small">{c.tasks.length ? 'Không còn việc chưa xong' : 'Chưa có công việc kinh doanh'}</p> : list.map((t) => {
-          const late = t.status !== 'done' && t.due_date && t.due_date < now;
+          const late = overdueDays(t.due_date, t.status, now);
           return (
-            <div key={t.id} className={`cw-task ${t.status === 'done' ? 'j-done' : ''}`}>
+            <div key={t.id} className={`cw-task ${t.status === 'done' ? 'j-done' : ''} ${late ? 'j-late' : ''}`}>
               <input type="checkbox" checked={t.status === 'done'} disabled={!canEdit} aria-label="Hoàn thành" onChange={(e) => update(t, { status: e.target.checked ? 'done' : 'todo' })} />
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="j-title">{t.title}</div>
-                <div className="small muted">{t.assignee_name ?? 'Chưa giao'}{t.due_date && <> · <span className={late ? 'overdue' : ''}>{fmtDate(t.due_date)}</span></>}
+                <div className="small muted">{t.assignee_name ?? 'Chưa giao'}{t.due_date && <> · <span className={late ? 'overdue strong' : ''}>{fmtDate(t.due_date)}{late ? ` · Quá hạn ${late} ngày` : ''}</span></>}
                   {t.status === 'doing' && <> · {TASK_STATUS.doing}</>}</div>
               </div>
               {canEdit && t.status !== 'done' && <select className="cw-mini-select" value={t.status} onChange={(e) => update(t, { status: e.target.value })} aria-label="Trạng thái">
