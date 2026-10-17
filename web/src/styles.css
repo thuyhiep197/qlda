@@ -989,3 +989,21 @@ a.kpi:hover { background: var(--table-hover); }
 .cw-sub.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; box-shadow: inset 3px 0 0 var(--primary); }
 .cw-sub-empty { padding: 4px 8px 6px 30px; }
 .cw-title { margin: 0 8px 0 0; font-size: 18px; white-space: nowrap; }
+.j-person { position: relative; max-width: 220px; }
+.j-person.editable { cursor: pointer; }
+.j-person.editable:hover { background: var(--hover); }
+.person-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; margin: 1px 6px 1px 0; font-size: 13px; }
+.unit-chip.planned { opacity: .55; border: 1px dashed var(--border); background: transparent; }
+.j-add { color: var(--primary); font-size: 12px; opacity: 0; }
+.j-person.editable:hover .j-add { opacity: 1; }
+.picker-pop { position: absolute; z-index: 30; top: 100%; left: 0; width: 280px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 8px; cursor: default; }
+.picker-list { max-height: 300px; overflow-y: auto; margin-top: 6px; }
+.picker-group { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding: 8px 6px 2px; }
+.picker-item { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; text-align: left; padding: 6px; border-radius: 4px; cursor: pointer; font: inherit; color: var(--text); }
+.picker-item:hover { background: var(--hover); }
+.picker-item.on { background: var(--primary-soft); color: var(--primary); }
+.picker-check { width: 14px; display: inline-flex; }
+.picker-foot { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
+.j-person-field { position: relative; display: flex; flex-direction: column; gap: 3px; }
+.j-person-btn { display: flex; flex-wrap: wrap; align-items: center; min-height: 32px; text-align: left; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); padding: 3px 8px; cursor: pointer; font: inherit; color: var(--text); }
+.j-person-btn:disabled { cursor: default; border-color: transparent; padding-left: 0; }

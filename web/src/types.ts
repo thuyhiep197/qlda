@@ -28,7 +28,13 @@ export interface UserBasic {
     avatar_url?: string | null;
   default_role_id?: number | null;
   default_role_name?: string | null;
+  /** Phòng ban (Danh mục phòng ban) */
+  department_id?: number | null;
+  department_code?: string | null;
+  department_name?: string | null;
 }
+
+export interface Department { id: number; code: string; name: string; position: number; user_count: number }
 
 export interface User extends UserBasic {
   email: string | null;
@@ -372,6 +378,9 @@ export type StepStatus = 'todo' | 'doing' | 'done';
 export interface JourneyStep {
   id: number; position: number; depth: number; code: string | null; title: string; unit: string | null; support: string | null;
   status: StepStatus; assignee_id: number | null; assignee_name: string | null; due_date: string | null; ping_days: number; note: string | null;
+  /** Phòng ban của người thực hiện (tự theo tài khoản); unit/support = phòng theo quy trình mẫu khi chưa giao người */
+  assignee_dept: string | null;
+  supporters: { id: number; full_name: string; dept: string | null }[];
   files: { id: number; filename: string; size: number }[];
   /** Số trao đổi của bước */
   talk_count: number;

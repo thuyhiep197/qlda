@@ -15,7 +15,13 @@ const need = (perm: string) => (req: Request, _res: Response, next: NextFunction
 const r = Router();
 
 const USER_COLS = `id, username, full_name, email, avatar, is_admin, is_active, must_change_password, created_at, last_login_at,
-  default_role_id, (SELECT name FROM roles WHERE roles.id = users.default_role_id) AS default_role_name`;
+  default_role_id, (SELECT name FROM roles WHERE roles.id = users.default_role_id) AS default_role_name,
+  department_id, (SELECT code FROM departments d WHERE d.id = users.department_id) AS department_code`;
+function checkDepartment(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  if (!get('SELECT 1 FROM departments WHERE id = ?', Number(v))) throw badRequest('Phòng ban không hợp lệ');
+  return Number(v);
+}
 const userJson = (u: any) => { const { avatar, ...user } = u; return { ...user, avatar_url: avatarUrl(avatar) }; };
 
 function checkRole(v: unknown): number | null {
@@ -27,8 +33,10 @@ function checkRole(v: unknown): number | null {
 
 /** Danh sách rút gọn cho mọi người dùng đã đăng nhập (dùng khi chọn người). */
 r.get('/users/basic', (_req, res) => {
-  const users = all(`SELECT u.id, u.username, u.full_name, u.avatar, u.default_role_id, r.name AS default_role_name
-    FROM users u LEFT JOIN roles r ON r.id = u.default_role_id WHERE u.is_active = 1 ORDER BY u.full_name`);
+  const users = all(`SELECT u.id, u.username, u.full_name, u.avatar, u.default_role_id, r.name AS default_role_name,
+      u.department_id, d.code AS department_code, d.name AS department_name
+    FROM users u LEFT JOIN roles r ON r.id = u.default_role_id LEFT JOIN departments d ON d.id = u.department_id
+    WHERE u.is_active = 1 ORDER BY u.full_name`);
   res.json(users.map((u: any) => { const { avatar, ...user } = u; return { ...user, avatar_url: avatarUrl(avatar) }; }));
 });
 
@@ -71,8 +79,8 @@ r.post('/users', need('user.create'), (req, res) => {
   if (b.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được tạo tài khoản quản trị');
   const id = tx(() => {
     const { id } = run(
-      'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password) VALUES (?,?,?,?,?,?,1)',
-      username, full_name, b.email || null, hashPassword(password), !!b.is_admin, roleId,
+      'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password, department_id) VALUES (?,?,?,?,?,?,1,?)',
+      username, full_name, b.email || null, hashPassword(password), !!b.is_admin, roleId, checkDepartment(b.department_id),
     );
     if (b.project_ids !== undefined) setProjects(id, b.project_ids);
     return id;
@@ -94,12 +102,13 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   const full_name = b.full_name !== undefined ? String(b.full_name).trim() : u.full_name;
   if (!full_name) throw badRequest('Họ tên không được để trống');
   tx(() => {
-    run('UPDATE users SET full_name = ?, email = ?, is_admin = ?, is_active = ?, default_role_id = ? WHERE id = ?',
+    run('UPDATE users SET full_name = ?, email = ?, is_admin = ?, is_active = ?, default_role_id = ?, department_id = ? WHERE id = ?',
       full_name,
       b.email !== undefined ? b.email || null : u.email,
       b.is_admin !== undefined ? !!b.is_admin : u.is_admin,
       b.is_active !== undefined ? !!b.is_active : u.is_active,
       b.default_role_id !== undefined ? checkRole(b.default_role_id) : u.default_role_id,
+      b.department_id !== undefined ? checkDepartment(b.department_id) : u.department_id,
       id);
     run('UPDATE project_members SET role_id = ? WHERE user_id = ?', accountRoleId(id), id);
     if (b.project_ids !== undefined) setProjects(id, b.project_ids);
@@ -111,6 +120,7 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   if (after.default_role_id !== u.default_role_id) changes.nhom = `${get('SELECT name FROM roles WHERE id = ?', u.default_role_id)?.name ?? '—'} → ${get('SELECT name FROM roles WHERE id = ?', after.default_role_id)?.name ?? '—'}`;
   if (after.full_name !== u.full_name) changes.ho_ten = `${u.full_name} → ${after.full_name}`;
   if (after.email !== u.email) changes.email = `${u.email ?? '—'} → ${after.email ?? '—'}`;
+  if (after.department_id !== u.department_id) changes.phong_ban = get('SELECT code FROM departments WHERE id = ?', after.department_id)?.code ?? '—';
   if (b.project_ids !== undefined) changes.du_an = 'Cập nhật danh sách dự án';
   audit(req, 'user_updated', { target: u.username, detail: changes });
   res.json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));

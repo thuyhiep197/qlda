@@ -7,7 +7,7 @@ export function adminTabs(me: Parameters<typeof hasPerm>[0]): [string, string, L
   return ([
     ['users', 'Người dùng', Users, hasPerm(me, 'user.view')],
     ['roles', 'Phân quyền', ShieldCheck, hasPerm(me, 'role.view')],
-    ['catalogs', 'Danh mục', BookMarked, hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')],
+    ['catalogs', 'Danh mục', BookMarked, hasPerm(me, 'department.view') || hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')],
     ['audit', 'Nhật ký bảo mật', ScrollText, hasPerm(me, 'user.view')],
   ] as [string, string, LucideIcon, boolean][]).filter((t) => t[3]).map(([k, l, i]) => [k, l, i]);
 }

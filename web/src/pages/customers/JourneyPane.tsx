@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, MessageSquare, Paperclip } from 'lucide-react';
 import { api, queryClient } from '../../api';
-import { hasPerm, useMe } from '../../hooks';
+import { hasPerm, useDepartments, useMe } from '../../hooks';
 import type { CustomerDetail, JourneyData, JourneyStep, StepStatus } from '../../types';
 import { CUSTOMER_STATUSES, filterSteps } from '../../customer-filter';
 import { fmtDate, lozengeOf, today } from '../../util';
 import { Empty, Spinner, toast, toastError } from '../../components/ui';
+import { PersonChip, UserPickerPopover } from '../../components/UserPicker';
 
 export const STEP_STATUS: Record<StepStatus, { label: string; tone: string }> = {
   todo: { label: 'Chưa bắt đầu', tone: 'default' }, doing: { label: 'Bắt đầu', tone: 'blue' }, done: { label: 'Kết thúc', tone: 'green' },
@@ -23,11 +24,13 @@ export const refreshCustomer = (customerId: number) => Promise.all([
 /** Cột giữa: hành trình khách hàng theo quy trình I–IV. Bấm một bước để xem Trao đổi và Tài liệu của bước ở cột phải. */
 export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDetail; selected: number | null; onSelect: (id: number | null) => void }) {
   const { data: me } = useMe();
+  const { data: departments } = useDepartments();
   const canEdit = hasPerm(me, 'customer.edit');
   const { data, isLoading } = useQuery<JourneyData>({ queryKey: ['journey', c.id], queryFn: () => api.get(`/customers/${c.id}/journey`) });
   const [collapsed, setCollapsed] = useState<Set<number> | null>(null);
   const [f, setF] = useState({ status: '', unit: '', mine: false, q: '' });
   const [busy, setBusy] = useState(false);
+  const [picking, setPicking] = useState<{ id: number; field: 'assignee' | 'supporters' } | null>(null);
   const now = today();
 
   const head = (
@@ -60,7 +63,28 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
   const openSec = sectionOf(selected) ?? sectionOf(progress.current?.id) ?? steps[0]?.id;
   const closed = collapsed ?? new Set(steps.filter((s) => s.depth === 0 && s.id !== openSec).map((s) => s.id));
   const toggle = (id: number) => { const n = new Set(closed); if (n.has(id)) n.delete(id); else n.add(id); setCollapsed(n); };
-  const filtered = filterSteps(steps, { ...f, mine: f.mine ? me?.id ?? null : null });
+  // Lọc theo phòng: phòng của người được giao, chưa giao thì theo quy trình mẫu; "Việc của tôi": thực hiện hoặc phối hợp
+  const eff = steps.map((s) => ({ ...s, unit: s.assignee_dept ?? s.unit, support: s.supporters.length ? s.supporters.map((x) => x.dept).filter(Boolean).join('+') : s.support,
+    assignee_id: f.mine && s.supporters.some((x) => x.id === me?.id) ? me?.id ?? null : s.assignee_id }));
+  const filteredEff = filterSteps(eff, { ...f, mine: f.mine ? me?.id ?? null : null });
+  const filtered = filteredEff && filteredEff.map((x) => steps.find((s) => s.id === x.id)!);
+  const assign = async (s: JourneyStep, body: Record<string, unknown>) => {
+    try { await api.patch(`/customers/${c.id}/journey/${s.id}`, body); await refreshCustomer(c.id); } catch (e) { toastError(e); }
+  };
+  const cell = (s: JourneyStep, field: 'assignee' | 'supporters') => {
+    const people = field === 'assignee' ? (s.assignee_id ? [{ id: s.assignee_id, full_name: s.assignee_name ?? '', dept: s.assignee_dept }] : []) : s.supporters;
+    const planned = field === 'assignee' ? s.unit : s.support;
+    const open = picking?.id === s.id && picking.field === field;
+    return (
+      <td className={`j-person ${canEdit ? 'editable' : ''}`} onClick={(e) => { if (!canEdit) return; e.stopPropagation(); setPicking(open ? null : { id: s.id, field }); }}>
+        {people.length ? people.map((p) => <PersonChip key={p.id} name={p.full_name} dept={p.dept} />)
+          : planned ? <span className="unit-chip planned" data-tip="Phòng theo quy trình mẫu — chưa giao người">{planned}</span>
+          : canEdit ? <span className="j-add">+ Giao</span> : null}
+        {open && <UserPickerPopover value={people.map((p) => p.id)} multi={field === 'supporters'} prefer={planned} onClose={() => setPicking(null)}
+          onChange={(ids) => assign(s, field === 'assignee' ? { assignee_id: ids[0] ?? null } : { supporter_ids: ids })} />}
+      </td>
+    );
+  };
   const visible: JourneyStep[] = filtered ?? (() => {
     const out: JourneyStep[] = []; let hideBelow: number | null = null;
     for (const s of steps) {
@@ -95,15 +119,15 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
           <option value="">Mọi trạng thái</option>
           {(Object.keys(STEP_STATUS) as StepStatus[]).map((k) => <option key={k} value={k}>{STEP_STATUS[k].label}</option>)}
         </select>
-        <select value={f.unit} className={f.unit ? 'filter-on' : ''} onChange={(e) => setF({ ...f, unit: e.target.value })} aria-label="Lọc phòng">
-          <option value="">Mọi phòng</option>
-          {UNITS.map((u) => <option key={u}>{u}</option>)}
+        <select value={f.unit} className={f.unit ? 'filter-on' : ''} onChange={(e) => setF({ ...f, unit: e.target.value })} aria-label="Lọc phòng ban">
+          <option value="">Mọi phòng ban</option>
+          {(departments?.map((d) => d.code) ?? UNITS).map((u) => <option key={u}>{u}</option>)}
         </select>
         <label className="check small"><input type="checkbox" checked={f.mine} onChange={(e) => setF({ ...f, mine: e.target.checked })} /> Việc của tôi</label>
       </div>
       <div className="cw-scroll">
         <table className="table journey-table">
-          <thead><tr><th>Nội dung</th><th>Phòng thực hiện</th><th>Phòng phối hợp</th><th>Trạng thái</th><th>Hạn</th><th /></tr></thead>
+          <thead><tr><th>Nội dung</th><th>Người thực hiện</th><th>Người phối hợp</th><th>Trạng thái</th><th>Hạn</th><th /></tr></thead>
           <tbody>
             {filtered && !filtered.length && <tr><td colSpan={6} className="muted center">Không có bước phù hợp</td></tr>}
             {visible.map((s) => {
@@ -124,8 +148,8 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
                       ? <span onClick={(e) => { e.stopPropagation(); toggle(s.id); }} className="j-toggle">{closed.has(s.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</span> : null}
                     {s.code ? `${s.code} ` : s.depth === 3 ? '– ' : ''}{s.title}
                   </td>
-                  <td>{s.unit && <span className="unit-chip">{s.unit}</span>}</td>
-                  <td>{s.support && <span className="unit-chip">{s.support}</span>}</td>
+                  {cell(s, 'assignee')}
+                  {cell(s, 'supporters')}
                   <td><span className={`lozenge lozenge-${STEP_STATUS[s.status].tone}`}>{STEP_STATUS[s.status].label}</span></td>
                   <td className={`small nowrap ${late ? 'overdue' : 'muted'}`}>{s.due_date ? fmtDate(s.due_date) : ''}</td>
                   <td className="nowrap muted small">

@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
 import { RELEASES_ENABLED } from './util';
-import type { Component, Customer, GeoProvince, GeoWard, Me, Product, ProductType, Project, ProjectSummary, Role, Sprint, StaffMember, UserBasic, Version } from './types';
+import type { Component, Customer, Department, GeoProvince, GeoWard, Me, Product, ProductType, Project, ProjectSummary, Role, Sprint, StaffMember, UserBasic, Version } from './types';
 
 export const useMe = () => useQuery<Me | null>({
   queryKey: ['me'],
@@ -38,6 +38,7 @@ export const useProvinces = () => useQuery<GeoProvince[]>({ queryKey: ['geo-prov
 export const useWards = (province?: string | null) => useQuery<GeoWard[]>({
   queryKey: ['geo-wards', province], queryFn: () => api.get(`/geo/wards?province=${province}`), enabled: !!province, staleTime: 300_000,
 });
+export const useDepartments = () => useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments') });
 export const useCustomerNames = () => useQuery<Pick<Customer, 'id' | 'name'>[]>({ queryKey: ['customer-names'], queryFn: () => api.get('/customers/names') });
 export const useUsersBasic = () => useQuery<UserBasic[]>({ queryKey: ['users-basic'], queryFn: () => api.get('/users/basic') });
 export const useComponents = (key?: string) => useQuery<Component[]>({

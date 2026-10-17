@@ -7,7 +7,8 @@ import type { ActivityKind, CustomerDetail, StepDetail, StepStatus } from '../..
 import { fmtDate, timeAgo, today } from '../../util';
 import { Avatar, Markdown, Spinner, toast, toastError } from '../../components/ui';
 import { MentionTextarea } from '../../components/MentionTextarea';
-import { refreshCustomer, STEP_STATUS, UNITS } from './JourneyPane';
+import { refreshCustomer, STEP_STATUS } from './JourneyPane';
+import { PersonChip, UserPickerPopover } from '../../components/UserPicker';
 import { Block, FileList, Props, UploadButton } from './CustomerSide';
 
 const KIND: Record<ActivityKind, { label: string; icon: ReactNode }> = {
@@ -23,6 +24,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
   const { data: me } = useMe();
   const { data: users } = useUsersBasic();
   const canEdit = hasPerm(me, 'customer.edit');
+  const [picking, setPicking] = useState<'assignee' | 'supporters' | null>(null);
   const { data: s, isLoading, error } = useQuery<StepDetail>({ queryKey: ['step', stepId], queryFn: () => api.get(`/customers/${customer.id}/journey/${stepId}`) });
 
   if (isLoading) return <Spinner />;
@@ -40,10 +42,20 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
     if (!confirm(`Bỏ "${s.title}" (cùng các bước con nếu có) khỏi hành trình của khách hàng này?`)) return;
     try { const r = await api.del<{ removed: number }>(`/customers/${customer.id}/journey/${s.id}`); toast(`Đã bỏ ${r.removed} bước`); onClose(); await refreshCustomer(customer.id); } catch (e) { toastError(e); }
   };
-  const unitInput = (key: 'unit' | 'support', value: string | null) => canEdit
-    ? <input list="unit-options" defaultValue={value ?? ''} key={`${s.id}-${key}-${value}`} placeholder="VD: AM, BA+DEV"
-        onBlur={(e) => e.target.value.trim() !== (value ?? '') && patch({ [key]: e.target.value })} aria-label={key === 'unit' ? 'Phòng thực hiện' : 'Phòng phối hợp'} />
-    : value && <span className="unit-chip">{value}</span>;
+  const people = (field: 'assignee' | 'supporters') => {
+    const list = field === 'assignee' ? (s.assignee_id ? [{ id: s.assignee_id, full_name: s.assignee_name ?? '', dept: s.assignee_dept }] : []) : s.supporters;
+    const planned = field === 'assignee' ? s.unit : s.support;
+    return (
+      <div className="j-person-field">
+        <button type="button" className="j-person-btn" disabled={!canEdit} onClick={() => setPicking(picking === field ? null : field)}>
+          {list.length ? list.map((p) => <PersonChip key={p.id} name={p.full_name} dept={p.dept} />) : <span className="muted">{canEdit ? 'Chọn người…' : '—'}</span>}
+        </button>
+        {planned && <div className="muted small">Theo quy trình: <span className="unit-chip planned">{planned}</span></div>}
+        {picking === field && <UserPickerPopover value={list.map((p) => p.id)} multi={field === 'supporters'} prefer={planned} onClose={() => setPicking(null)}
+          onChange={(ids) => patch(field === 'assignee' ? { assignee_id: ids[0] ?? null } : { supporter_ids: ids })} />}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -58,22 +70,17 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
         {s.depth < 3 && <button className="icon-btn" aria-label="Thêm bước con" data-tip="Thêm bước con" onClick={addChild}><Plus size={14} /></button>}
         <button className="icon-btn" aria-label="Bỏ bước" data-tip="Bỏ bước (cùng bước con)" onClick={remove}><Trash2 size={14} /></button>
       </>}>
-        <datalist id="unit-options">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
         <Props rows={[
-          ['Phòng thực hiện', unitInput('unit', s.unit)],
-          ['Phòng phối hợp', unitInput('support', s.support)],
+          ['Người thực hiện', people('assignee')],
+          ['Người phối hợp', people('supporters')],
           ['Trạng thái', canEdit
             ? <select className={`j-status j-${s.status}`} value={s.status} onChange={(e) => patch({ status: e.target.value })}>
                 {(Object.keys(STEP_STATUS) as StepStatus[]).map((k) => <option key={k} value={k}>{STEP_STATUS[k].label}</option>)}</select>
             : <span className={`lozenge lozenge-${STEP_STATUS[s.status].tone}`}>{STEP_STATUS[s.status].label}</span>],
-          ['Người phụ trách', canEdit
-            ? <select value={s.assignee_id ?? ''} onChange={(e) => patch({ assignee_id: e.target.value || null })}>
-                <option value="">—</option>{users?.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}</select>
-            : s.assignee_name],
           ['Hạn', canEdit ? <input type="date" value={s.due_date ?? ''} onChange={(e) => patch({ due_date: e.target.value || null })} /> : fmtDate(s.due_date)],
           ['Ping', canEdit
             ? <select value={s.ping_days} onChange={(e) => patch({ ping_days: Number(e.target.value) })}
-                data-tip="Nhắc người phụ trách qua chuông thông báo, mỗi ngày từ N ngày trước hạn cho tới khi Kết thúc">
+                data-tip="Nhắc người thực hiện qua chuông thông báo, mỗi ngày từ N ngày trước hạn cho tới khi Kết thúc">
                 {s.ping_options.map((d) => <option key={d} value={d}>{d ? `Trước hạn ${d} ngày` : 'Tắt'}</option>)}</select>
             : s.ping_days ? `Trước hạn ${s.ping_days} ngày` : 'Tắt'],
         ]} />

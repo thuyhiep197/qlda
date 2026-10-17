@@ -64,7 +64,7 @@ export default function App() {
             {hasPerm(me, 'user.view') && <Route path="users" element={<AdminUsers />} />}
             {hasPerm(me, 'role.view') && <Route path="roles" element={<AdminRoles />} />}
             {hasPerm(me, 'user.view') && <Route path="audit" element={<AdminAudit />} />}
-            {(hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && <Route path="catalogs" element={<AdminCatalogs />} />}
+            {(hasPerm(me, 'department.view') || hasPerm(me, 'geo.view') || hasPerm(me, 'product.view') || hasPerm(me, 'staff.view')) && <Route path="catalogs" element={<AdminCatalogs />} />}
           </Route>
           {hasPerm(me, 'customer.view') && <Route path="customers" element={<CustomerWorkspace />} />}
           {hasPerm(me, 'customer.view') && <Route path="customers/:id" element={<CustomerWorkspace />} />}

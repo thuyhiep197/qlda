@@ -13,8 +13,18 @@ const r = Router();
 /** Khách hàng theo :id — kiểm tra quyền và người dùng được xem khách hàng này */
 const loadCustomer = (req: Request, perm: Permission = 'customer.view') => loadVisible(req, perm) as { id: number; name: string };
 
-const STEP_SELECT = `SELECT s.*, u.full_name AS assignee_name FROM journey_steps s LEFT JOIN users u ON u.id = s.assignee_id`;
-export const journeySteps = (customerId: number) => all(`${STEP_SELECT} WHERE s.customer_id = ? ORDER BY s.position, s.id`, customerId);
+const STEP_SELECT = `SELECT s.*, u.full_name AS assignee_name, d.code AS assignee_dept FROM journey_steps s
+  LEFT JOIN users u ON u.id = s.assignee_id LEFT JOIN departments d ON d.id = u.department_id`;
+/** Người phối hợp của các bước: [{ step_id, id, full_name, dept }] */
+const supportersOf = (where: string, param: number) => all<{ step_id: number; id: number; full_name: string; dept: string | null }>(
+  `SELECT ss.step_id, u.id, u.full_name, d.code AS dept FROM journey_step_supporters ss JOIN users u ON u.id = ss.user_id
+   LEFT JOIN departments d ON d.id = u.department_id JOIN journey_steps s ON s.id = ss.step_id WHERE ${where} ORDER BY u.full_name`, param);
+export const journeySteps = (customerId: number) => {
+  const steps = all(`${STEP_SELECT} WHERE s.customer_id = ? ORDER BY s.position, s.id`, customerId);
+  const sup = supportersOf('s.customer_id = ?', customerId);
+  for (const st of steps) st.supporters = sup.filter((x) => x.step_id === st.id).map(({ step_id: _s, ...x }) => x);
+  return steps;
+};
 
 const activeUser = (id: number | null) => {
   if (id && !get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', id)) throw badRequest('Người phụ trách không hợp lệ');
@@ -83,6 +93,7 @@ r.get('/:id/journey/:sid', (req, res) => {
   const c = loadCustomer(req);
   const s = get(`${STEP_SELECT} WHERE s.id = ? AND s.customer_id = ?`, Number(req.params.sid), c.id);
   if (!s) throw notFound('Không tìm thấy bước trong hành trình');
+  s.supporters = supportersOf('s.id = ?', s.id).map(({ step_id: _s, ...x }) => x);
   const before = all<{ id: number; depth: number; code: string | null; title: string }>(
     'SELECT id, depth, code, title FROM journey_steps WHERE customer_id = ? AND (position < ? OR (position = ? AND id < ?)) ORDER BY position DESC, id DESC', c.id, s.position, s.position, s.id);
   // Đường dẫn: các bước cha gần nhất có cấp nhỏ hơn
@@ -118,6 +129,17 @@ r.patch('/:id/journey/:sid', (req, res) => {
   run(`UPDATE journey_steps SET status = ?, assignee_id = ?, due_date = ?, ping_days = ?, pinged_on = ?, note = ?, title = ?, unit = ?, support = ?, updated_at = ?
     WHERE id = ?`, status, assignee, due, ping, pinged, text('note', 2000), title, text('unit', 50), text('support', 80), now(), s.id);
   if (assignee && assignee !== s.assignee_id) notifyCustomer([assignee], req.user.id, c.id, 'assigned', `step:${s.id}`, `${c.name}: ${title}`);
+  // Người phối hợp: thay cả danh sách; người mới được thêm nhận thông báo
+  if (Array.isArray(b.supporter_ids)) {
+    const ids = [...new Set(b.supporter_ids.map(Number).filter((n: number) => n > 0))] as number[];
+    ids.forEach((id) => activeUser(id));
+    const before = new Set(all<{ user_id: number }>('SELECT user_id FROM journey_step_supporters WHERE step_id = ?', s.id).map((x) => x.user_id));
+    tx(() => {
+      run('DELETE FROM journey_step_supporters WHERE step_id = ?', s.id);
+      ids.forEach((id) => run('INSERT INTO journey_step_supporters(step_id, user_id) VALUES (?, ?)', s.id, id));
+    });
+    notifyCustomer(ids.filter((id) => !before.has(id)), req.user.id, c.id, 'assigned', `step:${s.id}`, `${c.name}: phối hợp ${title}`);
+  }
   res.json({ ok: true, status_label: STEP_STATUS_LABELS[status as StepStatus] });
 });
 

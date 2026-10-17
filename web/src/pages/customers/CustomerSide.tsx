@@ -118,7 +118,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
 
 const TASK_STATUS = { todo: 'Cần làm', doing: 'Đang làm', done: 'Hoàn thành' } as const;
 
-/** Công việc: Kinh doanh (mặc định) và Tiến độ dự án (mở Kế hoạch chi tiết của dự án) */
+/** Công việc: Kinh doanh (mặc định) và Dự án (tiến độ; bấm để mở Kế hoạch chi tiết của dự án) */
 function Tasks({ c, canEdit, canDeleteAll }: { c: CustomerDetail; canEdit: boolean; canDeleteAll: boolean }) {
   const { data: me } = useMe();
   const { data: users } = useUsersBasic();
@@ -150,7 +150,7 @@ function Tasks({ c, canEdit, canDeleteAll }: { c: CustomerDetail; canEdit: boole
     <Block title="Công việc">
       <div className="seg seg-sm mb" role="tablist">
         <button role="tab" aria-selected={sub === 'sales'} className={sub === 'sales' ? 'on' : ''} onClick={() => setSub('sales')}>Kinh doanh ({open.length})</button>
-        <button role="tab" aria-selected={sub === 'projects'} className={sub === 'projects' ? 'on' : ''} onClick={() => setSub('projects')}>Tiến độ dự án ({projects.length})</button>
+        <button role="tab" aria-selected={sub === 'projects'} className={sub === 'projects' ? 'on' : ''} onClick={() => setSub('projects')}>Dự án ({projects.length})</button>
       </div>
       {sub === 'sales' ? <>
         {canEdit && (

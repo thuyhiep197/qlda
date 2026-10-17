@@ -424,7 +424,17 @@ const migrations: string[] = [
   // danh mục Loại sản phẩm & Sản phẩm (mô tả sản phẩm tự điền vào khách hàng khi chọn); Danh mục địa chính (tỉnh/thành phố, phường/xã — nạp sẵn khi khởi động).
   // Dự án gắn với khách hàng qua projects.customer_id (projects.customer giữ tên để hiển thị); tạo sẵn khách hàng từ các dự án hiện có.
   // Nhóm người dùng được tạo dự án thì được toàn quyền với khách hàng và danh mục sản phẩm.
-  `CREATE TABLE geo_provinces (
+  `CREATE TABLE departments (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     code TEXT NOT NULL UNIQUE COLLATE NOCASE,
+     name TEXT NOT NULL,
+     position INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   INSERT INTO departments(code, name, position) VALUES ('BGĐ', 'Ban giám đốc', 0), ('KD', 'Kinh doanh', 1), ('AM', 'Quản lý khách hàng (AM)', 2),
+     ('BA', 'Phân tích nghiệp vụ (BA)', 3), ('DEV', 'Phát triển phần mềm (DEV)', 4), ('HC', 'Hành chính', 5);
+   ALTER TABLE users ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL;
+   CREATE TABLE geo_provinces (
      code TEXT PRIMARY KEY,
      name TEXT NOT NULL UNIQUE,
      created_at TEXT NOT NULL DEFAULT ${TS}
@@ -525,6 +535,13 @@ const migrations: string[] = [
      updated_at TEXT
    );
    CREATE INDEX idx_journey_customer ON journey_steps(customer_id, position);
+   -- Người phối hợp của bước (có thể nhiều người, VD BA + DEV); người thực hiện = journey_steps.assignee_id
+   CREATE TABLE journey_step_supporters (
+     step_id INTEGER NOT NULL REFERENCES journey_steps(id) ON DELETE CASCADE,
+     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     PRIMARY KEY (step_id, user_id)
+   );
+   CREATE INDEX idx_step_supporters_user ON journey_step_supporters(user_id);
    ALTER TABLE customer_files ADD COLUMN step_id INTEGER REFERENCES journey_steps(id) ON DELETE SET NULL;
    -- Trao đổi theo từng bước của hành trình
    ALTER TABLE customer_activities ADD COLUMN step_id INTEGER REFERENCES journey_steps(id) ON DELETE CASCADE;
@@ -552,7 +569,8 @@ const migrations: string[] = [
    CREATE INDEX idx_projects_customer ON projects(customer_id);
    UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer_all.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete',
        '$[#]', 'product.view', '$[#]', 'product.create', '$[#]', 'product.edit', '$[#]', 'product.delete',
-       '$[#]', 'geo.view', '$[#]', 'geo.create', '$[#]', 'geo.edit', '$[#]', 'geo.delete')
+       '$[#]', 'geo.view', '$[#]', 'geo.create', '$[#]', 'geo.edit', '$[#]', 'geo.delete',
+       '$[#]', 'department.view', '$[#]', 'department.create', '$[#]', 'department.edit', '$[#]', 'department.delete')
      WHERE permissions LIKE '%"project.create"%' AND permissions NOT LIKE '%"customer.view"%';`,
 ];
 

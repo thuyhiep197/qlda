@@ -1,17 +1,18 @@
 import { useSearchParams } from 'react-router-dom';
-import { Contact, MapPinned, Package, type LucideIcon } from 'lucide-react';
+import { Building, Contact, MapPinned, Package, type LucideIcon } from 'lucide-react';
 import { hasPerm, useMe } from '../hooks';
 import AdminGeo from './AdminGeo';
 import AdminProducts from './AdminProducts';
 import AdminStaff from './AdminStaff';
+import AdminDepartments from './AdminDepartments';
 
-type Tab = 'geo' | 'products' | 'staff';
+type Tab = 'departments' | 'geo' | 'products' | 'staff';
 
 /** Quản trị hệ thống → Danh mục: Danh mục địa chính, Danh mục sản phẩm, Danh mục nhân sự (mỗi tab theo quyền Xem của danh mục đó) */
 export default function AdminCatalogs() {
   const { data: me } = useMe();
   const [params, setParams] = useSearchParams();
-  const tabs = ([['geo', 'Địa chính', MapPinned, 'geo.view'], ['products', 'Sản phẩm', Package, 'product.view'], ['staff', 'Nhân sự', Contact, 'staff.view']] as [Tab, string, LucideIcon, string][])
+  const tabs = ([['departments', 'Phòng ban', Building, 'department.view'], ['geo', 'Địa chính', MapPinned, 'geo.view'], ['products', 'Sản phẩm', Package, 'product.view'], ['staff', 'Nhân sự', Contact, 'staff.view']] as [Tab, string, LucideIcon, string][])
     .filter(([, , , perm]) => hasPerm(me, perm));
   const tab = tabs.find(([t]) => t === params.get('tab'))?.[0] ?? tabs[0]?.[0];
   return (
@@ -23,6 +24,7 @@ export default function AdminCatalogs() {
           ))}
         </nav>
       </div>
+      {tab === 'departments' && <AdminDepartments />}
       {tab === 'geo' && <AdminGeo />}
       {tab === 'products' && <AdminProducts />}
       {tab === 'staff' && <AdminStaff />}

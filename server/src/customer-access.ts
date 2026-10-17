@@ -5,7 +5,7 @@ import { forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, t
 /**
  * Quyền xem khách hàng: người có quyền "Xem tất cả khách hàng" thấy mọi khách hàng;
  * người khác chỉ thấy khách hàng mình phụ trách (nhân sự trong Danh mục nhân sự gắn với tài khoản của mình),
- * hoặc khách hàng có việc kinh doanh / bước hành trình đang giao cho mình.
+ * hoặc khách hàng có việc kinh doanh / bước hành trình mình thực hiện hoặc phối hợp.
  */
 type U = Pick<AuthUser, 'id' | 'is_admin'>;
 
@@ -17,8 +17,9 @@ export function visibleCustomersSql(user: U): { sql: string; params: number[] } 
   return {
     sql: `(EXISTS (SELECT 1 FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = c.id AND s.user_id = ?)
       OR EXISTS (SELECT 1 FROM customer_tasks t WHERE t.customer_id = c.id AND t.assignee_id = ?)
-      OR EXISTS (SELECT 1 FROM journey_steps j WHERE j.customer_id = c.id AND j.assignee_id = ?))`,
-    params: [user.id, user.id, user.id],
+      OR EXISTS (SELECT 1 FROM journey_steps j WHERE j.customer_id = c.id AND j.assignee_id = ?)
+      OR EXISTS (SELECT 1 FROM journey_step_supporters ss JOIN journey_steps j ON j.id = ss.step_id WHERE j.customer_id = c.id AND ss.user_id = ?))`,
+    params: [user.id, user.id, user.id, user.id],
   };
 }
 
