@@ -978,3 +978,14 @@ a.kpi:hover { background: var(--table-hover); }
   .cw-right { border-left: 0; border-top: 1px solid var(--border); }
   .cw-scroll { max-height: 70vh; }
 }
+.cw-group { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; }
+.cw-group > .cw-item { padding: 4px 8px 4px 2px; gap: 2px; }
+.cw-caret { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 2px; display: inline-flex; }
+.cw-group-link { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: inherit; padding: 3px 4px; }
+.cw-group-link:hover { text-decoration: none; }
+.cw-group-link .lucide { color: var(--muted); }
+.cw-sub { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 30px; border-radius: 6px; color: var(--text); font-size: 13px; min-width: 0; }
+.cw-sub:hover { background: var(--hover); text-decoration: none; }
+.cw-sub.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; box-shadow: inset 3px 0 0 var(--primary); }
+.cw-sub-empty { padding: 4px 8px 6px 30px; }
+.cw-title { margin: 0 8px 0 0; font-size: 18px; white-space: nowrap; }

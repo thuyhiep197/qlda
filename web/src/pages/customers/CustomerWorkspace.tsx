@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, LayoutList, Plus, Search, Star } from 'lucide-react';
+import { ChevronDown, ChevronRight, LayoutList, Plus, Search, Star } from 'lucide-react';
 import { api } from '../../api';
-import { hasPerm, useMe, useProductTypes } from '../../hooks';
+import { hasPerm, useMe } from '../../hooks';
 import type { Customer, CustomerDetail } from '../../types';
-import { CUSTOMER_STATUSES, filterCustomers } from '../../customer-filter';
+import { CUSTOMER_STATUSES, filterCustomers, fold } from '../../customer-filter';
 import { fmtDate, lozengeOf } from '../../util';
 import { CustomerModal, useCustomers } from '../Customers';
 import { Empty, Spinner } from '../../components/ui';
@@ -15,79 +15,79 @@ import StepPanel from './StepPanel';
 
 /**
  * Phân hệ Khách hàng — bố cục nhiều cột:
- *  - Danh sách (/customers): cột trái là nhóm (Tất cả, Của tôi, Tình trạng, Loại sản phẩm); giữa là bảng khách hàng.
- *  - Chi tiết (/customers/:id): cột trái là danh sách khách hàng để chuyển nhanh; giữa là Hành trình;
+ *  - Cột trái (cả 2 màn): Khách hàng của tôi, Tất cả khách hàng — mỗi nhóm hiện luôn tên các khách hàng bên dưới.
+ *  - Danh sách (/customers): giữa là bảng khách hàng của nhóm đang chọn.
+ *  - Chi tiết (/customers/:id): giữa là Hành trình;
  *    phải là Thông tin khách hàng + Công việc + Tài liệu, hoặc Trao đổi + Tài liệu của bước đang chọn (?step=).
  */
 export default function CustomerWorkspace() {
   const { id } = useParams();
   const { data: customers, isLoading } = useCustomers();
-  const [params, setParams] = useSearchParams();
-  const group = params.get('g') || '';
-  const setGroup = (g: string) => setParams((p) => { const n = new URLSearchParams(p); if (g) n.set('g', g); else n.delete('g'); return n; }, { replace: true });
+  const [params] = useSearchParams();
+  // Mặc định: Khách hàng của tôi; chưa phụ trách khách hàng nào thì mở Tất cả khách hàng
+  const hasMine = (customers || []).some((c) => c.is_mine);
+  const group: 'mine' | 'all' = params.get('g') === 'all' || (params.get('g') !== 'mine' && !hasMine) ? 'all' : 'mine';
   const [q, setQ] = useState('');
-  const f = { q, status: group.startsWith('s:') ? group.slice(2) : '', productType: group.startsWith('t:') ? group.slice(2) : '', province: '', mine: group === 'mine' };
-  const list = filterCustomers(customers || [], f);
+  const list = filterCustomers(customers || [], { q, status: '', productType: '', province: '', mine: group === 'mine' });
 
   if (isLoading) return <Spinner />;
   return (
     <div className="cw">
-      {id ? <CustomerList list={list} q={q} setQ={setQ} current={Number(id)} /> : <GroupPanel customers={customers || []} group={group} setGroup={setGroup} />}
-      {id ? <Detail id={id} /> : <CustomerTable list={list} total={customers?.length ?? 0} q={q} setQ={setQ} />}
+      <CustomerTree customers={customers || []} group={group} current={id ? Number(id) : null} />
+      {id ? <Detail id={id} /> : <CustomerTable list={list} total={group === 'mine' ? (customers || []).filter((c) => c.is_mine).length : customers?.length ?? 0}
+        title={group === 'mine' ? 'Khách hàng của tôi' : 'Tất cả khách hàng'} q={q} setQ={setQ} />}
     </div>
   );
 }
 
-/** Cột trái ở màn danh sách: nhóm khách hàng kèm số lượng */
-function GroupPanel({ customers, group, setGroup }: { customers: Customer[]; group: string; setGroup: (g: string) => void }) {
-  const { data: types } = useProductTypes();
-  const item = (key: string, label: string, n: number, icon?: React.ReactNode) => (
-    <button key={key} className={`cw-item ${group === key ? 'active' : ''}`} onClick={() => setGroup(key)}>
-      {icon}<span className="grow ellipsis">{label}</span><span className="cw-count">{n}</span>
-    </button>
-  );
+/** Cột trái: 2 nhóm Khách hàng của tôi / Tất cả khách hàng, mỗi nhóm thu gọn được và hiện tên khách hàng bên dưới */
+function CustomerTree({ customers, group, current }: { customers: Customer[]; group: 'mine' | 'all'; current: number | null }) {
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const [q, setQ] = useState('');
+  const hit = (c: Customer) => !q.trim() || fold(c.name).includes(fold(q.trim()));
+  const groups: ['mine' | 'all', string, Customer[], React.ReactNode][] = [
+    ['mine', 'Khách hàng của tôi', customers.filter((c) => c.is_mine), <Star size={16} />],
+    ['all', 'Tất cả khách hàng', customers, <LayoutList size={16} />],
+  ];
   return (
     <aside className="cw-left">
-      {item('', 'Tất cả khách hàng', customers.length, <LayoutList size={16} />)}
-      {item('mine', 'Tôi phụ trách', customers.filter((c) => c.is_mine).length, <Star size={16} />)}
-      <div className="cw-sec">Tình trạng</div>
-      {CUSTOMER_STATUSES.map(([s, tone]) => item(`s:${s}`, s, customers.filter((c) => c.status === s).length, <span className={`cw-dot tone-${tone}`} />))}
-      {!!types?.length && <div className="cw-sec">Loại sản phẩm</div>}
-      {types?.map((t) => item(`t:${t.id}`, t.name, customers.filter((c) => c.product_type_id === t.id).length, <span className="cw-dot" />))}
-    </aside>
-  );
-}
-
-/** Cột trái ở màn chi tiết: danh sách khách hàng (theo nhóm đang lọc) để chuyển nhanh */
-function CustomerList({ list, q, setQ, current }: { list: Customer[]; q: string; setQ: (v: string) => void; current: number }) {
-  const [params] = useSearchParams();
-  const back = params.get('g') ? `/customers?g=${encodeURIComponent(params.get('g')!)}` : '/customers';
-  return (
-    <aside className="cw-left">
-      <Link to={back} className="cw-back"><ChevronLeft size={15} /> Danh sách khách hàng</Link>
       <div className="cw-search"><Search size={14} /><input placeholder="Tìm khách hàng…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-      {list.map((c) => (
-        <Link key={c.id} to={`/customers/${c.id}${params.get('g') ? `?g=${encodeURIComponent(params.get('g')!)}` : ''}`} className={`cw-cust ${c.id === current ? 'active' : ''}`}>
-          <span className="ellipsis"><b>{c.name}</b></span>
-          <span className="row gap-xs small"><span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>
-            {c.journey_pct != null && <span className="muted">{c.journey_pct}%</span>}</span>
-        </Link>
-      ))}
-      {!list.length && <div className="muted small pad">Không có khách hàng phù hợp</div>}
+      {groups.map(([key, label, items, icon]) => {
+        const open = !closed[key] || !!q.trim();
+        return (
+          <div key={key} className="cw-group">
+            <div className={`cw-item ${!current && group === key ? 'active' : ''}`}>
+              <button className="cw-caret" aria-label={open ? 'Thu gọn' : 'Mở rộng'} onClick={() => setClosed({ ...closed, [key]: open })}>
+                {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button>
+              <Link to={`/customers?g=${key}`} className="cw-group-link">{icon}<span className="grow ellipsis">{label}</span></Link>
+              <span className="cw-count">{items.length}</span>
+            </div>
+            {open && items.filter(hit).map((c) => (
+              <Link key={c.id} to={`/customers/${c.id}?g=${key}`} title={c.name}
+                className={`cw-sub ${c.id === current && group === key ? 'active' : ''}`}>
+                <span className={`cw-dot tone-${CUSTOMER_STATUSES.find(([n]) => n === c.status)?.[1] ?? 'default'}`} data-tip={c.status} />
+                <span className="ellipsis">{c.name}</span>
+              </Link>
+            ))}
+            {open && !items.some(hit) && <div className="muted small cw-sub-empty">{key === 'mine' ? 'Bạn chưa phụ trách khách hàng nào' : 'Không có khách hàng phù hợp'}</div>}
+          </div>
+        );
+      })}
     </aside>
   );
 }
 
 /** Bảng khách hàng ở màn danh sách */
-function CustomerTable({ list, total, q, setQ }: { list: Customer[]; total: number; q: string; setQ: (v: string) => void }) {
+function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; total: number; title: string; q: string; setQ: (v: string) => void }) {
   const { data: me } = useMe();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [creating, setCreating] = useState(false);
-  const g = params.get('g') ? `?g=${encodeURIComponent(params.get('g')!)}` : '';
+  const g = params.get('g') ? `?g=${params.get('g') === 'all' ? 'all' : 'mine'}` : '';
   return (
     <section className="cw-main">
       <div className="cw-toolbar">
+        <h2 className="cw-title">{title}</h2>
         <div className="cw-search grow"><Search size={14} /><input placeholder="Tìm theo tên, tỉnh, phường/xã, sản phẩm, đầu mối, nhân viên phụ trách…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         {hasPerm(me, 'customer.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={15} /> Thêm khách hàng</button>}
       </div>
