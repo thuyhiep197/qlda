@@ -28,13 +28,16 @@ export interface UserBasic {
     avatar_url?: string | null;
   default_role_id?: number | null;
   default_role_name?: string | null;
-  /** Phòng ban (Danh mục phòng ban) */
+  /** Theo nhân sự đã gắn với tài khoản: phòng ban, mã vị trí chính (KD, AM, BA…) và mọi mã vị trí */
   department_id?: number | null;
-  department_code?: string | null;
   department_name?: string | null;
+  department_order?: number | null;
+  department_code?: string | null;
+  position_codes?: string[];
 }
 
-export interface Department { id: number; code: string; name: string; position: number; user_count: number }
+/** Phòng ban trong sơ đồ tổ chức (parent_id = phòng ban cấp trên) kèm nhân sự */
+export interface Department { id: number; code: string; name: string; parent_id: number | null; position: number; staff: StaffMember[] }
 
 export interface User extends UserBasic {
   email: string | null;
@@ -105,7 +108,7 @@ export interface Sprint {
   done_points?: number;
 }
 
-export type StaffPosition = 'ba_pm' | 'tester' | 'am' | 'dev' | 'kd';
+export type StaffPosition = 'bgd' | 'kd' | 'am' | 'ba_pm' | 'dev' | 'tester' | 'hc';
 /** Danh mục nhân sự dùng chung; positions: các vị trí cách nhau dấu phẩy */
 export interface StaffMember {
   id: number;
@@ -115,6 +118,9 @@ export interface StaffMember {
   /** Tài khoản đăng nhập gắn với nhân sự (để phân quyền khách hàng phụ trách) */
   user_id?: number | null;
   username?: string | null;
+  /** Phòng ban (sơ đồ tổ chức) */
+  department_id?: number | null;
+  department_name?: string | null;
 }
 
 export interface ProjectSummary {

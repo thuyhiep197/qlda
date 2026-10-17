@@ -58,10 +58,10 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
   {
     key: 'catalog', label: 'Danh mục dùng chung', features: [
-      { key: 'department', label: 'Danh mục phòng ban', hint: 'Phòng ban của tài khoản (KD, AM, BA, DEV, HC, BGĐ) — tự hiện ở Phòng thực hiện / phối hợp trong hành trình', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'department', label: 'Phòng ban (sơ đồ tổ chức)', hint: 'Ban Giám đốc và các phòng; nhân sự thuộc phòng ban', actions: ['view', 'create', 'edit', 'delete'] },
       { key: 'geo', label: 'Danh mục địa chính', hint: 'Tỉnh/thành phố, phường/xã dùng để chọn địa chỉ khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
       { key: 'product', label: 'Danh mục Loại sản phẩm & Sản phẩm', hint: 'Sản phẩm kèm mô tả, dùng để chọn cho khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
-      { key: 'staff', label: 'Danh mục nhân sự', hint: 'Danh sách BA/PM, Tester, AM, Dev dùng để chọn nhân sự cho dự án và khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'staff', label: 'Nhân sự', hint: 'Nhân sự trong từng phòng ban: vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC), tài khoản đăng nhập', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
   {

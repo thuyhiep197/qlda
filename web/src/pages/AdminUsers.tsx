@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, refreshAll } from '../api';
-import { hasPerm, useMe, useProjects, useDepartments, useRoles } from '../hooks';
+import { hasPerm, useMe, useProjects, useRoles } from '../hooks';
 import type { PermissionCatalog, User, UserPermView } from '../types';
 import { PermMatrix } from '../components/PermMatrix';
 import { fmtDateTime } from '../util';
@@ -68,7 +68,7 @@ export default function AdminUsers() {
               <tr key={u.id} className={u.is_active ? '' : 'inactive'}>
                 <td><div className="row gap-sm"><Avatar name={u.full_name} src={u.avatar_url} size={26} /> {u.full_name}</div></td>
                 <td>@{u.username}</td>
-                <td>{u.department_code ? <span className="unit-chip">{u.department_code}</span> : <span className="muted small">—</span>}</td>
+                <td className="small">{u.department_name ?? <span className="muted" data-tip="Gắn tài khoản với nhân sự ở Quản trị → Danh mục → Phòng ban & Nhân sự">Chưa gắn nhân sự</span>}</td>
                 <td className="nowrap">
                   {u.default_role_name ? <span className="lozenge lozenge-default">{u.default_role_name}</span> : <span className="small danger">Chưa chọn</span>}
                   {!!u.is_admin && <> <span className="lozenge lozenge-purple">Quản trị</span></>}
@@ -109,8 +109,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const [email, setEmail] = useState(user?.email || '');
   const [isAdmin, setIsAdmin] = useState(!!user?.is_admin);
   const [roleId, setRoleId] = useState(user?.default_role_id ? String(user.default_role_id) : '');
-  const [departmentId, setDepartmentId] = useState(user?.department_id ? String(user.department_id) : '');
-  const { data: departments } = useDepartments();
+
   const [projectIds, setProjectIds] = useState<number[]>(() => user?.memberships.map((m) => m.project_id) ?? []);
   const [password, setPassword] = useState(() => (user ? '' : genPassword()));
   const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
@@ -119,7 +118,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: fullName, email, is_admin: isAdmin, default_role_id: Number(roleId), department_id: departmentId || null, project_ids: projectIds };
+      const body = { full_name: fullName, email, is_admin: isAdmin, default_role_id: Number(roleId), project_ids: projectIds };
       if (user) {
         await api.patch(`/users/${user.id}`, body);
         toast('Đã lưu');
@@ -156,11 +155,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
               placeholder="VD: nguyen.van.a" /></label>
           <label className="field"><span>Họ tên *</span><input value={fullName} onChange={(e) => setFullName(e.target.value)} required /></label>
           <label className="field"><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-          <label className="field"><span>Phòng ban</span>
-            <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
-              <option value="">—</option>
-              {departments?.map((d) => <option key={d.id} value={d.id}>{d.code} · {d.name}</option>)}
-            </select></label>
+
           <label className="field"><span>Nhóm người dùng *</span>
             <select value={roleId} onChange={(e) => setRoleId(e.target.value)} required>
               <option value="" disabled>— Chọn nhóm —</option>

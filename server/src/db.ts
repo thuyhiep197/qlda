@@ -424,16 +424,22 @@ const migrations: string[] = [
   // danh mục Loại sản phẩm & Sản phẩm (mô tả sản phẩm tự điền vào khách hàng khi chọn); Danh mục địa chính (tỉnh/thành phố, phường/xã — nạp sẵn khi khởi động).
   // Dự án gắn với khách hàng qua projects.customer_id (projects.customer giữ tên để hiển thị); tạo sẵn khách hàng từ các dự án hiện có.
   // Nhóm người dùng được tạo dự án thì được toàn quyền với khách hàng và danh mục sản phẩm.
+  // Phòng ban (sơ đồ tổ chức): Ban Giám đốc đứng đầu, dưới là các phòng; nhân sự thuộc phòng ban
   `CREATE TABLE departments (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      code TEXT NOT NULL UNIQUE COLLATE NOCASE,
      name TEXT NOT NULL,
+     parent_id INTEGER REFERENCES departments(id),
      position INTEGER NOT NULL DEFAULT 0,
      created_at TEXT NOT NULL DEFAULT ${TS}
    );
-   INSERT INTO departments(code, name, position) VALUES ('BGĐ', 'Ban giám đốc', 0), ('KD', 'Kinh doanh', 1), ('AM', 'Quản lý khách hàng (AM)', 2),
-     ('BA', 'Phân tích nghiệp vụ (BA)', 3), ('DEV', 'Phát triển phần mềm (DEV)', 4), ('HC', 'Hành chính', 5);
-   ALTER TABLE users ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL;
+   INSERT INTO departments(code, name, position) VALUES ('BGĐ', 'Ban Giám đốc', 0);
+   INSERT INTO departments(code, name, parent_id, position) VALUES
+     ('P.KD', 'Phòng Kinh doanh', 1, 1), ('P.DA', 'Phòng Dự án', 1, 2), ('P.SP', 'Phòng Sản phẩm', 1, 3), ('P.HC', 'Phòng Hành chính', 1, 4);
+   ALTER TABLE staff ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL;
+   UPDATE staff SET department_id = CASE
+     WHEN ',' || positions || ',' LIKE '%,kd,%' OR ',' || positions || ',' LIKE '%,am,%' THEN (SELECT id FROM departments WHERE code = 'P.KD')
+     ELSE (SELECT id FROM departments WHERE code = 'P.DA') END;
    CREATE TABLE geo_provinces (
      code TEXT PRIMARY KEY,
      name TEXT NOT NULL UNIQUE,

@@ -1,3 +1,4 @@
+import { primaryCode } from '../positions.ts';
 import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
 import { badRequest, forbidden, notFound, requireUserPerm, userPermissions } from '../permissions.ts';
@@ -13,14 +14,17 @@ const r = Router();
 /** Khách hàng theo :id — kiểm tra quyền và người dùng được xem khách hàng này */
 const loadCustomer = (req: Request, perm: Permission = 'customer.view') => loadVisible(req, perm) as { id: number; name: string };
 
-const STEP_SELECT = `SELECT s.*, u.full_name AS assignee_name, d.code AS assignee_dept FROM journey_steps s
-  LEFT JOIN users u ON u.id = s.assignee_id LEFT JOIN departments d ON d.id = u.department_id`;
+const STEP_SELECT = `SELECT s.*, u.full_name AS assignee_name, st.positions AS assignee_positions FROM journey_steps s
+  LEFT JOIN users u ON u.id = s.assignee_id LEFT JOIN staff st ON st.user_id = u.id`;
+/** Mã vị trí (KD, AM, BA…) của người thực hiện thay cho danh sách vị trí thô */
+const withCode = (s: any) => { const { assignee_positions, ...rest } = s; return { ...rest, assignee_dept: primaryCode(assignee_positions) }; };
 /** Người phối hợp của các bước: [{ step_id, id, full_name, dept }] */
 const supportersOf = (where: string, param: number) => all<{ step_id: number; id: number; full_name: string; dept: string | null }>(
-  `SELECT ss.step_id, u.id, u.full_name, d.code AS dept FROM journey_step_supporters ss JOIN users u ON u.id = ss.user_id
-   LEFT JOIN departments d ON d.id = u.department_id JOIN journey_steps s ON s.id = ss.step_id WHERE ${where} ORDER BY u.full_name`, param);
+  `SELECT ss.step_id, u.id, u.full_name, st.positions AS dept FROM journey_step_supporters ss JOIN users u ON u.id = ss.user_id
+   LEFT JOIN staff st ON st.user_id = u.id JOIN journey_steps s ON s.id = ss.step_id WHERE ${where} ORDER BY u.full_name`, param)
+  .map((x) => ({ ...x, dept: primaryCode(x.dept) }));
 export const journeySteps = (customerId: number) => {
-  const steps = all(`${STEP_SELECT} WHERE s.customer_id = ? ORDER BY s.position, s.id`, customerId);
+  const steps = all(`${STEP_SELECT} WHERE s.customer_id = ? ORDER BY s.position, s.id`, customerId).map(withCode);
   const sup = supportersOf('s.customer_id = ?', customerId);
   for (const st of steps) st.supporters = sup.filter((x) => x.step_id === st.id).map(({ step_id: _s, ...x }) => x);
   return steps;
@@ -91,8 +95,9 @@ function loadStep(req: Request, customerId: number) {
 /** Một bước của hành trình (như một issue của kinh doanh): phần/giai đoạn chứa nó, trao đổi, tài liệu kết quả */
 r.get('/:id/journey/:sid', (req, res) => {
   const c = loadCustomer(req);
-  const s = get(`${STEP_SELECT} WHERE s.id = ? AND s.customer_id = ?`, Number(req.params.sid), c.id);
-  if (!s) throw notFound('Không tìm thấy bước trong hành trình');
+  const raw = get(`${STEP_SELECT} WHERE s.id = ? AND s.customer_id = ?`, Number(req.params.sid), c.id);
+  if (!raw) throw notFound('Không tìm thấy bước trong hành trình');
+  const s: any = withCode(raw);
   s.supporters = supportersOf('s.id = ?', s.id).map(({ step_id: _s, ...x }) => x);
   const before = all<{ id: number; depth: number; code: string | null; title: string }>(
     'SELECT id, depth, code, title FROM journey_steps WHERE customer_id = ? AND (position < ? OR (position = ? AND id < ?)) ORDER BY position DESC, id DESC', c.id, s.position, s.position, s.id);

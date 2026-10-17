@@ -27,9 +27,10 @@ export function UserPickerPopover({ value, multi, prefer, onChange, onClose }: {
     if (!multi) { onChange(sel[0] === id ? [] : [id]); onClose(); return; }
     setSel(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
   };
-  const list = (users ?? []).filter((u) => !q.trim() || fold(`${u.full_name} ${u.username} ${u.department_code ?? ''}`).includes(fold(q.trim())));
-  const rank = (code?: string | null) => (code && preferred.includes(code.toUpperCase()) ? 0 : code ? 1 : 2);
-  list.sort((a, b) => rank(a.department_code) - rank(b.department_code) || (a.department_code ?? '').localeCompare(b.department_code ?? '') || a.full_name.localeCompare(b.full_name, 'vi'));
+  const list = (users ?? []).filter((u) => !q.trim() || fold(`${u.full_name} ${u.username} ${u.department_name ?? ''} ${(u.position_codes ?? []).join(' ')}`).includes(fold(q.trim())));
+  // Người có vị trí theo quy trình (VD KD, BA) lên đầu; sau đó theo thứ tự phòng ban trong sơ đồ tổ chức
+  const fits = (u: (typeof list)[number]) => (u.position_codes ?? []).some((c) => preferred.includes(c.toUpperCase()));
+  list.sort((a, b) => Number(fits(b)) - Number(fits(a)) || (a.department_order ?? 99) - (b.department_order ?? 99) || a.full_name.localeCompare(b.full_name, 'vi'));
   let lastGroup: string | null | undefined;
   return (
     <div className="picker-pop" ref={box} onClick={(e) => e.stopPropagation()}>
@@ -37,8 +38,8 @@ export function UserPickerPopover({ value, multi, prefer, onChange, onClose }: {
       <div className="picker-list">
         {!multi && sel.length > 0 && <button className="picker-item muted" onClick={() => { onChange([]); onClose(); }}>— Bỏ giao —</button>}
         {list.map((u) => {
-          const group = u.department_code ?? null;
-          const head = group !== lastGroup ? <div className="picker-group">{group ? `${group}${u.department_name ? ` · ${u.department_name}` : ''}` : 'Chưa có phòng ban'}{group && preferred.includes(group.toUpperCase()) ? ' · theo quy trình' : ''}</div> : null;
+          const group = fits(u) ? `Theo quy trình: ${preferred.join(' + ')}` : u.department_name ?? 'Chưa xếp phòng ban';
+          const head = group !== lastGroup ? <div className="picker-group">{group}</div> : null;
           lastGroup = group;
           return (
             <div key={u.id}>
@@ -46,6 +47,7 @@ export function UserPickerPopover({ value, multi, prefer, onChange, onClose }: {
               <button className={`picker-item ${sel.includes(u.id) ? 'on' : ''}`} onClick={() => pick(u.id)}>
                 <span className="picker-check">{sel.includes(u.id) && <Check size={13} />}</span>
                 <span className="grow ellipsis">{u.full_name}</span>
+                {u.department_code && <span className="unit-chip">{u.department_code}</span>}
               </button>
             </div>
           );

@@ -1050,3 +1050,26 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .cw-left > .cw-group > .cw-sub { padding-left: 34px; }
 .cw-parent-active { color: var(--primary); font-weight: 600; }
 .cw-parent-active .lucide { color: var(--primary); }
+/* Sơ đồ tổ chức: Phòng ban & Nhân sự */
+.org-page { max-width: none; }
+.org-tree { display: flex; flex-direction: column; align-items: center; gap: 0; overflow-x: auto; padding-bottom: 8px; }
+.org-node { display: flex; flex-direction: column; align-items: center; }
+.org-children { display: flex; gap: 16px; align-items: flex-start; position: relative; padding-top: 22px; margin-top: 0; }
+.org-children::before { content: ""; position: absolute; top: 0; left: 50%; height: 11px; border-left: 2px solid var(--border); }
+.org-children > .org-node { position: relative; padding-top: 11px; }
+.org-children > .org-node::before { content: ""; position: absolute; top: -11px; left: 0; right: 0; border-top: 2px solid var(--border); }
+.org-children > .org-node:first-child::before { left: 50%; }
+.org-children > .org-node:last-child::before { right: 50%; }
+.org-children > .org-node:only-child::before { display: none; }
+.org-children > .org-node::after { content: ""; position: absolute; top: -11px; left: 50%; height: 22px; border-left: 2px solid var(--border); }
+.org-card { width: 250px; background: var(--surface); border-radius: 8px; box-shadow: var(--shadow); border-top: 3px solid var(--primary); }
+.org-tree > .org-node > .org-card { width: 320px; border-top-color: var(--warn); }
+.org-card-head { display: flex; align-items: center; gap: 2px; padding: 10px 10px 6px 12px; border-bottom: 1px solid var(--border); }
+.org-staff { display: flex; flex-direction: column; padding: 6px; max-height: 360px; overflow-y: auto; }
+.org-person { display: flex; align-items: flex-start; gap: 8px; padding: 6px; border-radius: 6px; font-size: 13px; }
+.org-person.editable { cursor: pointer; }
+.org-person.editable:hover { background: var(--hover); }
+.org-person .lucide { margin-top: 2px; flex-shrink: 0; }
+.warn-text { color: var(--warn); }
+.org-unassigned { margin: 20px auto 0; border-top-color: var(--muted); width: min(100%, 520px); }
+@media (max-width: 900px) { .org-children { flex-direction: column; align-items: center; } .org-children > .org-node::before, .org-children > .org-node::after { display: none; } }

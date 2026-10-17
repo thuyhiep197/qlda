@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BookMarked, Building, ChevronDown, ChevronRight, Contact, MapPinned, Package, ScrollText, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
+import { BookMarked, ChevronDown, ChevronRight, MapPinned, Network, Package, ScrollText, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { hasPerm, useMe } from '../hooks';
 
 type Me = Parameters<typeof hasPerm>[0];
-/** Danh mục trong Quản trị: Phòng ban, Địa chính, Sản phẩm, Nhân sự (mỗi mục theo quyền Xem) */
+/** Danh mục trong Quản trị: Phòng ban & Nhân sự (sơ đồ tổ chức), Địa chính, Sản phẩm (mỗi mục theo quyền Xem) */
 export const catalogItems = (me: Me): [string, string, LucideIcon][] => ([
-  ['departments', 'Phòng ban', Building, 'department.view'], ['geo', 'Địa chính', MapPinned, 'geo.view'],
-  ['products', 'Sản phẩm', Package, 'product.view'], ['staff', 'Nhân sự', Contact, 'staff.view'],
-] as [string, string, LucideIcon, string][]).filter(([, , , p]) => hasPerm(me, p)).map(([k, l, i]) => [k, l, i]);
+  ['org', 'Phòng ban & Nhân sự', Network, hasPerm(me, 'department.view') || hasPerm(me, 'staff.view')],
+  ['geo', 'Địa chính', MapPinned, hasPerm(me, 'geo.view')], ['products', 'Sản phẩm', Package, hasPerm(me, 'product.view')],
+] as [string, string, LucideIcon, boolean][]).filter(([, , , ok]) => ok).map(([k, l, i]) => [k, l, i]);
 
 /** Các mục của phân hệ Quản trị (mục đầu tiên được mở khi bấm Quản trị) */
 export function adminTabs(me: Me): [string, string, LucideIcon][] {
@@ -29,6 +29,7 @@ export default function AdminLayout() {
   const cats = catalogItems(me);
   if (!tabs.length) return <Navigate to="/" replace />;
   if (!seg) return <Navigate to={`/admin/${tabs[0][0]}`} replace />;
+  if (seg === 'departments' || seg === 'staff') return <Navigate to="/admin/org" replace />;
   if (seg === 'catalogs') return <Navigate to={cats.length ? `/admin/${cats[0][0]}` : '/admin'} replace />;
   const item = ([k, l, Icon]: [string, string, LucideIcon], sub?: boolean) => (
     <NavLink key={k} to={`/admin/${k}`} className={({ isActive }) => `${sub ? 'cw-sub' : 'cw-item'} ${isActive ? 'active' : ''}`}>
