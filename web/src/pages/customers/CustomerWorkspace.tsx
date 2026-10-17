@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, LayoutList, Plus, Search, Star } from 'lucide-react';
+import { ChevronDown, ChevronRight, LayoutList, Search, Star } from 'lucide-react';
 import { api } from '../../api';
-import { hasPerm, useMe } from '../../hooks';
 import type { Customer, CustomerDetail } from '../../types';
 import { CUSTOMER_STATUSES, filterCustomers, fold } from '../../customer-filter';
 import { fmtDate, lozengeOf } from '../../util';
-import { CustomerModal, useCustomers } from '../Customers';
+import { useCustomers } from '../Customers';
 import { Empty, Spinner } from '../../components/ui';
 import JourneyPane from './JourneyPane';
 import CustomerSide from './CustomerSide';
@@ -79,17 +78,14 @@ function CustomerTree({ customers, group, current }: { customers: Customer[]; gr
 
 /** Bảng khách hàng ở màn danh sách */
 function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; total: number; title: string; q: string; setQ: (v: string) => void }) {
-  const { data: me } = useMe();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [creating, setCreating] = useState(false);
   const g = params.get('g') ? `?g=${params.get('g') === 'all' ? 'all' : 'mine'}` : '';
   return (
     <section className="cw-main">
       <div className="cw-toolbar">
         <h2 className="cw-title">{title}</h2>
         <div className="cw-search grow"><Search size={14} /><input placeholder="Tìm theo tên, tỉnh, phường/xã, sản phẩm, đầu mối, nhân viên phụ trách…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        {hasPerm(me, 'customer.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={15} /> Thêm khách hàng</button>}
       </div>
       {!list.length ? <Empty title={total ? 'Không có khách hàng phù hợp' : 'Chưa có khách hàng nào bạn được xem'}>
         {!total && <p className="muted small">Bạn chỉ thấy khách hàng mình phụ trách hoặc có việc được giao.</p>}</Empty> : (
@@ -116,7 +112,6 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
         </div>
       )}
       <div className="cw-foot muted small">Hiển thị {list.length} / {total} khách hàng</div>
-      {creating && <CustomerModal onClose={() => setCreating(false)} onSaved={(nid) => navigate(`/customers/${nid}`)} />}
     </section>
   );
 }

@@ -13,7 +13,6 @@ import Backlog from './pages/Backlog';
 import Board from './pages/Board';
 import IssueList from './pages/IssueList';
 import Roadmap from './pages/Roadmap';
-import ProjectDashboard from './pages/ProjectDashboard';
 import Plan from './pages/Plan';
 import ProjectSettings from './pages/ProjectSettings';
 import IssuePage from './pages/IssuePage';
@@ -27,7 +26,6 @@ import AdminStaff from './pages/AdminStaff';
 import AdminDepartments from './pages/AdminDepartments';
 import ProjectShell from './pages/ProjectShell';
 import AdminLayout from './pages/AdminLayout';
-import ProjectInfo from './pages/ProjectInfo';
 import Profile from './pages/Profile';
 import Releases from './pages/Releases';
 import { RELEASES_ENABLED } from './util';
@@ -52,15 +50,15 @@ export default function App() {
           <Route path="issues" element={<IssueList />} />
           <Route path="p/:key" element={<ProjectLayout />}>
             <Route index element={<ProjectHome />} />
-            <Route path="info" element={<ProjectInfo />} />
-            <Route path="dashboard" element={<ProjectDashboard />} />
+            <Route path="info" element={<ProjectSettings />} />
+            <Route path="dashboard" element={null} />
             <Route path="plan" element={<Plan />} />
             <Route path="backlog" element={<Backlog />} />
             <Route path="board" element={<Board />} />
             <Route path="issues" element={<IssueList />} />
             <Route path="roadmap" element={<Roadmap />} />
             {RELEASES_ENABLED && <Route path="releases" element={<Releases />} />}
-            <Route path="settings" element={<ProjectSettings />} />
+            <Route path="settings" element={null} />
           </Route>
           </Route>
           <Route path="browse/:issueKey" element={<IssuePage />} />

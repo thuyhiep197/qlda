@@ -16,7 +16,6 @@ export default function Projects() {
     queryKey: ['projects', archived],
     queryFn: () => api.get(`/projects${archived ? '?archived=1' : ''}`),
   });
-  const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState('');
   const [statusF, setStatusF] = useState('');
   const [priorityF, setPriorityF] = useState('');
@@ -52,7 +51,6 @@ export default function Projects() {
         <h1>{archived ? 'Dự án đã lưu trữ' : group === 'mine' ? 'Dự án của tôi' : 'Tất cả dự án'}</h1>
         <div className="spacer" />
         {hasPerm(me, 'project.delete') && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem dự án đã lưu trữ</label>}
-        {hasPerm(me, 'project.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Tạo dự án</button>}
       </div>
       <div className="filter-bar">
         <input className="filter-input" style={{ marginBottom: 0 }} placeholder="Lọc theo tên, mã, khách hàng, nhân sự" value={filter} onChange={(e) => setFilter(e.target.value)} />
@@ -94,7 +92,6 @@ export default function Projects() {
         </table>
         </div>
       )}
-      {creating && <CreateProjectModal onClose={() => setCreating(false)} />}
     </div>
   );
 }
@@ -108,7 +105,7 @@ function ProjectStatus({ p }: { p: ProjectSummary }) {
   return <span className="nowrap" data-tip={tip}><span className={lozengeOf(PROJECT_STATUSES, v)}>{v}</span> <span className="muted small">{pinned ? '📌' : '⚙'}</span></span>;
 }
 
-function CreateProjectModal({ onClose }: { onClose: () => void }) {
+export function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const { data: me } = useMe();
   const { data: users } = useUsersBasic();

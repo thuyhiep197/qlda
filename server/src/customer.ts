@@ -97,3 +97,6 @@ export function cleanProduct(b: any) {
 
 /** So tên không phân biệt hoa/thường kể cả chữ có dấu (COLLATE NOCASE của SQLite chỉ xử lý chữ không dấu) */
 export const sameName = (a: string, b: string) => a.toLocaleLowerCase('vi') === b.toLocaleLowerCase('vi');
+
+/** Bỏ dấu tiếng Việt, chữ thường — để tìm "so tai chinh" ra "Sở Tài chính" */
+export const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();

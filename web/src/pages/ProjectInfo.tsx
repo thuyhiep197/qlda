@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Pencil, Phone } from 'lucide-react';
-import { can, hasPerm, useMe, useProjects } from '../hooks';
+import { hasPerm, useMe, useProjects } from '../hooks';
 import { CUSTOMER_STATUSES } from '../customer-filter';
 import { fmtDate, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 import { splitNames } from '../components/ProjectInfoFields';
@@ -15,23 +15,23 @@ const Props = ({ rows }: { rows: [string, ReactNode][] }) => (
 );
 
 /** Module Thông tin dự án: thông tin chung, khách hàng của dự án (đầu mối, nhân viên phụ trách), nhân sự, thành viên */
-export default function ProjectInfo() {
+export default function ProjectInfo({ onEdit }: { onEdit?: () => void }) {
   const project = useProjectCtx();
   const { data: me } = useMe();
   const { data: projects } = useProjects();
   const summary = projects?.find((p) => p.key === project.key);
   const status = project.project_status || summary?.status_auto;
   const c = project.customer_info;
-  const canEdit = can(project.permissions, 'project.edit');
+  const canEdit = !!onEdit;
   const sprint = project.active_sprints[0];
 
   return (
-    <div className="page-pad">
+    <div>
       <div className="two-col">
         <div className="stack">
           <div className="card">
             <div className="card-head"><h3>Thông tin chung</h3>
-              {canEdit && <Link className="btn btn-sm" to={`/p/${project.key}/settings`}><Pencil size={14} /> Sửa</Link>}</div>
+              {canEdit && <button className="btn btn-sm" onClick={onEdit}><Pencil size={14} /> Sửa</button>}</div>
             <Props rows={[
               ['Tên dự án', <b>{project.name}</b>], ['Mã dự án', project.key], ['Mô hình', project.type === 'scrum' ? 'Scrum' : 'Kanban'],
               ['Trưởng dự án', project.lead?.full_name],
@@ -51,7 +51,7 @@ export default function ProjectInfo() {
             <div className="card-head"><h3>Khách hàng</h3>
               {c && hasPerm(me, 'customer.view') && <Link className="small" to={`/customers/${c.id}`}>Mở trang khách hàng →</Link>}</div>
             {!c ? <p className="muted small">{project.customer ? `${project.customer} (chưa có trong danh mục Khách hàng)` : 'Dự án chưa gắn với khách hàng.'}
-              {canEdit && <> Gắn khách hàng ở <Link to={`/p/${project.key}/settings`}>Cài đặt → Thông tin chung</Link>.</>}</p> : (
+              {canEdit && <> <a onClick={onEdit}>Gắn khách hàng</a>.</>}</p> : (
               <div className="stack-sm">
                 <Props rows={[
                   ['Cơ quan/đơn vị', <b>{c.name}</b>],

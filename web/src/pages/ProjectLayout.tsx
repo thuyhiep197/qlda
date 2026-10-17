@@ -1,22 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
-import { can, hasPerm, useMe, useProject, useProjects } from '../hooks';
+import { can, hasPerm, useIssueModal, useMe, useProject, useProjects } from '../hooks';
+import CreateIssueModal from '../components/CreateIssueModal';
 import type { Project } from '../types';
 import { colorOf, RELEASES_ENABLED } from '../util';
 import { Spinner } from '../components/ui';
-import { Building2, Info, Mail, Phone, UserRound, LayoutDashboard, ListTree, ChartGantt, List, ListTodo, Rocket, Settings, SquareKanban, type LucideIcon } from 'lucide-react';
+import { Building2, Info, Mail, Phone, Plus, UserRound, ListTree, ChartGantt, List, ListTodo, Rocket, SquareKanban, type LucideIcon } from 'lucide-react';
 
 const LAST_PROJECT = 'qlda:last-project';
 
 /** Quyền Xem cần có để thấy từng tab. Kanban: bảng theo quyền xem issue. */
 export const TAB_PERM: Record<string, string> = {
-  dashboard: 'dashboard.view', plan: 'plan.view', board: 'sprint.view', backlog: 'backlog.view', issues: 'search.view',
+  plan: 'plan.view', board: 'sprint.view', backlog: 'backlog.view', issues: 'search.view',
   roadmap: 'plan.view', releases: 'backlog.view',
 };
-const canSettings = (perms: string[]) => ['project.edit', 'component.create', 'component.edit', 'component.delete'].some((p) => can(perms, p));
-/** Mở dự án → module Thông tin dự án (mọi thành viên đều xem được). */
+/** Mở dự án → Kế hoạch chi tiết (không có quyền xem kế hoạch thì Thông tin). */
 export function firstTab(project: Project) {
-  return 'info';
+  return can(project.permissions, 'plan.view') ? 'plan' : 'info';
 }
 
 export const useProjectCtx = () => useOutletContext<Project>();
@@ -24,6 +24,8 @@ export const useProjectCtx = () => useOutletContext<Project>();
 export default function ProjectLayout() {
   const { key } = useParams();
   const { data: project, error, isLoading } = useProject(key?.toUpperCase());
+  const [creating, setCreating] = useState(false);
+  const { open: openIssue } = useIssueModal();
   const location = useLocation();
   // Nhớ dự án đang xem để lần đăng nhập sau mở thẳng vào đây
   useEffect(() => { if (project) try { localStorage.setItem(LAST_PROJECT, project.key); } catch { /* bỏ qua */ } }, [project?.key]);
@@ -31,23 +33,24 @@ export default function ProjectLayout() {
   if (error || !project) return <div className="page"><h2>Không truy cập được dự án</h2><p className="muted">{error instanceof Error ? error.message : ''}</p></div>;
 
   const tabs: [string, string, LucideIcon][] = [
-    ['info', 'Thông tin dự án', Info],
-    ['dashboard', 'Dashboard', LayoutDashboard],
+    ['info', 'Thông tin', Info],
     ['roadmap', 'Kế hoạch tổng quan', ChartGantt],
     ['plan', 'Kế hoạch chi tiết', ListTree],
     ['board', project.type === 'scrum' ? 'Sprint đang chạy' : 'Bảng Kanban', SquareKanban],
     ['issues', 'Danh sách issue', List],
     ...(project.type === 'scrum' ? [['backlog', 'Backlog', ListTodo] as [string, string, LucideIcon]] : []),
     ...(RELEASES_ENABLED ? [['releases', 'Phát hành', Rocket] as [string, string, LucideIcon]] : []),
-    ...(canSettings(project.permissions) ? [['settings', 'Cài đặt', Settings] as [string, string, LucideIcon]] : []),
   ];
   // Mở thẳng một tab không có quyền xem (VD gõ địa chỉ) → về tab đầu tiên được phép
   const seg = location.pathname.split('/')[3];
-  if (seg && ((TAB_PERM[seg] && !can(project.permissions, TAB_PERM[seg])) || (seg === 'settings' && !canSettings(project.permissions)))) {
+  // Đường dẫn cũ: Cài đặt → Thông tin; Dashboard dự án đã bỏ → tab mặc định
+  if (seg === 'settings') return <Navigate to={`/p/${project.key}/info`} replace />;
+  if (seg === 'dashboard') return <Navigate to={`/p/${project.key}/${firstTab(project)}`} replace />;
+  if (seg && TAB_PERM[seg] && !can(project.permissions, TAB_PERM[seg])) {
     return <Navigate to={`/p/${project.key}/${firstTab(project)}`} replace />;
   }
   // Chỉ hiện tab người dùng có quyền Xem
-  const visibleTabs = tabs.filter(([p]) => p === 'settings' || p === 'info' || can(project.permissions, TAB_PERM[p] ?? ''));
+  const visibleTabs = tabs.filter(([p]) => p === 'info' || can(project.permissions, TAB_PERM[p] ?? ''));
 
   return (
     <div className="project project-in-shell">
@@ -58,11 +61,14 @@ export default function ProjectLayout() {
           <h1>{project.name}</h1>
           <ProjectCustomer project={project} />
         </div>
+        <div className="spacer" />
+        {can(project.permissions, 'issue.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> Tạo issue</button>}
       </div>
       <nav className="tabs">
         {visibleTabs.map(([path, label, Icon]) => <NavLink key={path} to={`/p/${project.key}/${path}`}><Icon size={16} /> {label}</NavLink>)}
       </nav>
       <Outlet context={project} />
+      {creating && <CreateIssueModal projectKey={project.key} onClose={() => setCreating(false)} onCreated={(issue) => openIssue(issue.key)} />}
     </div>
   );
 }

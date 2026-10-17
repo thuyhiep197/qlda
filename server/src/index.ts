@@ -22,6 +22,7 @@ import customerWorkRoutes, { pingJourney } from './routes/customer-work.ts';
 import productRoutes from './routes/products.ts';
 import geoRoutes from './routes/geo.ts';
 import departmentRoutes from './routes/departments.ts';
+import searchRoutes from './routes/search.ts';
 import { seedGeo } from './geo.ts';
 import { pruneNotifications } from './notify.ts';
 import { pruneAudit } from './audit.ts';
@@ -83,6 +84,7 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/geo', geoRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api/search', searchRoutes);
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'API không tồn tại')));
 
 // Giao diện web đã build (chế độ production)

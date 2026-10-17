@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanActivity, cleanContact, cleanContacts, cleanCustomer, cleanProduct, cleanTask, sameName } from './customer';
+import { cleanActivity, cleanContact, cleanContacts, cleanCustomer, cleanProduct, cleanTask, fold, sameName } from './customer';
 
 test('customer needs an organisation name and starts as a new customer', () => {
   assert.throws(() => cleanCustomer({ name: '   ' }), /Tên cơ quan\/đơn vị/);
@@ -64,4 +64,8 @@ test('sales task needs a title; status, due date and assignee are checked', () =
 
 test('internal discussion is an accepted conversation kind', () => {
   assert.equal(cleanActivity({ kind: 'internal', content: 'Nhờ @hiep xem lại báo giá' }, '2026-10-17').kind, 'internal');
+});
+
+test('fold strips Vietnamese accents for search', () => {
+  assert.equal(fold('Sở Tài chính Đồng Nai'), 'so tai chinh dong nai');
 });

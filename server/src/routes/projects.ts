@@ -130,8 +130,10 @@ r.get('/:key', (req, res) => {
   });
 });
 
+/** Sửa thông tin dự án: người có quyền Sửa dự án, hoặc trưởng dự án */
 r.patch('/:key', (req, res) => {
-  const { project } = loadProject(req, 'project.admin');
+  const { project, perms } = loadProject(req);
+  if (!perms.has('project.admin') && project.lead_id !== req.user.id) throw forbidden('Chỉ trưởng dự án hoặc người có quyền Sửa dự án được sửa thông tin');
   const b = req.body || {};
   const name = b.name !== undefined ? String(b.name).trim() : project.name;
   if (!name) throw badRequest('Tên dự án không được để trống');

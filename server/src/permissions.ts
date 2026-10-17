@@ -1,4 +1,5 @@
 import { all, get, run } from './db.ts';
+import { isLegacyPermissionList } from './perm-legacy.ts';
 
 // ---------------------------------------------------------------------------
 // Danh mục phân quyền: Nhóm chức năng → Chức năng → Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
@@ -118,12 +119,12 @@ export function convertLegacyPermissions(old: string[]): Permission[] {
   return ALL_PERMISSIONS.filter((p) => out.has(p));
 }
 
-/** Nhóm người dùng còn lưu quyền kiểu cũ (chưa có 'issue.view') → chuyển sang kiểu mới, giữ nguyên năng lực. */
+/** Nhóm người dùng còn lưu quyền kiểu cũ → chuyển sang kiểu mới, giữ nguyên năng lực (xem perm-legacy.ts). */
 export function upgradeRolePermissions() {
   for (const r of all<{ id: number; name: string; permissions: string }>('SELECT id, name, permissions FROM roles')) {
     let p: string[] = [];
     try { p = JSON.parse(r.permissions); } catch { /* quyền hỏng → coi như rỗng */ }
-    if (p.includes('issue.view')) continue;
+    if (!isLegacyPermissionList(p, OLD_KEYS, ALL_PERMISSIONS)) continue;
     run('UPDATE roles SET permissions = ? WHERE id = ?', JSON.stringify(convertLegacyPermissions(p)), r.id);
     console.log(`[permissions] chuyển nhóm "${r.name}" sang phân quyền theo chức năng`);
   }

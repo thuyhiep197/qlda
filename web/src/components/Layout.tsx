@@ -1,22 +1,22 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api, logout, queryClient } from '../api';
 import { applyTheme } from '../theme';
 import { hasPerm, useIssueModal, useMe } from '../hooks';
 import { Avatar } from './ui';
-import CreateIssueModal from './CreateIssueModal';
+import GlobalSearch from './GlobalSearch';
+import { CustomerModal } from '../pages/Customers';
+import { CreateProjectModal } from '../pages/Projects';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
-import { Building2, FolderKanban, LayoutDashboard, LogOut, Menu, Moon, Plus, Search, Settings, Sun, Wrench } from 'lucide-react';
+import { Building2, FolderKanban, LayoutDashboard, LogOut, Menu, Moon, Plus, Settings, Sun, Wrench } from 'lucide-react';
 import { adminTabs } from '../pages/AdminLayout';
 
 export default function Layout() {
   const { data: me } = useMe();
   const navigate = useNavigate();
-  const match = useMatch('/p/:key/*');
-  const { current, open } = useIssueModal();
+  const { current } = useIssueModal();
   const [creating, setCreating] = useState(false);
-  const [q, setQ] = useState('');
   const [menu, setMenu] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const location = useLocation();
@@ -29,14 +29,12 @@ export default function Layout() {
     try { await api.put('/auth/preferences', { theme: t }); await queryClient.invalidateQueries({ queryKey: ['me'] }); } catch { /* vẫn đổi trên máy này */ }
   };
 
-  const search = (e: FormEvent) => {
-    e.preventDefault();
-    const v = q.trim();
-    if (!v) return;
-    if (/^[A-Za-z][A-Za-z0-9]+-\d+$/.test(v)) open(v.toUpperCase());
-    else navigate(`/issues?q=${encodeURIComponent(v)}`);
-    setQ('');
-  };
+  // Phân hệ đang mở → nút tạo trên thanh trên cùng: Khách hàng → Tạo khách hàng, Dự án → Tạo dự án; Dashboard, Quản trị: không có
+  const path = location.pathname;
+  const subsystem = path.startsWith('/customers') ? 'customer' : path.startsWith('/projects') || path.startsWith('/p/') || path.startsWith('/issues') ? 'project' : null;
+  const createBtn = subsystem === 'customer' && hasPerm(me, 'customer.create') ? 'Tạo khách hàng'
+    : subsystem === 'project' && hasPerm(me, 'project.create') ? 'Tạo dự án' : null;
+  useEffect(() => { setCreating(false); }, [subsystem]);
 
 
   return (
@@ -51,7 +49,7 @@ export default function Layout() {
         <nav className="nav nav-main">
           <NavLink to="/home"><LayoutDashboard size={18} /> Dashboard</NavLink>
           {hasPerm(me, 'customer.view') && <NavLink to="/customers"><Building2 size={18} /> Khách hàng</NavLink>}
-          <NavLink to="/projects" className={({ isActive }) => (isActive || match ? 'active' : '')}><FolderKanban size={18} /> Dự án</NavLink>
+          <NavLink to="/projects" className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> Dự án</NavLink>
           {adminTabs(me).length > 0 && <NavLink to="/admin"><Wrench size={18} /> Quản trị</NavLink>}
         </nav>
       </aside>
@@ -59,11 +57,8 @@ export default function Layout() {
       <div className="main">
         <header className="topbar">
           <button className="icon-btn menu-btn" aria-label="Mở menu" onClick={() => setNavOpen(true)}><Menu size={20} /></button>
-          <form onSubmit={search} className="search">
-            <Search size={16} className="search-icon" aria-hidden />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm issue theo từ khóa hoặc mã (VD: DEMO-12)…" />
-          </form>
-          {hasPerm(me, 'issue.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> Tạo issue</button>}
+          <GlobalSearch />
+          {createBtn && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> {createBtn}</button>}
           <div className="spacer" />
           <NotificationBell />
           <div className="user-menu">
@@ -89,13 +84,8 @@ export default function Layout() {
         </main>
       </div>
 
-      {creating && (
-        <CreateIssueModal
-          projectKey={match?.params.key}
-          onClose={() => setCreating(false)}
-          onCreated={(issue) => open(issue.key)}
-        />
-      )}
+      {creating && subsystem === 'customer' && <CustomerModal onClose={() => setCreating(false)} onSaved={(id) => navigate(`/customers/${id}?g=all`)} />}
+      {creating && subsystem === 'project' && <CreateProjectModal onClose={() => setCreating(false)} />}
       {current && <IssueDetailModal issueKey={current} />}
     </div>
   );

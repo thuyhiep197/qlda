@@ -8,22 +8,29 @@ import { Avatar, Modal, SideBadge, StatusBadge, toast, toastError, TypeIcon } fr
 import { useProjectCtx } from './ProjectLayout';
 import { ProjectInfoFields, projectInfoOf } from '../components/ProjectInfoFields';
 import { ArrowDown, ArrowUp } from 'lucide-react';
+import ProjectInfo from './ProjectInfo';
 
+/** Tab Thông tin của dự án: thông tin dự án (mọi thành viên xem; trưởng dự án hoặc người có quyền Sửa dự án sửa được),
+ *  và các phần cài đặt Thành viên, Mô-đun, Trạng thái & quy trình theo quyền. */
 export default function ProjectSettings() {
   const project = useProjectCtx();
-  // Thông tin, thành viên, quy trình: quyền Sửa dự án; Mô-đun: quyền riêng của Mô-đun
+  const { data: me } = useMe();
+  // Thành viên, quy trình: quyền Sửa dự án; Mô-đun: quyền riêng của Mô-đun; Thông tin: thêm trưởng dự án
   const canProject = can(project.permissions, 'project.edit');
+  const canInfo = canProject || project.lead_id === me?.id;
   const canComp = ['component.create', 'component.edit', 'component.delete'].some((p) => can(project.permissions, p));
-  const [tab, setTab] = useState<'general' | 'members' | 'components' | 'workflow'>(canProject ? 'general' : 'components');
+  const [tab, setTab] = useState<'general' | 'members' | 'components' | 'workflow'>('general');
+  const [editing, setEditing] = useState(false);
+  const showTabs = canProject || canComp;
   return (
     <div className="page-pad">
-      <div className="tabs tabs-sm">
-        {canProject && <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>Thông tin chung</button>}
+      {showTabs && <div className="tabs tabs-sm">
+        <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>Thông tin chung</button>
         {canProject && <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>Thành viên</button>}
         {canComp && <button className={tab === 'components' ? 'active' : ''} onClick={() => setTab('components')}>Mô-đun & BA phụ trách</button>}
         {canProject && <button className={tab === 'workflow' ? 'active' : ''} onClick={() => setTab('workflow')}>Trạng thái & quy trình</button>}
-      </div>
-      {tab === 'general' && <General />}
+      </div>}
+      {tab === 'general' && (editing ? <General onDone={() => setEditing(false)} canArchive={canProject} /> : <ProjectInfo onEdit={canInfo ? () => setEditing(true) : undefined} />)}
       {tab === 'members' && <Members />}
       {tab === 'components' && <Components />}
       {tab === 'workflow' && <Workflow />}
@@ -31,7 +38,7 @@ export default function ProjectSettings() {
   );
 }
 
-function General() {
+function General({ onDone, canArchive }: { onDone: () => void; canArchive: boolean }) {
   const project = useProjectCtx();
   const { data: me } = useMe();
   const navigate = useNavigate();
@@ -47,6 +54,7 @@ function General() {
       await api.patch(`/projects/${project.key}`, { name, description, type, lead_id: Number(lead), ...info });
       toast('Đã lưu thông tin dự án');
       await refreshAll();
+      onDone();
     } catch (err) { toastError(err); }
   };
   const archive = async () => {
@@ -71,7 +79,8 @@ function General() {
       <div className="row gap-sm">
         <button className="btn btn-primary">Lưu</button>
         <div className="spacer" />
-        {hasPerm(me, 'project.delete') && <button type="button" className="btn btn-danger" onClick={archive}>Lưu trữ dự án</button>}
+        <button type="button" className="btn" onClick={onDone}>Hủy</button>
+        {canArchive && hasPerm(me, 'project.delete') && <button type="button" className="btn btn-danger" onClick={archive}>Lưu trữ dự án</button>}
       </div>
     </form>
   );

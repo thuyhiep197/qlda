@@ -1032,3 +1032,12 @@ a.cw-item { color: var(--text); }
 .cw-parent-active .cw-group-link { color: var(--primary); font-weight: 600; }
 .proj-dot.sm { width: 18px; height: 18px; font-size: 9px; border-radius: 4px; }
 @media (max-width: 1100px) { .cw-page { overflow: visible; } }
+
+/* Tìm kiếm toàn hệ thống */
+.gs { position: relative; }
+.gs input { width: 460px; max-width: 45vw; }
+.gs-pop { position: absolute; top: calc(100% + 6px); left: 0; width: min(560px, 90vw); max-height: 70vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 6px; z-index: 60; }
+.gs-group { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding: 8px 8px 4px; }
+.gs-item { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; text-align: left; padding: 7px 8px; border-radius: 6px; cursor: pointer; font: inherit; color: var(--text); min-width: 0; }
+.gs-item.on { background: var(--primary-soft); }
+.gs-meta { max-width: 180px; }
