@@ -6,7 +6,7 @@ import { hasPerm, useMe } from '../../hooks';
 import type { CustomerDetail, JourneyData, JourneyStep, StepStatus } from '../../types';
 import { CUSTOMER_STATUSES, filterSteps } from '../../customer-filter';
 import { fmtDate, lozengeOf, today } from '../../util';
-import { Avatar, Empty, Spinner, toast, toastError } from '../../components/ui';
+import { Empty, Spinner, toast, toastError } from '../../components/ui';
 
 export const STEP_STATUS: Record<StepStatus, { label: string; tone: string }> = {
   todo: { label: 'Chưa bắt đầu', tone: 'default' }, doing: { label: 'Bắt đầu', tone: 'blue' }, done: { label: 'Kết thúc', tone: 'green' },
@@ -103,15 +103,15 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
       </div>
       <div className="cw-scroll">
         <table className="table journey-table">
-          <thead><tr><th>Nội dung</th><th>Phòng thực hiện</th><th>Phòng phối hợp</th><th>Trạng thái</th><th>Phụ trách</th><th>Hạn</th><th /></tr></thead>
+          <thead><tr><th>Nội dung</th><th>Phòng thực hiện</th><th>Phòng phối hợp</th><th>Trạng thái</th><th>Hạn</th><th /></tr></thead>
           <tbody>
-            {filtered && !filtered.length && <tr><td colSpan={7} className="muted center">Không có bước phù hợp</td></tr>}
+            {filtered && !filtered.length && <tr><td colSpan={6} className="muted center">Không có bước phù hợp</td></tr>}
             {visible.map((s) => {
               if (s.depth === 0) {
                 const sec = progress.sections.find((x) => x.id === s.id);
                 return (
                   <tr key={s.id} className="j-section" onClick={() => toggle(s.id)}>
-                    <td colSpan={7}>{closed.has(s.id) ? <ChevronRight size={15} /> : <ChevronDown size={15} />} {s.code}. {s.title}
+                    <td colSpan={6}>{closed.has(s.id) ? <ChevronRight size={15} /> : <ChevronDown size={15} />} {s.code}. {s.title}
                       {sec && <span className="muted small" style={{ fontWeight: 400 }}> · {sec.done}/{sec.total} bước</span>}</td>
                   </tr>
                 );
@@ -127,7 +127,6 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
                   <td>{s.unit && <span className="unit-chip">{s.unit}</span>}</td>
                   <td>{s.support && <span className="unit-chip">{s.support}</span>}</td>
                   <td><span className={`lozenge lozenge-${STEP_STATUS[s.status].tone}`}>{STEP_STATUS[s.status].label}</span></td>
-                  <td>{s.assignee_name && <span data-tip={s.assignee_name}><Avatar name={s.assignee_name} size={22} /></span>}</td>
                   <td className={`small nowrap ${late ? 'overdue' : 'muted'}`}>{s.due_date ? fmtDate(s.due_date) : ''}</td>
                   <td className="nowrap muted small">
                     {s.talk_count > 0 && <span data-tip="Trao đổi"><MessageSquare size={12} /> {s.talk_count} </span>}
