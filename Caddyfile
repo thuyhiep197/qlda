@@ -1,6 +1,12 @@
 {$DOMAIN} {
 	encode zstd gzip
-	request_body {
+	# Tài liệu nội bộ (có tệp cài đặt .exe) cho phép tới 200MB; các phần khác 30MB
+	@docs path /api/docs/*
+	@other not path /api/docs/*
+	request_body @docs {
+		max_size 200MB
+	}
+	request_body @other {
 		max_size 30MB
 	}
 	header {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Route, Search } from 'lucide-react';
+import { Building2, FileText, Route, Search } from 'lucide-react';
 import { api } from '../api';
 import { useIssueModal } from '../hooks';
 import type { IssueType, SubType, Category } from '../types';
@@ -13,6 +13,7 @@ interface Results {
   projects: { id: number; key: string; name: string; customer: string | null }[];
   issues: { key: string; summary: string; type: IssueType; subtype: SubType | null; status_name: string; status_category: Category; project_key: string }[];
   steps: { id: number; title: string; code: string | null; customer_id: number; customer_name: string }[];
+  docs?: { id: number; filename: string; folder_id: number | null; folder_name: string | null }[];
 }
 
 /** Ô tìm kiếm trên cùng — phạm vi toàn hệ thống: khách hàng, dự án, issue, bước hành trình (chỉ những gì người dùng được xem) */
@@ -43,6 +44,8 @@ export default function GlobalSearch() {
     node: <><span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span><span className="grow ellipsis">{p.name}</span><span className="muted small ellipsis gs-meta">{p.customer ?? p.key}</span></> }));
   data?.issues.forEach((i) => items.push({ group: 'Issue', key: `i${i.key}`, go: done(() => openIssue(i.key)),
     node: <><TypeIcon type={i.type} subtype={i.subtype} size={15} /><span className="muted small nowrap">{i.key}</span><span className="grow ellipsis">{i.summary}</span><StatusBadge name={i.status_name} category={i.status_category} /></> }));
+  data?.docs?.forEach((d) => items.push({ group: 'Tài liệu nội bộ', key: `d${d.id}`, go: done(() => navigate(`/docs?${d.folder_id ? `folder=${d.folder_id}&` : ''}file=${d.id}`)),
+    node: <><FileText size={15} className="muted" /><span className="grow ellipsis">{d.filename}</span><span className="muted small ellipsis gs-meta">{d.folder_name ?? 'Thư mục gốc'}</span></> }));
   if (term.length >= 2) items.push({ group: '', key: 'all-issues', go: done(() => navigate(`/issues?q=${encodeURIComponent(term)}`)),
     node: <><Search size={15} className="muted" /><span className="grow">Tìm "{term}" trong tất cả issue…</span></> });
 
@@ -64,7 +67,7 @@ export default function GlobalSearch() {
     <div className="search gs" ref={box}>
       <Search size={16} className="search-icon" aria-hidden />
       <input value={q} onChange={(e) => { setQ(e.target.value); setShow(true); setActive(0); }} onFocus={() => setShow(true)} onKeyDown={onKey}
-        placeholder="Tìm trong toàn hệ thống: khách hàng, dự án, issue, bước hành trình…" aria-label="Tìm kiếm toàn hệ thống" />
+        placeholder="Tìm trong toàn hệ thống: khách hàng, dự án, issue, hành trình, tài liệu…" aria-label="Tìm kiếm toàn hệ thống" />
       {show && q.trim().length >= 2 && (
         <div className="gs-pop" role="listbox">
           {isFetching && !data && <div className="muted small pad">Đang tìm…</div>}

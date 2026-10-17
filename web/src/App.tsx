@@ -24,6 +24,7 @@ import AdminGeo from './pages/AdminGeo';
 import AdminProducts from './pages/AdminProducts';
 import AdminOrg from './pages/AdminOrg';
 import ProjectShell from './pages/ProjectShell';
+import Docs from './pages/Docs';
 import AdminLayout from './pages/AdminLayout';
 import Profile from './pages/Profile';
 import Releases from './pages/Releases';
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="settings" element={null} />
           </Route>
           </Route>
+          <Route path="docs" element={<Docs />} />
           <Route path="browse/:issueKey" element={<IssuePage />} />
           <Route path="profile" element={<Profile />} />
           <Route path="admin" element={<AdminLayout />}>

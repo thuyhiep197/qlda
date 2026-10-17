@@ -9,7 +9,7 @@ import { CustomerModal } from '../pages/Customers';
 import { CreateProjectModal } from '../pages/Projects';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
-import { Building2, FolderKanban, LayoutDashboard, LogOut, Menu, Moon, Plus, Settings, Sun, Wrench } from 'lucide-react';
+import { Building2, FolderKanban, LayoutDashboard, LibraryBig, LogOut, Menu, Moon, Plus, Settings, Sun, Wrench } from 'lucide-react';
 import { adminTabs } from '../pages/AdminLayout';
 
 export default function Layout() {
@@ -45,11 +45,12 @@ export default function Layout() {
           <img src="/favicon.svg" width={28} height={28} alt="" />
           <span>QLDA</span>
         </NavLink>
-        {/* 4 phân hệ: Dashboard · Khách hàng · Dự án · Quản trị */}
+        {/* Phân hệ: Dashboard · Khách hàng · Dự án · Tài liệu nội bộ · Quản trị */}
         <nav className="nav nav-main">
           <NavLink to="/home"><LayoutDashboard size={18} /> Dashboard</NavLink>
           {hasPerm(me, 'customer.view') && <NavLink to="/customers"><Building2 size={18} /> Khách hàng</NavLink>}
           <NavLink to="/projects" className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> Dự án</NavLink>
+          <NavLink to="/docs"><LibraryBig size={18} /> Tài liệu</NavLink>
           {adminTabs(me).length > 0 && <NavLink to="/admin"><Wrench size={18} /> Quản trị</NavLink>}
         </nav>
       </aside>

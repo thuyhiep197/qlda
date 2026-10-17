@@ -90,6 +90,7 @@ Bỏ service `caddy` trong `docker-compose.yml`. Cấu hình web server sẵn c�
 | `DOMAIN` | — | Tên miền truy cập, Caddy dùng để xin chứng chỉ |
 | `ADMIN_USERNAME` / `ADMIN_FULLNAME` / `ADMIN_PASSWORD` | admin / Quản trị hệ thống / Admin@123 | Tài khoản quản trị tạo khi CSDL còn trống |
 | `MAX_UPLOAD_MB` | 25 | Dung lượng tối đa mỗi tệp đính kèm |
+| `DOC_MAX_UPLOAD_MB` | 200 | Dung lượng tối đa mỗi tệp ở Tài liệu nội bộ (Caddy cho phép tới 200MB riêng cho mục này) |
 | `BACKUP_KEEP` | 14 | Số bản sao lưu giữ lại; `0` để tắt |
 | `LOGIN_LOCKOUT` | (bật) | Khóa tạm 15 phút khi đăng nhập sai 5 lần/tài khoản hoặc 30 lần/IP. Đặt `off` để tắt (không khuyến nghị) |
 | `JWT_SECRET` | tự sinh, lưu trong CSDL | Khóa ký phiên đăng nhập |

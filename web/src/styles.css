@@ -1088,3 +1088,12 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .org-card.org-level-2 { width: 200px; border-top-color: var(--success); }
 .org-children { gap: 12px; }
 .org-card .org-staff { max-height: 420px; }
+
+/* Tài liệu nội bộ */
+.doc-main.drag .cw-scroll { outline: 2px dashed var(--primary); outline-offset: -6px; background: var(--primary-soft); }
+.doc-crumb { font-size: 14px; color: var(--text); }
+.doc-crumb a { cursor: pointer; }
+.doc-tree-item { gap: 2px; }
+.doc-table td { vertical-align: middle; }
+.doc-table thead th { position: sticky; top: 0; background: var(--sunken); z-index: 1; }
+.doc-ic.xls { color: #1f845a; } .doc-ic.pdf { color: #c9372c; } .doc-ic.doc { color: #0c66e4; } .doc-ic.html { color: #b65c02; } .doc-ic.exe { color: #6e5dc6; } .doc-ic.folder { color: #e2b203; }

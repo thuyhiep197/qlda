@@ -14,7 +14,7 @@ const LIMIT = 8;
 
 r.get('/', (req, res) => {
   const q = String(req.query.q ?? '').trim().slice(0, 100);
-  const out = { customers: [] as unknown[], projects: [] as unknown[], issues: [] as unknown[], steps: [] as unknown[] };
+  const out = { customers: [] as unknown[], projects: [] as unknown[], issues: [] as unknown[], steps: [] as unknown[], docs: [] as unknown[] };
   if (q.length < 2) return res.json(out);
   const fq = fold(q);
   const perms = userPermissions(req.user);
@@ -41,6 +41,10 @@ r.get('/', (req, res) => {
     out.issues = listIssues(req.user, { q, sort: 'updated', limit: String(LIMIT) })
       .map((i: any) => ({ key: i.key, summary: i.summary, type: i.type, subtype: i.subtype, status_name: i.status_name, status_category: i.status_category, project_key: i.project_key }));
   }
+  // Tài liệu nội bộ: mọi người đều tra cứu được
+  out.docs = all<{ id: number; filename: string; folder_id: number | null; folder_name: string | null }>(
+    'SELECT d.id, d.filename, d.folder_id, f.name AS folder_name FROM doc_files d LEFT JOIN doc_folders f ON f.id = d.folder_id ORDER BY d.filename')
+    .filter((d) => fold(d.filename).includes(fq)).slice(0, LIMIT);
   res.json(out);
 });
 

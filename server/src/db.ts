@@ -574,6 +574,26 @@ const migrations: string[] = [
    ALTER TABLE customer_files ADD COLUMN step_id INTEGER REFERENCES journey_steps(id) ON DELETE SET NULL;
    -- Trao đổi theo từng bước của hành trình
    ALTER TABLE customer_activities ADD COLUMN step_id INTEGER REFERENCES journey_steps(id) ON DELETE CASCADE;
+   -- Tài liệu nội bộ: thư mục nhiều cấp (parent_id NULL = thư mục gốc), tài liệu (folder_id NULL = để ở gốc)
+   CREATE TABLE doc_folders (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     parent_id INTEGER REFERENCES doc_folders(id),
+     name TEXT NOT NULL,
+     created_by INTEGER REFERENCES users(id),
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   CREATE INDEX idx_doc_folders_parent ON doc_folders(parent_id);
+   CREATE TABLE doc_files (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     folder_id INTEGER REFERENCES doc_folders(id),
+     filename TEXT NOT NULL,
+     stored_name TEXT NOT NULL,
+     mime TEXT,
+     size INTEGER NOT NULL DEFAULT 0,
+     uploader_id INTEGER REFERENCES users(id),
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   CREATE INDEX idx_doc_files_folder ON doc_files(folder_id);
    CREATE INDEX idx_customer_activities_step ON customer_activities(step_id);
    CREATE TABLE customer_tasks (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -599,7 +619,8 @@ const migrations: string[] = [
    UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer_all.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete',
        '$[#]', 'product.view', '$[#]', 'product.create', '$[#]', 'product.edit', '$[#]', 'product.delete',
        '$[#]', 'geo.view', '$[#]', 'geo.create', '$[#]', 'geo.edit', '$[#]', 'geo.delete',
-       '$[#]', 'department.view', '$[#]', 'department.create', '$[#]', 'department.edit', '$[#]', 'department.delete')
+       '$[#]', 'department.view', '$[#]', 'department.create', '$[#]', 'department.edit', '$[#]', 'department.delete',
+       '$[#]', 'document.edit', '$[#]', 'document.delete')
      WHERE permissions LIKE '%"project.create"%' AND permissions NOT LIKE '%"customer.view"%';`,
 ];
 

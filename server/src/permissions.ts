@@ -57,6 +57,12 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     ],
   },
   {
+    key: 'docs', label: 'Tài liệu nội bộ', features: [
+      { key: 'document', label: 'Tài liệu nội bộ', hint: 'Mọi người đều tra cứu, tạo thư mục, tải lên, tải xuống và sửa / xóa của mình; các quyền dưới đây là sửa / xóa của người khác',
+        actions: ['edit', 'delete'], actionHints: { edit: 'Đổi tên, chuyển thư mục / tài liệu của người khác', delete: 'Xóa thư mục / tài liệu của người khác' } },
+    ],
+  },
+  {
     key: 'catalog', label: 'Danh mục dùng chung', features: [
       { key: 'department', label: 'Phòng ban (sơ đồ tổ chức)', hint: 'Ban Giám đốc và các phòng; nhân sự thuộc phòng ban', actions: ['view', 'create', 'edit', 'delete'] },
       { key: 'geo', label: 'Danh mục địa chính', hint: 'Tỉnh/thành phố, phường/xã dùng để chọn địa chỉ khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
