@@ -2,17 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanActivity, cleanContact, cleanContacts, cleanCustomer, cleanProduct, sameName } from './customer';
 
-test('customer needs an organisation name and defaults to an active relationship', () => {
+test('customer needs an organisation name and starts as a new customer', () => {
   assert.throws(() => cleanCustomer({ name: '   ' }), /Tên cơ quan\/đơn vị/);
-  const c = cleanCustomer({ name: '  Sở Tài chính   Đồng Nai ', ward: '', product_id: '' });
+  const c = cleanCustomer({ name: '  Sở Tài chính   Đồng Nai ', ward_code: '', product_id: '' });
   assert.equal(c.name, 'Sở Tài chính Đồng Nai');
-  assert.equal(c.status, 'Đang hợp tác');
-  assert.equal(c.ward, null);
+  assert.equal(c.status, 'Mới');
+  assert.equal(c.ward_code, null);
   assert.equal(c.product_id, null);
 });
 
 test('customer rejects unknown status and bad product ids', () => {
-  assert.throws(() => cleanCustomer({ name: 'A', status: 'Hết' }), /Tình trạng/);
+  assert.throws(() => cleanCustomer({ name: 'A', status: 'Tiềm năng' }), /Tình trạng/);
+  assert.equal(cleanCustomer({ name: 'A', status: 'Đang làm sản phẩm' }).status, 'Đang làm sản phẩm');
   assert.throws(() => cleanCustomer({ name: 'A', product_id: 'abc' }), /Sản phẩm/);
   assert.throws(() => cleanCustomer({ name: 'A', product_type_id: -1 }), /Loại sản phẩm/);
   const c = cleanCustomer({ name: 'A', product_type_id: '2', product_id: 5, product_description: ' Phần mềm QL ' });

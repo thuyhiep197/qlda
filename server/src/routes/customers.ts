@@ -26,11 +26,19 @@ function loadCustomer(req: Request) {
 const nameTaken = (name: string, exceptId?: number) =>
   all<{ id: number; name: string }>('SELECT id, name FROM customers').some((c) => c.id !== exceptId && sameName(c.name, name));
 
-const FIELDS = ['name', 'province', 'ward', 'product_type_id', 'product_id', 'product_description', 'source', 'status', 'am'] as const;
+const FIELDS = ['name', 'province_code', 'ward_code', 'product_type_id', 'product_id', 'product_description', 'source', 'status', 'am'] as const;
 
-/** Kiểm tra thông tin khách hàng với danh mục: sản phẩm phải có thật và thuộc loại sản phẩm đã chọn (chưa chọn loại thì lấy loại của sản phẩm) */
+/** Kiểm tra thông tin khách hàng với danh mục: tỉnh, phường/xã theo Danh mục địa chính (phường/xã phải thuộc tỉnh đã chọn);
+ *  sản phẩm phải có thật và thuộc loại sản phẩm đã chọn (chưa chọn loại thì lấy loại của sản phẩm) */
 function validate(body: any) {
   const v = check(() => cleanCustomer(body));
+  if (v.province_code && !get('SELECT 1 FROM geo_provinces WHERE code = ?', v.province_code)) throw badRequest('Tỉnh/thành phố không có trong Danh mục địa chính');
+  if (v.ward_code) {
+    const w = get<{ province_code: string }>('SELECT province_code FROM geo_wards WHERE code = ?', v.ward_code);
+    if (!w) throw badRequest('Phường/xã không có trong Danh mục địa chính');
+    if (v.province_code && w.province_code !== v.province_code) throw badRequest('Phường/xã không thuộc tỉnh/thành phố đã chọn');
+    v.province_code = w.province_code;
+  }
   if (v.product_type_id && !get('SELECT 1 FROM product_types WHERE id = ?', v.product_type_id)) throw badRequest('Loại sản phẩm không hợp lệ');
   if (v.product_id) {
     const p = get<{ type_id: number }>('SELECT type_id FROM products WHERE id = ?', v.product_id);
@@ -68,12 +76,13 @@ const FIRST_CONTACT = (col: string) => `(SELECT cc.${col} FROM customer_contacts
 r.get('/', (req, res) => {
   requireUserPerm(req.user, 'customer.view');
   res.json(all(`
-    SELECT c.*, pt.name AS product_type_name, p.name AS product_name,
+    SELECT c.*, pt.name AS product_type_name, p.name AS product_name, gp.name AS province_name, gw.name AS ward_name,
       (SELECT COUNT(*) FROM projects pr WHERE pr.customer_id = c.id AND pr.is_archived = 0) AS project_count,
       (SELECT COUNT(*) FROM customer_contacts cc WHERE cc.customer_id = c.id) AS contact_count,
       (SELECT MAX(activity_date) FROM customer_activities a WHERE a.customer_id = c.id) AS last_activity_date,
       ${FIRST_CONTACT('full_name')} AS contact_name, ${FIRST_CONTACT('phone')} AS contact_phone, ${FIRST_CONTACT('email')} AS contact_email
     FROM customers c LEFT JOIN product_types pt ON pt.id = c.product_type_id LEFT JOIN products p ON p.id = c.product_id
+      LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code
     ORDER BY c.name`));
 });
 
@@ -97,6 +106,8 @@ r.get('/:id', (req, res) => {
   const c = loadCustomer(req);
   c.product_type_name = c.product_type_id ? get('SELECT name FROM product_types WHERE id = ?', c.product_type_id)?.name ?? null : null;
   c.product_name = c.product_id ? get('SELECT name FROM products WHERE id = ?', c.product_id)?.name ?? null : null;
+  c.province_name = c.province_code ? get('SELECT name FROM geo_provinces WHERE code = ?', c.province_code)?.name ?? null : null;
+  c.ward_name = c.ward_code ? get('SELECT name FROM geo_wards WHERE code = ?', c.ward_code)?.name ?? null : null;
   c.contacts = all('SELECT id, full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY position, id', c.id);
   c.files = all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name
     FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id WHERE f.customer_id = ? ORDER BY f.created_at DESC`, c.id);

@@ -869,3 +869,10 @@ a.kpi:hover { background: var(--table-hover); }
 .file-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .file-row:last-child { border-bottom: 0; }
 .chip-type { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border: 1px solid var(--border); border-radius: 14px; font-size: 13px; }
+.geo-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
+.geo-side { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.geo-list { display: flex; flex-direction: column; max-height: 65vh; overflow-y: auto; }
+.geo-item { display: flex; align-items: center; gap: 8px; border: 0; background: none; text-align: left; padding: 6px 8px; border-radius: 4px; cursor: pointer; font: inherit; color: var(--text); }
+.geo-item:hover { background: var(--hover); }
+.geo-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+@media (max-width: 900px) { .geo-layout { grid-template-columns: minmax(0, 1fr); } .geo-list { max-height: 240px; } }

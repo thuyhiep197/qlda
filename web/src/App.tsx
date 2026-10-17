@@ -25,6 +25,7 @@ import AdminStaff from './pages/AdminStaff';
 import Customers from './pages/Customers';
 import CustomerDetail from './pages/CustomerDetail';
 import AdminProducts from './pages/AdminProducts';
+import AdminGeo from './pages/AdminGeo';
 import Profile from './pages/Profile';
 import Releases from './pages/Releases';
 import { RELEASES_ENABLED } from './util';
@@ -67,6 +68,7 @@ export default function App() {
           {hasPerm(me, 'customer.view') && <Route path="customers" element={<Customers />} />}
           {hasPerm(me, 'customer.view') && <Route path="customers/:id" element={<CustomerDetail />} />}
           {hasPerm(me, 'product.view') && <Route path="admin/products" element={<AdminProducts />} />}
+          {hasPerm(me, 'geo.view') && <Route path="admin/geo" element={<AdminGeo />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

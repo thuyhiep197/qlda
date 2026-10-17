@@ -99,7 +99,7 @@ export interface Sprint {
   done_points?: number;
 }
 
-export type StaffPosition = 'ba_pm' | 'tester' | 'am' | 'dev';
+export type StaffPosition = 'ba_pm' | 'tester' | 'am' | 'dev' | 'kd';
 /** Danh mục nhân sự dùng chung; positions: các vị trí cách nhau dấu phẩy */
 export interface StaffMember {
   id: number;
@@ -145,7 +145,7 @@ export interface Project {
   customer_id: number | null;
   customer: string | null;
   /** Thông tin khách hàng của dự án (thành viên dự án đều xem được) */
-  customer_info: (Pick<Customer, 'id' | 'name' | 'status' | 'province' | 'ward' | 'source' | 'am'> & { contacts: CustomerContact[] }) | null;
+  customer_info: (Pick<Customer, 'id' | 'name' | 'status' | 'province_name' | 'ward_name' | 'source' | 'am'> & { contacts: CustomerContact[] }) | null;
   priority: string | null;
   project_status: string | null;
   ba: string | null;
@@ -313,8 +313,11 @@ export interface SavedFilter {
 export interface Customer {
   id: number;
   name: string;
-  province: string | null;
-  ward: string | null;
+  /** Mã tỉnh/thành phố, phường/xã theo Danh mục địa chính */
+  province_code: string | null;
+  ward_code: string | null;
+  province_name?: string | null;
+  ward_name?: string | null;
   product_type_id: number | null;
   product_id: number | null;
   product_description: string | null;
@@ -351,6 +354,10 @@ export interface CustomerFile {
   uploader_id: number | null;
   uploader_name: string | null;
 }
+
+/** Danh mục địa chính */
+export interface GeoProvince { code: string; name: string; ward_count: number; customer_count: number }
+export interface GeoWard { code: string; province_code: string; name: string; customer_count: number }
 
 export interface ProductType { id: number; name: string; position: number; product_count: number }
 export interface Product { id: number; type_id: number; type_name: string; name: string; description: string | null; customer_count: number }

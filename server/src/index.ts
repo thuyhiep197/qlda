@@ -19,6 +19,8 @@ import notificationRoutes from './routes/notifications.ts';
 import staffRoutes from './routes/staff.ts';
 import customerRoutes from './routes/customers.ts';
 import productRoutes from './routes/products.ts';
+import geoRoutes from './routes/geo.ts';
+import { seedGeo } from './geo.ts';
 import { pruneNotifications } from './notify.ts';
 import { pruneAudit } from './audit.ts';
 import { syncAllEpics } from './issues.ts';
@@ -27,6 +29,7 @@ import { scheduleBackups } from './backup.ts';
 
 migrate();
 seedRoles();
+seedGeo();
 upgradeRolePermissions();
 syncAllEpics();
 // Epic đã xong hết việc tự chuyển Hoàn thành khi qua ngày kết thúc
@@ -72,6 +75,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/geo', geoRoutes);
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'API không tồn tại')));
 
 // Giao diện web đã build (chế độ production)

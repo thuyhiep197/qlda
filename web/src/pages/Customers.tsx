@@ -3,9 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { Paperclip, Plus, X } from 'lucide-react';
 import { api, refreshAll } from '../api';
-import { hasPerm, useMe, useProducts, useProductTypes } from '../hooks';
+import { hasPerm, useMe, useProducts, useProductTypes, useProvinces, useWards } from '../hooks';
 import type { Customer, CustomerContact } from '../types';
-import { CUSTOMER_SOURCES, CUSTOMER_STATUSES, descriptionOf, filterCustomers, PROVINCES } from '../customer-filter';
+import { CUSTOMER_SOURCES, CUSTOMER_STATUSES, descriptionOf, filterCustomers, wardCodeOf } from '../customer-filter';
 import { fmtDate, lozengeOf } from '../util';
 import { StaffPicker, splitNames } from '../components/ProjectInfoFields';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
@@ -24,7 +24,8 @@ export default function Customers() {
   const [province, setProvince] = useState('');
   const [creating, setCreating] = useState(false);
   const list = filterCustomers(customers || [], { q, status, productType, province });
-  const provinces = [...new Set((customers || []).map((c) => c.province).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'vi'));
+  const { data: allProvinces } = useProvinces();
+  const provinces = (allProvinces || []).filter((p) => customers?.some((c) => c.province_code === p.code));
 
   return (
     <div className="page">
@@ -46,7 +47,7 @@ export default function Customers() {
         </select>
         <select value={province} className={province ? 'filter-on' : ''} onChange={(e) => setProvince(e.target.value)}>
           <option value="">Tỉnh/TP: Tất cả</option>
-          {provinces.map((n) => <option key={n}>{n}</option>)}
+          {provinces.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
           <option value="-">(Chưa có)</option>
         </select>
         {customers && <span className="muted small">{list.length}/{customers.length} khách hàng</span>}
@@ -61,7 +62,7 @@ export default function Customers() {
               {list.map((c) => (
                 <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/customers/${c.id}`)}>
                   <td><Link to={`/customers/${c.id}`} onClick={(e) => e.stopPropagation()}><b>{c.name}</b></Link></td>
-                  <td>{c.province}{c.ward && <div className="muted small">{c.ward}</div>}</td>
+                  <td>{c.province_name}{c.ward_name && <div className="muted small">{c.ward_name}</div>}</td>
                   <td>{c.product_type_name}</td>
                   <td>{c.product_name}</td>
                   <td><span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span></td>
@@ -82,12 +83,12 @@ export default function Customers() {
   );
 }
 
-type Draft = Record<'name' | 'province' | 'ward' | 'product_type_id' | 'product_id' | 'product_description' | 'source' | 'status' | 'am', string>;
+type Draft = Record<'name' | 'province_code' | 'ward_code' | 'product_type_id' | 'product_id' | 'product_description' | 'source' | 'status' | 'am', string>;
 type ContactDraft = { id?: number; full_name: string; phone: string; email: string };
 const draftOf = (c?: Customer): Draft => ({
-  name: c?.name ?? '', province: c?.province ?? '', ward: c?.ward ?? '',
+  name: c?.name ?? '', province_code: c?.province_code ?? '', ward_code: c?.ward_code ?? '',
   product_type_id: c?.product_type_id ? String(c.product_type_id) : '', product_id: c?.product_id ? String(c.product_id) : '',
-  product_description: c?.product_description ?? '', source: c?.source ?? '', status: c?.status ?? 'Đang hợp tác', am: c?.am ?? '',
+  product_description: c?.product_description ?? '', source: c?.source ?? '', status: c?.status ?? 'Mới', am: c?.am ?? '',
 });
 const blankContact = (): ContactDraft => ({ full_name: '', phone: '', email: '' });
 
@@ -98,6 +99,11 @@ export function CustomerModal({ customer, contacts, onClose, onSaved }: {
   const { data: types } = useProductTypes();
   const { data: products } = useProducts();
   const [d, setD] = useState(draftOf(customer));
+  const { data: provinces } = useProvinces();
+  const { data: wards } = useWards(d.province_code);
+  // Ô phường/xã: gõ để tìm trong danh mục của tỉnh đã chọn; chỉ nhận tên có trong danh mục
+  const [wardText, setWardText] = useState(customer?.ward_name ?? '');
+  const typeWard = (v: string) => { setWardText(v); setD({ ...d, ward_code: wardCodeOf(wards, v) ?? '' }); };
   const [people, setPeople] = useState<ContactDraft[]>(contacts?.length
     ? contacts.map((c) => ({ id: c.id, full_name: c.full_name, phone: c.phone ?? '', email: c.email ?? '' })) : [blankContact()]);
   const [files, setFiles] = useState<File[]>([]);
@@ -114,10 +120,10 @@ export function CustomerModal({ customer, contacts, onClose, onSaved }: {
     setD({ ...d, product_id: v, product_type_id: p ? String(p.type_id) : d.product_type_id, product_description: v ? descriptionOf(p) : d.product_description });
   };
   const setPerson = (i: number, k: keyof Omit<ContactDraft, 'id'>, v: string) => setPeople(people.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
-  const provinces = d.province && !PROVINCES.includes(d.province) ? [d.province, ...PROVINCES] : PROVINCES;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (wardText.trim() && !d.ward_code) { toastError('Phường/xã không có trong Danh mục địa chính của tỉnh/thành phố đã chọn'); return; }
     setBusy(true);
     try {
       const body = { ...d, contacts: people };
@@ -147,11 +153,15 @@ export function CustomerModal({ customer, contacts, onClose, onSaved }: {
           <input autoFocus required value={d.name} onChange={set('name')} placeholder="VD: Sở Tài chính tỉnh Đồng Nai" /></label>
         <div className="form-grid">
           <label className="field"><span>Tỉnh thành</span>
-            <select value={d.province} onChange={set('province')}>
+            <select value={d.province_code} onChange={(e) => { setD({ ...d, province_code: e.target.value, ward_code: '' }); setWardText(''); }}>
               <option value="">—</option>
-              {provinces.map((n) => <option key={n}>{n}</option>)}
+              {provinces?.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
             </select></label>
-          <label className="field"><span>Phường/Xã</span><input value={d.ward} onChange={set('ward')} placeholder="VD: Phường Trấn Biên" /></label>
+          <label className="field"><span>Phường/Xã</span>
+            <input list="ward-options" value={wardText} disabled={!d.province_code} onChange={(e) => typeWard(e.target.value)}
+              placeholder={d.province_code ? `Gõ để tìm trong ${wards?.length ?? '…'} phường/xã` : 'Chọn tỉnh thành trước'} />
+            <datalist id="ward-options">{wards?.map((w) => <option key={w.code} value={w.name} />)}</datalist>
+            {wardText.trim() && !d.ward_code && <small className="overdue">Chọn phường/xã trong danh sách gợi ý</small>}</label>
           <label className="field"><span>Loại sản phẩm</span>
             <select value={d.product_type_id} onChange={(e) => pickType(e.target.value)}>
               <option value="">—</option>
@@ -189,8 +199,8 @@ export function CustomerModal({ customer, contacts, onClose, onSaved }: {
               {CUSTOMER_STATUSES.map(([n]) => <option key={n}>{n}</option>)}
             </select></label>
         </div>
-        <div className="field"><span>Nhân viên phụ trách <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
-          <StaffPicker value={d.am} onChange={(v) => setD({ ...d, am: v })} /></div>
+        <div className="field"><span>Nhân viên phụ trách <small className="muted">(nhân sự Kinh doanh hoặc AM trong Danh mục nhân sự)</small></span>
+          <StaffPicker position={['kd', 'am']} value={d.am} onChange={(v) => setD({ ...d, am: v })} /></div>
         {!customer && (
           <div className="field"><span>Tài liệu</span>
             <label className="btn btn-subtle btn-sm" style={{ alignSelf: 'flex-start' }}><Paperclip size={14} /> Chọn tệp…

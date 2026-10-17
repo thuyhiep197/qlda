@@ -2,14 +2,7 @@ import type { Customer, CustomerDetail, Product } from './types';
 
 // Danh mục của module Khách hàng (khớp với server/src/customer.ts); [tên, màu lozenge]
 export const CUSTOMER_STATUSES: [string, string][] = [
-  ['Tiềm năng', 'purple'], ['Đang hợp tác', 'green'], ['Tạm dừng', 'yellow'], ['Ngừng hợp tác', 'default'],
-];
-/** 34 tỉnh, thành phố sau sắp xếp đơn vị hành chính (từ 01/7/2025) */
-export const PROVINCES = [
-  'Hà Nội', 'TP. Hồ Chí Minh', 'Hải Phòng', 'Đà Nẵng', 'Huế', 'Cần Thơ',
-  'An Giang', 'Bắc Ninh', 'Cà Mau', 'Cao Bằng', 'Đắk Lắk', 'Điện Biên', 'Đồng Nai', 'Đồng Tháp', 'Gia Lai', 'Hà Tĩnh',
-  'Hưng Yên', 'Khánh Hòa', 'Lai Châu', 'Lâm Đồng', 'Lạng Sơn', 'Lào Cai', 'Nghệ An', 'Ninh Bình', 'Phú Thọ', 'Quảng Ngãi',
-  'Quảng Ninh', 'Quảng Trị', 'Sơn La', 'Tây Ninh', 'Thái Nguyên', 'Thanh Hóa', 'Tuyên Quang', 'Vĩnh Long',
+  ['Mới', 'default'], ['Đang tư vấn', 'blue'], ['Chờ phản hồi', 'yellow'], ['Đang làm sản phẩm', 'purple'], ['Đã ký hợp đồng', 'green'], ['Đã thanh toán', 'green'],
 ];
 /** Gợi ý nguồn khách hàng (vẫn gõ được nguồn khác) */
 export const CUSTOMER_SOURCES = ['BGĐ giao', 'Khách hàng liên hệ', 'Đối tác giới thiệu', 'Kinh doanh tự tìm kiếm', 'Khách hàng cũ', 'Hội thảo, sự kiện', 'Đấu thầu công khai', 'Website'];
@@ -19,14 +12,20 @@ export const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g
 
 export interface CustomerFilter { q: string; status: string; productType: string; province: string }
 
-/** Lọc khách hàng theo từ khóa (tên, tỉnh, phường/xã, sản phẩm, nguồn, nhân viên phụ trách, đầu mối), tình trạng, loại sản phẩm, tỉnh ('-' = chưa có) */
+/** Lọc khách hàng theo từ khóa (tên, tỉnh, phường/xã, sản phẩm, nguồn, nhân viên phụ trách, đầu mối), tình trạng, loại sản phẩm, mã tỉnh ('-' = chưa có) */
 export function filterCustomers<T extends Customer>(list: T[], f: CustomerFilter): T[] {
   const q = fold(f.q.trim());
   return list.filter((c) =>
-    (!q || fold([c.name, c.province, c.ward, c.product_name, c.source, c.am, c.contact_name, c.contact_phone, c.contact_email].filter(Boolean).join(' ')).includes(q)) &&
+    (!q || fold([c.name, c.province_name, c.ward_name, c.product_name, c.source, c.am, c.contact_name, c.contact_phone, c.contact_email].filter(Boolean).join(' ')).includes(q)) &&
     (!f.status || c.status === f.status) &&
     (!f.productType || String(c.product_type_id ?? '-') === f.productType) &&
-    (!f.province || (c.province || '-') === f.province));
+    (!f.province || (c.province_code || '-') === f.province));
+}
+
+/** Tên phường/xã gõ vào ô chọn → mã trong danh mục (không phân biệt hoa/thường, dấu cách thừa); không khớp → undefined */
+export function wardCodeOf(wards: { code: string; name: string }[] | undefined, typed: string) {
+  const t = typed.replace(/\s+/g, ' ').trim().toLocaleLowerCase('vi');
+  return t ? wards?.find((w) => w.name.toLocaleLowerCase('vi') === t)?.code : undefined;
 }
 
 /** Chọn sản phẩm → mô tả lấy theo danh mục; sản phẩm chưa có mô tả thì để trống cho người dùng điền */

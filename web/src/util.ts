@@ -142,6 +142,8 @@ export const STAFF_POSITIONS: { key: 'ba_pm' | 'tester' | 'am' | 'dev'; label: s
   { key: 'ba_pm', label: 'BA/PM', field: 'ba' }, { key: 'dev', label: 'Dev', field: 'dev' },
   { key: 'tester', label: 'Tester', field: 'tester' }, { key: 'am', label: 'AM', field: 'am' },
 ];
+/** Mọi vị trí trong Danh mục nhân sự (Kinh doanh không có trường tương ứng ở dự án, dùng cho Nhân viên phụ trách khách hàng) */
+export const STAFF_POSITION_LABELS: { key: 'ba_pm' | 'tester' | 'am' | 'dev' | 'kd'; label: string }[] = [...STAFF_POSITIONS, { key: 'kd', label: 'Kinh doanh' }];
 
 /** Dev phụ trách chỉ chọn trong nhân sự Dev của dự án (trường dev = tên trong Danh mục nhân sự, phân cách bởi dấu phẩy). Không có dự án (undefined) → tất cả Dev. */
 export function projectDevOptions<T extends { id: number; full_name: string; positions: string }>(staff: T[] | undefined, projectDev: string | null | undefined): T[] {

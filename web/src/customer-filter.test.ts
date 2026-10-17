@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { customerKpis, descriptionOf, filterCustomers, PROVINCES } from './customer-filter';
+import { customerKpis, descriptionOf, filterCustomers, wardCodeOf } from './customer-filter';
 import type { Customer } from './types';
 
 const c = (o: Partial<Customer>): Customer => ({
-  id: 1, name: '', province: null, ward: null, product_type_id: null, product_id: null, product_description: null,
-  source: null, status: 'Đang hợp tác', am: null, created_at: '', updated_at: '', ...o,
+  id: 1, name: '', province_code: null, ward_code: null, product_type_id: null, product_id: null, product_description: null,
+  source: null, status: 'Mới', am: null, created_at: '', updated_at: '', ...o,
 });
 const list = [
-  c({ id: 1, name: 'Sở Tài chính Đồng Nai', province: 'Đồng Nai', ward: 'Phường Trấn Biên', contact_name: 'Lê Văn B', product_type_id: 1 }),
-  c({ id: 2, name: 'Trường THPT Chu Văn An', status: 'Tiềm năng', am: 'Phạm Văn Phương', product_type_id: 2, product_name: 'Phần mềm QL thiết bị' }),
+  c({ id: 1, name: 'Sở Tài chính Đồng Nai', province_code: '75', province_name: 'Thành phố Đồng Nai', ward_name: 'Phường Trấn Biên', contact_name: 'Lê Văn B', product_type_id: 1 }),
+  c({ id: 2, name: 'Trường THPT Chu Văn An', status: 'Đang tư vấn', am: 'Phạm Văn Phương', product_type_id: 2, product_name: 'Phần mềm QL thiết bị' }),
   c({ id: 3, name: 'Công ty ABC', source: 'Đối tác giới thiệu', contact_email: 'kd@abc.vn' }),
 ];
 const ids = (f: Partial<{ q: string; status: string; productType: string; province: string }>) =>
@@ -26,10 +26,10 @@ test('search ignores Vietnamese accents and matches ward, contact, staff, produc
 });
 
 test('filters by status, product type and province, with "-" for not set', () => {
-  assert.deepEqual(ids({ status: 'Tiềm năng' }), [2]);
+  assert.deepEqual(ids({ status: 'Đang tư vấn' }), [2]);
   assert.deepEqual(ids({ productType: '1' }), [1]);
   assert.deepEqual(ids({ productType: '-' }), [3]);
-  assert.deepEqual(ids({ province: 'Đồng Nai' }), [1]);
+  assert.deepEqual(ids({ province: '75' }), [1]);
   assert.deepEqual(ids({ province: '-' }), [2, 3]);
 });
 
@@ -39,9 +39,11 @@ test('picking a product fills its catalog description, or leaves it blank', () =
   assert.equal(descriptionOf(undefined), '');
 });
 
-test('province list has the 34 provinces with no duplicates', () => {
-  assert.equal(PROVINCES.length, 34);
-  assert.equal(new Set(PROVINCES).size, 34);
+test('typed ward name resolves to its catalog code', () => {
+  const wards = [{ code: '26041', name: 'Phường Trấn Biên' }, { code: '26068', name: 'Phường Biên Hòa' }];
+  assert.equal(wardCodeOf(wards, '  phường trấn   biên '), '26041');
+  assert.equal(wardCodeOf(wards, 'Trấn Biên'), undefined);
+  assert.equal(wardCodeOf(wards, ''), undefined);
 });
 
 test('overview counts live projects, running ones, open and overdue work, last care date', () => {

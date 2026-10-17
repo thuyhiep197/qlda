@@ -120,7 +120,8 @@ r.get('/:key', (req, res) => {
   for (const row of all<{ labels: string }>('SELECT DISTINCT labels FROM issues WHERE project_id = ? AND labels IS NOT NULL', project.id)) {
     row.labels.split(',').forEach((l) => l && labels.add(l));
   }
-  const customerInfo = project.customer_id ? get('SELECT id, name, status, province, ward, source, am FROM customers WHERE id = ?', project.customer_id) : null;
+  const customerInfo = project.customer_id ? get(`SELECT c.id, c.name, c.status, c.source, c.am, gp.name AS province_name, gw.name AS ward_name FROM customers c
+    LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code WHERE c.id = ?`, project.customer_id) : null;
   if (customerInfo) customerInfo.contacts = all('SELECT id, full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY position, id', customerInfo.id);
   res.json({
     ...project, customer_info: customerInfo ?? null, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,

@@ -420,10 +420,22 @@ const migrations: string[] = [
   // v20: Dev phụ trách issue, chọn từ danh mục nhân sự vị trí Dev
   `ALTER TABLE issues ADD COLUMN dev_id INTEGER REFERENCES staff(id) ON DELETE SET NULL;`,
   // v21: module Khách hàng (CRM) — thông tin cơ quan/đơn vị, đầu mối liên hệ, tài liệu, lịch sử chăm sóc;
-  // danh mục Loại sản phẩm & Sản phẩm (mô tả sản phẩm tự điền vào khách hàng khi chọn).
+  // danh mục Loại sản phẩm & Sản phẩm (mô tả sản phẩm tự điền vào khách hàng khi chọn); Danh mục địa chính (tỉnh/thành phố, phường/xã — nạp sẵn khi khởi động).
   // Dự án gắn với khách hàng qua projects.customer_id (projects.customer giữ tên để hiển thị); tạo sẵn khách hàng từ các dự án hiện có.
   // Nhóm người dùng được tạo dự án thì được toàn quyền với khách hàng và danh mục sản phẩm.
-  `CREATE TABLE product_types (
+  `CREATE TABLE geo_provinces (
+     code TEXT PRIMARY KEY,
+     name TEXT NOT NULL UNIQUE,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   CREATE TABLE geo_wards (
+     code TEXT PRIMARY KEY,
+     province_code TEXT NOT NULL REFERENCES geo_provinces(code),
+     name TEXT NOT NULL,
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     UNIQUE (province_code, name)
+   );
+   CREATE TABLE product_types (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
      position INTEGER NOT NULL DEFAULT 0,
@@ -441,13 +453,13 @@ const migrations: string[] = [
    CREATE TABLE customers (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-     province TEXT,
-     ward TEXT,
+     province_code TEXT REFERENCES geo_provinces(code),
+     ward_code TEXT REFERENCES geo_wards(code),
      product_type_id INTEGER REFERENCES product_types(id) ON DELETE SET NULL,
      product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
      product_description TEXT,
      source TEXT,
-     status TEXT NOT NULL DEFAULT 'Đang hợp tác',
+     status TEXT NOT NULL DEFAULT 'Mới',
      am TEXT,
      created_by INTEGER REFERENCES users(id),
      created_at TEXT NOT NULL DEFAULT ${TS},
@@ -484,12 +496,13 @@ const migrations: string[] = [
      created_at TEXT NOT NULL DEFAULT ${TS}
    );
    CREATE INDEX idx_customer_activities ON customer_activities(customer_id, activity_date);
-   INSERT OR IGNORE INTO customers(name) SELECT DISTINCT customer FROM projects WHERE customer IS NOT NULL AND TRIM(customer) <> '';
+   INSERT OR IGNORE INTO customers(name, status) SELECT DISTINCT customer, 'Đã ký hợp đồng' FROM projects WHERE customer IS NOT NULL AND TRIM(customer) <> '';
    ALTER TABLE projects ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
    UPDATE projects SET customer_id = (SELECT c.id FROM customers c WHERE c.name = projects.customer COLLATE NOCASE) WHERE customer IS NOT NULL;
    CREATE INDEX idx_projects_customer ON projects(customer_id);
    UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete',
-       '$[#]', 'product.view', '$[#]', 'product.create', '$[#]', 'product.edit', '$[#]', 'product.delete')
+       '$[#]', 'product.view', '$[#]', 'product.create', '$[#]', 'product.edit', '$[#]', 'product.delete',
+       '$[#]', 'geo.view', '$[#]', 'geo.create', '$[#]', 'geo.edit', '$[#]', 'geo.delete')
      WHERE permissions LIKE '%"project.create"%' AND permissions NOT LIKE '%"customer.view"%';`,
 ];
 

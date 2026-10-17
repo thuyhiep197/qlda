@@ -60,7 +60,7 @@ export default function CustomerDetail() {
       <div className="page-head">
         <h1>{c.name}</h1>
         <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>
-        {(c.province || c.ward) && <span className="muted small">{[c.ward, c.province].filter(Boolean).join(', ')}</span>}
+        {(c.province_name || c.ward_name) && <span className="muted small">{[c.ward_name, c.province_name].filter(Boolean).join(', ')}</span>}
         <div className="spacer" />
         {canEdit && <button className="btn" onClick={() => setEditing(true)}><Pencil size={15} /> Sửa</button>}
         {canDelete && <button className="btn btn-subtle" onClick={remove}><Trash2 size={15} /> Xóa</button>}
@@ -85,7 +85,7 @@ function Overview({ c, k, go }: { c: Detail; k: ReturnType<typeof customerKpis>;
   const { open } = useIssueModal();
   const primary = c.contacts[0];
   const info: [string, ReactNode][] = [
-    ['Tỉnh thành', c.province], ['Phường/Xã', c.ward], ['Loại sản phẩm', c.product_type_name], ['Sản phẩm', c.product_name],
+    ['Tỉnh thành', c.province_name], ['Phường/Xã', c.ward_name], ['Loại sản phẩm', c.product_type_name], ['Sản phẩm', c.product_name],
     ['Mô tả sản phẩm', c.product_description && <span style={{ whiteSpace: 'pre-wrap' }}>{c.product_description}</span>],
     ['Nguồn khách hàng', c.source], ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
     ['Nhân viên phụ trách', splitNames(c.am).join(', ')],

@@ -2,7 +2,7 @@
 const badRequest = (msg: string) => new Error(msg);
 
 // Danh mục khách hàng (CRM): tình trạng quan hệ, loại hoạt động chăm sóc
-export const CUSTOMER_STATUSES = ['Tiềm năng', 'Đang hợp tác', 'Tạm dừng', 'Ngừng hợp tác'] as const;
+export const CUSTOMER_STATUSES = ['Mới', 'Đang tư vấn', 'Chờ phản hồi', 'Đang làm sản phẩm', 'Đã ký hợp đồng', 'Đã thanh toán'] as const;
 export const ACTIVITY_KINDS = ['call', 'meeting', 'email', 'note'] as const;
 
 const text = (v: unknown, max: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max) || null;
@@ -22,7 +22,7 @@ function oneOf<T extends string>(v: unknown, list: readonly T[], label: string, 
   return s as T;
 }
 
-/** Kiểm tra & chuẩn hóa thông tin khách hàng (cơ quan/đơn vị). Việc sản phẩm có thuộc loại sản phẩm không do route kiểm tra với CSDL. */
+/** Kiểm tra & chuẩn hóa thông tin khách hàng (cơ quan/đơn vị). Việc sản phẩm thuộc loại sản phẩm, phường/xã thuộc tỉnh do route kiểm tra với CSDL. */
 export function cleanCustomer(b: any) {
   const name = text(b.name, 200);
   if (!name) throw badRequest('Tên cơ quan/đơn vị không được để trống');
@@ -31,13 +31,13 @@ export function cleanCustomer(b: any) {
   if (Number.isNaN(product_id)) throw badRequest('Sản phẩm không hợp lệ');
   return {
     name,
-    province: text(b.province, 100),
-    ward: text(b.ward, 100),
+    province_code: text(b.province_code, 10),
+    ward_code: text(b.ward_code, 10),
     product_type_id,
     product_id,
     product_description: longText(b.product_description, 4000),
     source: text(b.source, 200),
-    status: oneOf(b.status, CUSTOMER_STATUSES, 'Tình trạng', 'Đang hợp tác')!,
+    status: oneOf(b.status, CUSTOMER_STATUSES, 'Tình trạng', 'Mới')!,
     am: text(b.am, 500),
   };
 }

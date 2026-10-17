@@ -3,7 +3,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { api, refreshAll } from '../api';
 import { hasPerm, useMe, useStaff } from '../hooks';
 import type { StaffMember, StaffPosition } from '../types';
-import { STAFF_POSITIONS } from '../util';
+import { STAFF_POSITION_LABELS as STAFF_POSITIONS } from '../util';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
 
 type Draft = { id?: number; full_name: string; positions: StaffPosition[]; note: string };
@@ -32,7 +32,7 @@ export default function AdminStaff() {
         <div className="spacer" />
         {canCreate && <button className="btn btn-primary" onClick={() => setEditing({ full_name: '', positions: pos ? [pos] : [], note: '' })}>+ Thêm nhân sự</button>}
       </div>
-      <p className="muted small">Danh sách dùng chung để chọn BA/PM, Dev, Tester, AM cho từng dự án (Cài đặt dự án → Thông tin chung). Một người có thể giữ nhiều vị trí. Đổi họ tên ở đây sẽ cập nhật luôn tên đó trong các dự án.</p>
+      <p className="muted small">Danh sách dùng chung để chọn BA/PM, Dev, Tester, AM cho từng dự án (Cài đặt dự án → Thông tin chung) và Nhân viên phụ trách khách hàng (Kinh doanh, AM). Một người có thể giữ nhiều vị trí. Đổi họ tên ở đây sẽ cập nhật luôn tên đó trong các dự án.</p>
       <div className="filter-bar">
         <div className="seg" role="group" aria-label="Lọc theo vị trí">
           <button className={!pos ? 'on' : ''} onClick={() => setPos('')}>Tất cả ({staff?.length ?? 0})</button>

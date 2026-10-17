@@ -52,14 +52,19 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'crm', label: 'Khách hàng', features: [
       { key: 'customer', label: 'Khách hàng', hint: 'Thông tin cơ quan/đơn vị, đầu mối liên hệ, tài liệu, lịch sử chăm sóc', actions: ['view', 'create', 'edit', 'delete'],
         actionHints: { edit: 'Sửa thông tin, đầu mối; tải tài liệu; ghi hoạt động chăm sóc', delete: 'Xóa khách hàng; xóa tài liệu, hoạt động của người khác' } },
+    ],
+  },
+  {
+    key: 'catalog', label: 'Danh mục dùng chung', features: [
+      { key: 'geo', label: 'Danh mục địa chính', hint: 'Tỉnh/thành phố, phường/xã dùng để chọn địa chỉ khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
       { key: 'product', label: 'Danh mục Loại sản phẩm & Sản phẩm', hint: 'Sản phẩm kèm mô tả, dùng để chọn cho khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'staff', label: 'Danh mục nhân sự', hint: 'Danh sách BA/PM, Tester, AM, Dev dùng để chọn nhân sự cho dự án và khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
   {
     key: 'system', label: 'Quản trị hệ thống', features: [
       { key: 'user', label: 'Người dùng', hint: 'Tài khoản, đặt lại mật khẩu', actions: ['view', 'create', 'edit', 'delete'], actionHints: { delete: 'Khóa tài khoản' } },
       { key: 'role', label: 'Nhóm người dùng & phân quyền', actions: ['view', 'create', 'edit', 'delete'] },
-      { key: 'staff', label: 'Danh mục nhân sự', hint: 'Danh sách BA/PM, Tester, AM, Dev dùng để chọn nhân sự cho dự án', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
 ];

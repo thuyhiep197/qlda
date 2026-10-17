@@ -4,8 +4,8 @@ import { audit } from '../audit.ts';
 import { badRequest, notFound, requireUserPerm } from '../permissions.ts';
 
 /** Vị trí trong danh mục nhân sự ↔ trường nhân sự của dự án */
-export const POSITIONS = ['ba_pm', 'tester', 'am', 'dev'] as const;
-const PROJECT_FIELD: Record<(typeof POSITIONS)[number], string> = { ba_pm: 'ba', tester: 'tester', am: 'am', dev: 'dev' };
+export const POSITIONS = ['ba_pm', 'tester', 'am', 'dev', 'kd'] as const;
+const PROJECT_FIELD: Partial<Record<(typeof POSITIONS)[number], string>> = { ba_pm: 'ba', tester: 'tester', am: 'am', dev: 'dev' };
 
 const r = Router();
 
@@ -36,7 +36,7 @@ r.post('/', (req, res) => {
   res.status(201).json(get('SELECT id, full_name, positions, note FROM staff WHERE id = ?', id));
 });
 
-/** Đổi họ tên → cập nhật luôn tên đó trong các trường nhân sự của dự án */
+/** Đổi họ tên → cập nhật luôn tên đó trong các trường nhân sự của dự án và Nhân viên phụ trách của khách hàng */
 r.patch('/:id', (req, res) => {
   requireUserPerm(req.user, 'staff.edit');
   const cur = get('SELECT * FROM staff WHERE id = ?', Number(req.params.id));
@@ -46,10 +46,11 @@ r.patch('/:id', (req, res) => {
   tx(() => {
     run('UPDATE staff SET full_name = ?, positions = ?, note = ? WHERE id = ?', v.full_name, v.positions, v.note, cur.id);
     if (v.full_name !== cur.full_name) {
-      for (const f of Object.values(PROJECT_FIELD)) {
-        for (const p of all(`SELECT id, ${f} AS v FROM projects WHERE ${f} IS NOT NULL`)) {
+      const targets = [...Object.values(PROJECT_FIELD).map((f) => ['projects', f]), ['customers', 'am']];
+      for (const [table, f] of targets) {
+        for (const p of all(`SELECT id, ${f} AS v FROM ${table} WHERE ${f} IS NOT NULL`)) {
           const names = String(p.v).split(',').map((x) => x.trim());
-          if (names.includes(cur.full_name)) run(`UPDATE projects SET ${f} = ? WHERE id = ?`, names.map((x) => (x === cur.full_name ? v.full_name : x)).join(', '), p.id);
+          if (names.includes(cur.full_name)) run(`UPDATE ${table} SET ${f} = ? WHERE id = ?`, names.map((x) => (x === cur.full_name ? v.full_name : x)).join(', '), p.id);
         }
       }
     }
