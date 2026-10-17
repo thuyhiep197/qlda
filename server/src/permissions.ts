@@ -50,8 +50,9 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
   {
     key: 'crm', label: 'Khách hàng', features: [
-      { key: 'customer', label: 'Khách hàng', hint: 'Thông tin khách hàng, người liên hệ, lịch sử chăm sóc', actions: ['view', 'create', 'edit', 'delete'],
-        actionHints: { edit: 'Sửa thông tin, người liên hệ; ghi hoạt động chăm sóc', delete: 'Xóa khách hàng, xóa hoạt động của người khác' } },
+      { key: 'customer', label: 'Khách hàng', hint: 'Thông tin cơ quan/đơn vị, đầu mối liên hệ, tài liệu, lịch sử chăm sóc', actions: ['view', 'create', 'edit', 'delete'],
+        actionHints: { edit: 'Sửa thông tin, đầu mối; tải tài liệu; ghi hoạt động chăm sóc', delete: 'Xóa khách hàng; xóa tài liệu, hoạt động của người khác' } },
+      { key: 'product', label: 'Danh mục Loại sản phẩm & Sản phẩm', hint: 'Sản phẩm kèm mô tả, dùng để chọn cho khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
   {

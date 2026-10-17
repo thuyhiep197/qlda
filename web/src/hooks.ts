@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
 import { RELEASES_ENABLED } from './util';
-import type { Component, Customer, Me, Project, ProjectSummary, Role, Sprint, StaffMember, UserBasic, Version } from './types';
+import type { Component, Customer, Me, Product, ProductType, Project, ProjectSummary, Role, Sprint, StaffMember, UserBasic, Version } from './types';
 
 export const useMe = () => useQuery<Me | null>({
   queryKey: ['me'],
@@ -30,6 +30,9 @@ export const useSprints = (key?: string, state?: string) => useQuery<Sprint[]>({
 
 export const useStaff = () => useQuery<StaffMember[]>({ queryKey: ['staff'], queryFn: () => api.get('/staff') });
 /** Tên khách hàng (gợi ý cho ô Tên khách hàng của dự án) — ai đăng nhập cũng xem được */
+/** Danh mục Loại sản phẩm & Sản phẩm (chọn cho khách hàng) */
+export const useProductTypes = () => useQuery<ProductType[]>({ queryKey: ['product-types'], queryFn: () => api.get('/products/types') });
+export const useProducts = () => useQuery<Product[]>({ queryKey: ['products'], queryFn: () => api.get('/products') });
 export const useCustomerNames = () => useQuery<Pick<Customer, 'id' | 'name'>[]>({ queryKey: ['customer-names'], queryFn: () => api.get('/customers/names') });
 export const useUsersBasic = () => useQuery<UserBasic[]>({ queryKey: ['users-basic'], queryFn: () => api.get('/users/basic') });
 export const useComponents = (key?: string) => useQuery<Component[]>({

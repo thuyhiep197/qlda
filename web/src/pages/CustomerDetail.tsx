@@ -2,16 +2,17 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle, CalendarClock, ChevronLeft, ContactRound, FolderKanban, History, LayoutDashboard, ListTodo, Mail, MessageSquareText,
-  Pencil, Phone, Star, Trash2, Users, type LucideIcon,
+  AlertTriangle, CalendarClock, ChevronLeft, ContactRound, Download, FileText, FolderKanban, History, LayoutDashboard, ListTodo, Mail,
+  MessageSquareText, Paperclip, Pencil, Phone, Trash2, Users, type LucideIcon,
 } from 'lucide-react';
 import { api, refreshAll } from '../api';
 import { hasPerm, useIssueModal, useMe } from '../hooks';
 import type { ActivityKind, CustomerContact, CustomerDetail as Detail, CustomerProject } from '../types';
+import { splitNames } from '../components/ProjectInfoFields';
 import { customerKpis, CUSTOMER_STATUSES } from '../customer-filter';
-import { colorOf, fmtDate, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, timeAgo, today } from '../util';
+import { colorOf, fmtDate, fmtDateTime, fmtSize, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, timeAgo, today } from '../util';
 import { CustomerModal } from './Customers';
-import { Avatar, Empty, Modal, Spinner, toast, toastError, TypeIcon } from '../components/ui';
+import { Avatar, Empty, Spinner, toast, toastError, TypeIcon } from '../components/ui';
 import { IssueLine } from '../components/IssueRow';
 
 const ACTIVITY: Record<ActivityKind, { label: string; icon: ReactNode }> = {
@@ -21,7 +22,7 @@ const ACTIVITY: Record<ActivityKind, { label: string; icon: ReactNode }> = {
   note: { label: 'Ghi chú', icon: <MessageSquareText size={14} /> },
 };
 
-type Tab = 'overview' | 'projects' | 'issues' | 'contacts' | 'care';
+type Tab = 'overview' | 'projects' | 'issues' | 'contacts' | 'files' | 'care';
 
 /** Trang khách hàng — xem toàn bộ thông tin liên quan: thông tin chung, dự án, công việc, người liên hệ, lịch sử chăm sóc */
 export default function CustomerDetail() {
@@ -31,7 +32,6 @@ export default function CustomerDetail() {
   const [params, setParams] = useSearchParams();
   const { data: c, isLoading, error } = useQuery<Detail>({ queryKey: ['customer', id], queryFn: () => api.get(`/customers/${id}`) });
   const [editing, setEditing] = useState(false);
-  const [contact, setContact] = useState<Partial<CustomerContact> | null>(null);
   const canEdit = hasPerm(me, 'customer.edit'), canDelete = hasPerm(me, 'customer.delete');
 
   if (isLoading) return <Spinner />;
@@ -44,12 +44,13 @@ export default function CustomerDetail() {
     ['overview', 'Tổng quan', LayoutDashboard],
     ['projects', `Dự án (${k.projects})`, FolderKanban],
     ['issues', `Công việc (${k.openIssues})`, ListTodo],
-    ['contacts', `Người liên hệ (${c.contacts.length})`, ContactRound],
+    ['contacts', `Đầu mối liên hệ (${c.contacts.length})`, ContactRound],
+    ['files', `Tài liệu (${c.files.length})`, FileText],
     ['care', `Lịch sử chăm sóc (${c.activities.length})`, History],
   ];
 
   const remove = async () => {
-    if (!confirm(`Xóa khách hàng ${c.name}? Người liên hệ và lịch sử chăm sóc sẽ bị xóa theo. Các dự án sẽ được gỡ khỏi khách hàng này (dữ liệu dự án vẫn giữ nguyên).`)) return;
+    if (!confirm(`Xóa khách hàng ${c.name}? Đầu mối liên hệ, tài liệu và lịch sử chăm sóc sẽ bị xóa theo. Các dự án sẽ được gỡ khỏi khách hàng này (dữ liệu dự án vẫn giữ nguyên).`)) return;
     try { await api.del(`/customers/${c.id}`); toast('Đã xóa khách hàng'); await refreshAll(); navigate('/customers'); } catch (e) { toastError(e); }
   };
 
@@ -59,7 +60,7 @@ export default function CustomerDetail() {
       <div className="page-head">
         <h1>{c.name}</h1>
         <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>
-        {c.kind && <span className="muted small">{c.kind}{c.province ? ` · ${c.province}` : ''}</span>}
+        {(c.province || c.ward) && <span className="muted small">{[c.ward, c.province].filter(Boolean).join(', ')}</span>}
         <div className="spacer" />
         {canEdit && <button className="btn" onClick={() => setEditing(true)}><Pencil size={15} /> Sửa</button>}
         {canDelete && <button className="btn btn-subtle" onClick={remove}><Trash2 size={15} /> Xóa</button>}
@@ -71,23 +72,23 @@ export default function CustomerDetail() {
       {tab === 'overview' && <Overview c={c} k={k} go={go} />}
       {tab === 'projects' && <div className="card"><ProjectTable projects={c.projects} /></div>}
       {tab === 'issues' && <Issues c={c} />}
-      {tab === 'contacts' && <Contacts c={c} canEdit={canEdit} onEdit={setContact} />}
+      {tab === 'contacts' && <Contacts c={c} canEdit={canEdit} onEdit={() => setEditing(true)} />}
+      {tab === 'files' && <Files c={c} canAdd={canEdit} canDeleteAll={canDelete} meId={me?.id} />}
       {tab === 'care' && <Activities customer={c} canAdd={canEdit} canDeleteAll={canDelete} meId={me?.id} />}
 
-      {editing && <CustomerModal customer={c} onClose={() => setEditing(false)} />}
-      {contact && <ContactModal customerId={c.id} contact={contact} onClose={() => setContact(null)} />}
+      {editing && <CustomerModal customer={c} contacts={c.contacts} onClose={() => setEditing(false)} />}
     </div>
   );
 }
 
 function Overview({ c, k, go }: { c: Detail; k: ReturnType<typeof customerKpis>; go: (t: Tab) => void }) {
   const { open } = useIssueModal();
-  const primary = c.contacts.find((x) => x.is_primary) ?? c.contacts[0];
+  const primary = c.contacts[0];
   const info: [string, ReactNode][] = [
-    ['Loại', c.kind], ['Mã số thuế', c.tax_code], ['Tỉnh/TP', c.province], ['Địa chỉ', c.address],
-    ['Điện thoại', c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>], ['Email', c.email && <a href={`mailto:${c.email}`}>{c.email}</a>],
-    ['Website', c.website && <a href={/^https?:\/\//.test(c.website) ? c.website : `https://${c.website}`} target="_blank" rel="noreferrer noopener">{c.website}</a>],
-    ['AM phụ trách', c.am], ['Ghi chú', c.note && <span style={{ whiteSpace: 'pre-wrap' }}>{c.note}</span>],
+    ['Tỉnh thành', c.province], ['Phường/Xã', c.ward], ['Loại sản phẩm', c.product_type_name], ['Sản phẩm', c.product_name],
+    ['Mô tả sản phẩm', c.product_description && <span style={{ whiteSpace: 'pre-wrap' }}>{c.product_description}</span>],
+    ['Nguồn khách hàng', c.source], ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
+    ['Nhân viên phụ trách', splitNames(c.am).join(', ')],
   ];
   const lastCare = c.activities[0];
   return (
@@ -109,7 +110,7 @@ function Overview({ c, k, go }: { c: Detail; k: ReturnType<typeof customerKpis>;
           <div className="muted small">Công việc đã qua hạn</div>
         </a>
         <a className="kpi" onClick={() => go('contacts')}>
-          <div className="kpi-label"><ContactRound size={15} /> Người liên hệ</div>
+          <div className="kpi-label"><ContactRound size={15} /> Đầu mối liên hệ</div>
           <div className="kpi-num">{c.contacts.length}</div>
           <div className="muted small ellipsis">{primary ? `Đầu mối: ${primary.full_name}` : 'Chưa có đầu mối'}</div>
         </a>
@@ -128,12 +129,15 @@ function Overview({ c, k, go }: { c: Detail; k: ReturnType<typeof customerKpis>;
               {info.map(([key, v]) => <div key={key} style={{ display: 'contents' }}><span className="prop-label">{key}</span><span>{v || <span className="muted">—</span>}</span></div>)}
             </div>
           </div>
-          {primary && (
-            <div className="card">
-              <div className="card-head"><h3>Đầu mối liên hệ</h3><a className="small" onClick={() => go('contacts')}>Xem tất cả</a></div>
-              <ContactLine ct={primary} />
-            </div>
-          )}
+          <div className="card">
+            <div className="card-head"><h3>Đầu mối liên hệ</h3><a className="small" onClick={() => go('contacts')}>Xem tất cả</a></div>
+            {!c.contacts.length ? <p className="muted small">Chưa có đầu mối liên hệ</p>
+              : <div className="stack-sm">{c.contacts.slice(0, 3).map((ct) => <ContactLine key={ct.id} ct={ct} />)}</div>}
+          </div>
+          <div className="card">
+            <div className="card-head"><h3>Tài liệu</h3><a className="small" onClick={() => go('files')}>Xem tất cả</a></div>
+            {!c.files.length ? <p className="muted small">Chưa có tài liệu</p> : <FileRows c={c} files={c.files.slice(0, 5)} />}
+          </div>
         </div>
         <div className="stack">
           <div className="card">
@@ -228,10 +232,10 @@ function Issues({ c }: { c: Detail }) {
   );
 }
 
-function ContactLine({ ct }: { ct: Pick<CustomerContact, 'full_name' | 'position' | 'phone' | 'email' | 'is_primary'> }) {
+function ContactLine({ ct }: { ct: CustomerContact }) {
   return (
     <div>
-      <b>{ct.full_name}</b>{ct.position && <span className="muted"> · {ct.position}</span>}
+      <b>{ct.full_name}</b>
       <div className="row gap-sm small" style={{ flexWrap: 'wrap' }}>
         {ct.phone && <a href={`tel:${ct.phone}`} className="row gap-xs"><Phone size={13} /> {ct.phone}</a>}
         {ct.email && <a href={`mailto:${ct.email}`} className="row gap-xs"><Mail size={13} /> {ct.email}</a>}
@@ -240,33 +244,71 @@ function ContactLine({ ct }: { ct: Pick<CustomerContact, 'full_name' | 'position
   );
 }
 
-function Contacts({ c, canEdit, onEdit }: { c: Detail; canEdit: boolean; onEdit: (ct: Partial<CustomerContact>) => void }) {
-  const removeContact = async (ct: CustomerContact) => {
-    if (!confirm(`Xóa người liên hệ ${ct.full_name}?`)) return;
-    try { await api.del(`/customers/${c.id}/contacts/${ct.id}`); await refreshAll(); } catch (e) { toastError(e); }
-  };
+/** Đầu mối liên hệ — thêm/sửa/bỏ trong form Sửa thông tin khách hàng */
+function Contacts({ c, canEdit, onEdit }: { c: Detail; canEdit: boolean; onEdit: () => void }) {
   return (
     <div className="card">
-      <div className="card-head"><h3>Người liên hệ</h3>
-        {canEdit && <button className="btn btn-sm" onClick={() => onEdit({ is_primary: c.contacts.length ? 0 : 1 })}>+ Thêm</button>}</div>
-      {!c.contacts.length ? <p className="muted small">Chưa có người liên hệ</p> : (
+      <div className="card-head"><h3>Đầu mối liên hệ</h3>
+        {canEdit && <button className="btn btn-sm" onClick={onEdit}><Pencil size={14} /> Thêm / sửa đầu mối</button>}</div>
+      {!c.contacts.length ? <p className="muted small">Chưa có đầu mối liên hệ</p> : (
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>Họ tên</th><th>Chức vụ</th><th>Điện thoại</th><th>Email</th><th>Ghi chú</th>{canEdit && <th />}</tr></thead>
+          <thead><tr><th>Tên</th><th>SĐT</th><th>Email</th></tr></thead>
           <tbody>{c.contacts.map((ct) => (
             <tr key={ct.id}>
-              <td><b>{ct.full_name}</b> {!!ct.is_primary && <Star size={13} fill="currentColor" style={{ color: 'var(--warn)', verticalAlign: -1 }} data-tip="Đầu mối chính" />}</td>
-              <td>{ct.position}</td>
+              <td><b>{ct.full_name}</b></td>
               <td>{ct.phone && <a href={`tel:${ct.phone}`}>{ct.phone}</a>}</td>
               <td>{ct.email && <a href={`mailto:${ct.email}`}>{ct.email}</a>}</td>
-              <td className="muted small">{ct.note}</td>
-              {canEdit && <td className="num nowrap">
-                <button className="icon-btn" aria-label={`Sửa ${ct.full_name}`} data-tip="Sửa" onClick={() => onEdit(ct)}><Pencil size={15} /></button>
-                <button className="icon-btn" aria-label={`Xóa ${ct.full_name}`} data-tip="Xóa" onClick={() => removeContact(ct)}><Trash2 size={15} /></button>
-              </td>}
             </tr>
           ))}</tbody>
         </table></div>
       )}
+    </div>
+  );
+}
+
+function FileRows({ c, files, canDelete }: { c: Detail; files: Detail['files']; canDelete?: (f: Detail['files'][number]) => boolean }) {
+  const remove = async (id: number, name: string) => {
+    if (!confirm(`Xóa tài liệu ${name}?`)) return;
+    try { await api.del(`/customers/${c.id}/files/${id}`); await refreshAll(); } catch (e) { toastError(e); }
+  };
+  return (
+    <div className="file-list">
+      {files.map((f) => (
+        <div key={f.id} className="file-row">
+          <FileText size={16} className="muted" />
+          <div className="grow" style={{ minWidth: 0 }}>
+            <a className="ellipsis" style={{ display: 'block' }} href={`/api/customers/${c.id}/files/${f.id}`}>{f.filename}</a>
+            <div className="muted small">{fmtSize(f.size)} · {f.uploader_name ?? '—'} · {fmtDateTime(f.created_at)}</div>
+          </div>
+          <a className="icon-btn" aria-label={`Tải ${f.filename}`} data-tip="Tải về" href={`/api/customers/${c.id}/files/${f.id}`}><Download size={15} /></a>
+          {canDelete?.(f) && <button className="icon-btn" aria-label={`Xóa ${f.filename}`} data-tip="Xóa" onClick={() => remove(f.id, f.filename)}><Trash2 size={15} /></button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Tài liệu của khách hàng: tải lên nhiều tệp; người tải lên tự xóa được, xóa tệp của người khác cần quyền xóa khách hàng */
+function Files({ c, canAdd, canDeleteAll, meId }: { c: Detail; canAdd: boolean; canDeleteAll: boolean; meId?: number }) {
+  const [busy, setBusy] = useState(false);
+  const upload = async (list: FileList | null) => {
+    if (!list?.length) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      Array.from(list).forEach((f) => fd.append('files', f));
+      await api.post(`/customers/${c.id}/files`, fd);
+      toast('Đã tải lên');
+      await refreshAll();
+    } catch (e) { toastError(e); } finally { setBusy(false); }
+  };
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Tài liệu</h3>
+        {canAdd && <label className="btn btn-sm"><Paperclip size={14} /> {busy ? 'Đang tải…' : 'Tải tài liệu lên'}
+          <input type="file" multiple hidden disabled={busy} onChange={(e) => { upload(e.target.files); e.target.value = ''; }} /></label>}</div>
+      {!c.files.length ? <p className="muted small">Chưa có tài liệu</p>
+        : <FileRows c={c} files={c.files} canDelete={(f) => canDeleteAll || (canAdd && f.uploader_id === meId)} />}
     </div>
   );
 }
@@ -323,41 +365,5 @@ function Activities({ customer, canAdd, canDeleteAll, meId }: { customer: Detail
         </div>
       )}
     </div>
-  );
-}
-
-function ContactModal({ customerId, contact, onClose }: { customerId: number; contact: Partial<CustomerContact>; onClose: () => void }) {
-  const [d, setD] = useState({
-    full_name: contact.full_name ?? '', position: contact.position ?? '', phone: contact.phone ?? '',
-    email: contact.email ?? '', note: contact.note ?? '', is_primary: !!contact.is_primary,
-  });
-  const set = (k: 'full_name' | 'position' | 'phone' | 'email' | 'note') => (e: { target: { value: string } }) => setD({ ...d, [k]: e.target.value });
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    try {
-      if (contact.id) await api.patch(`/customers/${customerId}/contacts/${contact.id}`, d);
-      else await api.post(`/customers/${customerId}/contacts`, d);
-      toast('Đã lưu');
-      await refreshAll();
-      onClose();
-    } catch (err) { toastError(err); }
-  };
-  return (
-    <Modal title={contact.id ? 'Sửa người liên hệ' : 'Thêm người liên hệ'} onClose={onClose} footer={<>
-      <div className="spacer" />
-      <button className="btn" onClick={onClose}>Hủy</button>
-      <button className="btn btn-primary" form="contact-form">{contact.id ? 'Lưu' : 'Thêm'}</button>
-    </>}>
-      <form id="contact-form" className="stack" onSubmit={submit}>
-        <div className="form-grid">
-          <label className="field"><span>Họ tên *</span><input autoFocus required value={d.full_name} onChange={set('full_name')} /></label>
-          <label className="field"><span>Chức vụ</span><input value={d.position} onChange={set('position')} placeholder="VD: Phó Giám đốc" /></label>
-          <label className="field"><span>Điện thoại</span><input value={d.phone} onChange={set('phone')} /></label>
-          <label className="field"><span>Email</span><input type="email" value={d.email} onChange={set('email')} /></label>
-        </div>
-        <label className="field"><span>Ghi chú</span><input value={d.note} onChange={set('note')} /></label>
-        <label className="check"><input type="checkbox" checked={d.is_primary} onChange={(e) => setD({ ...d, is_primary: e.target.checked })} /> Đầu mối liên hệ chính</label>
-      </form>
-    </Modal>
   );
 }

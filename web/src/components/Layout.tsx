@@ -8,7 +8,7 @@ import CreateIssueModal from './CreateIssueModal';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
 import { colorOf } from '../util';
-import { FolderKanban, House, LogOut, Menu, Moon, Plus, Search, Settings, ScrollText, ShieldCheck, Sun, Users, Contact, Building2 } from 'lucide-react';
+import { FolderKanban, House, LogOut, Menu, Moon, Plus, Search, Settings, ScrollText, ShieldCheck, Sun, Users, Contact, Building2, Package } from 'lucide-react';
 
 export default function Layout() {
   const { data: me } = useMe();
@@ -65,12 +65,13 @@ export default function Layout() {
           ))}
           {projects?.length === 0 && <div className="muted small pad">Bạn chưa tham gia dự án nào</div>}
         </nav>
-        {(hasPerm(me, 'user.view') || hasPerm(me, 'role.view') || hasPerm(me, 'staff.view')) && (
+        {(hasPerm(me, 'user.view') || hasPerm(me, 'role.view') || hasPerm(me, 'staff.view') || hasPerm(me, 'product.view')) && (
           <>
             <div className="nav-section">Quản trị hệ thống</div>
             <nav className="nav">
               {hasPerm(me, 'user.view') && <NavLink to="/admin/users"><Users size={18} /> Người dùng</NavLink>}
               {hasPerm(me, 'staff.view') && <NavLink to="/admin/staff"><Contact size={18} /> Danh mục nhân sự</NavLink>}
+              {hasPerm(me, 'product.view') && <NavLink to="/admin/products"><Package size={18} /> Danh mục sản phẩm</NavLink>}
               {hasPerm(me, 'role.view') && <NavLink to="/admin/roles"><ShieldCheck size={18} /> Nhóm người dùng & phân quyền</NavLink>}
               {hasPerm(me, 'user.view') && <NavLink to="/admin/audit"><ScrollText size={18} /> Nhật ký bảo mật</NavLink>}
             </nav>

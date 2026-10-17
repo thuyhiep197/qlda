@@ -20,12 +20,12 @@ export function projectInfoOf(p?: Partial<Record<Exclude<keyof ProjectInfo, 'cus
 
 export const splitNames = (v: string | null | undefined) => (v ? v.split(',').map((x) => x.trim()).filter(Boolean) : []);
 
-/** Chọn nhiều người từ Danh mục nhân sự theo vị trí; tên cũ không còn trong danh mục vẫn giữ (gạch chân chấm). */
-export function StaffPicker({ position, value, onChange }: { position: string; value: string; onChange: (v: string) => void }) {
+/** Chọn nhiều người từ Danh mục nhân sự theo vị trí (bỏ trống = mọi người); tên cũ không còn trong danh mục vẫn giữ (gạch chân chấm). */
+export function StaffPicker({ position, value, onChange }: { position?: string; value: string; onChange: (v: string) => void }) {
   const { data: staff } = useStaff();
   const chosen = splitNames(value);
   const known = new Set(staff?.map((s) => s.full_name));
-  const options = (staff || []).filter((s) => s.positions.split(',').includes(position) && !chosen.includes(s.full_name));
+  const options = (staff || []).filter((s) => (!position || s.positions.split(',').includes(position)) && !chosen.includes(s.full_name));
   return (
     <div className="staff-picker">
       {chosen.map((n) => (

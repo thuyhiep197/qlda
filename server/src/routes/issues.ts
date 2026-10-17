@@ -2,7 +2,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import multer from 'multer';
+import { upload, utf8Name } from '../upload.ts';
 import { all, get, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import {
   addHistory, createIssue, deleteIssue, fetchIssue, getIssueRow, listIssues, rankBetween, updateIssue,
@@ -15,14 +15,6 @@ import { avatarUrl } from '../avatar.ts';
 
 const r = Router();
 
-const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 25);
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: UPLOAD_DIR,
-    filename: (_req, _file, cb) => cb(null, crypto.randomUUID()),
-  }),
-  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024, files: 10 },
-});
 
 r.get('/', (req, res) => {
   requireUserPerm(req.user, 'issue.view');
@@ -160,8 +152,7 @@ r.post('/:key/attachments', upload.array('files'), (req, res) => {
     const inline = req.query.inline === '1' ? 1 : 0;
     const created: { id: number; filename: string; mime: string }[] = [];
     for (const f of files) {
-      // multer đọc tên tệp theo latin1, chuyển về UTF-8 để giữ tiếng Việt
-      const filename = Buffer.from(f.originalname, 'latin1').toString('utf8');
+      const filename = utf8Name(f.originalname);
       const { id } = run('INSERT INTO attachments(issue_id, uploader_id, filename, stored_name, mime, size, created_at, inline) VALUES (?,?,?,?,?,?,?,?)',
         row.id, req.user.id, filename, f.filename, f.mimetype, f.size, now(), inline);
       created.push({ id, filename, mime: f.mimetype });

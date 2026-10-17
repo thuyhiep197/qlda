@@ -68,22 +68,22 @@ export default function ProjectLayout() {
   );
 }
 
-/** Khách hàng của dự án: tên (mở trang khách hàng nếu có quyền), đầu mối liên hệ chính, AM phụ trách */
+/** Khách hàng của dự án: tên (mở trang khách hàng nếu có quyền), đầu mối liên hệ đầu tiên, nhân viên phụ trách */
 function ProjectCustomer({ project }: { project: Project }) {
   const { data: me } = useMe();
   const c = project.customer_info;
   if (!c) return project.customer ? <div className="project-customer"><span><Building2 size={14} /> <b>{project.customer}</b></span></div> : null;
-  const primary = c.contacts.find((x) => x.is_primary) ?? c.contacts[0];
+  const primary = c.contacts[0];
   return (
     <div className="project-customer">
       <span><Building2 size={14} /> Khách hàng: {hasPerm(me, 'customer.view') ? <Link to={`/customers/${c.id}`}><b>{c.name}</b></Link> : <b>{c.name}</b>}</span>
-      {primary && <span data-tip={c.contacts.length > 1 ? c.contacts.map((x) => `${x.full_name}${x.position ? ` (${x.position})` : ''}${x.phone ? ` · ${x.phone}` : ''}`).join('; ') : undefined}>
-        <UserRound size={14} /> Đầu mối: <b>{primary.full_name}</b>{primary.position ? ` · ${primary.position}` : ''}
+      {primary && <span data-tip={c.contacts.length > 1 ? c.contacts.map((x) => [x.full_name, x.phone, x.email].filter(Boolean).join(' · ')).join('; ') : undefined}>
+        <UserRound size={14} /> Đầu mối: <b>{primary.full_name}</b>
         {primary.phone && <> · <a href={`tel:${primary.phone}`}><Phone size={12} /> {primary.phone}</a></>}
         {primary.email && <> · <a href={`mailto:${primary.email}`}><Mail size={12} /> {primary.email}</a></>}
         {c.contacts.length > 1 && <span> (+{c.contacts.length - 1})</span>}
       </span>}
-      {c.am && <span>AM: <b>{c.am}</b></span>}
+      {c.am && <span>Nhân viên phụ trách: <b>{c.am}</b></span>}
     </div>
   );
 }

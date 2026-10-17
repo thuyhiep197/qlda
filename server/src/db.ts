@@ -419,22 +419,36 @@ const migrations: string[] = [
   `ALTER TABLE issues ADD COLUMN note TEXT;`,
   // v20: Dev phụ trách issue, chọn từ danh mục nhân sự vị trí Dev
   `ALTER TABLE issues ADD COLUMN dev_id INTEGER REFERENCES staff(id) ON DELETE SET NULL;`,
-  // v21: module Khách hàng (CRM) — thông tin khách hàng, người liên hệ, lịch sử chăm sóc.
+  // v21: module Khách hàng (CRM) — thông tin cơ quan/đơn vị, đầu mối liên hệ, tài liệu, lịch sử chăm sóc;
+  // danh mục Loại sản phẩm & Sản phẩm (mô tả sản phẩm tự điền vào khách hàng khi chọn).
   // Dự án gắn với khách hàng qua projects.customer_id (projects.customer giữ tên để hiển thị); tạo sẵn khách hàng từ các dự án hiện có.
-  // Nhóm người dùng được tạo dự án thì được toàn quyền với khách hàng.
-  `CREATE TABLE customers (
+  // Nhóm người dùng được tạo dự án thì được toàn quyền với khách hàng và danh mục sản phẩm.
+  `CREATE TABLE product_types (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-     kind TEXT,
-     status TEXT NOT NULL DEFAULT 'Đang hợp tác',
-     tax_code TEXT,
+     position INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   INSERT INTO product_types(name, position) VALUES ('Dự án', 0), ('Sản phẩm có sẵn', 1);
+   CREATE TABLE products (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     type_id INTEGER NOT NULL REFERENCES product_types(id),
+     name TEXT NOT NULL,
+     description TEXT,
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     UNIQUE (type_id, name)
+   );
+   CREATE TABLE customers (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL UNIQUE COLLATE NOCASE,
      province TEXT,
-     address TEXT,
-     phone TEXT,
-     email TEXT,
-     website TEXT,
+     ward TEXT,
+     product_type_id INTEGER REFERENCES product_types(id) ON DELETE SET NULL,
+     product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+     product_description TEXT,
+     source TEXT,
+     status TEXT NOT NULL DEFAULT 'Đang hợp tác',
      am TEXT,
-     note TEXT,
      created_by INTEGER REFERENCES users(id),
      created_at TEXT NOT NULL DEFAULT ${TS},
      updated_at TEXT NOT NULL DEFAULT ${TS}
@@ -443,14 +457,23 @@ const migrations: string[] = [
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
      full_name TEXT NOT NULL,
-     position TEXT,
      phone TEXT,
      email TEXT,
-     is_primary INTEGER NOT NULL DEFAULT 0,
-     note TEXT,
+     position INTEGER NOT NULL DEFAULT 0,
      created_at TEXT NOT NULL DEFAULT ${TS}
    );
    CREATE INDEX idx_customer_contacts ON customer_contacts(customer_id);
+   CREATE TABLE customer_files (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+     uploader_id INTEGER REFERENCES users(id),
+     filename TEXT NOT NULL,
+     stored_name TEXT NOT NULL,
+     mime TEXT,
+     size INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   CREATE INDEX idx_customer_files ON customer_files(customer_id);
    CREATE TABLE customer_activities (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -465,7 +488,8 @@ const migrations: string[] = [
    ALTER TABLE projects ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
    UPDATE projects SET customer_id = (SELECT c.id FROM customers c WHERE c.name = projects.customer COLLATE NOCASE) WHERE customer IS NOT NULL;
    CREATE INDEX idx_projects_customer ON projects(customer_id);
-   UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete')
+   UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'customer.view', '$[#]', 'customer.create', '$[#]', 'customer.edit', '$[#]', 'customer.delete',
+       '$[#]', 'product.view', '$[#]', 'product.create', '$[#]', 'product.edit', '$[#]', 'product.delete')
      WHERE permissions LIKE '%"project.create"%' AND permissions NOT LIKE '%"customer.view"%';`,
 ];
 

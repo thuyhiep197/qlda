@@ -18,6 +18,7 @@ import reportRoutes from './routes/reports.ts';
 import notificationRoutes from './routes/notifications.ts';
 import staffRoutes from './routes/staff.ts';
 import customerRoutes from './routes/customers.ts';
+import productRoutes from './routes/products.ts';
 import { pruneNotifications } from './notify.ts';
 import { pruneAudit } from './audit.ts';
 import { syncAllEpics } from './issues.ts';
@@ -70,6 +71,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/products', productRoutes);
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'API không tồn tại')));
 
 // Giao diện web đã build (chế độ production)

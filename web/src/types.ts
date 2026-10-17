@@ -145,8 +145,7 @@ export interface Project {
   customer_id: number | null;
   customer: string | null;
   /** Thông tin khách hàng của dự án (thành viên dự án đều xem được) */
-  customer_info: (Pick<Customer, 'id' | 'name' | 'kind' | 'status' | 'province' | 'address' | 'phone' | 'email' | 'website' | 'am'>
-    & { contacts: Pick<CustomerContact, 'id' | 'full_name' | 'position' | 'phone' | 'email' | 'is_primary'>[] }) | null;
+  customer_info: (Pick<Customer, 'id' | 'name' | 'status' | 'province' | 'ward' | 'source' | 'am'> & { contacts: CustomerContact[] }) | null;
   priority: string | null;
   project_status: string | null;
   ba: string | null;
@@ -310,40 +309,51 @@ export interface SavedFilter {
   shared: number;
 }
 
-/** Khách hàng (module CRM); dự án gắn với khách hàng qua ô "Tên khách hàng" */
+/** Khách hàng (cơ quan/đơn vị) — module CRM; dự án gắn với khách hàng qua customer_id */
 export interface Customer {
   id: number;
   name: string;
-  kind: string | null;
-  status: string;
-  tax_code: string | null;
   province: string | null;
-  address: string | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
-  /** AM phụ trách: họ tên theo Danh mục nhân sự, cách nhau dấu phẩy */
+  ward: string | null;
+  product_type_id: number | null;
+  product_id: number | null;
+  product_description: string | null;
+  source: string | null;
+  status: string;
+  /** Nhân viên phụ trách: họ tên theo Danh mục nhân sự, cách nhau dấu phẩy */
   am: string | null;
-  note: string | null;
   created_at: string;
   updated_at: string;
+  product_type_name?: string | null;
+  product_name?: string | null;
   project_count?: number;
   contact_count?: number;
   last_activity_date?: string | null;
   contact_name?: string | null;
   contact_phone?: string | null;
+  contact_email?: string | null;
 }
 
+/** Đầu mối liên hệ — đầu mối đầu tiên là đầu mối chính */
 export interface CustomerContact {
   id: number;
-  customer_id: number;
   full_name: string;
-  position: string | null;
   phone: string | null;
   email: string | null;
-  is_primary: number;
-  note: string | null;
 }
+
+export interface CustomerFile {
+  id: number;
+  filename: string;
+  mime: string | null;
+  size: number;
+  created_at: string;
+  uploader_id: number | null;
+  uploader_name: string | null;
+}
+
+export interface ProductType { id: number; name: string; position: number; product_count: number }
+export interface Product { id: number; type_id: number; type_name: string; name: string; description: string | null; customer_count: number }
 
 export type ActivityKind = 'call' | 'meeting' | 'email' | 'note';
 export interface CustomerActivity {
@@ -368,6 +378,7 @@ export interface CustomerProject {
 
 export interface CustomerDetail extends Customer {
   contacts: CustomerContact[];
+  files: CustomerFile[];
   activities: CustomerActivity[];
   projects: CustomerProject[];
   /** Công việc chưa xong của các dự án thuộc khách hàng (chỉ dự án người xem là thành viên) */
