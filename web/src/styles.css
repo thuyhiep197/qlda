@@ -919,20 +919,28 @@ a.kpi:hover { background: var(--table-hover); }
 .sidebar .nav a.active { background: var(--side-active); color: #fff; box-shadow: inset 3px 0 0 #8fb3ff; }
 .sidebar .nav a.active .lucide, .sidebar .nav a:hover .lucide { color: #fff; }
 .nav-main { gap: 4px; }
-/* Thu gọn / mở rộng thanh bên: nút ở cuối thanh; thu gọn còn 64px, chỉ hiện biểu tượng (chỉ trên màn rộng — điện thoại dùng menu trượt) */
-.sidebar { display: flex; flex-direction: column; transition: width .15s; }
+/* Thanh bên: nút thu gọn / mở rộng ở đầu (cạnh logo); kéo mép phải để co giãn (độ rộng --side-w, nhớ trên máy);
+   thu gọn còn 64px, chỉ hiện biểu tượng. Chỉ trên màn rộng — điện thoại dùng menu trượt */
+.sidebar { display: flex; flex-direction: column; }
+.side-head { display: flex; align-items: center; gap: 4px; padding-bottom: 8px; }
+.side-head .brand { flex: 1; min-width: 0; padding-bottom: 6px; }
 .side-toggle {
-  margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: none; border-radius: 4px;
-  background: transparent; color: var(--side-muted); font: inherit; cursor: pointer; text-align: left;
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; border: none; border-radius: 6px;
+  background: transparent; color: var(--side-muted); cursor: pointer;
 }
 .side-toggle:hover { background: var(--side-hover); color: #fff; }
+.side-resizer { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 5; }
+.side-resizer:hover, .side-resizing .side-resizer { background: var(--primary); opacity: .6; }
+body.side-resizing { cursor: col-resize; user-select: none; }
 @media (min-width: 801px) {
+  .sidebar { width: var(--side-w, 240px); }
   .side-collapsed .sidebar { width: 64px; }
   .side-collapsed .sidebar .nav-label { display: none; }
-  .side-collapsed .sidebar .brand, .side-collapsed .sidebar .nav a, .side-collapsed .side-toggle { justify-content: center; padding-left: 0; padding-right: 0; }
+  .side-collapsed .side-head { flex-direction: column; }
+  .side-collapsed .sidebar .brand, .side-collapsed .sidebar .nav a { justify-content: center; padding-left: 0; padding-right: 0; }
 }
 @media (max-width: 800px) {
-  .side-toggle { display: none; }
+  .side-toggle, .side-resizer { display: none; }
   .app.nav-open .sidebar { display: flex; }
 }
 .tabs-sub { border-bottom-width: 1px; }
