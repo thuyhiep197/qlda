@@ -32,7 +32,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'crm', label: 'Module Khách hàng', subsystem: 'customer', features: [
       { key: 'customer', label: 'Thông tin khách hàng', hint: 'Cơ quan/đơn vị, đầu mối, Kinh doanh phụ trách, AM hỗ trợ', actions: ['view', 'create', 'edit', 'delete'],
         actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ / mở lại khách hàng (ẩn khỏi danh sách)' } },
-      { key: 'customer_all', label: 'Phạm vi: Tất cả khách hàng', hint: 'Không có quyền này thì chỉ thấy khách hàng, dự án mình phụ trách, thực hiện hoặc phối hợp', actions: ['view'] },
+      { key: 'customer_all', label: 'Phạm vi: Tất cả khách hàng', hint: 'Tích thì các quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án của khách hàng; không tích thì chỉ khách hàng, dự án mình phụ trách, thực hiện hoặc phối hợp', actions: ['view'] },
     ],
   },
   {
@@ -71,6 +71,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'project', label: 'Module Thông tin dự án', subsystem: 'project', features: [
       { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình', actions: ['create', 'edit', 'delete'],
         actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ dự án' } },
+      { key: 'project_all', label: 'Phạm vi: Tất cả dự án', hint: 'Tích thì các quyền đang có áp dụng trên mọi dự án; không tích thì chỉ dự án mình là thành viên', actions: ['view'] },
       { key: 'component', label: 'Mô-đun & BA phụ trách', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
@@ -248,12 +249,13 @@ export function userPermissions(user: Pick<AuthUser, 'id' | 'is_admin'>, fallbac
   return withDerived(set);
 }
 
-/** Trả về tập quyền của user trong dự án, hoặc null nếu user không phải thành viên dự án. */
+/** Tập quyền của user trong dự án; null nếu user không phải thành viên và không có phạm vi "Tất cả dự án". */
 export function projectPermissions(user: AuthUser, projectId: number): Set<Permission> | null {
   if (user.is_admin) return userPermissions(user);
   // Quyền theo tài khoản (nhóm + quyền riêng); thành viên dự án chỉ quyết định có được vào dự án hay không
   const m = get<{ role_id: number }>('SELECT role_id FROM project_members WHERE project_id = ? AND user_id = ?', projectId, user.id);
-  if (!m) return null;
+  // Phạm vi Tất cả dự án: vào mọi dự án, áp dụng quyền của tài khoản
+  if (!m) { const own = userPermissions(user); return own.has('project_all.view') ? own : null; }
   return userPermissions(user, m.role_id);
 }
 
@@ -287,7 +289,7 @@ export function accountRoleId(userId: number): number {
 }
 
 export function accessibleProjectIds(user: AuthUser): number[] | 'all' {
-  if (user.is_admin) return 'all';
+  if (user.is_admin || userPermissions(user).has('project_all.view')) return 'all';
   return all<{ project_id: number }>('SELECT project_id FROM project_members WHERE user_id = ?', user.id)
     .map((r) => r.project_id);
 }

@@ -15,6 +15,9 @@ test('every module belongs to a subsystem and permission codes are unique', () =
   // Phân hệ Khách hàng chia module: khách hàng, dự án, hành trình, công việc, tài liệu, trao đổi
   const crm = FEATURE_GROUPS.filter((g) => g.subsystem === 'customer').flatMap((g) => g.features.map((f) => f.key));
   assert.deepEqual(crm, ['customer', 'customer_all', 'sales_project', 'journey', 'ctask', 'cfile', 'ctalk']);
+  // Mỗi phân hệ một ô phạm vi riêng
+  const keys = FEATURE_GROUPS.flatMap((g) => g.features.map((f) => `${g.subsystem}:${f.key}`));
+  assert.ok(keys.includes('customer:customer_all') && keys.includes('project:project_all'));
 });
 
 test('archiving takes the place of deleting customers and customer projects', () => {

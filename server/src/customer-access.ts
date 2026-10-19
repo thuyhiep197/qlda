@@ -10,7 +10,8 @@ import { badRequest, forbidden, notFound, requireUserPerm, userPermissions, type
  *    → khách hàng đó và chỉ dự án đó;
  *  · Thực hiện một công việc chung của khách hàng → khách hàng đó (không kèm dự án nào).
  * Xem: người liên quan; có quyền "Phạm vi: Tất cả khách hàng" thì xem mọi khách hàng, mọi dự án.
- * Thêm / sửa / lưu trữ / xóa (theo quyền của người dùng): chỉ trên khách hàng, dự án mình liên quan — "xem tất cả" chỉ mở rộng phạm vi xem.
+ * Phạm vi "Tất cả khách hàng" là phạm vi cao nhất: mọi quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án;
+ * không có phạm vi này thì các quyền chỉ áp dụng trên khách hàng, dự án mình liên quan.
  * Quản trị hệ thống: toàn quyền trên mọi khách hàng.
  */
 type U = Pick<AuthUser, 'id' | 'is_admin'>;
@@ -49,15 +50,15 @@ export function visibleSalesProjectsSql(user: U): { sql: string; params: number[
   return seesAllCustomers(user) ? { sql: '1=1', params: [] } : relatedSalesProjectsSql(user);
 }
 
-/** Được thêm / sửa / lưu trữ trên khách hàng này: quản trị hệ thống hoặc người liên quan */
+/** Được thêm / sửa / lưu trữ trên khách hàng này: quản trị hệ thống, phạm vi Tất cả khách hàng, hoặc người liên quan */
 export function managesCustomer(user: U, customerId: number) {
-  if (user.is_admin) return true;
+  if (user.is_admin || seesAllCustomers(user)) return true;
   const v = relatedCustomersSql(user);
   return !!get(`SELECT 1 FROM customers c WHERE c.id = ? AND ${v.sql}`, customerId, ...v.params);
 }
-/** Được thêm / sửa / lưu trữ trên dự án này: quản trị hệ thống hoặc người liên quan */
+/** Được thêm / sửa / lưu trữ trên dự án này: quản trị hệ thống, phạm vi Tất cả khách hàng, hoặc người liên quan */
 export function managesSalesProject(user: U, salesProjectId: number) {
-  if (user.is_admin) return true;
+  if (user.is_admin || seesAllCustomers(user)) return true;
   const v = relatedSalesProjectsSql(user);
   return !!get(`SELECT 1 FROM sales_projects sp WHERE sp.id = ? AND ${v.sql}`, salesProjectId, ...v.params);
 }
@@ -77,7 +78,7 @@ export function canSeeSalesProject(user: U, salesProjectId: number) {
   return !!get(`SELECT 1 FROM sales_projects sp WHERE sp.id = ? AND ${v.sql}`, salesProjectId, ...v.params);
 }
 
-const NOT_MANAGED = 'Bạn chỉ được xem — khách hàng / dự án này không do bạn phụ trách, thực hiện hoặc phối hợp';
+const NOT_MANAGED = 'Khách hàng / dự án này không do bạn phụ trách, thực hiện hoặc phối hợp';
 
 /** Khách hàng theo :id trên đường dẫn: cần quyền perm, được xem khách hàng; hành động ghi thì phải liên quan tới khách hàng */
 export function loadCustomer(req: Request, perm: Permission = 'customer.view') {
