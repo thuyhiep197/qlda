@@ -1119,7 +1119,8 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .cw-sub-link { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: inherit; padding: 4px 0; }
 .cw-sub-link:hover { text-decoration: none; }
 .cw-caret-space { width: 18px; flex-shrink: 0; }
-.cw-sub.cw-proj { padding-left: 48px; font-size: 12.5px; }
+/* Dự án (cấp 2) thụt vào thẳng dưới tên khách hàng (cấp 1) — đủ cụ thể để thắng quy tắc thụt chung của .cw-sub */
+.cw-left > .cw-group > .cw-sub.cw-proj { padding-left: 68px; font-size: 12.5px; }
 .cw-row-cust td { background: var(--sunken); }
 .cw-row-proj td:nth-child(2) { padding-left: 22px; }
 /* Áp dụng quy trình mẫu: bước bỏ chọn mờ đi */
