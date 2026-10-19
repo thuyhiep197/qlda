@@ -9,8 +9,9 @@ import { CustomerModal } from '../pages/Customers';
 import { CreateProjectModal } from '../pages/Projects';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
-import { Building2, FolderKanban, LayoutDashboard, LibraryBig, LogOut, Menu, Moon, Plus, Settings, Sun, Wrench } from 'lucide-react';
+import { Building2, FolderKanban, LayoutDashboard, LibraryBig, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, Settings, Sun, Wrench } from 'lucide-react';
 import { adminTabs } from '../pages/AdminLayout';
+import { readCollapsed, saveCollapsed } from '../sidebar-pref';
 
 export default function Layout() {
   const { data: me } = useMe();
@@ -19,6 +20,9 @@ export default function Layout() {
   const [creating, setCreating] = useState(false);
   const [menu, setMenu] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  // Thanh bên thu gọn: chỉ còn biểu tượng (rê chuột để xem tên phân hệ)
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggleSidebar = () => { setCollapsed(!collapsed); saveCollapsed(!collapsed); };
   const location = useLocation();
   useEffect(() => { setNavOpen(false); }, [location.pathname]);
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -38,21 +42,25 @@ export default function Layout() {
 
 
   return (
-    <div className={`app ${navOpen ? 'nav-open' : ''}`}>
+    <div className={`app ${navOpen ? 'nav-open' : ''} ${collapsed ? 'side-collapsed' : ''}`}>
       {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} />}
       <aside className="sidebar">
         <NavLink to="/" className="brand">
           <img src="/favicon.svg" width={28} height={28} alt="" />
-          <span>QLDA</span>
+          <span className="nav-label">QLDA</span>
         </NavLink>
-        {/* Phân hệ: Dashboard · Khách hàng · Dự án · Tài liệu nội bộ · Quản trị */}
+        {/* Phân hệ: Dashboard · Khách hàng · Dự án · Tài liệu nội bộ · Quản trị; thu gọn thì tên hiện khi rê chuột */}
         <nav className="nav nav-main">
-          <NavLink to="/home"><LayoutDashboard size={18} /> Dashboard</NavLink>
-          {hasPerm(me, 'customer.view') && <NavLink to="/customers"><Building2 size={18} /> Khách hàng</NavLink>}
-          <NavLink to="/projects" className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> Dự án</NavLink>
-          <NavLink to="/docs"><LibraryBig size={18} /> Tài liệu</NavLink>
-          {adminTabs(me).length > 0 && <NavLink to="/admin"><Wrench size={18} /> Quản trị</NavLink>}
+          <NavLink to="/home" data-tip={collapsed ? 'Dashboard' : undefined}><LayoutDashboard size={18} /> <span className="nav-label">Dashboard</span></NavLink>
+          {hasPerm(me, 'customer.view') && <NavLink to="/customers" data-tip={collapsed ? 'Khách hàng' : undefined}><Building2 size={18} /> <span className="nav-label">Khách hàng</span></NavLink>}
+          <NavLink to="/projects" data-tip={collapsed ? 'Dự án' : undefined} className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> <span className="nav-label">Dự án</span></NavLink>
+          <NavLink to="/docs" data-tip={collapsed ? 'Tài liệu' : undefined}><LibraryBig size={18} /> <span className="nav-label">Tài liệu</span></NavLink>
+          {adminTabs(me).length > 0 && <NavLink to="/admin" data-tip={collapsed ? 'Quản trị' : undefined}><Wrench size={18} /> <span className="nav-label">Quản trị</span></NavLink>}
         </nav>
+        <button className="side-toggle" onClick={toggleSidebar} aria-label={collapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'}
+          data-tip={collapsed ? 'Mở rộng thanh bên' : undefined}>
+          {collapsed ? <PanelLeftOpen size={18} /> : <><PanelLeftClose size={18} /> <span className="nav-label">Thu gọn</span></>}
+        </button>
       </aside>
 
       <div className="main">
