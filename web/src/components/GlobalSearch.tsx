@@ -12,7 +12,7 @@ interface Results {
   customers: { id: number; name: string; status: string; province: string | null }[];
   projects: { id: number; key: string; name: string; customer: string | null }[];
   issues: { key: string; summary: string; type: IssueType; subtype: SubType | null; status_name: string; status_category: Category; project_key: string }[];
-  steps: { id: number; title: string; code: string | null; customer_id: number; customer_name: string }[];
+  steps: { id: number; title: string; code: string | null; customer_id: number; sales_project_id: number; customer_name: string }[];
   docs?: { id: number; filename: string; folder_id: number | null; folder_name: string | null }[];
 }
 
@@ -38,7 +38,7 @@ export default function GlobalSearch() {
   const done = (fn: () => void) => () => { fn(); setShow(false); setQ(''); };
   data?.customers.forEach((c) => items.push({ group: 'Khách hàng', key: `c${c.id}`, go: done(() => navigate(`/customers/${c.id}?g=all`)),
     node: <><Building2 size={15} className="muted" /><span className="grow ellipsis">{c.name}</span><span className="muted small">{c.province ?? ''} · {c.status}</span></> }));
-  data?.steps.forEach((s) => items.push({ group: 'Hành trình khách hàng', key: `s${s.id}`, go: done(() => navigate(`/customers/${s.customer_id}?g=all&step=${s.id}`)),
+  data?.steps.forEach((s) => items.push({ group: 'Hành trình khách hàng', key: `s${s.id}`, go: done(() => navigate(`/customers/${s.customer_id}/p/${s.sales_project_id}?g=all&step=${s.id}`)),
     node: <><Route size={15} className="muted" /><span className="grow ellipsis">{s.code ? `${s.code} ` : ''}{s.title}</span><span className="muted small ellipsis gs-meta">{s.customer_name}</span></> }));
   data?.projects.forEach((p) => items.push({ group: 'Dự án', key: `p${p.id}`, go: done(() => navigate(`/p/${p.key}?g=all`)),
     node: <><span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span><span className="grow ellipsis">{p.name}</span><span className="muted small ellipsis gs-meta">{p.customer ?? p.key}</span></> }));

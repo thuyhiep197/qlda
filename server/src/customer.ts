@@ -43,8 +43,44 @@ export function cleanCustomer(b: any) {
     product_description: longText(b.product_description, 4000),
     source: text(b.source, 200),
     status: oneOf(b.status, CUSTOMER_STATUSES, 'Tình trạng', 'Mới')!,
-    owner_ids: idList(b.owner_ids),
+    // Kinh doanh phụ trách (nhân sự Sale), AM hỗ trợ (nhân sự AM)
+    kd_ids: idList(b.kd_ids),
+    am_ids: idList(b.am_ids),
   };
+}
+
+/** Dự án của khách hàng (do Kinh doanh tạo): tên, Kinh doanh, AM, BA/PM, sản phẩm, ghi chú. Tình trạng tự động theo hành trình. */
+export function cleanSalesProject(b: any) {
+  const name = text(b.name, 200);
+  if (!name) throw badRequest('Tên dự án không được để trống');
+  const product_type_id = optId(b.product_type_id), product_id = optId(b.product_id);
+  if (Number.isNaN(product_type_id)) throw badRequest('Loại sản phẩm không hợp lệ');
+  if (Number.isNaN(product_id)) throw badRequest('Sản phẩm không hợp lệ');
+  return {
+    name, product_type_id, product_id,
+    product_description: longText(b.product_description, 4000),
+    ba: text(b.ba, 500),
+    note: longText(b.note, 4000),
+    kd_ids: idList(b.kd_ids),
+    am_ids: idList(b.am_ids),
+  };
+}
+
+/** Mã khách hàng tự sinh từ tên: chữ cái đầu của mỗi từ (như gợi ý mã dự án), tối đa 6 ký tự; trùng thì thêm số 2, 3… */
+export function customerCode(name: string, taken: Iterable<string>) {
+  const used = new Set([...taken].map((c) => c.toUpperCase()));
+  const base = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'D')
+    .split(/\s+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'KH';
+  if (!used.has(base)) return base;
+  for (let i = 2; ; i++) if (!used.has(`${base}${i}`)) return `${base}${i}`;
+}
+
+/** Mã dự án của khách hàng = mã khách hàng + số thứ tự 2 chữ số (SGDH-01, SGDH-02…), lấy số lớn nhất đã dùng + 1 */
+export function salesProjectCode(customerCode: string, existing: Iterable<string>) {
+  const prefix = `${customerCode}-`;
+  let max = 0;
+  for (const c of existing) if (c.startsWith(prefix)) max = Math.max(max, Number(c.slice(prefix.length)) || 0);
+  return `${prefix}${String(max + 1).padStart(2, '0')}`;
 }
 
 /** Đầu mối liên hệ: tên, SĐT, email */

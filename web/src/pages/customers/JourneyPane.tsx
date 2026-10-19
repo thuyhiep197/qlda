@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Paperclip, Plus } from 'lucide-react';
 import { api, queryClient } from '../../api';
 import { hasPerm, useDepartments, useMe } from '../../hooks';
-import type { CustomerDetail, JourneyData, JourneyStep, StepStatus } from '../../types';
-import { CUSTOMER_STATUSES, filterSteps, overdueDays } from '../../customer-filter';
-import { fmtDate, lozengeOf, today } from '../../util';
-import { Empty, Spinner, toast, toastError } from '../../components/ui';
+import type { JourneyData, JourneyStep, SalesProject, StepStatus } from '../../types';
+import { filterSteps, overdueDays } from '../../customer-filter';
+import { fmtDate, today } from '../../util';
+import { Empty, Spinner, toastError } from '../../components/ui';
+import TemplateEditor from './TemplateEditor';
 import { PersonChip, UserPickerPopover } from '../../components/UserPicker';
 
 export const STEP_STATUS: Record<StepStatus, { label: string; tone: string }> = {
@@ -17,49 +18,36 @@ export const MAX_DEPTH = 6;
 export const UNITS = ['KD', 'AM', 'BA', 'DEV', 'HC', 'BGĐ', 'Đối tác'];
 
 export const refreshCustomer = (customerId: number) => Promise.all([
-  queryClient.invalidateQueries({ queryKey: ['journey', customerId] }),
+  queryClient.invalidateQueries({ queryKey: ['journey'] }),
+  queryClient.invalidateQueries({ queryKey: ['sales-project'] }),
   queryClient.invalidateQueries({ queryKey: ['customer', String(customerId)] }),
   queryClient.invalidateQueries({ queryKey: ['step'] }),
   queryClient.invalidateQueries({ queryKey: ['customers'] }),
 ]);
 
-/** Cột giữa: hành trình khách hàng theo quy trình I–IV. Bấm một bước để xem Trao đổi và Tài liệu của bước ở cột phải. */
-export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDetail; selected: number | null; onSelect: (id: number | null) => void }) {
+/** Cột giữa: hành trình bán hàng của một dự án của khách hàng theo quy trình I–IV. Bấm một bước để xem Trao đổi và Tài liệu của bước ở cột phải. */
+export default function JourneyPane({ customerId, sp, selected, onSelect }: { customerId: number; sp: SalesProject; selected: number | null; onSelect: (id: number | null) => void }) {
   const { data: me } = useMe();
   const { data: departments } = useDepartments();
   const canEdit = hasPerm(me, 'customer.edit');
-  const { data, isLoading } = useQuery<JourneyData>({ queryKey: ['journey', c.id], queryFn: () => api.get(`/customers/${c.id}/journey`) });
+  const { data, isLoading } = useQuery<JourneyData>({ queryKey: ['journey', sp.id], queryFn: () => api.get(`/customers/${customerId}/projects/${sp.id}/journey`) });
   const [collapsed, setCollapsed] = useState<Set<number> | null>(null);
   const [f, setF] = useState({ status: '', unit: '', mine: false, q: '' });
-  const [busy, setBusy] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [picking, setPicking] = useState<{ id: number; field: 'assignee' | 'supporters' } | null>(null);
   // Thêm bước (issue) mới ngay trong bảng: bước con của phần / giai đoạn / đầu việc đang chọn
   const [adding, setAdding] = useState<{ parent: number; title: string } | null>(null);
   const now = today();
 
-  const head = (
-    <div className="cw-head">
-      <div className="grow" style={{ minWidth: 0 }}>
-        <h2 className="ellipsis">{c.name}</h2>
-        <div className="row gap-sm small muted" style={{ flexWrap: 'wrap' }}>
-          <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>
-          {[c.ward_name, c.province_name].filter(Boolean).join(', ')}
-          {c.owners.length > 0 && <span>· Phụ trách: {c.owners.map((o) => o.full_name).join(', ')}</span>}
-        </div>
-      </div>
-    </div>
-  );
-  if (isLoading || !data) return <>{head}<Spinner /></>;
-
-  const apply = async () => {
-    setBusy(true);
-    try { await api.post(`/customers/${c.id}/journey/apply`); toast('Đã tạo hành trình theo quy trình mẫu'); await refreshCustomer(c.id); } catch (e) { toastError(e); } finally { setBusy(false); }
-  };
+  if (isLoading || !data) return <Spinner />;
+  // Chưa có hành trình: Áp dụng quy trình mẫu → xem trước, bỏ nhánh không áp dụng / thêm bước, rồi Lưu để áp dụng
   if (!data.steps.length) {
-    return <>{head}<div className="cw-scroll"><Empty title="Khách hàng chưa có hành trình">
-      <p className="muted">Hành trình theo quy trình I. Giải pháp → II. Hợp đồng → III. Triển khai → IV. Nghiệm thu – Thanh toán (457 bước, có sẵn phòng thực hiện và phối hợp). Sau khi tạo có thể bỏ các nhánh không áp dụng.</p>
-      {canEdit && <button className="btn btn-primary" disabled={busy} onClick={apply}>Áp dụng quy trình mẫu</button>}
-    </Empty></div></>;
+    if (applying) return <TemplateEditor customerId={customerId} sp={sp} onClose={() => setApplying(false)} />;
+    return <div className="cw-scroll"><Empty title="Dự án chưa có hành trình">
+      <p className="muted">Hành trình theo quy trình I. Giải pháp → II. Hợp đồng → III. Triển khai → IV. Nghiệm thu – Thanh toán (có sẵn phòng thực hiện và phối hợp).
+        Trước khi lưu có thể bỏ các nhánh không áp dụng và thêm bước mới.</p>
+      {canEdit && <button className="btn btn-primary" onClick={() => setApplying(true)}>Áp dụng quy trình mẫu</button>}
+    </Empty></div>;
   }
 
   const { steps, progress } = data;
@@ -73,7 +61,7 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
   const filteredEff = filterSteps(eff, { ...f, mine: f.mine ? me?.id ?? null : null });
   const filtered = filteredEff && filteredEff.map((x) => steps.find((s) => s.id === x.id)!);
   const assign = async (s: JourneyStep, body: Record<string, unknown>) => {
-    try { await api.patch(`/customers/${c.id}/journey/${s.id}`, body); await refreshCustomer(c.id); } catch (e) { toastError(e); }
+    try { await api.patch(`/customers/${customerId}/journey/${s.id}`, body); await refreshCustomer(customerId); } catch (e) { toastError(e); }
   };
   const cell = (s: JourneyStep, field: 'assignee' | 'supporters') => {
     const people = field === 'assignee' ? (s.assignee_id ? [{ id: s.assignee_id, full_name: s.assignee_name ?? '', dept: s.assignee_dept }] : []) : s.supporters;
@@ -107,9 +95,9 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
   const saveAdd = async () => {
     if (!adding?.title.trim()) { setAdding(null); return; }
     try {
-      const r = await api.post<{ id: number }>(`/customers/${c.id}/journey/${adding.parent}/children`, { title: adding.title.trim() });
+      const r = await api.post<{ id: number }>(`/customers/${customerId}/journey/${adding.parent}/children`, { title: adding.title.trim() });
       setAdding(null);
-      await refreshCustomer(c.id);
+      await refreshCustomer(customerId);
       onSelect(r.id);
     } catch (e) { toastError(e); }
   };
@@ -142,7 +130,7 @@ export default function JourneyPane({ c, selected, onSelect }: { c: CustomerDeta
 
   return (
     <>
-      {head}
+
       <div className="journey-phases">
         {progress.sections.map((sec) => {
           const pct = sec.total ? Math.round((sec.done / sec.total) * 100) : 0;

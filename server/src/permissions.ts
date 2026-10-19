@@ -139,7 +139,11 @@ export function upgradeRolePermissions() {
 export const cleanPermissionList = (v: unknown): Permission[] => (Array.isArray(v) ? ALL_PERMISSIONS.filter((p) => v.includes(p)) : []);
 export const isPermission = (p: string) => VALID.has(p);
 
-export const DEFAULT_ROLES: { name: string; description: string; permissions: Permission[] }[] = [
+/** Nhóm Kinh doanh / AM: dùng phân hệ Khách hàng; phân hệ Dự án chỉ xem tiến độ (khớp migration v22) */
+export const SALES_PERMISSIONS: Permission[] = ['dashboard.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export',
+  'component.view', 'customer.view', 'customer.create', 'customer.edit', 'product.view', 'geo.view', 'department.view', 'staff.view'];
+
+export const DEFAULT_ROLES:{ name: string; description: string; permissions: Permission[] }[] = [
   { name: 'BA Lead', description: 'Toàn quyền: quản trị dự án, xóa issue, quản trị hệ thống', permissions: ALL_PERMISSIONS },
   { name: 'BA', description: 'Kiêm PM, BA và Tester: quản lý backlog/sprint, giao việc, sửa mọi issue, kiểm thử',
     permissions: convertLegacyPermissions(['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition', 'issue.import', 'comment.create', 'attachment.create']) },
@@ -148,6 +152,8 @@ export const DEFAULT_ROLES: { name: string; description: string; permissions: Pe
   { name: 'Dev', description: 'Thực hiện công việc được giao',
     permissions: convertLegacyPermissions(['issue.create', 'issue.edit_own', 'issue.transition', 'comment.create', 'attachment.create']) },
   { name: 'Người xem', description: 'Khách hàng/lãnh đạo: xem tiến độ và bình luận', permissions: convertLegacyPermissions(['comment.create']) },
+  { name: 'Kinh doanh', description: 'Phòng Kinh doanh (Sale): khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', permissions: SALES_PERMISSIONS },
+  { name: 'AM', description: 'Phòng Kinh doanh (AM): chăm sóc khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', permissions: SALES_PERMISSIONS },
 ];
 
 export class HttpError extends Error {

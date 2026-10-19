@@ -1,19 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { customerKpis, descriptionOf, filterCustomers, filterSteps, overdueDays, wardCodeOf } from './customer-filter';
+import { customerKpis, customerTree, salesStatusClass, descriptionOf, filterCustomers, filterSteps, overdueDays, wardCodeOf } from './customer-filter';
 import type { Customer } from './types';
 
 const c = (o: Partial<Customer>): Customer => ({
-  id: 1, name: '', province_code: null, ward_code: null, product_type_id: null, product_id: null, product_description: null,
+  id: 1, code: null, name: '', province_code: null, ward_code: null,
   source: null, status: 'Mới', created_at: '', updated_at: '', ...o,
 });
 const list = [
-  c({ id: 1, name: 'Sở Tài chính Đồng Nai', province_code: '75', province_name: 'Thành phố Đồng Nai', ward_name: 'Phường Trấn Biên', contact_name: 'Lê Văn B', product_type_id: 1 }),
-  c({ id: 2, name: 'Trường THPT Chu Văn An', status: 'Đang tư vấn', owner_names: 'Phạm Văn Phương', is_mine: 1, product_type_id: 2, product_name: 'Phần mềm QL thiết bị' }),
+  c({ id: 1, name: 'Sở Tài chính Đồng Nai', province_code: '75', province_name: 'Thành phố Đồng Nai', ward_name: 'Phường Trấn Biên', contact_name: 'Lê Văn B' }),
+  c({ id: 2, name: 'Trường THPT Chu Văn An', status: 'Đang tư vấn', kd_names: 'Phạm Văn Phương', is_mine: 1, product_name: 'Phần mềm QL thiết bị' }),
   c({ id: 3, name: 'Công ty ABC', source: 'Đối tác giới thiệu', contact_email: 'kd@abc.vn' }),
 ];
-const ids = (f: Partial<{ q: string; status: string; productType: string; province: string; mine: boolean }>) =>
-  filterCustomers(list, { q: '', status: '', productType: '', province: '', ...f }).map((x) => x.id);
+const ids = (f: Partial<{ q: string; status: string; province: string; mine: boolean }>) =>
+  filterCustomers(list, { q: '', status: '', province: '', ...f }).map((x) => x.id);
 
 test('search ignores Vietnamese accents and matches ward, contact, staff, product, source', () => {
   assert.deepEqual(ids({ q: 'so tai chinh' }), [1]);
@@ -25,10 +25,8 @@ test('search ignores Vietnamese accents and matches ward, contact, staff, produc
   assert.deepEqual(ids({ q: 'kd@abc' }), [3]);
 });
 
-test('filters by status, product type and province, with "-" for not set', () => {
+test('filters by status and province, with "-" for not set', () => {
   assert.deepEqual(ids({ status: 'Đang tư vấn' }), [2]);
-  assert.deepEqual(ids({ productType: '1' }), [1]);
-  assert.deepEqual(ids({ productType: '-' }), [3]);
   assert.deepEqual(ids({ province: '75' }), [1]);
   assert.deepEqual(ids({ province: '-' }), [2, 3]);
   assert.deepEqual(ids({ mine: true }), [2]);
@@ -77,4 +75,34 @@ test('overdue days count only unfinished work past its due date', () => {
   assert.equal(overdueDays('2026-10-17', 'todo', '2026-10-17'), 0);
   assert.equal(overdueDays('2026-10-01', 'done', '2026-10-17'), 0);
   assert.equal(overdueDays(null, 'todo', '2026-10-17'), 0);
+});
+
+test('customer tree keeps all projects of a matching customer, or only the matching projects', () => {
+  const tree = [
+    { name: 'Sở GD & ĐT HCM', sales_projects: [{ name: 'EduPay' }, { name: 'Quản lý thiết bị' }] },
+    { name: 'Sở Tài chính Đồng Nai', sales_projects: [{ name: 'Thu phí VSMT' }] },
+    { name: 'UBND Đà Nẵng' },
+  ];
+  const view = (q: string) => customerTree(tree, q).map((x) => [x.customer.name, x.projects.map((p) => p.name)]);
+  assert.equal(view('').length, 3);
+  assert.deepEqual(view('so gd'), [['Sở GD & ĐT HCM', ['EduPay', 'Quản lý thiết bị']]]);
+  assert.deepEqual(view('thiet bi'), [['Sở GD & ĐT HCM', ['Quản lý thiết bị']]]);
+  assert.deepEqual(view('da nang'), [['UBND Đà Nẵng', []]]);
+  assert.deepEqual(view('khong co'), []);
+});
+
+test('customer search also finds a customer by the name of one of its projects', () => {
+  const withProjects = [c({ id: 9, name: 'Sở GD', sales_projects: [{ code: 'SGD-01', name: 'EduPay', am_names: 'Trần Thị Kinh Doanh' } as never] })];
+  assert.deepEqual(filterCustomers(withProjects, { q: 'edupay', status: '', province: '' }).map((x) => x.id), [9]);
+  assert.deepEqual(filterCustomers(withProjects, { q: 'kinh doanh', status: '', province: '' }).map((x) => x.id), [9]);
+});
+
+test('customer project status colour follows the running part of the journey', () => {
+  assert.equal(salesStatusClass(null), 'lozenge lozenge-default');
+  assert.equal(salesStatusClass('Chưa bắt đầu'), 'lozenge lozenge-default');
+  assert.equal(salesStatusClass('I. Giải pháp'), 'lozenge lozenge-blue');
+  assert.equal(salesStatusClass('II. Hợp đồng'), 'lozenge lozenge-yellow');
+  assert.equal(salesStatusClass('III. Triển khai'), 'lozenge lozenge-purple');
+  assert.equal(salesStatusClass('IV. Nghiệm thu - Thanh toán'), 'lozenge lozenge-green');
+  assert.equal(salesStatusClass('Hoàn thành'), 'lozenge lozenge-green');
 });

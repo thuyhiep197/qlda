@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Download, FileText, Mail, Paperclip, Pencil, Phone, Trash2 } from 'lucide-react';
 import { api, refreshAll } from '../../api';
 import { hasPerm, useMe, useUsersBasic } from '../../hooks';
-import type { CustomerDetail, CustomerFile, CustomerTask } from '../../types';
+import type { CustomerDetail, CustomerFile, CustomerProject, CustomerTask } from '../../types';
 import { CUSTOMER_STATUSES, overdueDays } from '../../customer-filter';
 import { colorOf, fmtDate, fmtDateTime, fmtSize, lozengeOf, PROJECT_STATUSES, today } from '../../util';
 import { CustomerModal } from '../Customers';
 import { toast, toastError } from '../../components/ui';
 import { refreshCustomer } from './JourneyPane';
+import { Talk } from './StepPanel';
 
 /** Khối thu gọn được trong cột phải */
 export function Block({ title, extra, children, open: initial = true }: { title: ReactNode; extra?: ReactNode; children: ReactNode; open?: boolean }) {
@@ -30,8 +31,8 @@ export const Props = ({ rows }: { rows: [string, ReactNode][] }) => (
   </div>
 );
 
-/** Danh sách tài liệu; xóa: người tải lên, hoặc người có quyền xóa khách hàng */
-export function FileList({ customerId, files, showStep }: { customerId: number; files: (CustomerFile & { step_title?: string | null })[]; showStep?: boolean }) {
+/** Danh sách tài liệu; xóa: người tải lên, hoặc người có quyền xóa khách hàng. showWhere: hiện tài liệu thuộc dự án / bước nào */
+export function FileList({ customerId, files, showWhere }: { customerId: number; files: CustomerFile[]; showWhere?: boolean }) {
   const { data: me } = useMe();
   const canDel = (f: CustomerFile) => hasPerm(me, 'customer.delete') || (hasPerm(me, 'customer.edit') && f.uploader_id === me?.id);
   const remove = async (f: CustomerFile) => {
@@ -45,7 +46,8 @@ export function FileList({ customerId, files, showStep }: { customerId: number; 
         <FileText size={15} className="muted" />
         <div className="grow" style={{ minWidth: 0 }}>
           <a className="ellipsis" style={{ display: 'block' }} href={`/api/customers/${customerId}/files/${f.id}`}>{f.filename}</a>
-          <div className="muted small">{showStep && f.step_title && <span className="unit-chip">{f.step_title}</span>} {fmtSize(f.size)} · {f.uploader_name ?? '—'} · {fmtDateTime(f.created_at)}</div>
+          <div className="muted small">{showWhere && f.sales_project_name && <span className="unit-chip">{f.sales_project_name}</span>}
+            {showWhere && f.step_title && <span className="unit-chip">{f.step_title}</span>} {fmtSize(f.size)} · {f.uploader_name ?? '—'} · {fmtDateTime(f.created_at)}</div>
         </div>
         <a className="icon-btn" aria-label={`Tải ${f.filename}`} data-tip="Tải về" href={`/api/customers/${customerId}/files/${f.id}`}><Download size={14} /></a>
         {canDel(f) && <button className="icon-btn" aria-label={`Xóa ${f.filename}`} data-tip="Xóa" onClick={() => remove(f)}><Trash2 size={14} /></button>}
@@ -54,7 +56,8 @@ export function FileList({ customerId, files, showStep }: { customerId: number; 
   );
 }
 
-export function UploadButton({ customerId, stepId }: { customerId: number; stepId?: number }) {
+/** Tải tài liệu lên: của khách hàng (chung), của một dự án (projectId) hoặc kết quả của một bước (stepId) */
+export function UploadButton({ customerId, stepId, projectId }: { customerId: number; stepId?: number; projectId?: number }) {
   const [busy, setBusy] = useState(false);
   const upload = async (list: FileList | null) => {
     if (!list?.length) return;
@@ -62,7 +65,7 @@ export function UploadButton({ customerId, stepId }: { customerId: number; stepI
     try {
       const fd = new FormData();
       Array.from(list).forEach((f) => fd.append('files', f));
-      await api.post(`/customers/${customerId}/files${stepId ? `?step=${stepId}` : ''}`, fd);
+      await api.post(`/customers/${customerId}/files${stepId ? `?step=${stepId}` : projectId ? `?project=${projectId}` : ''}`, fd);
       toast('Đã tải lên');
       await refreshCustomer(customerId);
     } catch (e) { toastError(e); } finally { setBusy(false); }
@@ -73,16 +76,18 @@ export function UploadButton({ customerId, stepId }: { customerId: number; stepI
   );
 }
 
-/** Cột phải khi chưa chọn bước: Thông tin khách hàng + Công việc + Tài liệu */
+/** Cột phải của màn khách hàng: Thông tin khách hàng, dự án sản xuất đã gắn, Công việc, Tài liệu, Trao đổi chung */
 export default function CustomerSide({ c }: { c: CustomerDetail }) {
   const { data: me } = useMe();
+  const { data: users } = useUsersBasic();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const canEdit = hasPerm(me, 'customer.edit'), canDelete = hasPerm(me, 'customer.delete');
   const remove = async () => {
-    if (!confirm(`Xóa khách hàng ${c.name}? Đầu mối, hành trình, công việc, tài liệu và trao đổi sẽ bị xóa theo. Các dự án được gỡ khỏi khách hàng này (dữ liệu dự án vẫn giữ nguyên).`)) return;
+    if (!confirm(`Xóa khách hàng ${c.name}? Đầu mối, các dự án của khách hàng (kèm hành trình), công việc, tài liệu và trao đổi sẽ bị xóa theo. Dự án ở phân hệ Dự án được gỡ khỏi khách hàng này (dữ liệu dự án vẫn giữ nguyên).`)) return;
     try { await api.del(`/customers/${c.id}`); toast('Đã xóa khách hàng'); await refreshAll(); navigate('/customers'); } catch (e) { toastError(e); }
   };
+  const production = c.projects.filter((p) => !p.is_archived);
   return (
     <>
       <Block title="Thông tin khách hàng" extra={<>
@@ -90,11 +95,10 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
         {canDelete && <button className="icon-btn" aria-label="Xóa khách hàng" data-tip="Xóa khách hàng" onClick={remove}><Trash2 size={14} /></button>}
       </>}>
         <Props rows={[
+          ['Mã khách hàng', c.code],
           ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
-          ['Tỉnh thành', c.province_name], ['Phường/Xã', c.ward_name],
-          ['Loại sản phẩm', c.product_type_name], ['Sản phẩm', c.product_name],
-          ['Mô tả sản phẩm', c.product_description && <span style={{ whiteSpace: 'pre-wrap' }}>{c.product_description}</span>],
-          ['Nguồn', c.source], ['Phụ trách', c.owners.map((o) => o.full_name).join(', ')],
+          ['Tỉnh thành', c.province_name], ['Phường/Xã', c.ward_name], ['Nguồn', c.source],
+          ['Kinh doanh phụ trách', c.kd_names], ['AM hỗ trợ', c.am_names],
         ]} />
         <div className="prop-label mt">Đầu mối liên hệ</div>
         {!c.contacts.length ? <p className="muted small">Chưa có đầu mối</p> : c.contacts.map((ct) => (
@@ -107,9 +111,9 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
           </div>
         ))}
       </Block>
-      <Block title={`Thông tin dự án (${c.projects.filter((p) => !p.is_archived).length})`}>
-        {!c.projects.some((p) => !p.is_archived) ? <p className="muted small">Chưa có dự án nào gắn với khách hàng này</p>
-          : c.projects.filter((p) => !p.is_archived).map((p) => {
+      <Block title={`Thông tin dự án (${production.length})`}>
+        {!production.length ? <p className="muted small">Chưa có dự án nào gắn với khách hàng này</p>
+          : production.map((p) => {
             const st = p.project_status || p.status_auto;
             const pct = p.total_issues ? Math.round((p.done_issues / p.total_issues) * 100) : 0;
             const body = <>
@@ -126,83 +130,58 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
               : <div key={p.id} className="cw-project disabled" data-tip="Bạn chưa là thành viên dự án này">{body}</div>;
           })}
       </Block>
-      <Tasks c={c} canEdit={canEdit} canDeleteAll={canDelete} />
+      <Tasks customerId={c.id} tasks={c.tasks} showProject production={production} />
       <Block title={`Tài liệu (${c.files.length})`} extra={canEdit && <UploadButton customerId={c.id} />}>
-        <FileList customerId={c.id} files={c.files} showStep />
+        <FileList customerId={c.id} files={c.files} showWhere />
       </Block>
-      {editing && <CustomerModal customer={c} contacts={c.contacts} ownerIds={c.owner_ids} onClose={() => setEditing(false)} />}
+      <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={canEdit} users={users ?? []} />
+      {editing && <CustomerModal customer={c} contacts={c.contacts} kdIds={c.kd_ids} amIds={c.am_ids} onClose={() => setEditing(false)} />}
     </>
   );
 }
 
 const TASK_STATUS = { todo: 'Chưa bắt đầu', doing: 'Đang thực hiện', done: 'Hoàn thành' } as const;
 
-/** Công việc: Kinh doanh (mặc định) và Dự án (tiến độ; bấm để mở Kế hoạch chi tiết của dự án) */
-function Tasks({ c, canEdit, canDeleteAll }: { c: CustomerDetail; canEdit: boolean; canDeleteAll: boolean }) {
+/**
+ * Công việc: của khách hàng (gộp cả việc chung và việc của các dự án, showProject) hoặc của một dự án (projectId).
+ * Có production (màn khách hàng): 2 tab Kinh doanh (mặc định) và Dự án (tiến độ; bấm để mở Kế hoạch chi tiết của dự án).
+ */
+export function Tasks({ customerId, tasks, projectId, showProject, production }: {
+  customerId: number; tasks: CustomerTask[]; projectId?: number; showProject?: boolean; production?: CustomerProject[];
+}) {
   const { data: me } = useMe();
   const { data: users } = useUsersBasic();
+  const canEdit = hasPerm(me, 'customer.edit'), canDeleteAll = hasPerm(me, 'customer.delete');
   const [sub, setSub] = useState<'sales' | 'projects'>('sales');
   const [showDone, setShowDone] = useState(false);
   const [d, setD] = useState({ title: '', assignee_id: '', due_date: '' });
   const now = today();
-  const open = c.tasks.filter((t) => t.status !== 'done');
-  const list = showDone ? c.tasks : open;
-  const projects = c.projects.filter((p) => !p.is_archived);
+  const open = tasks.filter((t) => t.status !== 'done');
+  const list = showDone ? tasks : open;
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await api.post(`/customers/${c.id}/tasks`, { ...d, assignee_id: d.assignee_id || null, due_date: d.due_date || null });
+      await api.post(`/customers/${customerId}/tasks`, { ...d, assignee_id: d.assignee_id || null, due_date: d.due_date || null, sales_project_id: projectId ?? null });
       setD({ title: '', assignee_id: d.assignee_id, due_date: '' });
-      await refreshCustomer(c.id);
+      await refreshCustomer(customerId);
     } catch (err) { toastError(err); }
   };
   const update = async (t: CustomerTask, body: object) => {
-    try { await api.patch(`/customers/${c.id}/tasks/${t.id}`, body); await refreshCustomer(c.id); } catch (e) { toastError(e); }
+    try { await api.patch(`/customers/${customerId}/tasks/${t.id}`, body); await refreshCustomer(customerId); } catch (e) { toastError(e); }
   };
   const remove = async (t: CustomerTask) => {
     if (!confirm(`Xóa công việc "${t.title}"?`)) return;
-    try { await api.del(`/customers/${c.id}/tasks/${t.id}`); await refreshCustomer(c.id); } catch (e) { toastError(e); }
+    try { await api.del(`/customers/${customerId}/tasks/${t.id}`); await refreshCustomer(customerId); } catch (e) { toastError(e); }
   };
 
   return (
     <Block title="Công việc">
-      <div className="seg seg-sm mb" role="tablist">
+      {production && <div className="seg seg-sm mb" role="tablist">
         <button role="tab" aria-selected={sub === 'sales'} className={sub === 'sales' ? 'on' : ''} onClick={() => setSub('sales')}>Kinh doanh ({open.length})</button>
-        <button role="tab" aria-selected={sub === 'projects'} className={sub === 'projects' ? 'on' : ''} onClick={() => setSub('projects')}>Dự án ({projects.length})</button>
-      </div>
-      {sub === 'sales' ? <>
-        {canEdit && (
-          <form className="stack-sm mb" onSubmit={add}>
-            <input required placeholder="+ Thêm việc, VD: Gửi báo giá…" value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} aria-label="Tên công việc" />
-            {d.title && <div className="row gap-sm">
-              <select className="grow" value={d.assignee_id} onChange={(e) => setD({ ...d, assignee_id: e.target.value })} aria-label="Người thực hiện">
-                <option value="">Người thực hiện…</option>
-                {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-              </select>
-              <input type="date" value={d.due_date} onChange={(e) => setD({ ...d, due_date: e.target.value })} aria-label="Hạn" />
-              <button className="btn btn-primary btn-sm">Thêm</button>
-            </div>}
-          </form>
-        )}
-        {!list.length ? <p className="muted small">{c.tasks.length ? 'Không còn việc chưa xong' : 'Chưa có công việc kinh doanh'}</p> : list.map((t) => {
-          const late = overdueDays(t.due_date, t.status, now);
-          return (
-            <div key={t.id} className={`cw-task ${t.status === 'done' ? 'j-done' : ''} ${late ? 'j-late' : ''}`}>
-              <input type="checkbox" checked={t.status === 'done'} disabled={!canEdit} aria-label="Hoàn thành" onChange={(e) => update(t, { status: e.target.checked ? 'done' : 'todo' })} />
-              <div className="grow" style={{ minWidth: 0 }}>
-                <div className="j-title">{t.title}</div>
-                <div className="small muted">{t.assignee_name ?? 'Chưa giao'}{t.due_date && <> · <span className={late ? 'overdue strong' : ''}>{fmtDate(t.due_date)}{late ? ` · Quá hạn ${late} ngày` : ''}</span></>}
-                  {t.status === 'doing' && <> · {TASK_STATUS.doing}</>}</div>
-              </div>
-              {canEdit && t.status !== 'done' && <select className="cw-mini-select" value={t.status} onChange={(e) => update(t, { status: e.target.value })} aria-label="Trạng thái">
-                {Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>}
-              {(canDeleteAll || (canEdit && t.created_by === me?.id)) && <button className="icon-btn" aria-label={`Xóa ${t.title}`} onClick={() => remove(t)}><Trash2 size={13} /></button>}
-            </div>
-          );
-        })}
-        {c.tasks.length > open.length && <a className="small" onClick={() => setShowDone(!showDone)}>{showDone ? 'Ẩn việc đã xong' : `Xem cả ${c.tasks.length - open.length} việc đã xong`}</a>}
-      </> : !projects.length ? <p className="muted small">Chưa có dự án. Gắn dự án với khách hàng ở Cài đặt dự án → Thông tin chung.</p> : projects.map((p) => {
+        <button role="tab" aria-selected={sub === 'projects'} className={sub === 'projects' ? 'on' : ''} onClick={() => setSub('projects')}>Dự án ({production.length})</button>
+      </div>}
+      {production && sub === 'projects' ? (!production.length ? <p className="muted small">Chưa có dự án. Gắn dự án với khách hàng ở Cài đặt dự án → Thông tin chung.</p> : production.map((p) => {
         const pct = p.total_issues ? Math.round((p.done_issues / p.total_issues) * 100) : 0;
         const st = p.project_status || p.status_auto;
         const body = <>
@@ -213,7 +192,40 @@ function Tasks({ c, canEdit, canDeleteAll }: { c: CustomerDetail; canEdit: boole
             {p.accessible ? ' · Mở Kế hoạch chi tiết →' : ' · Bạn chưa là thành viên dự án'}</div>
         </>;
         return p.accessible ? <Link key={p.id} to={`/p/${p.key}/plan`} className="cw-project">{body}</Link> : <div key={p.id} className="cw-project">{body}</div>;
+      })) : <>
+      {canEdit && (
+        <form className="stack-sm mb" onSubmit={add}>
+          <input required placeholder={projectId ? '+ Thêm việc của dự án, VD: Gửi báo giá…' : '+ Thêm việc chung của khách hàng…'} value={d.title}
+            onChange={(e) => setD({ ...d, title: e.target.value })} aria-label="Tên công việc" />
+          {d.title && <div className="row gap-sm">
+            <select className="grow" value={d.assignee_id} onChange={(e) => setD({ ...d, assignee_id: e.target.value })} aria-label="Người thực hiện">
+              <option value="">Người thực hiện…</option>
+              {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+            </select>
+            <input type="date" value={d.due_date} onChange={(e) => setD({ ...d, due_date: e.target.value })} aria-label="Hạn" />
+            <button className="btn btn-primary btn-sm">Thêm</button>
+          </div>}
+        </form>
+      )}
+      {!list.length ? <p className="muted small">{tasks.length ? 'Không còn việc chưa xong' : 'Chưa có công việc'}</p> : list.map((t) => {
+        const late = overdueDays(t.due_date, t.status, now);
+        return (
+          <div key={t.id} className={`cw-task ${t.status === 'done' ? 'j-done' : ''} ${late ? 'j-late' : ''}`}>
+            <input type="checkbox" checked={t.status === 'done'} disabled={!canEdit} aria-label="Hoàn thành" onChange={(e) => update(t, { status: e.target.checked ? 'done' : 'todo' })} />
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="j-title">{t.title}</div>
+              <div className="small muted">{showProject && t.sales_project_name && <span className="unit-chip">{t.sales_project_name}</span>} {t.assignee_name ?? 'Chưa giao'}
+                {t.due_date && <> · <span className={late ? 'overdue strong' : ''}>{fmtDate(t.due_date)}{late ? ` · Quá hạn ${late} ngày` : ''}</span></>}
+                {t.status === 'doing' && <> · {TASK_STATUS.doing}</>}</div>
+            </div>
+            {canEdit && t.status !== 'done' && <select className="cw-mini-select" value={t.status} onChange={(e) => update(t, { status: e.target.value })} aria-label="Trạng thái">
+              {Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>}
+            {(canDeleteAll || (canEdit && t.created_by === me?.id)) && <button className="icon-btn" aria-label={`Xóa ${t.title}`} onClick={() => remove(t)}><Trash2 size={13} /></button>}
+          </div>
+        );
       })}
+      {tasks.length > open.length && <a className="small" onClick={() => setShowDone(!showDone)}>{showDone ? 'Ẩn việc đã xong' : `Xem cả ${tasks.length - open.length} việc đã xong`}</a>}
+      </>}
     </Block>
   );
 }

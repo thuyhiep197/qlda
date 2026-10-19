@@ -19,6 +19,8 @@ import notificationRoutes from './routes/notifications.ts';
 import staffRoutes from './routes/staff.ts';
 import customerRoutes from './routes/customers.ts';
 import customerWorkRoutes, { pingJourney } from './routes/customer-work.ts';
+import salesProjectRoutes, { assignCustomerCodes } from './routes/sales-projects.ts';
+import { syncJourneys } from './journey-sync.ts';
 import productRoutes from './routes/products.ts';
 import geoRoutes from './routes/geo.ts';
 import departmentRoutes from './routes/departments.ts';
@@ -45,6 +47,10 @@ autoStartAllSprints();
 // Nhắc hạn (Ping) các bước trong hành trình khách hàng
 pingJourney();
 setInterval(pingJourney, 3600_000).unref();
+// Khách hàng chưa có mã → tự sinh từ tên; hành trình phần III, IV theo dự án sản xuất đã gắn
+assignCustomerCodes();
+syncJourneys();
+setInterval(() => syncJourneys(), 600_000).unref();
 ensureAdmin();
 scheduleBackups();
 pruneNotifications();
@@ -83,6 +89,7 @@ app.use('/api/issues', issueRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/customers', salesProjectRoutes);
 app.use('/api/customers', customerWorkRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/products', productRoutes);

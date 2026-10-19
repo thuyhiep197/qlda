@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Lock, Mail, Phone, Plus, Trash2, Users, X } from 'lucide-react';
 import { api } from '../../api';
 import { hasPerm, useMe, useUsersBasic } from '../../hooks';
-import type { ActivityKind, CustomerDetail, StepDetail, StepStatus } from '../../types';
+import type { ActivityKind, CustomerActivity, CustomerDetail, StepDetail, StepStatus } from '../../types';
 import { fmtDate, timeAgo, today } from '../../util';
 import { overdueDays } from '../../customer-filter';
 import { Avatar, Markdown, Spinner, toast, toastError } from '../../components/ui';
@@ -89,7 +89,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
             : s.ping_days ? `Trước hạn ${s.ping_days} ngày` : 'Tắt'],
         ]} />
       </Block>
-      <Talk customerId={customer.id} step={s} canAdd={canEdit} users={users ?? []} />
+      <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={canEdit} users={users ?? []} />
       <Block title={`Tài liệu kết quả (${s.files.length})`} extra={canEdit && <UploadButton customerId={customer.id} stepId={s.id} />}>
         <FileList customerId={customer.id} files={s.files} />
       </Block>
@@ -97,8 +97,11 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
   );
 }
 
-/** Trao đổi của bước: thảo luận nội bộ (gõ @ để nhắc đồng nghiệp) hoặc ghi lại làm việc với khách hàng */
-function Talk({ customerId, step, canAdd, users }: { customerId: number; step: StepDetail; canAdd: boolean; users: NonNullable<ReturnType<typeof useUsersBasic>['data']> }) {
+/** Trao đổi (của khách hàng, của dự án, hoặc của một bước): thảo luận nội bộ (gõ @ để nhắc đồng nghiệp) hoặc ghi lại làm việc với khách hàng */
+export function Talk({ customerId, activities, target, empty, canAdd, users }: {
+  customerId: number; activities: CustomerActivity[]; target: { step_id?: number; sales_project_id?: number }; empty: string; canAdd: boolean;
+  users: NonNullable<ReturnType<typeof useUsersBasic>['data']>;
+}) {
   const { data: me } = useMe();
   const [kind, setKind] = useState<ActivityKind>('internal');
   const [date, setDate] = useState(today());
@@ -109,7 +112,7 @@ function Talk({ customerId, step, canAdd, users }: { customerId: number; step: S
     if (!content.trim()) return;
     setBusy(true);
     try {
-      await api.post(`/customers/${customerId}/activities`, { kind, step_id: step.id, activity_date: kind === 'internal' ? today() : date, content });
+      await api.post(`/customers/${customerId}/activities`, { kind, ...target, activity_date: kind === 'internal' ? today() : date, content });
       setContent('');
       await refreshCustomer(customerId);
     } catch (err) { toastError(err); } finally { setBusy(false); }
@@ -119,10 +122,10 @@ function Talk({ customerId, step, canAdd, users }: { customerId: number; step: S
     try { await api.del(`/customers/${customerId}/activities/${id}`); await refreshCustomer(customerId); } catch (e) { toastError(e); }
   };
   return (
-    <Block title={`Trao đổi (${step.activities.length})`}>
+    <Block title={`Trao đổi (${activities.length})`}>
       <div className="cw-talk">
-        {!step.activities.length && <p className="muted small">Chưa có trao đổi về bước này</p>}
-        {step.activities.map((a) => (
+        {!activities.length && <p className="muted small">{empty}</p>}
+        {activities.map((a) => (
           <div key={a.id} className="cw-msg">
             <Avatar name={a.user_name} size={26} />
             <div className="grow" style={{ minWidth: 0 }}>

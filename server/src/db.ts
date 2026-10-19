@@ -622,6 +622,65 @@ const migrations: string[] = [
        '$[#]', 'department.view', '$[#]', 'department.create', '$[#]', 'department.edit', '$[#]', 'department.delete',
        '$[#]', 'document.edit', '$[#]', 'document.delete')
      WHERE permissions LIKE '%"project.create"%' AND permissions NOT LIKE '%"customer.view"%';`,
+  // v22: phân hệ Khách hàng (Phòng Kinh doanh, AM dùng chính) quản lý theo khách hàng (cấp 1) và các dự án của khách hàng (cấp 2).
+  // Khách hàng: mã khách hàng (tự sinh từ tên khi khởi động), Kinh doanh phụ trách / AM hỗ trợ (customer_owners.role = kd | am).
+  // Dự án của khách hàng: mã = mã khách hàng + số, Kinh doanh / AM (sales_project_owners.role), BA/PM, sản phẩm, ghi chú;
+  // tình trạng tự động theo phần đang chạy của hành trình (quy trình I–IV) riêng của dự án.
+  // Phân hệ Dự án gắn dự án sản xuất với dự án của khách hàng (sales_projects.project_id).
+  // Công việc, tài liệu, trao đổi gắn được với một dự án (NULL = chung của khách hàng).
+  // Dữ liệu cũ: không tự tạo dự án của khách hàng; hành trình cũ ở cấp khách hàng bỏ đi; người phụ trách cũ chia theo vị trí (Sale → Kinh doanh, AM → AM).
+  // Thêm nhóm người dùng Kinh doanh và AM.
+  `ALTER TABLE customers ADD COLUMN code TEXT;
+   CREATE UNIQUE INDEX idx_customers_code ON customers(code) WHERE code IS NOT NULL;
+   ALTER TABLE customer_owners ADD COLUMN role TEXT NOT NULL DEFAULT 'kd';
+   UPDATE customer_owners SET role = 'am' WHERE staff_id IN (SELECT id FROM staff
+     WHERE ',' || positions || ',' LIKE '%,am,%' AND ',' || positions || ',' NOT LIKE '%,kd,%');
+   CREATE TABLE sales_projects (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+     code TEXT NOT NULL UNIQUE,
+     name TEXT NOT NULL,
+     product_type_id INTEGER REFERENCES product_types(id) ON DELETE SET NULL,
+     product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+     product_description TEXT,
+     -- BA/PM: họ tên chọn từ Danh mục nhân sự, cách nhau dấu phẩy (như projects.ba)
+     ba TEXT,
+     note TEXT,
+     -- Dự án sản xuất ở phân hệ Dự án — do phía Dự án gắn khi tạo / sửa dự án
+     project_id INTEGER UNIQUE REFERENCES projects(id) ON DELETE SET NULL,
+     created_by INTEGER REFERENCES users(id),
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     updated_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   CREATE INDEX idx_sales_projects_customer ON sales_projects(customer_id);
+   CREATE TABLE sales_project_owners (
+     sales_project_id INTEGER NOT NULL REFERENCES sales_projects(id) ON DELETE CASCADE,
+     staff_id INTEGER NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+     role TEXT NOT NULL DEFAULT 'kd',
+     PRIMARY KEY (sales_project_id, staff_id)
+   );
+   CREATE INDEX idx_sales_project_owners_staff ON sales_project_owners(staff_id);
+   DELETE FROM journey_steps;
+   ALTER TABLE journey_steps ADD COLUMN sales_project_id INTEGER REFERENCES sales_projects(id) ON DELETE CASCADE;
+   CREATE INDEX idx_journey_sales_project ON journey_steps(sales_project_id, position);
+   -- Phần III, IV đồng bộ với đầu việc trùng tên của dự án sản xuất: giá trị của đầu việc ở lần đồng bộ trước
+   ALTER TABLE journey_steps ADD COLUMN synced_issue_id INTEGER REFERENCES issues(id) ON DELETE SET NULL;
+   ALTER TABLE journey_steps ADD COLUMN synced_status TEXT;
+   ALTER TABLE journey_steps ADD COLUMN synced_due TEXT;
+   ALTER TABLE customer_tasks ADD COLUMN sales_project_id INTEGER REFERENCES sales_projects(id) ON DELETE CASCADE;
+   ALTER TABLE customer_files ADD COLUMN sales_project_id INTEGER REFERENCES sales_projects(id) ON DELETE CASCADE;
+   ALTER TABLE customer_activities ADD COLUMN sales_project_id INTEGER REFERENCES sales_projects(id) ON DELETE CASCADE;
+   CREATE INDEX idx_customer_tasks_sp ON customer_tasks(sales_project_id);
+   CREATE INDEX idx_customer_files_sp ON customer_files(sales_project_id);
+   CREATE INDEX idx_customer_activities_sp ON customer_activities(sales_project_id);
+   INSERT INTO roles(name, description, permissions)
+     SELECT 'Kinh doanh', 'Phòng Kinh doanh (Sale): khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất',
+       '["dashboard.view","plan.view","plan.export","issue.view","comment.view","attachment.view","attachment.export","component.view","customer.view","customer.create","customer.edit","product.view","geo.view","department.view","staff.view"]'
+     WHERE EXISTS (SELECT 1 FROM roles) AND NOT EXISTS (SELECT 1 FROM roles WHERE name = 'Kinh doanh');
+   INSERT INTO roles(name, description, permissions)
+     SELECT 'AM', 'Phòng Kinh doanh (AM): chăm sóc khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất',
+       '["dashboard.view","plan.view","plan.export","issue.view","comment.view","attachment.view","attachment.export","component.view","customer.view","customer.create","customer.edit","product.view","geo.view","department.view","staff.view"]'
+     WHERE EXISTS (SELECT 1 FROM roles) AND NOT EXISTS (SELECT 1 FROM roles WHERE name = 'AM');`,
 ];
 
 export function migrate() {

@@ -4,23 +4,42 @@ import type { Customer, CustomerDetail, Product } from './types';
 export const CUSTOMER_STATUSES: [string, string][] = [
   ['Mới', 'default'], ['Đang tư vấn', 'blue'], ['Chờ phản hồi', 'yellow'], ['Đang làm sản phẩm', 'purple'], ['Đã ký hợp đồng', 'green'], ['Đã thanh toán', 'green'],
 ];
+/** Màu lozenge cho tình trạng dự án của khách hàng (tự động theo phần I–IV đang chạy của hành trình) */
+export function salesStatusClass(status: string | null) {
+  const tone = !status ? 'default' : status === 'Hoàn thành' ? 'green' : /^IV\./.test(status) ? 'green' : /^III\./.test(status) ? 'purple'
+    : /^II\./.test(status) ? 'yellow' : /^I\./.test(status) ? 'blue' : 'default';
+  return `lozenge lozenge-${tone}`;
+}
 /** Gợi ý nguồn khách hàng (vẫn gõ được nguồn khác) */
 export const CUSTOMER_SOURCES = ['BGĐ giao', 'Khách hàng liên hệ', 'Đối tác giới thiệu', 'Kinh doanh tự tìm kiếm', 'Khách hàng cũ', 'Hội thảo, sự kiện', 'Đấu thầu công khai', 'Website'];
 
 /** Bỏ dấu tiếng Việt, chữ thường — để tìm "so tai chinh" ra "Sở Tài chính" */
 export const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
-export interface CustomerFilter { q: string; status: string; productType: string; province: string; mine?: boolean }
+export interface CustomerFilter { q: string; status: string; province: string; mine?: boolean }
 
-/** Lọc khách hàng theo từ khóa (tên, tỉnh, phường/xã, sản phẩm, nguồn, nhân viên phụ trách, đầu mối), tình trạng, loại sản phẩm, mã tỉnh ('-' = chưa có), của tôi */
+/** Lọc khách hàng theo từ khóa (tên, tỉnh, phường/xã, sản phẩm, nguồn, Kinh doanh, AM, đầu mối, dự án), tình trạng, mã tỉnh ('-' = chưa có), của tôi */
 export function filterCustomers<T extends Customer>(list: T[], f: CustomerFilter): T[] {
   const q = fold(f.q.trim());
   return list.filter((c) =>
-    (!q || fold([c.name, c.province_name, c.ward_name, c.product_name, c.source, c.owner_names, c.contact_name, c.contact_phone, c.contact_email].filter(Boolean).join(' ')).includes(q)) &&
+    (!q || fold([c.name, c.province_name, c.ward_name, c.product_name, c.source, c.kd_names, c.am_names, c.contact_name, c.contact_phone, c.contact_email,
+      ...(c.sales_projects ?? []).flatMap((p) => [p.code, p.name, p.kd_names, p.am_names])].filter(Boolean).join(' ')).includes(q)) &&
     (!f.status || c.status === f.status) &&
-    (!f.productType || String(c.product_type_id ?? '-') === f.productType) &&
     (!f.province || (c.province_code || '-') === f.province) &&
     (!f.mine || !!c.is_mine));
+}
+
+/** Cây Khách hàng (cấp 1) → Dự án (cấp 2) ở cột trái, lọc theo từ khóa:
+ *  khách hàng khớp tên thì giữ mọi dự án; không thì chỉ giữ các dự án khớp tên (và khách hàng chứa chúng) */
+export function customerTree<C extends { name: string; sales_projects?: { name: string }[] }>(list: C[], q: string) {
+  type P = NonNullable<C['sales_projects']>[number];
+  const k = fold(q.trim());
+  return list.flatMap((c): { customer: C; projects: P[] }[] => {
+    const projects: P[] = c.sales_projects ?? [];
+    if (!k || fold(c.name).includes(k)) return [{ customer: c, projects }];
+    const hit = projects.filter((p) => fold(p.name).includes(k));
+    return hit.length ? [{ customer: c, projects: hit }] : [];
+  });
 }
 
 /** Tên phường/xã gõ vào ô chọn → mã trong danh mục (không phân biệt hoa/thường, dấu cách thừa); không khớp → undefined */

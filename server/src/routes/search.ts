@@ -27,8 +27,8 @@ r.get('/', (req, res) => {
       FROM customers c LEFT JOIN geo_provinces gp ON gp.code = c.province_code WHERE ${vis.sql} ORDER BY c.name`, ...vis.params);
     out.customers = rows.filter((c) => fold(`${c.name} ${c.contacts ?? ''}`).includes(fq)).slice(0, LIMIT)
       .map(({ contacts: _c, ...c }) => c);
-    const steps = all<{ id: number; title: string; code: string | null; status: string; customer_id: number; customer_name: string }>(`
-      SELECT j.id, j.title, j.code, j.status, j.customer_id, c.name AS customer_name FROM journey_steps j JOIN customers c ON c.id = j.customer_id
+    const steps = all<{ id: number; title: string; code: string | null; status: string; customer_id: number; sales_project_id: number | null; customer_name: string }>(`
+      SELECT j.id, j.title, j.code, j.status, j.customer_id, j.sales_project_id, c.name AS customer_name FROM journey_steps j JOIN customers c ON c.id = j.customer_id
       WHERE j.depth > 0 AND ${vis.sql} ORDER BY c.name, j.position`, ...vis.params);
     out.steps = steps.filter((s) => fold(s.title).includes(fq)).slice(0, LIMIT);
   }

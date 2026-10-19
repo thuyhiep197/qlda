@@ -9,6 +9,7 @@ import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, r
 import { avatarUrl } from '../avatar.ts';
 import { sameName } from '../customer.ts';
 import { syncProjectProduct } from '../project-product.ts';
+import { salesProjectsOf } from './sales-projects.ts';
 
 const r = Router();
 
@@ -81,6 +82,25 @@ r.get('/', (req, res) => {
   res.json(ids === 'all' ? rows : rows.filter((p) => ids.includes(p.id)));
 });
 
+
+/**
+ * Gắn dự án (sản xuất) với một dự án của khách hàng (phía Kinh doanh): chỉ chọn trong các dự án của khách hàng đã chọn cho dự án này.
+ * sales_project_id: undefined = giữ nguyên; null / '' = gỡ; đổi khách hàng thì liên kết cũ với khách hàng khác bị gỡ.
+ */
+function linkSalesProject(projectId: number, customerId: number | null, raw: unknown) {
+  const cur = get<{ id: number; customer_id: number }>('SELECT id, customer_id FROM sales_projects WHERE project_id = ?', projectId);
+  if (raw === undefined) {
+    if (cur && cur.customer_id !== customerId) run('UPDATE sales_projects SET project_id = NULL WHERE id = ?', cur.id);
+    return;
+  }
+  if (raw === null || raw === '') { if (cur) run('UPDATE sales_projects SET project_id = NULL WHERE id = ?', cur.id); return; }
+  const sp = get<{ id: number; customer_id: number; project_id: number | null }>('SELECT id, customer_id, project_id FROM sales_projects WHERE id = ?', Number(raw));
+  if (!sp || sp.customer_id !== customerId) throw badRequest('Dự án của khách hàng không thuộc khách hàng đã chọn');
+  if (sp.project_id && sp.project_id !== projectId) throw badRequest('Dự án của khách hàng này đã gắn với một dự án khác');
+  if (cur && cur.id !== sp.id) run('UPDATE sales_projects SET project_id = NULL WHERE id = ?', cur.id);
+  run('UPDATE sales_projects SET project_id = ? WHERE id = ?', projectId, sp.id);
+}
+
 r.post('/', (req, res) => {
   requireUserPerm(req.user, 'project.create');
   const b = req.body || {};
@@ -98,6 +118,7 @@ r.post('/', (req, res) => {
       key, name, b.description || null, type, leadId, ...infoValues(b));
     DEFAULT_STATUSES.forEach(([n, c], i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', id, n, c, i));
     run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, accountRoleId(leadId));
+    linkSalesProject(id, get<{ customer_id: number | null }>('SELECT customer_id FROM projects WHERE id = ?', id)!.customer_id, b.sales_project_id);
     return id;
   });
   syncProjectProduct(id);
@@ -122,10 +143,17 @@ r.get('/:key', (req, res) => {
   for (const row of all<{ labels: string }>('SELECT DISTINCT labels FROM issues WHERE project_id = ? AND labels IS NOT NULL', project.id)) {
     row.labels.split(',').forEach((l) => l && labels.add(l));
   }
-  const customerInfo = project.customer_id ? get(`SELECT c.id, c.name, c.status, c.source, (SELECT GROUP_CONCAT(s.full_name, ', ') FROM customer_owners co JOIN staff s ON s.id = co.staff_id
-      WHERE co.customer_id = c.id) AS owner_names, gp.name AS province_name, gw.name AS ward_name FROM customers c
+  const owners = (role: string) => `(SELECT GROUP_CONCAT(s.full_name, ', ') FROM customer_owners co JOIN staff s ON s.id = co.staff_id
+      WHERE co.customer_id = c.id AND co.role = '${role}')`;
+  const customerInfo = project.customer_id ? get(`SELECT c.id, c.code, c.name, c.status, c.source, ${owners('kd')} AS kd_names, ${owners('am')} AS am_names,
+      gp.name AS province_name, gw.name AS ward_name FROM customers c
     LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code WHERE c.id = ?`, project.customer_id) : null;
   if (customerInfo) customerInfo.contacts = all('SELECT id, full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY position, id', customerInfo.id);
+  // Dự án của khách hàng (phía Kinh doanh) được gắn với dự án này
+  if (customerInfo) {
+    const sp = salesProjectsOf([customerInfo.id]).find((x: any) => x.project_id === project.id);
+    customerInfo.sales_project = sp ? { id: sp.id, code: sp.code, name: sp.name, status: sp.status, product_name: sp.product_name, kd_names: sp.kd_names, am_names: sp.am_names } : null;
+  }
   res.json({
     ...project, customer_info: customerInfo ?? null, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
     labels: [...labels].sort(), permissions: [...perms],
@@ -141,8 +169,11 @@ r.patch('/:key', (req, res) => {
   if (!name) throw badRequest('Tên dự án không được để trống');
   const type = b.type !== undefined ? (b.type === 'kanban' ? 'kanban' : 'scrum') : project.type;
   const leadId = b.lead_id !== undefined ? Number(b.lead_id) : project.lead_id;
-  run(`UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ?, ${INFO_COLS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
-    name, b.description !== undefined ? b.description || null : project.description, type, leadId, ...infoValues(b, project), project.id);
+  tx(() => {
+    run(`UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ?, ${INFO_COLS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
+      name, b.description !== undefined ? b.description || null : project.description, type, leadId, ...infoValues(b, project), project.id);
+    linkSalesProject(project.id, get<{ customer_id: number | null }>('SELECT customer_id FROM projects WHERE id = ?', project.id)!.customer_id, b.sales_project_id);
+  });
   syncProjectProduct(project.id);
   res.json({ ok: true });
 });

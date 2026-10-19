@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { api, queryClient } from '../api';
 import { hasPerm, useCustomerNames, useMe, useStaff } from '../hooks';
 import { toastError } from './ui';
@@ -8,13 +9,18 @@ import { PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 export type ProjectInfo = {
   /** id khách hàng trong danh mục Khách hàng ('' = chưa gắn); customer = tên cũ để hiển thị */
   customer_id: string; customer: string; priority: string; project_status: string;
+  /** Dự án của khách hàng (phía Kinh doanh) được gắn với dự án này ('' = chưa gắn) */
+  sales_project_id: string;
   ba: string; dev: string; tester: string; am: string;
 };
 
-export function projectInfoOf(p?: Partial<Record<Exclude<keyof ProjectInfo, 'customer_id'>, string | null>> & { customer_id?: number | null }): ProjectInfo {
+export function projectInfoOf(p?: Partial<Record<Exclude<keyof ProjectInfo, 'customer_id' | 'sales_project_id'>, string | null>> & {
+  customer_id?: number | null; customer_info?: { sales_project: { id: number } | null } | null;
+}): ProjectInfo {
   return {
     customer_id: p?.customer_id ? String(p.customer_id) : '', customer: p?.customer ?? '', priority: p?.priority ?? '', project_status: p?.project_status ?? '',
     ba: p?.ba ?? '', dev: p?.dev ?? '', tester: p?.tester ?? '', am: p?.am ?? '',
+    sales_project_id: p?.customer_info?.sales_project ? String(p.customer_info.sales_project.id) : '',
   };
 }
 
@@ -49,13 +55,13 @@ export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onC
   const { data: customers } = useCustomerNames();
   // Thêm nhanh khách hàng mới ngay trong form dự án
   const pickCustomer = async (v: string) => {
-    if (v !== '__new') return onChange({ ...value, customer_id: v, customer: customers?.find((c) => String(c.id) === v)?.name ?? '' });
+    if (v !== '__new') return onChange({ ...value, customer_id: v, customer: customers?.find((c) => String(c.id) === v)?.name ?? '', sales_project_id: '' });
     const name = prompt('Tên khách hàng mới:')?.trim();
     if (!name) return;
     try {
       const c = await api.post<{ id: number; name: string }>('/customers', { name });
       await queryClient.invalidateQueries({ queryKey: ['customer-names'] });
-      onChange({ ...value, customer_id: String(c.id), customer: c.name });
+      onChange({ ...value, customer_id: String(c.id), customer: c.name, sales_project_id: '' });
     } catch (e) { toastError(e); }
   };
   // Giữ được giá trị cũ không có trong danh mục
@@ -68,6 +74,7 @@ export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onC
           {customers?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           {hasPerm(me, 'customer.create') && <option value="__new">+ Thêm khách hàng mới…</option>}
         </select></label>
+      {value.customer_id && <SalesProjectPicker customerId={value.customer_id} value={value.sales_project_id} onChange={(v) => set("sales_project_id", v)} />}
       <div className="row gap-sm">
         <label className="field grow"><span>Ưu tiên</span>
           <select value={value.priority} onChange={(e) => set('priority', e.target.value)}>
@@ -91,5 +98,23 @@ export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onC
         </div>
       </div>
     </>
+  );
+}
+
+/** Dự án của khách hàng (phía Kinh doanh) để gắn với dự án này — chỉ liệt kê các dự án của khách hàng đã chọn */
+function SalesProjectPicker({ customerId, value, onChange }: { customerId: string; value: string; onChange: (v: string) => void }) {
+  const { data: list } = useQuery<{ id: number; code: string; name: string; project_id: number | null; project_key: string | null }[]>({
+    queryKey: ['customer-project-names', customerId], queryFn: () => api.get(`/customers/${customerId}/project-names`),
+  });
+  return (
+    <label className="field"><span>Dự án của khách hàng <small className="muted">(Kinh doanh tạo ở phân hệ Khách hàng)</small></span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{list && !list.length ? '— Khách hàng chưa có dự án —' : '— Chưa gắn —'}</option>
+        {list?.map((p) => (
+          <option key={p.id} value={p.id} disabled={!!p.project_id && String(p.id) !== value}>
+            {p.code} · {p.name}{p.project_key && String(p.id) !== value ? ` (đã gắn ${p.project_key})` : ''}
+          </option>
+        ))}
+      </select></label>
   );
 }

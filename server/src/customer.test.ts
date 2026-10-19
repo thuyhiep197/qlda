@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanActivity, cleanContact, cleanContacts, cleanCustomer, cleanProduct, cleanTask, fold, sameName } from './customer';
+import { cleanActivity, cleanContact, cleanContacts, cleanCustomer, cleanProduct, cleanSalesProject, cleanTask, customerCode, fold, salesProjectCode, sameName } from './customer';
 
 test('customer needs an organisation name and starts as a new customer', () => {
   assert.throws(() => cleanCustomer({ name: '   ' }), /Tên cơ quan\/đơn vị/);
@@ -9,8 +9,9 @@ test('customer needs an organisation name and starts as a new customer', () => {
   assert.equal(c.status, 'Mới');
   assert.equal(c.ward_code, null);
   assert.equal(c.product_id, null);
-  assert.deepEqual(c.owner_ids, []);
-  assert.deepEqual(cleanCustomer({ name: 'A', owner_ids: [3, '3', 5, 'x', -1] }).owner_ids, [3, 5]);
+  assert.deepEqual(c.kd_ids, []);
+  assert.deepEqual(c.am_ids, []);
+  assert.deepEqual(cleanCustomer({ name: 'A', kd_ids: [3, '3', 5, 'x', -1] }).kd_ids, [3, 5]);
 });
 
 test('customer rejects unknown status and bad product ids', () => {
@@ -68,4 +69,29 @@ test('internal discussion is an accepted conversation kind', () => {
 
 test('fold strips Vietnamese accents for search', () => {
   assert.equal(fold('Sở Tài chính Đồng Nai'), 'so tai chinh dong nai');
+});
+
+test('a customer project needs a name and keeps product, KD, AM, BA/PM and note', () => {
+  assert.throws(() => cleanSalesProject({ name: ' ' }), /Tên dự án/);
+  assert.throws(() => cleanSalesProject({ name: 'A', product_id: 'x' }), /Sản phẩm/);
+  const p = cleanSalesProject({ name: '  Phần mềm  QL chợ ', product_type_id: '2', product_id: 5, kd_ids: [3, '3', 4, 0], am_ids: [7], ba: ' Nguyễn A, Trần B ', note: ' ghi chú ' });
+  assert.equal(p.name, 'Phần mềm QL chợ');
+  assert.equal(p.product_type_id, 2);
+  assert.equal(p.product_id, 5);
+  assert.deepEqual(p.kd_ids, [3, 4]);
+  assert.deepEqual(p.am_ids, [7]);
+  assert.equal(p.ba, 'Nguyễn A, Trần B');
+  assert.equal(p.note, 'ghi chú');
+});
+
+test('customer code comes from the initials of the name, numbered when taken', () => {
+  assert.equal(customerCode('Sở Giáo dục và Đào tạo', []), 'SGDVDT');
+  assert.equal(customerCode('Sở GD & ĐT HCM', []), 'SGDH');
+  assert.equal(customerCode('Sở GD & ĐT HCM', ['SGDH', 'sgdh2']), 'SGDH3');
+  assert.equal(customerCode('& !', []), 'KH');
+});
+
+test('customer project code is the customer code plus the next two-digit number', () => {
+  assert.equal(salesProjectCode('SGDH', []), 'SGDH-01');
+  assert.equal(salesProjectCode('SGDH', ['SGDH-01', 'SGDH-03', 'BTC-07']), 'SGDH-04');
 });

@@ -167,7 +167,9 @@ export interface Project {
   customer_id: number | null;
   customer: string | null;
   /** Thông tin khách hàng của dự án (thành viên dự án đều xem được) */
-  customer_info: (Pick<Customer, 'id' | 'name' | 'status' | 'province_name' | 'ward_name' | 'source' | 'owner_names'> & { contacts: CustomerContact[] }) | null;
+  customer_info: (Pick<Customer, 'id' | 'code' | 'name' | 'status' | 'province_name' | 'ward_name' | 'source' | 'kd_names' | 'am_names'> & { contacts: CustomerContact[];
+    /** Dự án của khách hàng (phía Kinh doanh) đã chuyển sang sản xuất thành dự án này */
+    sales_project: { id: number; code: string; name: string; status: string | null; product_name: string | null; kd_names: string | null; am_names: string | null } | null }) | null;
   priority: string | null;
   project_status: string | null;
   ba: string | null;
@@ -331,27 +333,28 @@ export interface SavedFilter {
   shared: number;
 }
 
-/** Khách hàng (cơ quan/đơn vị) — module CRM; dự án gắn với khách hàng qua customer_id */
+/** Khách hàng (cơ quan/đơn vị) — cấp 1 của phân hệ Khách hàng; dự án sản xuất gắn với khách hàng qua customer_id */
 export interface Customer {
   id: number;
+  /** Mã khách hàng — tự sinh từ tên, không sửa */
+  code: string | null;
   name: string;
   /** Mã tỉnh/thành phố, phường/xã theo Danh mục địa chính */
   province_code: string | null;
   ward_code: string | null;
   province_name?: string | null;
   ward_name?: string | null;
-  product_type_id: number | null;
-  product_id: number | null;
-  product_description: string | null;
   source: string | null;
+  /** Tình trạng — nhập tay */
   status: string;
-  /** Nhân viên phụ trách (Kinh doanh/AM): họ tên, cách nhau dấu phẩy */
-  owner_names?: string | null;
-  /** Tôi là một trong các nhân viên phụ trách */
+  /** Kinh doanh phụ trách, AM hỗ trợ: họ tên, cách nhau dấu phẩy */
+  kd_names?: string | null;
+  am_names?: string | null;
+  /** Tôi là Kinh doanh / AM của khách hàng hoặc của một dự án của khách hàng */
   is_mine?: number;
   created_at: string;
   updated_at: string;
-  product_type_name?: string | null;
+  /** Sản phẩm của các dự án (để tìm kiếm) */
   product_name?: string | null;
   project_count?: number;
   contact_count?: number;
@@ -359,10 +362,53 @@ export interface Customer {
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
-  /** Hành trình: % bước đã kết thúc, giai đoạn đang thực hiện (null = chưa áp dụng quy trình) */
-  journey_pct?: number | null;
-  journey_stage?: string | null;
   open_tasks?: number;
+  /** Các dự án của khách hàng (cấp 2) */
+  sales_projects?: SalesProject[];
+}
+
+/** Dự án của khách hàng — do Kinh doanh tạo; mã = mã khách hàng + số; hành trình bán hàng (quy trình I–IV) riêng.
+ *  Phía phân hệ Dự án gắn dự án sản xuất với dự án này (project_id). */
+export interface SalesProject {
+  id: number;
+  customer_id: number;
+  customer_name: string;
+  code: string;
+  name: string;
+  product_type_id: number | null;
+  product_id: number | null;
+  product_description: string | null;
+  /** BA/PM: họ tên chọn từ Danh mục nhân sự, cách nhau dấu phẩy */
+  ba: string | null;
+  note: string | null;
+  project_id: number | null;
+  created_at: string;
+  updated_at: string;
+  product_type_name: string | null;
+  product_name: string | null;
+  project_key: string | null;
+  project_name: string | null;
+  kd_names: string | null;
+  am_names: string | null;
+  open_tasks: number;
+  /** Tình trạng tự động theo phần đang chạy của hành trình; null = chưa áp dụng quy trình */
+  status: string | null;
+  /** % bước đã hoàn thành (null = chưa áp dụng quy trình), số bước quá hạn */
+  journey_pct: number | null;
+  journey_overdue: number;
+}
+export interface SalesProjectDetail extends SalesProject {
+  kd_ids: number[];
+  am_ids: number[];
+  tasks: CustomerTask[];
+  files: CustomerFile[];
+  /** Trao đổi của dự án (không thuộc bước nào) */
+  activities: CustomerActivity[];
+  /** Dự án sản xuất đã gắn (phân hệ Dự án) */
+  production: {
+    id: number; key: string; name: string; project_status: string | null; status_auto: string; is_archived: number;
+    total_issues: number; done_issues: number; accessible: boolean;
+  } | null;
 }
 
 /** Đầu mối liên hệ — đầu mối đầu tiên là đầu mối chính */
@@ -384,6 +430,8 @@ export interface CustomerFile {
   /** Tài liệu kết quả của một bước trong hành trình */
   step_id?: number | null;
   step_title?: string | null;
+  sales_project_id?: number | null;
+  sales_project_name?: string | null;
 }
 
 export type StepStatus = 'todo' | 'doing' | 'done';
@@ -397,6 +445,8 @@ export interface JourneyStep {
   files: { id: number; filename: string; size: number }[];
   /** Số trao đổi của bước */
   talk_count: number;
+  /** Phần III, IV: bước đang theo đầu việc trùng tên của dự án sản xuất */
+  synced_issue_id: number | null;
 }
 /** Chi tiết một bước (như một issue của kinh doanh): đường dẫn phần/giai đoạn, trao đổi, tài liệu */
 export interface StepDetail extends Omit<JourneyStep, 'files'> {
@@ -404,6 +454,8 @@ export interface StepDetail extends Omit<JourneyStep, 'files'> {
   activities: CustomerActivity[];
   files: CustomerFile[];
   ping_options: number[];
+  sales_project_id: number | null;
+  sales_project_name: string | null;
 }
 export interface JourneySection { id: number; title: string; total: number; done: number; doing: number; overdue: number }
 export interface JourneyData {
@@ -417,6 +469,8 @@ export interface CustomerTask {
   id: number; customer_id: number; title: string; description: string | null; assignee_id: number | null; assignee_name: string | null;
   due_date: string | null; status: StepStatus; created_by: number | null; created_by_name: string | null; created_at: string; done_at: string | null;
   customer_name?: string;
+  sales_project_id: number | null;
+  sales_project_name: string | null;
 }
 
 /** Danh mục địa chính */
@@ -454,14 +508,15 @@ export interface CustomerProject {
   accessible: boolean;
 }
 
-export interface CustomerOwner { id: number; full_name: string; user_id: number | null }
 export interface CustomerDetail extends Customer {
-  owners: CustomerOwner[];
-  owner_ids: number[];
+  /** Kinh doanh phụ trách, AM hỗ trợ (id nhân sự) */
+  kd_ids: number[];
+  am_ids: number[];
   contacts: CustomerContact[];
   files: CustomerFile[];
   tasks: CustomerTask[];
-  journey: { total: number; done: number; pct: number; sections: JourneySection[]; current: { id: number; code: string | null; title: string } | null };
+  /** Các dự án của khách hàng kèm tiến độ hành trình */
+  sales_projects: SalesProject[];
   activities: CustomerActivity[];
   projects: CustomerProject[];
   /** Công việc chưa xong của các dự án thuộc khách hàng (chỉ dự án người xem là thành viên) */

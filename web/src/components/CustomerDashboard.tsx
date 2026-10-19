@@ -9,7 +9,7 @@ interface Summary {
   total: number;
   by_status: { status: string; n: number }[];
   my_tasks: CustomerTask[];
-  my_steps: { id: number; customer_id: number; code: string | null; title: string; status: StepStatus; due_date: string | null; customer_name: string }[];
+  my_steps: { id: number; customer_id: number; sales_project_id: number; sales_project_name: string | null; code: string | null; title: string; status: StepStatus; due_date: string | null; customer_name: string }[];
   overdue: { tasks: number; steps: number };
   today: string;
 }
@@ -51,7 +51,7 @@ export default function CustomerDashboard() {
           <div className="card-head"><h3>Bước hành trình tôi phụ trách ({data.my_steps.length})</h3></div>
           {!data.my_steps.length ? <div className="muted small">Không có bước nào đang chờ bạn</div> : (
             <div className="stack-sm">{data.my_steps.map((s) => (
-              <Link key={s.id} to={`/customers/${s.customer_id}?step=${s.id}`} className="dash-line">
+              <Link key={s.id} to={`/customers/${s.customer_id}/p/${s.sales_project_id}?step=${s.id}`} className="dash-line">
                 <span className="grow ellipsis"><b>{s.code ? `${s.code} ` : ''}{s.title}</b> <span className="muted small">· {s.customer_name}</span></span>{due(s.due_date)}
               </Link>
             ))}</div>

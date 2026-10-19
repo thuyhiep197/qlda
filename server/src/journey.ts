@@ -70,3 +70,78 @@ export function pingDue(s: { status: StepStatus; due_date: string | null; ping_d
   from.setUTCDate(from.getUTCDate() - s.ping_days);
   return today >= from.toISOString().slice(0, 10);
 }
+
+/**
+ * Tình trạng dự án của khách hàng, tự động theo hành trình: phần (I–IV) xa nhất đã có bước lá Đang thực hiện / Hoàn thành.
+ * Chưa có hành trình → null (chưa áp dụng quy trình); chưa bước nào bắt đầu → Chưa bắt đầu; mọi bước lá hoàn thành → Hoàn thành.
+ */
+export function journeyStatus<T extends Step & { code?: string | null; title?: string }>(steps: T[]): string | null {
+  if (!steps.length) return null;
+  const leaves = leafIds(steps);
+  let section: T | null = null, started: T | null = null, total = 0, done = 0;
+  for (const s of steps) {
+    if (s.depth === 0) { section = s; continue; }
+    if (!leaves.has(s.id)) continue;
+    total++;
+    if (s.status === 'done') done++;
+    if (s.status !== 'todo' && section) started = section;
+  }
+  if (total && done === total) return 'Hoàn thành';
+  if (!started) return 'Chưa bắt đầu';
+  return `${started.code ? `${started.code}. ` : ''}${sectionName(started.title ?? '')}`;
+}
+/** "GIẢI PHÁP" → "Giải pháp"; "NGHIỆM THU - THANH TOÁN" → "Nghiệm thu - Thanh toán" */
+const sectionName = (t: string) => t.toLocaleLowerCase('vi').replace(/(^|[-–]\s*)(\p{L})/gu, (_m, p: string, c: string) => p + c.toLocaleUpperCase('vi'));
+
+/** Quy trình mẫu đã được người dùng sửa trước khi áp dụng (bỏ nhánh, thêm bước): kiểm tra cấu trúc cây và chuẩn hóa */
+export function cleanJourneyRows(rows: unknown): TemplateRow[] {
+  if (!Array.isArray(rows) || !rows.length) throw new Error('Quy trình không có bước nào');
+  if (rows.length > 2000) throw new Error('Quy trình quá nhiều bước');
+  let prev = -1;
+  return rows.map((r: any, i) => {
+    const depth = Number(r?.depth);
+    const title = String(r?.title ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+    if (!Number.isInteger(depth) || depth < 0 || depth > MAX_DEPTH) throw new Error(`Bước thứ ${i + 1}: cấp không hợp lệ`);
+    if (i === 0 && depth !== 0) throw new Error('Quy trình phải bắt đầu bằng một phần (I, II…)');
+    if (depth > prev + 1) throw new Error(`Bước "${title}" không nằm dưới bước cha nào`);
+    if (!title) throw new Error(`Bước thứ ${i + 1}: tên bước không được để trống`);
+    prev = depth;
+    const s = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
+    return { depth, title, code: s(r.code, 20), unit: s(r.unit, 50), support: s(r.support, 80) };
+  });
+}
+
+/** Bỏ dấu, chữ thường, gộp khoảng trắng — để khớp tên bước với tên đầu việc */
+const foldName = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/\s+/g, ' ').trim();
+/** Trạng thái đầu việc (nhóm trạng thái của phân hệ Dự án) → trạng thái bước */
+const STATUS_OF_CATEGORY: Record<string, StepStatus> = { todo: 'todo', inprogress: 'doing', done: 'done' };
+
+/** Các phần của hành trình được đồng bộ với dự án sản xuất */
+export const SYNC_SECTIONS = ['III', 'IV'];
+
+export interface SyncStep extends Step { title: string; code?: string | null; synced_status?: string | null; synced_due?: string | null; synced_issue_id?: number | null }
+export interface SyncIssue { id: number; summary: string; status_category: string; due_date: string | null }
+
+/**
+ * Đồng bộ phần III. Triển khai và IV. Nghiệm thu – Thanh toán với dự án sản xuất (phân hệ Dự án):
+ * bước trùng tên với một đầu việc thì nhận trạng thái và hạn của đầu việc.
+ * Chỉ ghi khi đầu việc thay đổi so với lần đồng bộ trước (synced_*), nên Kinh doanh sửa tay vẫn giữ cho tới lần đổi tiếp bên Dự án.
+ */
+export function syncUpdates(steps: SyncStep[], issues: SyncIssue[]) {
+  const byName = new Map<string, SyncIssue>();
+  for (const i of [...issues].sort((a, b) => a.id - b.id)) if (!byName.has(foldName(i.summary))) byName.set(foldName(i.summary), i);
+  const out: { id: number; status?: StepStatus; due_date?: string | null; synced_status: string; synced_due: string | null; synced_issue_id: number }[] = [];
+  let inDeploy = false;
+  for (const s of steps) {
+    if (s.depth === 0) { inDeploy = SYNC_SECTIONS.includes((s.code ?? '').trim().toUpperCase()); continue; }
+    if (!inDeploy) continue;
+    const issue = byName.get(foldName(s.title));
+    if (!issue) continue;
+    const status = STATUS_OF_CATEGORY[issue.status_category] ?? 'todo';
+    const u: (typeof out)[number] = { id: s.id, synced_status: status, synced_due: issue.due_date, synced_issue_id: issue.id };
+    if (s.synced_status !== status || s.synced_issue_id !== issue.id) u.status = status;
+    if ((s.synced_due ?? null) !== issue.due_date || s.synced_issue_id !== issue.id) u.due_date = issue.due_date;
+    if (u.status !== undefined || u.due_date !== undefined) out.push(u);
+  }
+  return out;
+}

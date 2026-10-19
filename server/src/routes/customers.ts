@@ -4,14 +4,15 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions } from '../permissions.ts';
-import { loadCustomer, seesAllCustomers, staffOfUser, visibleCustomersSql } from '../customer-access.ts';
+import { checkOwners, loadCustomer, projectOf, seesAllCustomers, staffOfUser, visibleCustomersSql } from '../customer-access.ts';
 import { listIssues } from '../issues.ts';
 import { autoProjectStatuses } from '../phases.ts';
 import { avatarUrl } from '../avatar.ts';
 import { upload, utf8Name } from '../upload.ts';
 import { cleanActivity, cleanContacts, cleanCustomer, sameName } from '../customer.ts';
-import { journeyProgress } from '../journey.ts';
-import { journeySteps, TASK_SELECT } from './customer-work.ts';
+import { TASK_SELECT } from './customer-work.ts';
+import { assignCustomerCodes, salesProjectsOf } from './sales-projects.ts';
+import { syncJourneys } from '../journey-sync.ts';
 import { mentionedCustomerUsers, notifyCustomer } from '../notify.ts';
 
 const r = Router();
@@ -24,25 +25,20 @@ function check<T>(fn: () => T): T {
 const nameTaken = (name: string, exceptId?: number) =>
   all<{ id: number; name: string }>('SELECT id, name FROM customers').some((c) => c.id !== exceptId && sameName(c.name, name));
 
-const FIELDS = ['name', 'province_code', 'ward_code', 'product_type_id', 'product_id', 'product_description', 'source', 'status'] as const;
+/** Sản phẩm nay theo từng dự án của khách hàng; tình trạng khách hàng vẫn nhập tay */
+const FIELDS = ['name', 'province_code', 'ward_code', 'source', 'status'] as const;
 
-/** Nhân viên phụ trách: nhân sự vị trí Sale (KD) hoặc AM */
-function checkOwners(ids: number[]) {
-  for (const id of ids) {
-    const st = get<{ positions: string }>('SELECT positions FROM staff WHERE id = ?', id);
-    if (!st) throw badRequest('Nhân viên phụ trách không có trong Danh mục nhân sự');
-    if (!st.positions.split(',').some((p) => p === 'kd' || p === 'am')) throw badRequest('Nhân viên phụ trách phải là nhân sự Sale hoặc AM');
-  }
-}
-function saveOwners(customerId: number, ids: number[]) {
+/** Kinh doanh phụ trách (role kd) và AM hỗ trợ (role am) */
+function saveOwners(customerId: number, kd: number[], am: number[]) {
   run('DELETE FROM customer_owners WHERE customer_id = ?', customerId);
-  for (const id of ids) run('INSERT INTO customer_owners(customer_id, staff_id) VALUES (?, ?)', customerId, id);
+  for (const id of kd) run("INSERT OR IGNORE INTO customer_owners(customer_id, staff_id, role) VALUES (?, ?, 'kd')", customerId, id);
+  for (const id of am) run("INSERT OR IGNORE INTO customer_owners(customer_id, staff_id, role) VALUES (?, ?, 'am')", customerId, id);
 }
-const ownersOf = (customerId: number) => all<{ id: number; full_name: string; user_id: number | null }>(
-  'SELECT s.id, s.full_name, s.user_id FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = ? ORDER BY s.full_name', customerId);
+const ownersOf = (customerId: number) => all<{ id: number; full_name: string; user_id: number | null; role: 'kd' | 'am' }>(
+  'SELECT s.id, s.full_name, s.user_id, co.role FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = ? ORDER BY s.full_name', customerId);
+const OWNER_NAMES = (role: string) => `(SELECT GROUP_CONCAT(s.full_name, ', ') FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = c.id AND co.role = '${role}')`;
 
-/** Kiểm tra thông tin khách hàng với danh mục: tỉnh, phường/xã theo Danh mục địa chính (phường/xã phải thuộc tỉnh đã chọn);
- *  sản phẩm phải có thật và thuộc loại sản phẩm đã chọn (chưa chọn loại thì lấy loại của sản phẩm) */
+/** Kiểm tra thông tin khách hàng với danh mục: tỉnh, phường/xã theo Danh mục địa chính (phường/xã phải thuộc tỉnh đã chọn) */
 function validate(body: any) {
   const v = check(() => cleanCustomer(body));
   if (v.province_code && !get('SELECT 1 FROM geo_provinces WHERE code = ?', v.province_code)) throw badRequest('Tỉnh/thành phố không có trong Danh mục địa chính');
@@ -52,22 +48,7 @@ function validate(body: any) {
     if (v.province_code && w.province_code !== v.province_code) throw badRequest('Phường/xã không thuộc tỉnh/thành phố đã chọn');
     v.province_code = w.province_code;
   }
-  if (v.product_type_id && !get('SELECT 1 FROM product_types WHERE id = ?', v.product_type_id)) throw badRequest('Loại sản phẩm không hợp lệ');
-  if (v.product_id) {
-    const p = get<{ type_id: number }>('SELECT type_id FROM products WHERE id = ?', v.product_id);
-    if (!p) throw badRequest('Sản phẩm không hợp lệ');
-    if (v.product_type_id && p.type_id !== v.product_type_id) throw badRequest('Sản phẩm không thuộc loại sản phẩm đã chọn');
-    v.product_type_id = p.type_id;
-  }
   return v;
-}
-
-/** Khách hàng chọn sản phẩm là một dự án: dự án chưa gắn khách hàng nào thì gắn với khách hàng này */
-function linkProjectOfProduct(customerId: number, productId: number | null) {
-  const pr = productId ? get<{ project_id: number | null }>('SELECT project_id FROM products WHERE id = ?', productId) : null;
-  if (!pr?.project_id) return;
-  const c = get<{ name: string }>('SELECT name FROM customers WHERE id = ?', customerId)!;
-  run('UPDATE projects SET customer_id = ?, customer = ? WHERE id = ? AND customer_id IS NULL', customerId, c.name, pr.project_id);
 }
 
 /** Ghi lại danh sách đầu mối theo thứ tự trên form: sửa dòng có sẵn, thêm dòng mới, xóa dòng bị bỏ */
@@ -96,28 +77,30 @@ const FIRST_CONTACT = (col: string) => `(SELECT cc.${col} FROM customer_contacts
 
 r.get('/', (req, res) => {
   requireUserPerm(req.user, 'customer.view');
-  const today = localDate();
+  syncJourneys();
   const vis = visibleCustomersSql(req.user);
-  const stepsByCustomer = new Map<number, any[]>();
-  for (const st of all('SELECT id, customer_id, depth, position, code, title, status, due_date FROM journey_steps ORDER BY customer_id, position, id')) {
-    if (!stepsByCustomer.has(st.customer_id)) stepsByCustomer.set(st.customer_id, []);
-    stepsByCustomer.get(st.customer_id)!.push(st);
+  const projectsByCustomer = new Map<number, any[]>();
+  for (const sp of salesProjectsOf('all')) {
+    if (!projectsByCustomer.has(sp.customer_id)) projectsByCustomer.set(sp.customer_id, []);
+    projectsByCustomer.get(sp.customer_id)!.push(sp);
   }
   const openTasks = new Map(all<{ customer_id: number; n: number }>("SELECT customer_id, COUNT(*) n FROM customer_tasks WHERE status <> 'done' GROUP BY customer_id")
     .map((x) => [x.customer_id, x.n]));
+  // Mỗi khách hàng kèm các dự án của khách hàng (cấp 2); sản phẩm = sản phẩm của các dự án (để tìm kiếm)
   res.json(all(`
-    SELECT c.*, pt.name AS product_type_name, p.name AS product_name, gp.name AS province_name, gw.name AS ward_name,
+    SELECT c.*, gp.name AS province_name, gw.name AS ward_name,
       (SELECT COUNT(*) FROM projects pr WHERE pr.customer_id = c.id AND pr.is_archived = 0) AS project_count,
       (SELECT COUNT(*) FROM customer_contacts cc WHERE cc.customer_id = c.id) AS contact_count,
       (SELECT MAX(activity_date) FROM customer_activities a WHERE a.customer_id = c.id) AS last_activity_date,
       ${FIRST_CONTACT('full_name')} AS contact_name, ${FIRST_CONTACT('phone')} AS contact_phone, ${FIRST_CONTACT('email')} AS contact_email,
-      (SELECT GROUP_CONCAT(s.full_name, ', ') FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = c.id) AS owner_names,
-      EXISTS (SELECT 1 FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = c.id AND s.user_id = ?) AS is_mine
-    FROM customers c LEFT JOIN product_types pt ON pt.id = c.product_type_id LEFT JOIN products p ON p.id = c.product_id
-      LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code
-    WHERE ${vis.sql} ORDER BY c.name`, req.user.id, ...vis.params).map((c: any) => {
-    const j = journeyProgress(stepsByCustomer.get(c.id) ?? [], today);
-    return { ...c, journey_pct: j.total ? j.pct : null, journey_stage: j.current ? `${j.current.code ?? ''} ${j.current.title}`.trim() : null,
+      ${OWNER_NAMES('kd')} AS kd_names, ${OWNER_NAMES('am')} AS am_names,
+      (EXISTS (SELECT 1 FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = c.id AND s.user_id = ?)
+        OR EXISTS (SELECT 1 FROM sales_project_owners o JOIN sales_projects sp ON sp.id = o.sales_project_id JOIN staff s ON s.id = o.staff_id
+          WHERE sp.customer_id = c.id AND s.user_id = ?)) AS is_mine
+    FROM customers c LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code
+    WHERE ${vis.sql} ORDER BY c.name`, req.user.id, req.user.id, ...vis.params).map((c: any) => {
+    const projects = projectsByCustomer.get(c.id) ?? [];
+    return { ...c, sales_projects: projects, product_name: [...new Set(projects.map((p) => p.product_name).filter(Boolean))].join(', ') || null,
       open_tasks: openTasks.get(c.id) ?? 0 };
   }));
 });
@@ -127,18 +110,23 @@ r.post('/', (req, res) => {
   const v = validate(req.body || {});
   const contacts = check(() => cleanContacts(req.body?.contacts));
   if (nameTaken(v.name)) throw badRequest('Đã có khách hàng (cơ quan/đơn vị) này');
+  // Người tạo (không xem được tất cả, không thuộc Ban Giám đốc) tự là Kinh doanh phụ trách / AM hỗ trợ theo vị trí của mình
   if (!seesAllCustomers(req.user)) {
     const mine = staffOfUser(req.user.id);
     if (!mine) throw badRequest('Tài khoản của bạn chưa gắn với nhân sự trong Danh mục nhân sự, nên chưa thể phụ trách khách hàng');
-    if (!v.owner_ids.includes(mine.id)) v.owner_ids.push(mine.id);
+    const pos = mine.positions.split(',');
+    if (pos.includes('kd')) { if (!v.kd_ids.includes(mine.id)) v.kd_ids.push(mine.id); }
+    else if (pos.includes('am')) { if (!v.am_ids.includes(mine.id)) v.am_ids.push(mine.id); }
+    else if (!pos.includes('bgd')) throw badRequest('Chỉ nhân sự Sale, AM hoặc Ban Giám đốc tạo được khách hàng');
   }
-  checkOwners(v.owner_ids);
+  checkOwners(v.kd_ids, 'kd');
+  checkOwners(v.am_ids, 'am');
   const id = tx(() => {
     const { id } = run(`INSERT INTO customers(${FIELDS.join(', ')}, created_by) VALUES (${FIELDS.map(() => '?').join(',')}, ?)`,
       ...FIELDS.map((f) => v[f]), req.user.id);
     saveContacts(id, contacts);
-    saveOwners(id, v.owner_ids);
-    linkProjectOfProduct(id, v.product_id);
+    saveOwners(id, v.kd_ids, v.am_ids);
+    assignCustomerCodes();
     return id;
   });
   audit(req, 'customer_created', { target: v.name });
@@ -147,22 +135,25 @@ r.post('/', (req, res) => {
 
 r.get('/:id', (req, res) => {
   const c = loadCustomer(req);
-  c.owners = ownersOf(c.id);
-  c.owner_ids = c.owners.map((o: any) => o.id);
-  c.product_type_name = c.product_type_id ? get('SELECT name FROM product_types WHERE id = ?', c.product_type_id)?.name ?? null : null;
-  c.product_name = c.product_id ? get('SELECT name FROM products WHERE id = ?', c.product_id)?.name ?? null : null;
+  syncJourneys(all<{ id: number }>('SELECT id FROM sales_projects WHERE customer_id = ?', c.id).map((x) => x.id));
+  const owners = ownersOf(c.id);
+  c.kd_ids = owners.filter((o) => o.role === 'kd').map((o) => o.id);
+  c.am_ids = owners.filter((o) => o.role === 'am').map((o) => o.id);
+  c.kd_names = owners.filter((o) => o.role === 'kd').map((o) => o.full_name).join(', ') || null;
+  c.am_names = owners.filter((o) => o.role === 'am').map((o) => o.full_name).join(', ') || null;
   c.province_name = c.province_code ? get('SELECT name FROM geo_provinces WHERE code = ?', c.province_code)?.name ?? null : null;
   c.ward_name = c.ward_code ? get('SELECT name FROM geo_wards WHERE code = ?', c.ward_code)?.name ?? null : null;
   c.contacts = all('SELECT id, full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY position, id', c.id);
-  c.files = all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name, f.step_id, s.title AS step_title
-    FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id LEFT JOIN journey_steps s ON s.id = f.step_id
+  c.files = all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name, f.step_id, s.title AS step_title,
+      f.sales_project_id, sp.name AS sales_project_name
+    FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id LEFT JOIN journey_steps s ON s.id = f.step_id LEFT JOIN sales_projects sp ON sp.id = f.sales_project_id
     WHERE f.customer_id = ? ORDER BY f.created_at DESC`, c.id);
   c.tasks = all(`${TASK_SELECT} WHERE t.customer_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, c.id);
-  const j = journeyProgress(journeySteps(c.id), localDate());
-  c.journey = { total: j.total, done: j.done, pct: j.pct, sections: j.sections,
-    current: j.current ? { id: j.current.id, code: j.current.code, title: j.current.title } : null };
-  c.activities = all(`SELECT a.*, u.full_name AS user_name, s.title AS step_title FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
-    LEFT JOIN journey_steps s ON s.id = a.step_id WHERE a.customer_id = ? ORDER BY a.created_at DESC, a.id DESC LIMIT 50`, c.id);
+  // Các dự án của khách hàng (cấp 2) kèm tình trạng, tiến độ hành trình
+  c.sales_projects = salesProjectsOf([c.id]);
+  // Trao đổi chung của khách hàng (không thuộc dự án / bước nào)
+  c.activities = all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
+    WHERE a.customer_id = ? AND a.sales_project_id IS NULL AND a.step_id IS NULL ORDER BY a.created_at, a.id`, c.id);
   // Dự án của khách hàng kèm tiến độ; công việc chỉ hiện ở dự án người xem là thành viên
   const access = accessibleProjectIds(req.user);
   const auto = autoProjectStatuses();
@@ -191,11 +182,13 @@ r.get('/:id', (req, res) => {
 /** Sửa thông tin (kèm danh sách đầu mối nếu gửi lên); đổi tên → cập nhật luôn tên ở các dự án của khách hàng */
 r.patch('/:id', (req, res) => {
   const cur = loadCustomer(req, 'customer.edit');
-  const v = validate({ ...cur, owner_ids: ownersOf(cur.id).map((o) => o.id), ...req.body });
-  checkOwners(v.owner_ids);
+  const owners = ownersOf(cur.id);
+  const v = validate({ ...cur, kd_ids: owners.filter((o) => o.role === 'kd').map((o) => o.id), am_ids: owners.filter((o) => o.role === 'am').map((o) => o.id), ...req.body });
+  checkOwners(v.kd_ids, 'kd');
+  checkOwners(v.am_ids, 'am');
   const mine = staffOfUser(req.user.id);
-  if (!seesAllCustomers(req.user) && mine && ownersOf(cur.id).some((o) => o.id === mine.id) && !v.owner_ids.includes(mine.id)) {
-    throw badRequest('Bạn không thể bỏ chính mình khỏi Nhân viên phụ trách (sẽ không còn xem được khách hàng này)');
+  if (!seesAllCustomers(req.user) && mine && owners.some((o) => o.id === mine.id) && !v.kd_ids.includes(mine.id) && !v.am_ids.includes(mine.id)) {
+    throw badRequest('Bạn không thể bỏ chính mình khỏi Kinh doanh phụ trách / AM hỗ trợ (sẽ không còn xem được khách hàng này)');
   }
   const contacts = req.body?.contacts !== undefined ? check(() => cleanContacts(req.body.contacts)) : null;
   if (nameTaken(v.name, cur.id)) throw badRequest('Đã có khách hàng (cơ quan/đơn vị) này');
@@ -203,8 +196,7 @@ r.patch('/:id', (req, res) => {
     run(`UPDATE customers SET ${FIELDS.map((f) => `${f} = ?`).join(', ')}, updated_at = ? WHERE id = ?`, ...FIELDS.map((f) => v[f]), now(), cur.id);
     if (v.name !== cur.name) run('UPDATE projects SET customer = ? WHERE customer_id = ?', v.name, cur.id);
     if (contacts) saveContacts(cur.id, contacts);
-    saveOwners(cur.id, v.owner_ids);
-    if (v.product_id !== cur.product_id) linkProjectOfProduct(cur.id, v.product_id);
+    saveOwners(cur.id, v.kd_ids, v.am_ids);
   });
   audit(req, 'customer_updated', { target: cur.name, detail: v.name !== cur.name ? `→ ${v.name}` : undefined });
   res.json({ ok: true });
@@ -223,15 +215,17 @@ r.delete('/:id', (req, res) => {
 // ---------------------------------------------------------------------------
 // Tài liệu của khách hàng
 // ---------------------------------------------------------------------------
+
 r.post('/:id/files', upload.array('files'), (req, res) => {
   const files = (req.files as Express.Multer.File[]) || [];
   try {
     const c = loadCustomer(req, 'customer.edit');
-    const step = req.query.step ? get<{ id: number }>('SELECT id FROM journey_steps WHERE id = ? AND customer_id = ?', Number(req.query.step), c.id) : null;
+    const step = req.query.step ? get<{ id: number; sales_project_id: number | null }>('SELECT id, sales_project_id FROM journey_steps WHERE id = ? AND customer_id = ?', Number(req.query.step), c.id) : null;
     if (req.query.step && !step) throw badRequest('Không tìm thấy bước trong hành trình');
+    const spId = step ? step.sales_project_id : projectOf(c.id, req.query.project);
     for (const f of files) {
-      run('INSERT INTO customer_files(customer_id, uploader_id, filename, stored_name, mime, size, created_at, step_id) VALUES (?,?,?,?,?,?,?,?)',
-        c.id, req.user.id, utf8Name(f.originalname), f.filename, f.mimetype, f.size, now(), step?.id ?? null);
+      run('INSERT INTO customer_files(customer_id, uploader_id, filename, stored_name, mime, size, created_at, step_id, sales_project_id) VALUES (?,?,?,?,?,?,?,?,?)',
+        c.id, req.user.id, utf8Name(f.originalname), f.filename, f.mimetype, f.size, now(), step?.id ?? null, spId);
     }
     res.status(201).json({ ok: true, count: files.length });
   } catch (e) {
@@ -273,10 +267,12 @@ r.delete('/:id/files/:fid', (req, res) => {
 r.post('/:id/activities', (req, res) => {
   const c = loadCustomer(req, 'customer.edit');
   const v = check(() => cleanActivity(req.body || {}, localDate()));
-  const step = req.body?.step_id ? get<{ id: number; title: string }>('SELECT id, title FROM journey_steps WHERE id = ? AND customer_id = ?', Number(req.body.step_id), c.id) : null;
+  const step = req.body?.step_id ? get<{ id: number; title: string; sales_project_id: number | null }>(
+    'SELECT id, title, sales_project_id FROM journey_steps WHERE id = ? AND customer_id = ?', Number(req.body.step_id), c.id) : null;
   if (req.body?.step_id && !step) throw badRequest('Không tìm thấy bước trong hành trình');
-  const { id } = run('INSERT INTO customer_activities(customer_id, user_id, kind, activity_date, content, step_id) VALUES (?,?,?,?,?,?)',
-    c.id, req.user.id, v.kind, v.activity_date, v.content, step?.id ?? null);
+  const spId = step ? step.sales_project_id : projectOf(c.id, req.body?.sales_project_id);
+  const { id } = run('INSERT INTO customer_activities(customer_id, user_id, kind, activity_date, content, step_id, sales_project_id) VALUES (?,?,?,?,?,?,?)',
+    c.id, req.user.id, v.kind, v.activity_date, v.content, step?.id ?? null, spId);
   notifyCustomer(mentionedCustomerUsers(v.content, c.id), req.user.id, c.id, 'mention', step ? `step:${step.id}` : 'info', v.content);
   res.status(201).json(get('SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id WHERE a.id = ?', id));
 });

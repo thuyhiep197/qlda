@@ -78,6 +78,7 @@ export default function App() {
           </Route>
           {hasPerm(me, 'customer.view') && <Route path="customers" element={<CustomerWorkspace />} />}
           {hasPerm(me, 'customer.view') && <Route path="customers/:id" element={<CustomerWorkspace />} />}
+          {hasPerm(me, 'customer.view') && <Route path="customers/:id/p/:pid" element={<CustomerWorkspace />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

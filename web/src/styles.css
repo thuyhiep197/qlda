@@ -1113,3 +1113,15 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .doc-table td { vertical-align: middle; }
 .doc-table thead th { position: sticky; top: 0; background: var(--sunken); z-index: 1; }
 .doc-ic.xls { color: #1f845a; } .doc-ic.pdf { color: #c9372c; } .doc-ic.doc { color: #0c66e4; } .doc-ic.html { color: #b65c02; } .doc-ic.exe { color: #6e5dc6; } .doc-ic.folder { color: #e2b203; }
+
+/* ---------- Khách hàng: cây Khách hàng (cấp 1) → Dự án của khách hàng (cấp 2) ---------- */
+.cw-sub.cw-crow { padding: 2px 8px 2px 12px; gap: 2px; }
+.cw-sub-link { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: inherit; padding: 4px 0; }
+.cw-sub-link:hover { text-decoration: none; }
+.cw-caret-space { width: 18px; flex-shrink: 0; }
+.cw-sub.cw-proj { padding-left: 48px; font-size: 12.5px; }
+.cw-row-cust td { background: var(--sunken); }
+.cw-row-proj td:nth-child(2) { padding-left: 22px; }
+/* Áp dụng quy trình mẫu: bước bỏ chọn mờ đi */
+.tpl-table tr.tpl-off td { opacity: .45; }
+.tpl-table tr.tpl-off td span { text-decoration: line-through; }

@@ -1,32 +1,28 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Paperclip, Plus, X } from 'lucide-react';
-import { api, queryClient, refreshAll } from '../api';
-import { ProductModal } from './AdminProducts';
-import { CreateProjectModal } from './Projects';
-import { hasPerm, useMe, useProducts, useProductTypes, useProvinces, useStaff, useWards } from '../hooks';
-import type { Customer, CustomerContact, Product } from '../types';
-import { CUSTOMER_SOURCES, CUSTOMER_STATUSES, descriptionOf, wardCodeOf } from '../customer-filter';
+import { api, refreshAll } from '../api';
+import { useProvinces, useStaff, useWards } from '../hooks';
+import type { Customer, CustomerContact } from '../types';
+import { CUSTOMER_SOURCES, CUSTOMER_STATUSES, wardCodeOf } from '../customer-filter';
 import { Modal, toast, toastError } from '../components/ui';
 
 export const useCustomers = () => useQuery<Customer[]>({ queryKey: ['customers'], queryFn: () => api.get('/customers') });
 
-type Draft = Record<'name' | 'province_code' | 'ward_code' | 'product_type_id' | 'product_id' | 'product_description' | 'source' | 'status', string>;
+type Draft = Record<'name' | 'province_code' | 'ward_code' | 'source' | 'status', string>;
 type ContactDraft = { id?: number; full_name: string; phone: string; email: string };
 const draftOf = (c?: Customer): Draft => ({
-  name: c?.name ?? '', province_code: c?.province_code ?? '', ward_code: c?.ward_code ?? '',
-  product_type_id: c?.product_type_id ? String(c.product_type_id) : '', product_id: c?.product_id ? String(c.product_id) : '',
-  product_description: c?.product_description ?? '', source: c?.source ?? '', status: c?.status ?? 'Mới',
+  name: c?.name ?? '', province_code: c?.province_code ?? '', ward_code: c?.ward_code ?? '', source: c?.source ?? '', status: c?.status ?? 'Mới',
 });
 const blankContact = (): ContactDraft => ({ full_name: '', phone: '', email: '' });
 
-/** Thêm / sửa thông tin khách hàng, gồm nhiều đầu mối liên hệ và tài liệu (khi thêm mới) */
-export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }: {
-  customer?: Customer; contacts?: CustomerContact[]; ownerIds?: number[]; onClose: () => void; onSaved?: (id: number) => void;
+/** Thêm / sửa thông tin khách hàng, gồm nhiều đầu mối liên hệ, Kinh doanh phụ trách, AM hỗ trợ và tài liệu (khi thêm mới).
+ *  Sản phẩm khai báo ở từng dự án của khách hàng; mã khách hàng tự sinh từ tên. */
+export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSaved }: {
+  customer?: Customer; contacts?: CustomerContact[]; kdIds?: number[]; amIds?: number[]; onClose: () => void; onSaved?: (id: number) => void;
 }) {
-  const [owners, setOwners] = useState<number[]>(ownerIds ?? []);
-  const { data: types } = useProductTypes();
-  const { data: products } = useProducts();
+  const [kd, setKd] = useState<number[]>(kdIds ?? []);
+  const [am, setAm] = useState<number[]>(amIds ?? []);
   const [d, setD] = useState(draftOf(customer));
   const { data: provinces } = useProvinces();
   const { data: wards } = useWards(d.province_code);
@@ -38,26 +34,6 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof Draft) => (e: { target: { value: string } }) => setD({ ...d, [k]: e.target.value });
-  const typeProducts = (products || []).filter((p) => (!d.product_type_id || String(p.type_id) === d.product_type_id) && !p.project_archived);
-  const { data: me } = useMe();
-  const isProjectType = !!types?.find((t) => String(t.id) === d.product_type_id)?.is_project;
-  const canAddProduct = !!d.product_type_id && hasPerm(me, isProjectType ? 'project.create' : 'product.create');
-  const [adding, setAdding] = useState<'product' | 'project' | null>(null);
-  // Thêm xong → chọn luôn sản phẩm / dự án vừa tạo (mô tả lấy theo danh mục)
-  const selectNew = async (match: (p: Product) => boolean) => {
-    const list = await queryClient.fetchQuery<Product[]>({ queryKey: ['products'], queryFn: () => api.get('/products'), staleTime: 0 });
-    const p = list.find(match);
-    if (p) setD((cur) => ({ ...cur, product_id: String(p.id), product_type_id: String(p.type_id), product_description: descriptionOf(p) }));
-  };
-  const pickType = (v: string) => {
-    const keep = products?.find((p) => String(p.id) === d.product_id && String(p.type_id) === v);
-    setD({ ...d, product_type_id: v, product_id: keep ? d.product_id : '' });
-  };
-  // Chọn sản phẩm → mô tả lấy theo danh mục (chưa có thì để trống cho người dùng điền)
-  const pickProduct = (v: string) => {
-    const p = products?.find((x) => String(x.id) === v);
-    setD({ ...d, product_id: v, product_type_id: p ? String(p.type_id) : d.product_type_id, product_description: v ? descriptionOf(p) : d.product_description });
-  };
   const setPerson = (i: number, k: keyof Omit<ContactDraft, 'id'>, v: string) => setPeople(people.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
 
   const submit = async (e: FormEvent) => {
@@ -65,7 +41,7 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
     if (wardText.trim() && !d.ward_code) { toastError('Phường/xã không có trong Danh mục địa chính của tỉnh/thành phố đã chọn'); return; }
     setBusy(true);
     try {
-      const body = { ...d, contacts: people, owner_ids: owners };
+      const body = { ...d, contacts: people, kd_ids: kd, am_ids: am };
       let id = customer?.id;
       if (id) await api.patch(`/customers/${id}`, body);
       else id = (await api.post<Customer>('/customers', body)).id;
@@ -90,6 +66,8 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
       <form id="customer-form" className="stack" onSubmit={submit}>
         <label className="field"><span>Tên cơ quan/đơn vị *</span>
           <input autoFocus required value={d.name} onChange={set('name')} placeholder="VD: Sở Tài chính tỉnh Đồng Nai" /></label>
+        {customer && <label className="field"><span>Mã khách hàng <small className="muted">(tự sinh từ tên, không sửa)</small></span>
+          <input value={customer.code ?? ''} disabled /></label>}
         <div className="form-grid">
           <label className="field"><span>Tỉnh thành</span>
             <select value={d.province_code} onChange={(e) => { setD({ ...d, province_code: e.target.value, ward_code: '' }); setWardText(''); }}>
@@ -101,23 +79,7 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
               placeholder={d.province_code ? `Gõ để tìm trong ${wards?.length ?? '…'} phường/xã` : 'Chọn tỉnh thành trước'} />
             <datalist id="ward-options">{wards?.map((w) => <option key={w.code} value={w.name} />)}</datalist>
             {wardText.trim() && !d.ward_code && <small className="overdue">Chọn phường/xã trong danh sách gợi ý</small>}</label>
-          <label className="field"><span>Loại sản phẩm</span>
-            <select value={d.product_type_id} onChange={(e) => pickType(e.target.value)}>
-              <option value="">—</option>
-              {types?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select></label>
-          <div className="field"><span>Sản phẩm</span>
-            <div className="row gap-xs">
-              <select className="grow" value={d.product_id} onChange={(e) => pickProduct(e.target.value)} aria-label="Sản phẩm">
-                <option value="">{typeProducts.length ? '—' : 'Chưa có sản phẩm trong danh mục'}</option>
-                {typeProducts.map((p) => <option key={p.id} value={p.id}>{p.name}{p.project_key ? ` (${p.project_key})` : ''}</option>)}
-              </select>
-              {canAddProduct && <button type="button" className="btn btn-sm" data-tip={isProjectType ? 'Tạo dự án mới (tự có trong danh mục)' : 'Thêm sản phẩm vào danh mục'}
-                onClick={() => (isProjectType ? setAdding('project') : setAdding('product'))}>+ Thêm mới</button>}
-            </div></div>
         </div>
-        <label className="field"><span>Mô tả sản phẩm <small className="muted">(tự lấy từ danh mục khi chọn sản phẩm; sửa được)</small></span>
-          <textarea rows={3} value={d.product_description} onChange={set('product_description')} /></label>
 
         <div className="field"><span>Đầu mối liên hệ</span>
           <div className="stack-sm">
@@ -142,8 +104,12 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
               {CUSTOMER_STATUSES.map(([n]) => <option key={n}>{n}</option>)}
             </select></label>
         </div>
-        <div className="field"><span>Nhân viên phụ trách <small className="muted">(nhân sự Sale hoặc AM — Phòng Kinh doanh)</small></span>
-          <OwnerPicker value={owners} onChange={setOwners} /></div>
+        <div className="form-grid">
+          <div className="field"><span>Kinh doanh phụ trách <small className="muted">(nhân sự Sale)</small></span>
+            <OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
+          <div className="field"><span>AM hỗ trợ <small className="muted">(nhân sự AM)</small></span>
+            <OwnerPicker position="am" value={am} onChange={setAm} /></div>
+        </div>
         {!customer && (
           <div className="field"><span>Tài liệu</span>
             <label className="btn btn-subtle btn-sm" style={{ alignSelf: 'flex-start' }}><Paperclip size={14} /> Chọn tệp…
@@ -153,18 +119,14 @@ export function CustomerModal({ customer, contacts, ownerIds, onClose, onSaved }
           </div>
         )}
       </form>
-      {/* Popup thêm mới đặt ngoài form khách hàng (tránh form lồng nhau) */}
-      {adding === 'product' && <ProductModal types={types ?? []} draft={{ type_id: d.product_type_id, name: '', description: '' }}
-        onClose={() => setAdding(null)} onSaved={(id) => selectNew((p) => p.id === id)} />}
-      {adding === 'project' && <CreateProjectModal onClose={() => setAdding(null)} onCreated={(pr) => selectNew((p) => p.project_id === pr.id)} />}
     </Modal>
   );
 }
 
-/** Chọn Nhân viên phụ trách: nhân sự vị trí Sale (KD) hoặc AM (người phụ trách mới xem được khách hàng) */
-function OwnerPicker({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
+/** Chọn Kinh doanh (nhân sự Sale — kd) hoặc AM (nhân sự AM — am); người được chọn xem được khách hàng */
+export function OwnerPicker({ position, value, onChange }: { position: 'kd' | 'am'; value: number[]; onChange: (v: number[]) => void }) {
   const { data: staff } = useStaff();
-  const pool = (staff || []).filter((x) => x.positions.split(',').some((p) => p === 'kd' || p === 'am'));
+  const pool = (staff || []).filter((x) => x.positions.split(',').includes(position));
   const name = (id: number) => staff?.find((x) => x.id === id)?.full_name ?? `#${id}`;
   return (
     <div className="staff-picker">
@@ -172,7 +134,7 @@ function OwnerPicker({ value, onChange }: { value: number[]; onChange: (v: numbe
         <span key={id} className="chip">{name(id)}
           <button type="button" aria-label={`Bỏ ${name(id)}`} onClick={() => onChange(value.filter((x) => x !== id))}><X size={12} /></button></span>
       ))}
-      <select value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label="Thêm nhân viên phụ trách">
+      <select value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label={position === 'kd' ? 'Thêm Kinh doanh' : 'Thêm AM'}>
         <option value="">+ Thêm…</option>
         {pool.filter((x) => !value.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{x.full_name}{x.user_id ? '' : ' (chưa gắn tài khoản)'}</option>)}
       </select>
