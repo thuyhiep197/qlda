@@ -76,8 +76,7 @@ const PROJECT_VIEW_ROLE = ['dashboard.view', 'plan.view', 'plan.export', 'issue.
 const SALES_ROLE = [...PROJECT_VIEW_ROLE, 'customer.view', 'customer.create', 'customer.edit', 'sales_project.view', 'sales_project.create', 'sales_project.edit',
   'journey.view', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.view', 'ctask.create', 'ctask.edit',
   'cfile.view', 'cfile.create', 'cfile.export', 'ctalk.view', 'ctalk.create', 'product.view', 'geo.view', 'department.view', 'staff.view'];
-const BOARD_ROLE = [...PROJECT_VIEW_ROLE, 'customer.view', 'customer_all.view', 'sales_project.view', 'journey.view', 'ctask.view', 'cfile.view', 'cfile.export',
-  'ctalk.view', 'product.view', 'geo.view', 'department.view', 'staff.view'];
+const BOARD_ROLE = [...SALES_ROLE, 'customer_all.view'];
 const migrations: string[] = [
   `
   CREATE TABLE users (
@@ -701,7 +700,7 @@ const migrations: string[] = [
    ${grantWith('customer.delete', ['sales_project.delete', 'ctask.delete', 'cfile.delete', 'ctalk.delete'])}
    ${addRole('Kinh doanh', 'Phòng Kinh doanh (Sale): khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', SALES_ROLE)}
    ${addRole('AM', 'Phòng Kinh doanh (AM): chăm sóc khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', SALES_ROLE)}
-   ${addRole('Ban Giám đốc', 'Xem tất cả khách hàng, dự án của khách hàng và tiến độ dự án (chỉ xem)', BOARD_ROLE)}`,
+   ${addRole('Ban Giám đốc', 'Như Kinh doanh (thêm, sửa trên khách hàng, dự án mình phụ trách) + xem tất cả khách hàng, dự án của khách hàng', BOARD_ROLE)}`,
 ];
 
 export function migrate() {

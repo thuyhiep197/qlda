@@ -199,10 +199,8 @@ export const SALES_PERMISSIONS: Permission[] = [...PROJECT_VIEW,
   'customer.view', 'customer.create', 'customer.edit', 'sales_project.view', 'sales_project.create', 'sales_project.edit',
   'journey.view', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.view', 'ctask.create', 'ctask.edit',
   'cfile.view', 'cfile.create', 'cfile.export', 'ctalk.view', 'ctalk.create', 'product.view', 'geo.view', 'department.view', 'staff.view'];
-/** Nhóm Ban Giám đốc: xem tất cả khách hàng, dự án của khách hàng (chỉ xem) và tiến độ dự án */
-export const BOARD_PERMISSIONS: Permission[] = [...PROJECT_VIEW,
-  'customer.view', 'customer_all.view', 'sales_project.view', 'journey.view', 'ctask.view', 'cfile.view', 'cfile.export', 'ctalk.view',
-  'product.view', 'geo.view', 'department.view', 'staff.view'];
+/** Nhóm Ban Giám đốc: như Kinh doanh (thêm / sửa trên khách hàng, dự án mình phụ trách) + xem tất cả khách hàng */
+export const BOARD_PERMISSIONS: Permission[] = [...SALES_PERMISSIONS, 'customer_all.view'];
 
 export const DEFAULT_ROLES: { name: string; description: string; permissions: Permission[] }[] = [
   { name: 'BA Lead', description: 'Toàn quyền: quản trị dự án, xóa issue, quản trị hệ thống', permissions: ALL_PERMISSIONS },
@@ -215,7 +213,7 @@ export const DEFAULT_ROLES: { name: string; description: string; permissions: Pe
   { name: 'Người xem', description: 'Khách hàng/lãnh đạo: xem tiến độ và bình luận', permissions: convertLegacyPermissions(['comment.create']) },
   { name: 'Kinh doanh', description: 'Phòng Kinh doanh (Sale): khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', permissions: SALES_PERMISSIONS },
   { name: 'AM', description: 'Phòng Kinh doanh (AM): chăm sóc khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', permissions: SALES_PERMISSIONS },
-  { name: 'Ban Giám đốc', description: 'Xem tất cả khách hàng, dự án của khách hàng và tiến độ dự án (chỉ xem)', permissions: BOARD_PERMISSIONS },
+  { name: 'Ban Giám đốc', description: 'Như Kinh doanh (thêm, sửa trên khách hàng, dự án mình phụ trách) + xem tất cả khách hàng, dự án của khách hàng', permissions: BOARD_PERMISSIONS },
 ];
 
 export class HttpError extends Error {

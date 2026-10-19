@@ -4,7 +4,7 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
-import { checkOwners, loadCustomer, projectOf, seesAllCustomers, staffOfUser, visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
+import { checkOwners, loadCustomer, managesCustomer, projectOf, requireManage, seesAllCustomers, staffOfUser, visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import { listIssues } from '../issues.ts';
 import { autoProjectStatuses } from '../phases.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -113,11 +113,10 @@ r.post('/', (req, res) => {
   const v = validate(req.body || {});
   const contacts = check(() => cleanContacts(req.body?.contacts));
   if (nameTaken(v.name)) throw badRequest('Đã có khách hàng (cơ quan/đơn vị) này');
-  // Người tạo thuộc Kinh doanh (Sale) / AM thì mặc định phụ trách khách hàng; người khác tự chọn người phụ trách
+  // Người tạo thuộc Kinh doanh (Sale) / Ban Giám đốc → Kinh doanh phụ trách, thuộc AM → AM hỗ trợ (mặc định); người khác tự chọn người phụ trách
   const mine = staffOfUser(req.user.id);
   const pos = mine?.positions.split(',') ?? [];
-  if (mine && pos.includes('kd') && !v.kd_ids.includes(mine.id)) v.kd_ids.push(mine.id);
-  else if (mine && !pos.includes('kd') && pos.includes('am') && !v.am_ids.includes(mine.id)) v.am_ids.push(mine.id);
+const isKd = pos.includes('kd') || pos.includes('bgd');  if (mine && isKd && !v.kd_ids.includes(mine.id)) v.kd_ids.push(mine.id);  else if (mine && !isKd && pos.includes('am') && !v.am_ids.includes(mine.id)) v.am_ids.push(mine.id);
   checkOwners(v.kd_ids, 'kd');
   checkOwners(v.am_ids, 'am');
   const id = tx(() => {
@@ -144,6 +143,8 @@ const inVisible = (ids: Set<number>) => (x: { sales_project_id: number | null })
 r.get('/:id', (req, res) => {
   const c = loadCustomer(req);
   const perms = userPermissions(req.user);
+  // Thêm / sửa / lưu trữ chỉ trên khách hàng mình liên quan (xem tất cả chỉ để xem)
+  c.can_manage = managesCustomer(req.user, c.id);
   const spIds = visibleProjectIds(req.user, c.id);
   syncJourneys([...spIds]);
   const owners = ownersOf(c.id);
@@ -238,6 +239,7 @@ r.post('/:id/files', upload.array('files'), (req, res) => {
     const c = loadCustomer(req, 'cfile.create');
     const step = req.query.step ? stepOf(req, c.id, req.query.step) : null;
     const spId = step ? step.sales_project_id : projectOf(req.user, c.id, req.query.project);
+    requireManage(req.user, c.id, spId);
     for (const f of files) {
       run('INSERT INTO customer_files(customer_id, uploader_id, filename, stored_name, mime, size, created_at, step_id, sales_project_id) VALUES (?,?,?,?,?,?,?,?,?)',
         c.id, req.user.id, utf8Name(f.originalname), f.filename, f.mimetype, f.size, now(), step?.id ?? null, spId);
@@ -270,6 +272,7 @@ r.get('/:id/files/:fid', (req, res) => {
 /** Xóa tài liệu: người tải lên tự xóa được (có quyền Tải lên); tài liệu của người khác cần quyền Xóa tài liệu */
 r.delete('/:id/files/:fid', (req, res) => {
   const f = loadFile(req, 'customer.view');
+  requireManage(req.user, Number(req.params.id), f.sales_project_id);
   const perms = userPermissions(req.user);
   if (!(perms.has('cfile.create') && f.uploader_id === req.user.id) && !perms.has('cfile.delete')) throw forbidden('Bạn chỉ xóa được tài liệu do mình tải lên');
   run('DELETE FROM customer_files WHERE id = ?', f.id);
@@ -285,6 +288,7 @@ r.post('/:id/activities', (req, res) => {
   const v = check(() => cleanActivity(req.body || {}, localDate()));
   const step = req.body?.step_id ? stepOf(req, c.id, req.body.step_id) : null;
   const spId = step ? step.sales_project_id : projectOf(req.user, c.id, req.body?.sales_project_id);
+  requireManage(req.user, c.id, spId);
   const { id } = run('INSERT INTO customer_activities(customer_id, user_id, kind, activity_date, content, step_id, sales_project_id) VALUES (?,?,?,?,?,?,?)',
     c.id, req.user.id, v.kind, v.activity_date, v.content, step?.id ?? null, spId);
   notifyCustomer(mentionedCustomerUsers(v.content, c.id), req.user.id, c.id, 'mention', step ? `step:${step.id}` : 'info', v.content);
@@ -297,6 +301,7 @@ r.delete('/:id/activities/:aid', (req, res) => {
   const a = get('SELECT * FROM customer_activities WHERE id = ? AND customer_id = ?', Number(req.params.aid), c.id);
   if (!a) throw notFound('Không tìm thấy trao đổi');
   projectOf(req.user, c.id, a.sales_project_id);
+  requireManage(req.user, c.id, a.sales_project_id);
   const perms = userPermissions(req.user);
   if (!(perms.has('ctalk.create') && a.user_id === req.user.id) && !perms.has('ctalk.delete')) throw forbidden('Bạn chỉ xóa được trao đổi do mình ghi');
   run('DELETE FROM customer_activities WHERE id = ?', a.id);

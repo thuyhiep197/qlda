@@ -6,7 +6,7 @@ import { cleanSalesProject, customerCode, salesProjectCode } from '../customer.t
 import { journeyProgress, journeyStatus } from '../journey.ts';
 import { syncJourneys } from '../journey-sync.ts';
 import { autoProjectStatuses } from '../phases.ts';
-import { checkOwners, loadCustomer, loadSalesProjectOf, visibleSalesProjectsSql } from '../customer-access.ts';
+import { checkOwners, loadCustomer, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
 import { TASK_SELECT } from './customer-work.ts';
 
 /**
@@ -119,6 +119,7 @@ r.get('/:id/projects/:pid', (req, res) => {
   const p: any = salesProjectsOf([c.id], { archived: true }).find((x: any) => x.id === sp.id);
   const owners = all<{ id: number; full_name: string; user_id: number | null; role: string }>(
     'SELECT s.id, s.full_name, s.user_id, o.role FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE o.sales_project_id = ? ORDER BY s.full_name', sp.id);
+  p.can_manage = managesSalesProject(req.user, sp.id);
   p.kd_ids = owners.filter((o) => o.role === 'kd').map((o) => o.id);
   p.am_ids = owners.filter((o) => o.role === 'am').map((o) => o.id);
   const perms = userPermissions(req.user);

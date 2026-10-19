@@ -2,7 +2,8 @@ import { Fragment, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Paperclip, Plus } from 'lucide-react';
 import { api, queryClient } from '../../api';
-import { hasPerm, useDepartments, useMe } from '../../hooks';
+import { useDepartments, useMe } from '../../hooks';
+import { useCan } from './manage';
 import type { JourneyData, JourneyStep, SalesProject, StepStatus } from '../../types';
 import { filterSteps, overdueDays } from '../../customer-filter';
 import { fmtDate, today } from '../../util';
@@ -28,8 +29,9 @@ export const refreshCustomer = (customerId: number) => Promise.all([
 /** Cột giữa: hành trình bán hàng của một dự án của khách hàng theo quy trình I–IV. Bấm một bước để xem Trao đổi và Tài liệu của bước ở cột phải. */
 export default function JourneyPane({ customerId, sp, selected, onSelect }: { customerId: number; sp: SalesProject; selected: number | null; onSelect: (id: number | null) => void }) {
   const { data: me } = useMe();
+  const can = useCan();
   const { data: departments } = useDepartments();
-  const canEdit = hasPerm(me, 'journey.edit'), canAddStep = hasPerm(me, 'journey.create');
+  const canEdit = can('journey.edit'), canAddStep = can('journey.create');
   const { data, isLoading } = useQuery<JourneyData>({ queryKey: ['journey', sp.id], queryFn: () => api.get(`/customers/${customerId}/projects/${sp.id}/journey`) });
   const [collapsed, setCollapsed] = useState<Set<number> | null>(null);
   const [f, setF] = useState({ status: '', unit: '', mine: false, q: '' });

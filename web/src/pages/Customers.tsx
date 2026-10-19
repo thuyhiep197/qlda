@@ -108,7 +108,7 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
             </select></label>
         </div>
         <div className="form-grid">
-          <div className="field"><span>Kinh doanh phụ trách <small className="muted">(nhân sự Sale)</small></span>
+          <div className="field"><span>Kinh doanh phụ trách <small className="muted">(nhân sự Sale hoặc BGĐ)</small></span>
             <OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
           <div className="field"><span>AM hỗ trợ <small className="muted">(nhân sự AM)</small></span>
             <OwnerPicker position="am" value={am} onChange={setAm} /></div>
@@ -126,10 +126,11 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
   );
 }
 
-/** Chọn Kinh doanh (nhân sự Sale — kd) hoặc AM (nhân sự AM — am); người được chọn xem được khách hàng */
+/** Chọn Kinh doanh (nhân sự Sale hoặc Ban Giám đốc) hoặc AM (nhân sự AM); người được chọn xem và quản lý được khách hàng */
 export function OwnerPicker({ position, value, onChange }: { position: 'kd' | 'am'; value: number[]; onChange: (v: number[]) => void }) {
   const { data: staff } = useStaff();
-  const pool = (staff || []).filter((x) => x.positions.split(',').includes(position));
+  const allowed = position === 'kd' ? ['kd', 'bgd'] : ['am'];
+  const pool = (staff || []).filter((x) => x.positions.split(',').some((p) => allowed.includes(p)));
   const name = (id: number) => staff?.find((x) => x.id === id)?.full_name ?? `#${id}`;
   return (
     <div className="staff-picker">

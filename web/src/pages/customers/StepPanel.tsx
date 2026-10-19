@@ -2,7 +2,8 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Lock, Mail, Phone, Plus, Trash2, Users, X } from 'lucide-react';
 import { api } from '../../api';
-import { hasPerm, useMe, useUsersBasic } from '../../hooks';
+import { useMe, useUsersBasic } from '../../hooks';
+import { useCan } from './manage';
 import type { ActivityKind, CustomerActivity, CustomerDetail, StepDetail, StepStatus } from '../../types';
 import { fmtDate, timeAgo, today } from '../../util';
 import { overdueDays } from '../../customer-filter';
@@ -22,9 +23,9 @@ const KIND: Partial<Record<ActivityKind, { label: string; icon: ReactNode }>> = 
 
 /** Cột phải khi chọn một bước của hành trình (như một issue của kinh doanh): Phòng thực hiện, Phòng phối hợp, Trạng thái; Trao đổi và Tài liệu của bước */
 export default function StepPanel({ customer, stepId, onClose }: { customer: CustomerDetail; stepId: number; onClose: () => void }) {
-  const { data: me } = useMe();
+  const can = useCan();
   const { data: users } = useUsersBasic();
-  const canEdit = hasPerm(me, 'journey.edit'), canAddStep = hasPerm(me, 'journey.create'), canDropStep = hasPerm(me, 'journey.delete');
+  const canEdit = can('journey.edit'), canAddStep = can('journey.create'), canDropStep = can('journey.delete');
   const [picking, setPicking] = useState<'assignee' | 'supporters' | null>(null);
   const { data: s, isLoading, error } = useQuery<StepDetail>({ queryKey: ['step', stepId], queryFn: () => api.get(`/customers/${customer.id}/journey/${stepId}`) });
 
@@ -89,8 +90,8 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
             : s.ping_days ? `Trước hạn ${s.ping_days} ngày` : 'Tắt'],
         ]} />
       </Block>
-      <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={hasPerm(me, 'ctalk.create')} users={users ?? []} />
-      <Block title={`Tài liệu kết quả (${s.files.length})`} extra={hasPerm(me, 'cfile.create') && <UploadButton customerId={customer.id} stepId={s.id} />}>
+      <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={can('ctalk.create')} users={users ?? []} />
+      <Block title={`Tài liệu kết quả (${s.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} stepId={s.id} />}>
         <FileList customerId={customer.id} files={s.files} />
       </Block>
     </>
@@ -103,6 +104,7 @@ export function Talk({ customerId, activities, target, empty, canAdd, users }: {
   users: NonNullable<ReturnType<typeof useUsersBasic>['data']>;
 }) {
   const { data: me } = useMe();
+  const can = useCan();
   const [kind, setKind] = useState<ActivityKind>('internal');
   const [date, setDate] = useState(today());
   const [content, setContent] = useState('');
@@ -132,7 +134,7 @@ export function Talk({ customerId, activities, target, empty, canAdd, users }: {
               <div className="small"><b>{a.user_name ?? '—'}</b> <span className="muted">· {(KIND[a.kind] ?? KIND.internal)!.icon} {(KIND[a.kind] ?? KIND.internal)!.label} · {a.kind === 'internal' ? timeAgo(a.created_at) : fmtDate(a.activity_date)}</span></div>
               {a.kind === 'internal' ? <Markdown text={a.content} users={users} /> : <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{a.content}</div>}
             </div>
-            {(hasPerm(me, 'ctalk.delete') || (canAdd && a.user_id === me?.id)) &&
+            {(can('ctalk.delete') || (canAdd && a.user_id === me?.id)) &&
               <button className="icon-btn" aria-label="Xóa trao đổi" onClick={() => remove(a.id)}><Trash2 size={13} /></button>}
           </div>
         ))}

@@ -23,10 +23,10 @@ test('archiving takes the place of deleting customers and customer projects', ()
   assert.equal(label('sales_project'), 'Lưu trữ');
 });
 
-test('default roles only use existing permission codes; Ban Giám đốc sees all customers read-only', () => {
+test('default roles only use existing permission codes; Ban Giám đốc = Kinh doanh + all customers', () => {
   for (const r of DEFAULT_ROLES) for (const p of r.permissions) assert.ok(ALL_PERMISSIONS.includes(p), `${r.name}: ${p}`);
   assert.ok(BOARD_PERMISSIONS.includes('customer_all.view'));
-  assert.ok(!BOARD_PERMISSIONS.some((p) => /^(customer|sales_project|journey|ctask|ctalk)\.(create|edit|delete)$/.test(p)));
+  assert.deepEqual([...BOARD_PERMISSIONS].sort(), [...SALES_PERMISSIONS, 'customer_all.view'].sort());
   assert.ok(!SALES_PERMISSIONS.includes('customer_all.view'));
   assert.ok(DEFAULT_ROLES.some((r) => r.name === 'Ban Giám đốc'));
 });

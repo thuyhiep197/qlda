@@ -410,6 +410,8 @@ export interface SalesProject {
   journey_overdue: number;
 }
 export interface SalesProjectDetail extends SalesProject {
+  /** Được thêm / sửa / lưu trữ trên dự án này */
+  can_manage: boolean;
   kd_ids: number[];
   am_ids: number[];
   tasks: CustomerTask[];
@@ -521,6 +523,8 @@ export interface CustomerProject {
 }
 
 export interface CustomerDetail extends Customer {
+  /** Được thêm / sửa / lưu trữ trên khách hàng này (mình phụ trách, thực hiện hoặc phối hợp; xem tất cả chỉ để xem) */
+  can_manage: boolean;
   /** Kinh doanh phụ trách, AM hỗ trợ (id nhân sự) */
   kd_ids: number[];
   am_ids: number[];

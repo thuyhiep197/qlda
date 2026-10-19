@@ -2,7 +2,8 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Archive, ArchiveRestore, ChevronDown, ChevronRight, Download, FileText, Mail, Paperclip, Pencil, Phone, Trash2 } from 'lucide-react';
 import { api, refreshAll } from '../../api';
-import { hasPerm, useMe, useUsersBasic } from '../../hooks';
+import { useMe, useUsersBasic } from '../../hooks';
+import { useCan } from './manage';
 import type { CustomerDetail, CustomerFile, CustomerProject, CustomerTask } from '../../types';
 import { CUSTOMER_STATUSES, overdueDays } from '../../customer-filter';
 import { colorOf, fmtDate, fmtDateTime, fmtSize, lozengeOf, PROJECT_STATUSES, today } from '../../util';
@@ -34,8 +35,9 @@ export const Props = ({ rows }: { rows: [string, ReactNode][] }) => (
 /** Danh sách tài liệu; xóa: người tải lên, hoặc người có quyền xóa khách hàng. showWhere: hiện tài liệu thuộc dự án / bước nào */
 export function FileList({ customerId, files, showWhere }: { customerId: number; files: CustomerFile[]; showWhere?: boolean }) {
   const { data: me } = useMe();
-  const canDel = (f: CustomerFile) => hasPerm(me, 'cfile.delete') || (hasPerm(me, 'cfile.create') && f.uploader_id === me?.id);
-  const canGet = hasPerm(me, 'cfile.export');
+  const can = useCan();
+  const canDel = (f: CustomerFile) => can('cfile.delete') || (can('cfile.create') && f.uploader_id === me?.id);
+  const canGet = can('cfile.export');
   const remove = async (f: CustomerFile) => {
     if (!confirm(`Xóa tài liệu ${f.filename}?`)) return;
     try { await api.del(`/customers/${customerId}/files/${f.id}`); await refreshCustomer(customerId); } catch (e) { toastError(e); }
@@ -79,11 +81,11 @@ export function UploadButton({ customerId, stepId, projectId }: { customerId: nu
 
 /** Cột phải của màn khách hàng: Thông tin khách hàng, dự án sản xuất đã gắn, Công việc, Tài liệu, Trao đổi chung */
 export default function CustomerSide({ c }: { c: CustomerDetail }) {
-  const { data: me } = useMe();
+  const can = useCan();
   const { data: users } = useUsersBasic();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const canEdit = hasPerm(me, 'customer.edit'), canArchive = hasPerm(me, 'customer.delete');
+  const canEdit = can('customer.edit'), canArchive = can('customer.delete');
   // Khách hàng chỉ lưu trữ (không xóa): ẩn khỏi danh sách, mở lại được
   const archive = async (archived: boolean) => {
     if (archived && !confirm(`Lưu trữ khách hàng ${c.name}? Khách hàng (cùng các dự án) ẩn khỏi danh sách; xem lại bằng ô "Xem đã lưu trữ" và mở lại được.`)) return;
@@ -135,10 +137,10 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
           })}
       </Block>
       <Tasks customerId={c.id} tasks={c.tasks} showProject production={production} />
-      <Block title={`Tài liệu (${c.files.length})`} extra={hasPerm(me, 'cfile.create') && <UploadButton customerId={c.id} />}>
+      <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && <UploadButton customerId={c.id} />}>
         <FileList customerId={c.id} files={c.files} showWhere />
       </Block>
-      <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={hasPerm(me, 'ctalk.create')} users={users ?? []} />
+      <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={can('ctalk.create')} users={users ?? []} />
       {editing && <CustomerModal customer={c} contacts={c.contacts} kdIds={c.kd_ids} amIds={c.am_ids} onClose={() => setEditing(false)} />}
     </>
   );
@@ -154,8 +156,9 @@ export function Tasks({ customerId, tasks, projectId, showProject, production }:
   customerId: number; tasks: CustomerTask[]; projectId?: number; showProject?: boolean; production?: CustomerProject[];
 }) {
   const { data: me } = useMe();
+  const can = useCan();
   const { data: users } = useUsersBasic();
-  const canAdd = hasPerm(me, 'ctask.create'), canEdit = hasPerm(me, 'ctask.edit'), canDeleteAll = hasPerm(me, 'ctask.delete');
+  const canAdd = can('ctask.create'), canEdit = can('ctask.edit'), canDeleteAll = can('ctask.delete');
   const [sub, setSub] = useState<'sales' | 'projects'>('sales');
   const [showDone, setShowDone] = useState(false);
   const [d, setD] = useState({ title: '', assignee_id: '', due_date: '' });

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Archive, ArchiveRestore, Pencil } from 'lucide-react';
 import { api, queryClient, refreshAll } from '../../api';
 import { hasPerm, useMe, useProducts, useProductTypes, useUsersBasic } from '../../hooks';
+import { useCan } from './manage';
 import type { CustomerDetail, Product, SalesProjectDetail } from '../../types';
 import { descriptionOf, salesStatusClass } from '../../customer-filter';
 import { colorOf, lozengeOf, PROJECT_STATUSES } from '../../util';
@@ -16,11 +17,11 @@ import { Talk } from './StepPanel';
 
 /** Cột phải của màn dự án (khi chưa chọn bước): thông tin dự án, dự án sản xuất đã gắn, công việc, tài liệu, trao đổi của dự án */
 export default function SalesProjectSide({ customer, sp }: { customer: CustomerDetail; sp: SalesProjectDetail }) {
-  const { data: me } = useMe();
+  const can = useCan();
   const { data: users } = useUsersBasic();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const canEdit = hasPerm(me, 'sales_project.edit'), canArchive = hasPerm(me, 'sales_project.delete');
+  const canEdit = can('sales_project.edit'), canArchive = can('sales_project.delete');
   // Dự án chỉ lưu trữ (không xóa): ẩn khỏi danh sách, mở lại được
   const archive = async (archived: boolean) => {
     if (archived && !confirm(`Lưu trữ dự án ${sp.code} ${sp.name}? Dự án ẩn khỏi danh sách; xem lại bằng ô "Xem đã lưu trữ" và mở lại được.`)) return;
@@ -63,10 +64,10 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
         {pr && <p className="muted small" style={{ margin: '6px 0 0' }}>Bước ở phần III, IV trùng tên với đầu việc của dự án sản xuất tự cập nhật trạng thái và hạn.</p>}
       </Block>
       <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} />
-      <Block title={`Tài liệu (${sp.files.length})`} extra={hasPerm(me, 'cfile.create') && <UploadButton customerId={customer.id} projectId={sp.id} />}>
+      <Block title={`Tài liệu (${sp.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} projectId={sp.id} />}>
         <FileList customerId={customer.id} files={sp.files} showWhere />
       </Block>
-      <Talk customerId={customer.id} activities={sp.activities} target={{ sales_project_id: sp.id }} empty="Chưa có trao đổi về dự án" canAdd={hasPerm(me, 'ctalk.create')} users={users ?? []} />
+      <Talk customerId={customer.id} activities={sp.activities} target={{ sales_project_id: sp.id }} empty="Chưa có trao đổi về dự án" canAdd={can('ctalk.create')} users={users ?? []} />
       {editing && <SalesProjectModal customer={customer} sp={sp} onClose={() => setEditing(false)} />}
     </>
   );
@@ -135,7 +136,7 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
           <label className="field"><span>Khách hàng</span><input value={customer.name} disabled /></label>
         </div>
         <div className="form-grid">
-          <div className="field"><span>Kinh doanh <small className="muted">(nhân sự Sale)</small></span><OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
+          <div className="field"><span>Kinh doanh <small className="muted">(nhân sự Sale hoặc BGĐ)</small></span><OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
           <div className="field"><span>AM <small className="muted">(nhân sự AM)</small></span><OwnerPicker position="am" value={am} onChange={setAm} /></div>
         </div>
         <div className="field"><span>BA/PM <small className="muted">(chọn từ Danh mục nhân sự)</small></span>

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, Plus, Search, Star } from 'lucide-react';
 import { api } from '../../api';
-import { hasPerm, useMe } from '../../hooks';
+import { ManageContext, useCan } from './manage';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
 import { CUSTOMER_STATUSES, customerTree, filterCustomers, salesStatusClass } from '../../customer-filter';
 import { colorOf, fmtDate, lozengeOf } from '../../util';
@@ -191,7 +191,7 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
   const { data: c, isLoading, error } = useCustomer(id, archived);
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { data: me } = useMe();
+  const can = useCan();
   const [adding, setAdding] = useState(false);
   const step = Number(params.get('step')) || null;
   // Đường dẫn cũ /customers/:id?step= (thông báo, Dashboard) → mở dự án chứa bước đó
@@ -204,9 +204,9 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
   if (isLoading) return <section className="cw-main"><Spinner /></section>;
   if (!c) return <section className="cw-main"><Empty title={error instanceof Error ? error.message : 'Không tìm thấy khách hàng'} /></section>;
   const g = params.get('g') ? `?g=${params.get('g')}` : '';
-  const canAddProject = hasPerm(me, 'sales_project.create') && !c?.is_archived;
+  const canAddProject = can('sales_project.create') && !!c.can_manage && !c.is_archived;
   return (
-    <>
+    <ManageContext.Provider value={!!c.can_manage}>
       <section className="cw-main">
         <div className="cw-head">
           <div className="grow" style={{ minWidth: 0 }}>
@@ -250,7 +250,7 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
       </section>
       <aside className="cw-right"><CustomerSide c={c} /></aside>
       {adding && <SalesProjectModal customer={c} onClose={() => setAdding(false)} onSaved={(p) => navigate(`/customers/${c.id}/p/${p}${g}`)} />}
-    </>
+    </ManageContext.Provider>
   );
 }
 
@@ -265,7 +265,7 @@ function ProjectView({ id, pid, archived }: { id: string; pid: string; archived:
   if (!sp) return <section className="cw-main"><Empty title={error instanceof Error ? error.message : 'Không tìm thấy dự án'} /></section>;
   const g = params.get('g') ? `?g=${params.get('g')}` : '';
   return (
-    <>
+    <ManageContext.Provider value={!!sp.can_manage}>
       <section className="cw-main">
         <div className="cw-head">
           <div className="grow" style={{ minWidth: 0 }}>
@@ -285,7 +285,7 @@ function ProjectView({ id, pid, archived }: { id: string; pid: string; archived:
       <aside className="cw-right">
         {step ? <StepPanel customer={c} stepId={step} onClose={() => selectStep(null)} /> : <SalesProjectSide customer={c} sp={sp} />}
       </aside>
-    </>
+    </ManageContext.Provider>
   );
 }
 

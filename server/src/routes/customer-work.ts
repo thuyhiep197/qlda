@@ -6,7 +6,7 @@ import { cleanTask } from '../customer.ts';
 import { branchIds, cleanJourneyRows, journeyProgress, MAX_DEPTH, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus, type TemplateRow } from '../journey.ts';
 import { notifyCustomer } from '../notify.ts';
 import { syncJourneys } from '../journey-sync.ts';
-import { loadCustomer as loadVisible, loadSalesProjectOf, projectOf, visibleCustomersSql } from '../customer-access.ts';
+import { loadCustomer as loadVisible, loadSalesProjectOf, projectOf, requireManage, visibleCustomersSql } from '../customer-access.ts';
 import type { Permission } from '../permissions.ts';
 
 /** Hành trình khách hàng (quy trình I–IV) và công việc kinh doanh của khách hàng */
@@ -233,6 +233,7 @@ r.post('/:id/tasks', (req, res) => {
   activeUser(v.assignee_id);
   // Việc của một dự án của khách hàng (trống = việc chung của khách hàng)
   const spId = projectOf(req.user, c.id, req.body?.sales_project_id);
+  requireManage(req.user, c.id, spId);
   const { id } = run(`INSERT INTO customer_tasks(customer_id, title, description, assignee_id, due_date, status, created_by, done_at, sales_project_id)
     VALUES (?,?,?,?,?,?,?,?,?)`, c.id, v.title, v.description, v.assignee_id, v.due_date, v.status, req.user.id, v.status === 'done' ? now() : null, spId);
   if (v.assignee_id) notifyCustomer([v.assignee_id], req.user.id, c.id, 'assigned', 'tasks', `${c.name}: ${v.title}`);
@@ -244,6 +245,7 @@ function loadTask(req: Request, customerId: number) {
   const t = get('SELECT * FROM customer_tasks WHERE id = ? AND customer_id = ?', Number(req.params.tid), customerId);
   if (!t) throw notFound('Không tìm thấy công việc');
   projectOf(req.user, customerId, t.sales_project_id);
+  requireManage(req.user, customerId, t.sales_project_id);
   return t;
 }
 
