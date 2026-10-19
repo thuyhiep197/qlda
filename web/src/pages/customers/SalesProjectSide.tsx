@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Pencil } from 'lucide-react';
 import { api, queryClient, refreshAll } from '../../api';
 import { hasPerm, useMe, useProducts, useProductTypes, useUsersBasic } from '../../hooks';
 import type { CustomerDetail, Product, SalesProjectDetail } from '../../types';
@@ -20,10 +20,11 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
   const { data: users } = useUsersBasic();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const canEdit = hasPerm(me, 'customer.edit'), canDelete = hasPerm(me, 'customer.delete');
-  const remove = async () => {
-    if (!confirm(`Xóa dự án ${sp.code} ${sp.name}? Hành trình, công việc, tài liệu và trao đổi của dự án sẽ bị xóa theo. Dự án ở phân hệ Dự án (nếu đã gắn) vẫn giữ nguyên.`)) return;
-    try { await api.del(`/customers/${customer.id}/projects/${sp.id}`); toast('Đã xóa dự án'); await refreshAll(); navigate(`/customers/${customer.id}`); } catch (e) { toastError(e); }
+  const canEdit = hasPerm(me, 'sales_project.edit'), canArchive = hasPerm(me, 'sales_project.delete');
+  // Dự án chỉ lưu trữ (không xóa): ẩn khỏi danh sách, mở lại được
+  const archive = async (archived: boolean) => {
+    if (archived && !confirm(`Lưu trữ dự án ${sp.code} ${sp.name}? Dự án ẩn khỏi danh sách; xem lại bằng ô "Xem đã lưu trữ" và mở lại được.`)) return;
+    try { await api.post(`/customers/${customer.id}/projects/${sp.id}/archive`, { archived }); toast(archived ? 'Đã lưu trữ dự án' : 'Đã mở lại dự án'); await refreshAll(); if (archived) navigate(`/customers/${customer.id}`); } catch (e) { toastError(e); }
   };
   const pr = sp.production;
   const prStatus = pr ? pr.project_status || pr.status_auto : null;
@@ -32,7 +33,9 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
     <>
       <Block title="Thông tin dự án" extra={<>
         {canEdit && <button className="icon-btn" aria-label="Sửa dự án" data-tip="Sửa dự án" onClick={() => setEditing(true)}><Pencil size={14} /></button>}
-        {canDelete && <button className="icon-btn" aria-label="Xóa dự án" data-tip="Xóa dự án" onClick={remove}><Trash2 size={14} /></button>}
+        {canArchive && (sp.is_archived
+          ? <button className="icon-btn" aria-label="Mở lại dự án" data-tip="Mở lại dự án" onClick={() => archive(false)}><ArchiveRestore size={14} /></button>
+          : <button className="icon-btn" aria-label="Lưu trữ dự án" data-tip="Lưu trữ dự án" onClick={() => archive(true)}><Archive size={14} /></button>)}
       </>}>
         <Props rows={[
           ['Mã dự án', sp.code],
@@ -60,10 +63,10 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
         {pr && <p className="muted small" style={{ margin: '6px 0 0' }}>Bước ở phần III, IV trùng tên với đầu việc của dự án sản xuất tự cập nhật trạng thái và hạn.</p>}
       </Block>
       <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} />
-      <Block title={`Tài liệu (${sp.files.length})`} extra={canEdit && <UploadButton customerId={customer.id} projectId={sp.id} />}>
+      <Block title={`Tài liệu (${sp.files.length})`} extra={hasPerm(me, 'cfile.create') && <UploadButton customerId={customer.id} projectId={sp.id} />}>
         <FileList customerId={customer.id} files={sp.files} showWhere />
       </Block>
-      <Talk customerId={customer.id} activities={sp.activities} target={{ sales_project_id: sp.id }} empty="Chưa có trao đổi về dự án" canAdd={canEdit} users={users ?? []} />
+      <Talk customerId={customer.id} activities={sp.activities} target={{ sales_project_id: sp.id }} empty="Chưa có trao đổi về dự án" canAdd={hasPerm(me, 'ctalk.create')} users={users ?? []} />
       {editing && <SalesProjectModal customer={customer} sp={sp} onClose={() => setEditing(false)} />}
     </>
   );

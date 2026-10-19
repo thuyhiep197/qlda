@@ -2,26 +2,92 @@ import { all, get, run } from './db.ts';
 import { isLegacyPermissionList } from './perm-legacy.ts';
 
 // ---------------------------------------------------------------------------
-// Danh mục phân quyền: Nhóm chức năng → Chức năng → Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
+// Danh mục phân quyền: Phân hệ → Module → Chức năng → Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
 // Mã quyền = "<chức năng>.<hành động>", VD: issue.create, plan.export.
+// Ô nào mang nghĩa riêng (VD cột Xóa = Lưu trữ) thì ghi trong actionLabels và hiện ngay trong ô.
 // Nhóm người dùng (vai trò) là một tập mã quyền; mỗi người dùng có thể được cho phép thêm / chặn riêng từng quyền.
 // ---------------------------------------------------------------------------
 export const ACTIONS = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa', export: 'Tải', import: 'Import' } as const;
 export type Action = keyof typeof ACTIONS;
 
-export interface FeatureDef { key: string; label: string; hint?: string; actions: Action[]; actionHints?: Partial<Record<Action, string>> }
-export interface FeatureGroup { key: string; label: string; features: FeatureDef[] }
+export interface FeatureDef {
+  key: string; label: string; hint?: string; actions: Action[];
+  actionHints?: Partial<Record<Action, string>>;
+  /** Tên riêng của hành động ở chức năng này (hiện trong ô), VD delete → Lưu trữ */
+  actionLabels?: Partial<Record<Action, string>>;
+}
+/** Module (nhóm chức năng) thuộc một phân hệ */
+export interface FeatureGroup { key: string; label: string; subsystem: string; features: FeatureDef[] }
+
+export const SUBSYSTEMS = [
+  { key: 'customer', label: 'Phân hệ Khách hàng' },
+  { key: 'project', label: 'Phân hệ Dự án' },
+  { key: 'docs', label: 'Phân hệ Tài liệu nội bộ' },
+  { key: 'admin', label: 'Phân hệ Quản trị' },
+] as const;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
+  // ---- Phân hệ Khách hàng ----
   {
-    key: 'monitor', label: 'Theo dõi tiến độ', features: [
-      { key: 'dashboard', label: 'Dashboard dự án', actions: ['view'] },
-      { key: 'plan', label: 'Kế hoạch chi tiết & tổng quan', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel kế hoạch' } },
-      { key: 'report', label: 'Báo cáo', hint: 'Khối lượng còn lại, báo cáo sprint, năng suất, giờ công', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel giờ công' } },
+    key: 'crm', label: 'Module Khách hàng', subsystem: 'customer', features: [
+      { key: 'customer', label: 'Thông tin khách hàng', hint: 'Cơ quan/đơn vị, đầu mối, Kinh doanh phụ trách, AM hỗ trợ', actions: ['view', 'create', 'edit', 'delete'],
+        actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ / mở lại khách hàng (ẩn khỏi danh sách)' } },
+      { key: 'customer_all', label: 'Phạm vi: Tất cả khách hàng', hint: 'Không có quyền này thì chỉ thấy khách hàng, dự án mình phụ trách, thực hiện hoặc phối hợp', actions: ['view'] },
     ],
   },
   {
-    key: 'work', label: 'Công việc', features: [
+    key: 'crm_project', label: 'Module Dự án của khách hàng', subsystem: 'customer', features: [
+      { key: 'sales_project', label: 'Dự án của khách hàng', actions: ['view', 'create', 'edit', 'delete'],
+        actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ / mở lại dự án (ẩn khỏi danh sách)' } },
+    ],
+  },
+  {
+    key: 'crm_journey', label: 'Module Hành trình', subsystem: 'customer', features: [
+      { key: 'journey', label: 'Hành trình (quy trình I–IV)', actions: ['view', 'create', 'edit', 'delete'],
+        actionLabels: { create: 'Áp dụng mẫu, thêm bước', edit: 'Cập nhật bước', delete: 'Bỏ bước' },
+        actionHints: { edit: 'Trạng thái, người thực hiện / phối hợp, hạn, nhắc nhở của bước' } },
+    ],
+  },
+  {
+    key: 'crm_task', label: 'Module Công việc', subsystem: 'customer', features: [
+      { key: 'ctask', label: 'Công việc', hint: 'Việc chung của khách hàng và việc của từng dự án', actions: ['view', 'create', 'edit', 'delete'],
+        actionHints: { delete: 'Xóa việc của người khác (việc mình tạo luôn xóa được)' } },
+    ],
+  },
+  {
+    key: 'crm_file', label: 'Module Tài liệu', subsystem: 'customer', features: [
+      { key: 'cfile', label: 'Tài liệu', hint: 'Tài liệu của khách hàng, của dự án, kết quả của bước', actions: ['view', 'create', 'delete', 'export'],
+        actionLabels: { create: 'Tải lên', export: 'Tải về' }, actionHints: { delete: 'Xóa tài liệu của người khác (của mình luôn xóa được)' } },
+    ],
+  },
+  {
+    key: 'crm_talk', label: 'Module Trao đổi', subsystem: 'customer', features: [
+      { key: 'ctalk', label: 'Trao đổi', hint: 'Làm việc với khách hàng và thảo luận nội bộ', actions: ['view', 'create', 'delete'],
+        actionHints: { delete: 'Xóa trao đổi của người khác (của mình luôn xóa được)' } },
+    ],
+  },
+  // ---- Phân hệ Dự án ----
+  {
+    key: 'project', label: 'Module Thông tin dự án', subsystem: 'project', features: [
+      { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình', actions: ['create', 'edit', 'delete'],
+        actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ dự án' } },
+      { key: 'component', label: 'Mô-đun & BA phụ trách', actions: ['view', 'create', 'edit', 'delete'] },
+    ],
+  },
+  {
+    key: 'monitor', label: 'Module Dashboard & Kế hoạch', subsystem: 'project', features: [
+      { key: 'dashboard', label: 'Dashboard dự án', actions: ['view'] },
+      { key: 'plan', label: 'Kế hoạch chi tiết & tổng quan', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel kế hoạch' } },
+    ],
+  },
+  {
+    key: 'planning', label: 'Module Sprint & Backlog', subsystem: 'project', features: [
+      { key: 'sprint', label: 'Sprint', hint: 'Bảng sprint đang chạy; tạo, sửa, bắt đầu, hoàn thành, xóa sprint', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'backlog', label: 'Backlog', hint: 'Sắp xếp, kéo issue vào sprint', actions: ['view', 'edit'] },
+    ],
+  },
+  {
+    key: 'work', label: 'Module Công việc', subsystem: 'project', features: [
       { key: 'search', label: 'Danh sách & tìm kiếm issue', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel danh sách issue' } },
       { key: 'issue', label: 'Issue (Epic, Story, Task, Bug, Sub-task)', actions: ['view', 'create', 'edit', 'delete', 'import'],
         actionHints: { view: 'Mở xem chi tiết issue, xem kế hoạch', edit: 'Sửa mọi issue', import: 'Nhập issue hàng loạt từ Excel/CSV' } },
@@ -37,43 +103,30 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     ],
   },
   {
-    key: 'planning', label: 'Lập kế hoạch', features: [
-      { key: 'sprint', label: 'Sprint', hint: 'Bảng sprint đang chạy; tạo, sửa, bắt đầu, hoàn thành, xóa sprint', actions: ['view', 'create', 'edit', 'delete'] },
-      { key: 'backlog', label: 'Backlog', hint: 'Sắp xếp, kéo issue vào sprint', actions: ['view', 'edit'] },
-      { key: 'component', label: 'Mô-đun & BA phụ trách', actions: ['view', 'create', 'edit', 'delete'] },
+    key: 'report_m', label: 'Module Báo cáo', subsystem: 'project', features: [
+      { key: 'report', label: 'Báo cáo', hint: 'Khối lượng còn lại, báo cáo sprint, năng suất, giờ công', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel giờ công' } },
     ],
   },
+  // ---- Phân hệ Tài liệu nội bộ ----
   {
-    key: 'project', label: 'Quản trị dự án', features: [
-      { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình', actions: ['create', 'edit', 'delete'],
-        actionHints: { delete: 'Lưu trữ dự án' } },
-    ],
-  },
-  {
-    key: 'crm', label: 'Khách hàng', features: [
-      { key: 'customer_all', label: 'Xem tất cả khách hàng', hint: 'Không có quyền này thì chỉ thấy khách hàng mình phụ trách hoặc có việc được giao', actions: ['view'] },
-      { key: 'customer', label: 'Khách hàng', hint: 'Thông tin cơ quan/đơn vị, hành trình, công việc, tài liệu, trao đổi', actions: ['view', 'create', 'edit', 'delete'],
-        actionHints: { edit: 'Sửa thông tin, đầu mối; tải tài liệu; ghi hoạt động chăm sóc', delete: 'Xóa khách hàng; xóa tài liệu, hoạt động của người khác' } },
-    ],
-  },
-  {
-    key: 'docs', label: 'Tài liệu nội bộ', features: [
+    key: 'docs', label: 'Module Tài liệu', subsystem: 'docs', features: [
       { key: 'document', label: 'Tài liệu nội bộ', hint: 'Mọi người đều tra cứu, tạo thư mục, tải lên, tải xuống và sửa / xóa của mình; các quyền dưới đây là sửa / xóa của người khác',
         actions: ['edit', 'delete'], actionHints: { edit: 'Đổi tên, chuyển thư mục / tài liệu của người khác', delete: 'Xóa thư mục / tài liệu của người khác' } },
     ],
   },
+  // ---- Phân hệ Quản trị ----
   {
-    key: 'catalog', label: 'Danh mục dùng chung', features: [
-      { key: 'department', label: 'Phòng ban (sơ đồ tổ chức)', hint: 'Ban Giám đốc và các phòng; nhân sự thuộc phòng ban', actions: ['view', 'create', 'edit', 'delete'] },
-      { key: 'geo', label: 'Danh mục địa chính', hint: 'Tỉnh/thành phố, phường/xã dùng để chọn địa chỉ khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
-      { key: 'product', label: 'Danh mục Loại sản phẩm & Sản phẩm', hint: 'Sản phẩm kèm mô tả, dùng để chọn cho khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
-      { key: 'staff', label: 'Nhân sự', hint: 'Nhân sự trong từng phòng ban: vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC), tài khoản đăng nhập', actions: ['view', 'create', 'edit', 'delete'] },
+    key: 'system', label: 'Module Người dùng & phân quyền', subsystem: 'admin', features: [
+      { key: 'user', label: 'Người dùng', hint: 'Tài khoản, đặt lại mật khẩu', actions: ['view', 'create', 'edit', 'delete'], actionLabels: { delete: 'Khóa' }, actionHints: { delete: 'Khóa tài khoản' } },
+      { key: 'role', label: 'Nhóm người dùng & phân quyền', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
   {
-    key: 'system', label: 'Quản trị hệ thống', features: [
-      { key: 'user', label: 'Người dùng', hint: 'Tài khoản, đặt lại mật khẩu', actions: ['view', 'create', 'edit', 'delete'], actionHints: { delete: 'Khóa tài khoản' } },
-      { key: 'role', label: 'Nhóm người dùng & phân quyền', actions: ['view', 'create', 'edit', 'delete'] },
+    key: 'catalog', label: 'Module Danh mục', subsystem: 'admin', features: [
+      { key: 'department', label: 'Phòng ban (sơ đồ tổ chức)', hint: 'Ban Giám đốc và các phòng; nhân sự thuộc phòng ban', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'geo', label: 'Danh mục địa chính', hint: 'Tỉnh/thành phố, phường/xã dùng để chọn địa chỉ khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'product', label: 'Danh mục Loại sản phẩm & Sản phẩm', hint: 'Sản phẩm kèm mô tả, dùng để chọn cho dự án của khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'staff', label: 'Nhân sự', hint: 'Nhân sự trong từng phòng ban: vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC), tài khoản đăng nhập', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
 ];
@@ -139,11 +192,19 @@ export function upgradeRolePermissions() {
 export const cleanPermissionList = (v: unknown): Permission[] => (Array.isArray(v) ? ALL_PERMISSIONS.filter((p) => v.includes(p)) : []);
 export const isPermission = (p: string) => VALID.has(p);
 
-/** Nhóm Kinh doanh / AM: dùng phân hệ Khách hàng; phân hệ Dự án chỉ xem tiến độ (khớp migration v22) */
-export const SALES_PERMISSIONS: Permission[] = ['dashboard.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export',
-  'component.view', 'customer.view', 'customer.create', 'customer.edit', 'product.view', 'geo.view', 'department.view', 'staff.view'];
+/** Xem tiến độ phân hệ Dự án (không sửa) */
+const PROJECT_VIEW: Permission[] = ['dashboard.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'component.view'];
+/** Nhóm Kinh doanh / AM: dùng phân hệ Khách hàng (khách hàng mình phụ trách, thực hiện, phối hợp); phân hệ Dự án chỉ xem tiến độ (khớp migration v22) */
+export const SALES_PERMISSIONS: Permission[] = [...PROJECT_VIEW,
+  'customer.view', 'customer.create', 'customer.edit', 'sales_project.view', 'sales_project.create', 'sales_project.edit',
+  'journey.view', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.view', 'ctask.create', 'ctask.edit',
+  'cfile.view', 'cfile.create', 'cfile.export', 'ctalk.view', 'ctalk.create', 'product.view', 'geo.view', 'department.view', 'staff.view'];
+/** Nhóm Ban Giám đốc: xem tất cả khách hàng, dự án của khách hàng (chỉ xem) và tiến độ dự án */
+export const BOARD_PERMISSIONS: Permission[] = [...PROJECT_VIEW,
+  'customer.view', 'customer_all.view', 'sales_project.view', 'journey.view', 'ctask.view', 'cfile.view', 'cfile.export', 'ctalk.view',
+  'product.view', 'geo.view', 'department.view', 'staff.view'];
 
-export const DEFAULT_ROLES:{ name: string; description: string; permissions: Permission[] }[] = [
+export const DEFAULT_ROLES: { name: string; description: string; permissions: Permission[] }[] = [
   { name: 'BA Lead', description: 'Toàn quyền: quản trị dự án, xóa issue, quản trị hệ thống', permissions: ALL_PERMISSIONS },
   { name: 'BA', description: 'Kiêm PM, BA và Tester: quản lý backlog/sprint, giao việc, sửa mọi issue, kiểm thử',
     permissions: convertLegacyPermissions(['sprint.manage', 'issue.create', 'issue.edit', 'issue.edit_own', 'issue.assign', 'issue.transition', 'issue.import', 'comment.create', 'attachment.create']) },
@@ -154,6 +215,7 @@ export const DEFAULT_ROLES:{ name: string; description: string; permissions: Per
   { name: 'Người xem', description: 'Khách hàng/lãnh đạo: xem tiến độ và bình luận', permissions: convertLegacyPermissions(['comment.create']) },
   { name: 'Kinh doanh', description: 'Phòng Kinh doanh (Sale): khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', permissions: SALES_PERMISSIONS },
   { name: 'AM', description: 'Phòng Kinh doanh (AM): chăm sóc khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', permissions: SALES_PERMISSIONS },
+  { name: 'Ban Giám đốc', description: 'Xem tất cả khách hàng, dự án của khách hàng và tiến độ dự án (chỉ xem)', permissions: BOARD_PERMISSIONS },
 ];
 
 export class HttpError extends Error {

@@ -4,7 +4,7 @@ import { customerKpis, customerTree, salesStatusClass, descriptionOf, filterCust
 import type { Customer } from './types';
 
 const c = (o: Partial<Customer>): Customer => ({
-  id: 1, code: null, name: '', province_code: null, ward_code: null,
+  id: 1, code: null, name: '', province_code: null, ward_code: null, is_archived: 0,
   source: null, status: 'Mới', created_at: '', updated_at: '', ...o,
 });
 const list = [

@@ -72,8 +72,17 @@ export interface Role {
 }
 
 export type PermAction = 'view' | 'create' | 'edit' | 'delete' | 'export' | 'import';
-export interface FeatureDef { key: string; label: string; hint?: string; actions: PermAction[]; actionHints?: Partial<Record<PermAction, string>> }
-export interface PermissionCatalog { actions: Record<PermAction, string>; groups: { key: string; label: string; features: FeatureDef[] }[] }
+export interface FeatureDef {
+  key: string; label: string; hint?: string; actions: PermAction[]; actionHints?: Partial<Record<PermAction, string>>;
+  /** Tên riêng của hành động ở chức năng này (hiện trong ô), VD Xóa → Lưu trữ */
+  actionLabels?: Partial<Record<PermAction, string>>;
+}
+/** Ma trận phân quyền: Phân hệ → Module (groups, mỗi module thuộc một phân hệ) → Chức năng → Hành động */
+export interface PermissionCatalog {
+  actions: Record<PermAction, string>;
+  subsystems: { key: string; label: string }[];
+  groups: { key: string; label: string; subsystem: string; features: FeatureDef[] }[];
+}
 export interface UserPermView {
   user_id: number; full_name: string; is_admin: boolean; role_name: string | null;
   group: string[]; overrides: Record<string, 'allow' | 'deny'>; effective: string[];
@@ -346,6 +355,7 @@ export interface Customer {
   ward_name?: string | null;
   source: string | null;
   /** Tình trạng — nhập tay */
+  is_archived: number;
   status: string;
   /** Kinh doanh phụ trách, AM hỗ trợ: họ tên, cách nhau dấu phẩy */
   kd_names?: string | null;
@@ -371,6 +381,8 @@ export interface Customer {
  *  Phía phân hệ Dự án gắn dự án sản xuất với dự án này (project_id). */
 export interface SalesProject {
   id: number;
+  /** Đã lưu trữ (ẩn khỏi danh sách) */
+  is_archived: number;
   customer_id: number;
   customer_name: string;
   code: string;

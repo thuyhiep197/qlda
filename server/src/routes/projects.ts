@@ -151,7 +151,7 @@ r.get('/:key', (req, res) => {
   if (customerInfo) customerInfo.contacts = all('SELECT id, full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY position, id', customerInfo.id);
   // Dự án của khách hàng (phía Kinh doanh) được gắn với dự án này
   if (customerInfo) {
-    const sp = salesProjectsOf([customerInfo.id]).find((x: any) => x.project_id === project.id);
+    const sp = salesProjectsOf([customerInfo.id], { archived: true }).find((x: any) => x.project_id === project.id);
     customerInfo.sales_project = sp ? { id: sp.id, code: sp.code, name: sp.name, status: sp.status, product_name: sp.product_name, kd_names: sp.kd_names, am_names: sp.am_names } : null;
   }
   res.json({

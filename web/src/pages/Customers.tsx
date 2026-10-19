@@ -7,7 +7,10 @@ import type { Customer, CustomerContact } from '../types';
 import { CUSTOMER_SOURCES, CUSTOMER_STATUSES, wardCodeOf } from '../customer-filter';
 import { Modal, toast, toastError } from '../components/ui';
 
-export const useCustomers = () => useQuery<Customer[]>({ queryKey: ['customers'], queryFn: () => api.get('/customers') });
+/** Khách hàng (kèm dự án) người dùng được xem; archived: kèm khách hàng, dự án đã lưu trữ */
+export const useCustomers = (archived = false) => useQuery<Customer[]>({
+  queryKey: ['customers', archived ? 'archived' : 'active'], queryFn: () => api.get(`/customers${archived ? '?archived=1' : ''}`),
+});
 
 type Draft = Record<'name' | 'province_code' | 'ward_code' | 'source' | 'status', string>;
 type ContactDraft = { id?: number; full_name: string; phone: string; email: string };

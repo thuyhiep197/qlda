@@ -1,14 +1,12 @@
 import { Router, type Request } from 'express';
-import fs from 'node:fs';
-import path from 'node:path';
-import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
+import { all, get, localDate, now, run, tx } from '../db.ts';
 import { audit } from '../audit.ts';
-import { accessibleProjectIds, badRequest, notFound, type Permission } from '../permissions.ts';
+import { accessibleProjectIds, badRequest, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
 import { cleanSalesProject, customerCode, salesProjectCode } from '../customer.ts';
 import { journeyProgress, journeyStatus } from '../journey.ts';
 import { syncJourneys } from '../journey-sync.ts';
 import { autoProjectStatuses } from '../phases.ts';
-import { checkOwners, loadCustomer } from '../customer-access.ts';
+import { checkOwners, loadCustomer, loadSalesProjectOf, visibleSalesProjectsSql } from '../customer-access.ts';
 import { TASK_SELECT } from './customer-work.ts';
 
 /**
@@ -39,10 +37,19 @@ const SP_SELECT = `SELECT sp.*, c.name AS customer_name, pt.name AS product_type
   FROM sales_projects sp JOIN customers c ON c.id = sp.customer_id LEFT JOIN product_types pt ON pt.id = sp.product_type_id
   LEFT JOIN products pd ON pd.id = sp.product_id LEFT JOIN projects pr ON pr.id = sp.project_id`;
 
-/** Danh sách dự án (của các khách hàng trong ids, hoặc tất cả) kèm tình trạng và tiến độ hành trình */
-export function salesProjectsOf(customerIds: number[] | 'all', today = localDate()) {
-  const rows = customerIds === 'all' ? all(`${SP_SELECT} ORDER BY sp.customer_id, sp.code`)
-    : customerIds.length ? all(`${SP_SELECT} WHERE sp.customer_id IN (${customerIds.map(() => '?').join(',')}) ORDER BY sp.customer_id, sp.code`, ...customerIds) : [];
+/**
+ * Danh sách dự án (của các khách hàng trong ids, hoặc tất cả) kèm tình trạng và tiến độ hành trình.
+ * user: chỉ dự án người dùng được xem; archived: kèm cả dự án đã lưu trữ.
+ */
+export function salesProjectsOf(customerIds: number[] | 'all', opts: { user?: AuthUser; archived?: boolean } = {}, today = localDate()) {
+  const where: string[] = [], params: unknown[] = [];
+  if (customerIds !== 'all') {
+    if (!customerIds.length) return [];
+    where.push(`sp.customer_id IN (${customerIds.map(() => '?').join(',')})`); params.push(...customerIds);
+  }
+  if (!opts.archived) where.push('sp.is_archived = 0');
+  if (opts.user) { const v = visibleSalesProjectsSql(opts.user); where.push(v.sql); params.push(...v.params); }
+  const rows = all(`${SP_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY sp.customer_id, sp.code`, ...(params as any[]));
   const steps = new Map<number, any[]>();
   for (const st of all('SELECT id, sales_project_id, depth, position, code, title, status, due_date FROM journey_steps WHERE sales_project_id IS NOT NULL ORDER BY sales_project_id, position, id')) {
     if (!steps.has(st.sales_project_id)) steps.set(st.sales_project_id, []);
@@ -56,12 +63,9 @@ export function salesProjectsOf(customerIds: number[] | 'all', today = localDate
   });
 }
 
-const removeStored = (names: string[]) => names.forEach((n) => fs.rm(path.join(UPLOAD_DIR, n), { force: true }, () => {}));
-
-function loadSalesProject(req: Request, perm: Permission = 'customer.view') {
-  const c = loadCustomer(req, perm);
-  const sp = get('SELECT * FROM sales_projects WHERE id = ? AND customer_id = ?', Number(req.params.pid), c.id);
-  if (!sp) throw notFound('Không tìm thấy dự án của khách hàng');
+function loadSalesProject(req: Request, perm: Permission = 'sales_project.view') {
+  const c = loadCustomer(req);
+  const sp = loadSalesProjectOf(req.user, c.id, req.params.pid, perm);
   return { c, sp };
 }
 
@@ -93,7 +97,7 @@ r.get('/:id/project-names', (req, res) => {
 });
 
 r.post('/:id/projects', (req, res) => {
-  const c = loadCustomer(req, 'customer.edit') as { id: number; name: string };
+  const c = loadCustomer(req, 'sales_project.create') as { id: number; name: string };
   const v = validate(req.body || {});
   const id = tx(() => {
     if (!get<{ code: string | null }>('SELECT code FROM customers WHERE id = ?', c.id)?.code) assignCustomerCodes();
@@ -105,23 +109,24 @@ r.post('/:id/projects', (req, res) => {
     return id;
   });
   audit(req, 'customer_updated', { target: c.name, detail: `Thêm dự án ${v.name}` });
-  res.status(201).json(salesProjectsOf([c.id]).find((p: any) => p.id === id));
+  res.status(201).json(salesProjectsOf([c.id], { archived: true }).find((p: any) => p.id === id));
 });
 
 /** Chi tiết dự án: thông tin, Kinh doanh / AM, tình trạng, công việc, tài liệu, trao đổi, dự án sản xuất đã gắn */
 r.get('/:id/projects/:pid', (req, res) => {
   const { c, sp } = loadSalesProject(req);
   syncJourneys([sp.id]);
-  const p: any = salesProjectsOf([c.id]).find((x: any) => x.id === sp.id);
+  const p: any = salesProjectsOf([c.id], { archived: true }).find((x: any) => x.id === sp.id);
   const owners = all<{ id: number; full_name: string; user_id: number | null; role: string }>(
     'SELECT s.id, s.full_name, s.user_id, o.role FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE o.sales_project_id = ? ORDER BY s.full_name', sp.id);
   p.kd_ids = owners.filter((o) => o.role === 'kd').map((o) => o.id);
   p.am_ids = owners.filter((o) => o.role === 'am').map((o) => o.id);
-  p.tasks = all(`${TASK_SELECT} WHERE t.sales_project_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, sp.id);
-  p.files = all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name, f.step_id, s.title AS step_title
+  const perms = userPermissions(req.user);
+  p.tasks = !perms.has('ctask.view') ? [] : all(`${TASK_SELECT} WHERE t.sales_project_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, sp.id);
+  p.files = !perms.has('cfile.view') ? [] : all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name, f.step_id, s.title AS step_title
     FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id LEFT JOIN journey_steps s ON s.id = f.step_id
     WHERE f.sales_project_id = ? ORDER BY f.created_at DESC`, sp.id);
-  p.activities = all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
+  p.activities = !perms.has('ctalk.view') ? [] : all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
     WHERE a.sales_project_id = ? AND a.step_id IS NULL ORDER BY a.created_at, a.id`, sp.id);
   // Dự án sản xuất: tiến độ theo số việc; người không là thành viên chỉ xem tên
   p.production = null;
@@ -141,7 +146,7 @@ r.get('/:id/projects/:pid', (req, res) => {
 });
 
 r.patch('/:id/projects/:pid', (req, res) => {
-  const { c, sp } = loadSalesProject(req, 'customer.edit');
+  const { c, sp } = loadSalesProject(req, 'sales_project.edit');
   const owners = all<{ staff_id: number; role: string }>('SELECT staff_id, role FROM sales_project_owners WHERE sales_project_id = ?', sp.id);
   const v = validate({ ...sp, kd_ids: owners.filter((o) => o.role === 'kd').map((o) => o.staff_id), am_ids: owners.filter((o) => o.role === 'am').map((o) => o.staff_id), ...req.body });
   tx(() => {
@@ -153,13 +158,12 @@ r.patch('/:id/projects/:pid', (req, res) => {
   res.json({ ok: true });
 });
 
-/** Xóa dự án: hành trình, công việc, tài liệu, trao đổi của dự án bị xóa theo; dự án sản xuất ở phân hệ Dự án giữ nguyên */
-r.delete('/:id/projects/:pid', (req, res) => {
-  const { c, sp } = loadSalesProject(req, 'customer.delete');
-  const files = all<{ stored_name: string }>('SELECT stored_name FROM customer_files WHERE sales_project_id = ?', sp.id);
-  run('DELETE FROM sales_projects WHERE id = ?', sp.id);
-  removeStored(files.map((f) => f.stored_name));
-  audit(req, 'customer_updated', { target: c.name, detail: `Xóa dự án ${sp.code} ${sp.name}` });
+/** Lưu trữ / mở lại dự án (không xóa): dự án đã lưu trữ ẩn khỏi danh sách; dự án sản xuất ở phân hệ Dự án giữ nguyên */
+r.post('/:id/projects/:pid/archive', (req, res) => {
+  const { c, sp } = loadSalesProject(req, 'sales_project.delete');
+  const archived = req.body?.archived === false ? 0 : 1;
+  run('UPDATE sales_projects SET is_archived = ?, updated_at = ? WHERE id = ?', archived, now(), sp.id);
+  audit(req, 'customer_updated', { target: c.name, detail: `${archived ? 'Lưu trữ' : 'Mở lại'} dự án ${sp.code} ${sp.name}` });
   res.json({ ok: true });
 });
 

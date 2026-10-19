@@ -1125,3 +1125,10 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 /* Áp dụng quy trình mẫu: bước bỏ chọn mờ đi */
 .tpl-table tr.tpl-off td { opacity: .45; }
 .tpl-table tr.tpl-off td span { text-decoration: line-through; }
+/* Ma trận phân quyền: dòng phân hệ, tên riêng của hành động trong ô (VD Lưu trữ) */
+.perm-matrix tr.perm-subsystem td { background: var(--primary-soft); color: var(--primary); font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .03em; }
+.perm-matrix .perm-cell { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; }
+.perm-matrix .perm-own { font-size: 10.5px; color: var(--muted); line-height: 1.15; max-width: 90px; }
+/* Khách hàng / dự án đã lưu trữ */
+.cw-archived { display: flex; align-items: center; gap: 6px; margin: 4px 0; padding: 6px 10px; border-radius: 6px; background: var(--sunken); color: var(--muted); font-size: 13px; }
+.cw-arch { margin: 0 4px 6px; }

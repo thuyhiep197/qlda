@@ -6,7 +6,7 @@ import { cleanTask } from '../customer.ts';
 import { branchIds, cleanJourneyRows, journeyProgress, MAX_DEPTH, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus, type TemplateRow } from '../journey.ts';
 import { notifyCustomer } from '../notify.ts';
 import { syncJourneys } from '../journey-sync.ts';
-import { loadCustomer as loadVisible, projectOf, visibleCustomersSql } from '../customer-access.ts';
+import { loadCustomer as loadVisible, loadSalesProjectOf, projectOf, visibleCustomersSql } from '../customer-access.ts';
 import type { Permission } from '../permissions.ts';
 
 /** Hành trình khách hàng (quy trình I–IV) và công việc kinh doanh của khách hàng */
@@ -74,15 +74,11 @@ r.get('/journey-template', (req, res) => {
 });
 
 /** Dự án :pid của khách hàng :id */
-function loadSalesProject(req: Request, customerId: number) {
-  const sp = get<{ id: number; name: string }>('SELECT id, name FROM sales_projects WHERE id = ? AND customer_id = ?', Number(req.params.pid), customerId);
-  if (!sp) throw notFound('Không tìm thấy dự án của khách hàng');
-  return sp;
-}
+const loadSalesProject = (req: Request, customerId: number, perm: Permission) => loadSalesProjectOf(req.user, customerId, req.params.pid, perm) as { id: number; name: string };
 
 r.get('/:id/projects/:pid/journey', (req, res) => {
   const c = loadCustomer(req);
-  const sp = loadSalesProject(req, c.id);
+  const sp = loadSalesProject(req, c.id, 'journey.view');
   syncJourneys([sp.id]);
   const steps = journeySteps(sp.id);
   const talk = new Map(all<{ step_id: number; n: number }>(`SELECT a.step_id, COUNT(*) n FROM customer_activities a JOIN journey_steps s ON s.id = a.step_id
@@ -96,8 +92,8 @@ r.get('/:id/projects/:pid/journey', (req, res) => {
 
 /** Áp dụng quy trình (mẫu đã sửa) cho dự án — chỉ khi dự án chưa có hành trình */
 r.post('/:id/projects/:pid/journey/apply', (req, res) => {
-  const c = loadCustomer(req, 'customer.edit');
-  const sp = loadSalesProject(req, c.id);
+  const c = loadCustomer(req);
+  const sp = loadSalesProject(req, c.id, 'journey.create');
   if (get('SELECT 1 FROM journey_steps WHERE sales_project_id = ?', sp.id)) throw badRequest('Dự án đã có hành trình');
   const rows = check(() => cleanJourneyRows(req.body?.rows));
   const count = tx(() => applyRows(c.id, sp.id, rows));
@@ -106,15 +102,17 @@ r.post('/:id/projects/:pid/journey/apply', (req, res) => {
 
 /** Xóa toàn bộ hành trình của dự án (để áp dụng lại quy trình mẫu) */
 r.delete('/:id/projects/:pid/journey', (req, res) => {
-  const c = loadCustomer(req, 'customer.delete');
-  const sp = loadSalesProject(req, c.id);
+  const c = loadCustomer(req);
+  const sp = loadSalesProject(req, c.id, 'journey.delete');
   run('DELETE FROM journey_steps WHERE sales_project_id = ?', sp.id);
   res.json({ ok: true });
 });
 
-function loadStep(req: Request, customerId: number) {
+/** Bước :sid của khách hàng :id — cần quyền perm (module Hành trình) và được xem dự án chứa bước */
+function loadStep(req: Request, customerId: number, perm: Permission) {
   const s = get('SELECT * FROM journey_steps WHERE id = ? AND customer_id = ?', Number(req.params.sid), customerId);
   if (!s) throw notFound('Không tìm thấy bước trong hành trình');
+  loadSalesProjectOf(req.user, customerId, s.sales_project_id, perm);
   return s;
 }
 
@@ -123,6 +121,7 @@ r.get('/:id/journey/:sid', (req, res) => {
   const c = loadCustomer(req);
   const raw = get(`${STEP_SELECT} WHERE s.id = ? AND s.customer_id = ?`, Number(req.params.sid), c.id);
   if (!raw) throw notFound('Không tìm thấy bước trong hành trình');
+  loadSalesProjectOf(req.user, c.id, raw.sales_project_id, 'journey.view');
   const s: any = withCode(raw);
   s.supporters = supportersOf('s.id = ?', s.id).map(({ step_id: _s, ...x }) => x);
   const before = all<{ id: number; depth: number; code: string | null; title: string }>(
@@ -143,8 +142,8 @@ r.get('/:id/journey/:sid', (req, res) => {
 
 /** Cập nhật một bước: trạng thái, người phụ trách, hạn, Ping, ghi chú, tên, đơn vị */
 r.patch('/:id/journey/:sid', (req, res) => {
-  const c = loadCustomer(req, 'customer.edit');
-  const s = loadStep(req, c.id);
+  const c = loadCustomer(req);
+  const s = loadStep(req, c.id, 'journey.edit');
   const b = req.body || {};
   const status = b.status !== undefined ? String(b.status) : s.status;
   if (!(STEP_STATUSES as readonly string[]).includes(status)) throw badRequest('Trạng thái không hợp lệ');
@@ -177,8 +176,8 @@ r.patch('/:id/journey/:sid', (req, res) => {
 
 /** Thêm bước con vào cuối nhánh của một bước (tối đa MAX_DEPTH cấp) */
 r.post('/:id/journey/:sid/children', (req, res) => {
-  const c = loadCustomer(req, 'customer.edit');
-  const parent = loadStep(req, c.id);
+  const c = loadCustomer(req);
+  const parent = loadStep(req, c.id, 'journey.create');
   if (parent.depth >= MAX_DEPTH) throw badRequest(`Chỉ chia tối đa ${MAX_DEPTH} cấp việc con`);
   const title = String(req.body?.title ?? '').trim().slice(0, 300);
   if (!title) throw badRequest('Tên bước không được để trống');
@@ -198,8 +197,8 @@ r.post('/:id/journey/:sid/children', (req, res) => {
 
 /** Bỏ một bước cùng toàn bộ bước con (nhánh không áp dụng cho khách hàng này) */
 r.delete('/:id/journey/:sid', (req, res) => {
-  const c = loadCustomer(req, 'customer.edit');
-  const s = loadStep(req, c.id);
+  const c = loadCustomer(req);
+  const s = loadStep(req, c.id, 'journey.delete');
   const ids = branchIds(journeySteps(s.sales_project_id), s.id);
   tx(() => ids.forEach((id) => run('DELETE FROM journey_steps WHERE id = ?', id)));
   res.json({ ok: true, removed: ids.length });
@@ -229,25 +228,27 @@ function check<T>(fn: () => T): T {
 }
 
 r.post('/:id/tasks', (req, res) => {
-  const c = loadCustomer(req, 'customer.edit');
+  const c = loadCustomer(req, 'ctask.create');
   const v = check(() => cleanTask(req.body || {}));
   activeUser(v.assignee_id);
   // Việc của một dự án của khách hàng (trống = việc chung của khách hàng)
-  const spId = projectOf(c.id, req.body?.sales_project_id);
+  const spId = projectOf(req.user, c.id, req.body?.sales_project_id);
   const { id } = run(`INSERT INTO customer_tasks(customer_id, title, description, assignee_id, due_date, status, created_by, done_at, sales_project_id)
     VALUES (?,?,?,?,?,?,?,?,?)`, c.id, v.title, v.description, v.assignee_id, v.due_date, v.status, req.user.id, v.status === 'done' ? now() : null, spId);
   if (v.assignee_id) notifyCustomer([v.assignee_id], req.user.id, c.id, 'assigned', 'tasks', `${c.name}: ${v.title}`);
   res.status(201).json(get(`${TASK_SELECT} WHERE t.id = ?`, id));
 });
 
+/** Công việc :tid của khách hàng — người dùng phải được xem dự án chứa việc (việc chung: được xem khách hàng là đủ) */
 function loadTask(req: Request, customerId: number) {
   const t = get('SELECT * FROM customer_tasks WHERE id = ? AND customer_id = ?', Number(req.params.tid), customerId);
   if (!t) throw notFound('Không tìm thấy công việc');
+  projectOf(req.user, customerId, t.sales_project_id);
   return t;
 }
 
 r.patch('/:id/tasks/:tid', (req, res) => {
-  const c = loadCustomer(req, 'customer.edit');
+  const c = loadCustomer(req, 'ctask.edit');
   const t = loadTask(req, c.id);
   const v = check(() => cleanTask({ ...t, ...req.body }));
   activeUser(v.assignee_id);
@@ -258,12 +259,12 @@ r.patch('/:id/tasks/:tid', (req, res) => {
   res.json({ ok: true });
 });
 
-/** Xóa công việc: người tạo tự xóa được; việc của người khác cần quyền xóa khách hàng */
+/** Xóa công việc: người tạo tự xóa được (có quyền Thêm công việc); việc của người khác cần quyền Xóa công việc */
 r.delete('/:id/tasks/:tid', (req, res) => {
-  const c = loadCustomer(req, 'customer.edit');
+  const c = loadCustomer(req);
   const t = loadTask(req, c.id);
   const perms = userPermissions(req.user);
-  if (!(perms.has('customer.edit') && t.created_by === req.user.id) && !perms.has('customer.delete')) throw forbidden('Bạn chỉ xóa được công việc do mình tạo');
+  if (!(perms.has('ctask.create') && t.created_by === req.user.id) && !perms.has('ctask.delete')) throw forbidden('Bạn chỉ xóa được công việc do mình tạo');
   run('DELETE FROM customer_tasks WHERE id = ?', t.id);
   res.json({ ok: true });
 });

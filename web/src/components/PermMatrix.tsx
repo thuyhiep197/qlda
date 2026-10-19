@@ -14,8 +14,9 @@ function TriCheck({ state, onChange, disabled, title }: {
 }
 
 /**
- * Ma trận phân quyền: Nhóm chức năng → Chức năng × Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
- * Tick từng ô, cả hàng (một chức năng), cả cột trong nhóm, hoặc cả nhóm chức năng.
+ * Ma trận phân quyền: Phân hệ → Module → Chức năng × Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
+ * Tick từng ô, cả hàng (một chức năng), cả cột / cả module, hoặc cả phân hệ.
+ * Ô có nghĩa riêng ở chức năng đó (VD Xóa = Lưu trữ) ghi tên ngay cạnh ô tick.
  * mark(p): 'allow' | 'deny' khi quyền khác với quyền của nhóm người dùng (chế độ phân quyền riêng theo người).
  */
 export function PermMatrix({ catalog, has, onSet, mark, readOnly }: {
@@ -40,47 +41,69 @@ export function PermMatrix({ catalog, has, onSet, mark, readOnly }: {
           </tr>
         </thead>
         <tbody>
-          {catalog.groups.map((g) => {
-            const groupPerms = g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`));
+          {catalog.subsystems.map((s) => {
+            const groups = catalog.groups.filter((g) => g.subsystem === s.key);
+            const all = groups.flatMap((g) => g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`)));
             return (
-              <Fragment key={g.key}>
-                <tr className="group-row perm-group">
-                  <td>{g.label}</td>
-                  {ACTION_ORDER.map((a) => {
-                    const col = g.features.filter((f) => f.actions.includes(a)).map((f) => `${f.key}.${a}`);
-                    return <td key={a} className="center">{col.length > 0 &&
-                      <TriCheck state={stateOf(col)} disabled={readOnly} onChange={(v) => onSet(col, v)} title={`${catalog.actions[a]}: cả nhóm ${g.label}`} />}</td>;
-                  })}
-                  <td className="center"><TriCheck state={stateOf(groupPerms)} disabled={readOnly} onChange={(v) => onSet(groupPerms, v)} title={`Toàn bộ nhóm ${g.label}`} /></td>
+              <Fragment key={s.key}>
+                <tr className="perm-subsystem">
+                  <td colSpan={ACTION_ORDER.length + 1}>{s.label}</td>
+                  <td className="center"><TriCheck state={stateOf(all)} disabled={readOnly} onChange={(v) => onSet(all, v)} title={`Toàn bộ ${s.label}`} /></td>
                 </tr>
-                {g.features.map((f) => {
-                  const row = f.actions.map((a) => `${f.key}.${a}`);
-                  return (
-                    <tr key={f.key}>
-                      <td className="perm-feature">
-                        <span>{f.label}</span>
-                        {f.hint && <span className="muted small"> · {f.hint}</span>}
-                      </td>
-                      {ACTION_ORDER.map((a) => {
-                        if (!f.actions.includes(a)) return <td key={a} className="center perm-na" />;
-                        const p = `${f.key}.${a}`;
-                        const m = mark?.(p);
-                        return (
-                          <td key={a} className={`center ${m ? `perm-${m}` : ''}`}
-                            data-tip={[f.actionHints?.[a], m === 'allow' ? 'Cấp thêm riêng cho người này' : m === 'deny' ? 'Đã chặn riêng với người này' : ''].filter(Boolean).join(' · ') || undefined}>
-                            <input type="checkbox" checked={has(p)} disabled={readOnly} onChange={() => onSet([p], !has(p))} aria-label={`${f.label}: ${catalog.actions[a]}`} />
-                          </td>
-                        );
-                      })}
-                      <td className="center"><TriCheck state={stateOf(row)} disabled={readOnly} onChange={(v) => onSet(row, v)} /></td>
-                    </tr>
-                  );
-                })}
+                {groups.map((g) => <GroupRows key={g.key} g={g} catalog={catalog} has={has} onSet={onSet} mark={mark} readOnly={readOnly} stateOf={stateOf} />)}
               </Fragment>
             );
           })}
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Một module: dòng tiêu đề (bật/tắt theo cột hoặc cả module) và các chức năng */
+function GroupRows({ g, catalog, has, onSet, mark, readOnly, stateOf }: {
+  g: PermissionCatalog['groups'][number]; catalog: PermissionCatalog; has: (perm: string) => boolean; onSet: (perms: string[], value: boolean) => void;
+  mark?: (perm: string) => 'allow' | 'deny' | undefined; readOnly?: boolean; stateOf: (perms: string[]) => 'all' | 'some' | 'none';
+}) {
+  const groupPerms = g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`));
+  return (
+    <>
+      <tr className="group-row perm-group">
+        <td>{g.label}</td>
+        {ACTION_ORDER.map((a) => {
+          const col = g.features.filter((f) => f.actions.includes(a)).map((f) => `${f.key}.${a}`);
+          return <td key={a} className="center">{col.length > 0 &&
+            <TriCheck state={stateOf(col)} disabled={readOnly} onChange={(v) => onSet(col, v)} title={`${catalog.actions[a]}: cả ${g.label}`} />}</td>;
+        })}
+        <td className="center"><TriCheck state={stateOf(groupPerms)} disabled={readOnly} onChange={(v) => onSet(groupPerms, v)} title={`Toàn bộ ${g.label}`} /></td>
+      </tr>
+      {g.features.map((f) => {
+        const row = f.actions.map((a) => `${f.key}.${a}`);
+        return (
+          <tr key={f.key}>
+            <td className="perm-feature">
+              <span>{f.label}</span>
+              {f.hint && <span className="muted small"> · {f.hint}</span>}
+            </td>
+            {ACTION_ORDER.map((a) => {
+              if (!f.actions.includes(a)) return <td key={a} className="center perm-na" />;
+              const p = `${f.key}.${a}`;
+              const m = mark?.(p);
+              const own = f.actionLabels?.[a];
+              return (
+                <td key={a} className={`center ${m ? `perm-${m}` : ''}`}
+                  data-tip={[f.actionHints?.[a], m === 'allow' ? 'Cấp thêm riêng cho người này' : m === 'deny' ? 'Đã chặn riêng với người này' : ''].filter(Boolean).join(' · ') || undefined}>
+                  <label className="perm-cell">
+                    <input type="checkbox" checked={has(p)} disabled={readOnly} onChange={() => onSet([p], !has(p))} aria-label={`${f.label}: ${own ?? catalog.actions[a]}`} />
+                    {own && <span className="perm-own">{own}</span>}
+                  </label>
+                </td>
+              );
+            })}
+            <td className="center"><TriCheck state={stateOf(row)} disabled={readOnly} onChange={(v) => onSet(row, v)} /></td>
+          </tr>
+        );
+      })}
+    </>
   );
 }

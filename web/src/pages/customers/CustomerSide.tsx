@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Download, FileText, Mail, Paperclip, Pencil, Phone, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, ChevronDown, ChevronRight, Download, FileText, Mail, Paperclip, Pencil, Phone, Trash2 } from 'lucide-react';
 import { api, refreshAll } from '../../api';
 import { hasPerm, useMe, useUsersBasic } from '../../hooks';
 import type { CustomerDetail, CustomerFile, CustomerProject, CustomerTask } from '../../types';
@@ -34,7 +34,8 @@ export const Props = ({ rows }: { rows: [string, ReactNode][] }) => (
 /** Danh sách tài liệu; xóa: người tải lên, hoặc người có quyền xóa khách hàng. showWhere: hiện tài liệu thuộc dự án / bước nào */
 export function FileList({ customerId, files, showWhere }: { customerId: number; files: CustomerFile[]; showWhere?: boolean }) {
   const { data: me } = useMe();
-  const canDel = (f: CustomerFile) => hasPerm(me, 'customer.delete') || (hasPerm(me, 'customer.edit') && f.uploader_id === me?.id);
+  const canDel = (f: CustomerFile) => hasPerm(me, 'cfile.delete') || (hasPerm(me, 'cfile.create') && f.uploader_id === me?.id);
+  const canGet = hasPerm(me, 'cfile.export');
   const remove = async (f: CustomerFile) => {
     if (!confirm(`Xóa tài liệu ${f.filename}?`)) return;
     try { await api.del(`/customers/${customerId}/files/${f.id}`); await refreshCustomer(customerId); } catch (e) { toastError(e); }
@@ -45,11 +46,11 @@ export function FileList({ customerId, files, showWhere }: { customerId: number;
       <div key={f.id} className="file-row">
         <FileText size={15} className="muted" />
         <div className="grow" style={{ minWidth: 0 }}>
-          <a className="ellipsis" style={{ display: 'block' }} href={`/api/customers/${customerId}/files/${f.id}`}>{f.filename}</a>
+          {canGet ? <a className="ellipsis" style={{ display: 'block' }} href={`/api/customers/${customerId}/files/${f.id}`}>{f.filename}</a> : <span className="ellipsis" style={{ display: 'block' }}>{f.filename}</span>}
           <div className="muted small">{showWhere && f.sales_project_name && <span className="unit-chip">{f.sales_project_name}</span>}
             {showWhere && f.step_title && <span className="unit-chip">{f.step_title}</span>} {fmtSize(f.size)} · {f.uploader_name ?? '—'} · {fmtDateTime(f.created_at)}</div>
         </div>
-        <a className="icon-btn" aria-label={`Tải ${f.filename}`} data-tip="Tải về" href={`/api/customers/${customerId}/files/${f.id}`}><Download size={14} /></a>
+        {canGet && <a className="icon-btn" aria-label={`Tải ${f.filename}`} data-tip="Tải về" href={`/api/customers/${customerId}/files/${f.id}`}><Download size={14} /></a>}
         {canDel(f) && <button className="icon-btn" aria-label={`Xóa ${f.filename}`} data-tip="Xóa" onClick={() => remove(f)}><Trash2 size={14} /></button>}
       </div>
     ))}</div>
@@ -82,17 +83,20 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
   const { data: users } = useUsersBasic();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const canEdit = hasPerm(me, 'customer.edit'), canDelete = hasPerm(me, 'customer.delete');
-  const remove = async () => {
-    if (!confirm(`Xóa khách hàng ${c.name}? Đầu mối, các dự án của khách hàng (kèm hành trình), công việc, tài liệu và trao đổi sẽ bị xóa theo. Dự án ở phân hệ Dự án được gỡ khỏi khách hàng này (dữ liệu dự án vẫn giữ nguyên).`)) return;
-    try { await api.del(`/customers/${c.id}`); toast('Đã xóa khách hàng'); await refreshAll(); navigate('/customers'); } catch (e) { toastError(e); }
+  const canEdit = hasPerm(me, 'customer.edit'), canArchive = hasPerm(me, 'customer.delete');
+  // Khách hàng chỉ lưu trữ (không xóa): ẩn khỏi danh sách, mở lại được
+  const archive = async (archived: boolean) => {
+    if (archived && !confirm(`Lưu trữ khách hàng ${c.name}? Khách hàng (cùng các dự án) ẩn khỏi danh sách; xem lại bằng ô "Xem đã lưu trữ" và mở lại được.`)) return;
+    try { await api.post(`/customers/${c.id}/archive`, { archived }); toast(archived ? 'Đã lưu trữ khách hàng' : 'Đã mở lại khách hàng'); await refreshAll(); if (archived) navigate('/customers'); } catch (e) { toastError(e); }
   };
   const production = c.projects.filter((p) => !p.is_archived);
   return (
     <>
       <Block title="Thông tin khách hàng" extra={<>
         {canEdit && <button className="icon-btn" aria-label="Sửa thông tin" data-tip="Sửa thông tin" onClick={() => setEditing(true)}><Pencil size={14} /></button>}
-        {canDelete && <button className="icon-btn" aria-label="Xóa khách hàng" data-tip="Xóa khách hàng" onClick={remove}><Trash2 size={14} /></button>}
+        {canArchive && (c.is_archived
+          ? <button className="icon-btn" aria-label="Mở lại khách hàng" data-tip="Mở lại khách hàng" onClick={() => archive(false)}><ArchiveRestore size={14} /></button>
+          : <button className="icon-btn" aria-label="Lưu trữ khách hàng" data-tip="Lưu trữ khách hàng" onClick={() => archive(true)}><Archive size={14} /></button>)}
       </>}>
         <Props rows={[
           ['Mã khách hàng', c.code],
@@ -131,10 +135,10 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
           })}
       </Block>
       <Tasks customerId={c.id} tasks={c.tasks} showProject production={production} />
-      <Block title={`Tài liệu (${c.files.length})`} extra={canEdit && <UploadButton customerId={c.id} />}>
+      <Block title={`Tài liệu (${c.files.length})`} extra={hasPerm(me, 'cfile.create') && <UploadButton customerId={c.id} />}>
         <FileList customerId={c.id} files={c.files} showWhere />
       </Block>
-      <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={canEdit} users={users ?? []} />
+      <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={hasPerm(me, 'ctalk.create')} users={users ?? []} />
       {editing && <CustomerModal customer={c} contacts={c.contacts} kdIds={c.kd_ids} amIds={c.am_ids} onClose={() => setEditing(false)} />}
     </>
   );
@@ -151,7 +155,7 @@ export function Tasks({ customerId, tasks, projectId, showProject, production }:
 }) {
   const { data: me } = useMe();
   const { data: users } = useUsersBasic();
-  const canEdit = hasPerm(me, 'customer.edit'), canDeleteAll = hasPerm(me, 'customer.delete');
+  const canAdd = hasPerm(me, 'ctask.create'), canEdit = hasPerm(me, 'ctask.edit'), canDeleteAll = hasPerm(me, 'ctask.delete');
   const [sub, setSub] = useState<'sales' | 'projects'>('sales');
   const [showDone, setShowDone] = useState(false);
   const [d, setD] = useState({ title: '', assignee_id: '', due_date: '' });
@@ -193,7 +197,7 @@ export function Tasks({ customerId, tasks, projectId, showProject, production }:
         </>;
         return p.accessible ? <Link key={p.id} to={`/p/${p.key}/plan`} className="cw-project">{body}</Link> : <div key={p.id} className="cw-project">{body}</div>;
       })) : <>
-      {canEdit && (
+      {canAdd && (
         <form className="stack-sm mb" onSubmit={add}>
           <input required placeholder={projectId ? '+ Thêm việc của dự án, VD: Gửi báo giá…' : '+ Thêm việc chung của khách hàng…'} value={d.title}
             onChange={(e) => setD({ ...d, title: e.target.value })} aria-label="Tên công việc" />
@@ -220,7 +224,7 @@ export function Tasks({ customerId, tasks, projectId, showProject, production }:
             </div>
             {canEdit && t.status !== 'done' && <select className="cw-mini-select" value={t.status} onChange={(e) => update(t, { status: e.target.value })} aria-label="Trạng thái">
               {Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>}
-            {(canDeleteAll || (canEdit && t.created_by === me?.id)) && <button className="icon-btn" aria-label={`Xóa ${t.title}`} onClick={() => remove(t)}><Trash2 size={13} /></button>}
+            {(canDeleteAll || (canAdd && t.created_by === me?.id)) && <button className="icon-btn" aria-label={`Xóa ${t.title}`} onClick={() => remove(t)}><Trash2 size={13} /></button>}
           </div>
         );
       })}

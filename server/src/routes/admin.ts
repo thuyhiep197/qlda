@@ -5,7 +5,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { hashPassword, validatePassword } from '../auth.ts';
 import { audit, listAudit } from '../audit.ts';
 import {
-  accountRoleId, ACTIONS, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound,
+  accountRoleId, ACTIONS, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound, SUBSYSTEMS,
   requireUserPerm, userPermissions,
 } from '../permissions.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -136,7 +136,7 @@ r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
 // ---------------------------------------------------------------------------
 // Vai trò & quyền
 // ---------------------------------------------------------------------------
-r.get('/permissions', (_req, res) => res.json({ actions: ACTIONS, groups: FEATURE_GROUPS }));
+r.get('/permissions', (_req, res) => res.json({ actions: ACTIONS, subsystems: SUBSYSTEMS, groups: FEATURE_GROUPS }));
 
 r.get('/roles', (_req, res) => {
   const rows = all(`SELECT r.*, (SELECT COUNT(*) FROM project_members pm WHERE pm.role_id = r.id)

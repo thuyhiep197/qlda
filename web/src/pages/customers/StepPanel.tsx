@@ -24,7 +24,7 @@ const KIND: Partial<Record<ActivityKind, { label: string; icon: ReactNode }>> = 
 export default function StepPanel({ customer, stepId, onClose }: { customer: CustomerDetail; stepId: number; onClose: () => void }) {
   const { data: me } = useMe();
   const { data: users } = useUsersBasic();
-  const canEdit = hasPerm(me, 'customer.edit');
+  const canEdit = hasPerm(me, 'journey.edit'), canAddStep = hasPerm(me, 'journey.create'), canDropStep = hasPerm(me, 'journey.delete');
   const [picking, setPicking] = useState<'assignee' | 'supporters' | null>(null);
   const { data: s, isLoading, error } = useQuery<StepDetail>({ queryKey: ['step', stepId], queryFn: () => api.get(`/customers/${customer.id}/journey/${stepId}`) });
 
@@ -70,9 +70,9 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
       {overdueDays(s.due_date, s.status, today()) > 0 && (
         <div className="j-late-banner"><AlertTriangle size={15} /> Quá hạn {overdueDays(s.due_date, s.status, today())} ngày (hạn {fmtDate(s.due_date)}) — bước chưa hoàn thành</div>
       )}
-      <Block title="Thông tin bước" extra={canEdit && <>
-        {s.depth < MAX_DEPTH && <button className="icon-btn" aria-label="Thêm bước con" data-tip="Thêm bước con" onClick={addChild}><Plus size={14} /></button>}
-        <button className="icon-btn" aria-label="Bỏ bước" data-tip="Bỏ bước (cùng bước con)" onClick={remove}><Trash2 size={14} /></button>
+      <Block title="Thông tin bước" extra={<>
+        {canAddStep && s.depth < MAX_DEPTH && <button className="icon-btn" aria-label="Thêm bước con" data-tip="Thêm bước con" onClick={addChild}><Plus size={14} /></button>}
+        {canDropStep && <button className="icon-btn" aria-label="Bỏ bước" data-tip="Bỏ bước (cùng bước con)" onClick={remove}><Trash2 size={14} /></button>}
       </>}>
         <Props rows={[
           ['Người thực hiện', people('assignee')],
@@ -89,8 +89,8 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
             : s.ping_days ? `Trước hạn ${s.ping_days} ngày` : 'Tắt'],
         ]} />
       </Block>
-      <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={canEdit} users={users ?? []} />
-      <Block title={`Tài liệu kết quả (${s.files.length})`} extra={canEdit && <UploadButton customerId={customer.id} stepId={s.id} />}>
+      <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={hasPerm(me, 'ctalk.create')} users={users ?? []} />
+      <Block title={`Tài liệu kết quả (${s.files.length})`} extra={hasPerm(me, 'cfile.create') && <UploadButton customerId={customer.id} stepId={s.id} />}>
         <FileList customerId={customer.id} files={s.files} />
       </Block>
     </>
@@ -132,7 +132,7 @@ export function Talk({ customerId, activities, target, empty, canAdd, users }: {
               <div className="small"><b>{a.user_name ?? '—'}</b> <span className="muted">· {(KIND[a.kind] ?? KIND.internal)!.icon} {(KIND[a.kind] ?? KIND.internal)!.label} · {a.kind === 'internal' ? timeAgo(a.created_at) : fmtDate(a.activity_date)}</span></div>
               {a.kind === 'internal' ? <Markdown text={a.content} users={users} /> : <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{a.content}</div>}
             </div>
-            {(hasPerm(me, 'customer.delete') || (canAdd && a.user_id === me?.id)) &&
+            {(hasPerm(me, 'ctalk.delete') || (canAdd && a.user_id === me?.id)) &&
               <button className="icon-btn" aria-label="Xóa trao đổi" onClick={() => remove(a.id)}><Trash2 size={13} /></button>}
           </div>
         ))}

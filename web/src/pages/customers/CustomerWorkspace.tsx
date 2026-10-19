@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, ChevronDown, ChevronRight, FolderOpen, LayoutList, Plus, Search, Star } from 'lucide-react';
+import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, Plus, Search, Star } from 'lucide-react';
 import { api } from '../../api';
 import { hasPerm, useMe } from '../../hooks';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
@@ -24,7 +24,8 @@ import StepPanel from './StepPanel';
  */
 export default function CustomerWorkspace() {
   const { id, pid } = useParams();
-  const { data: customers, isLoading } = useCustomers();
+  const [archived, setArchived] = useShowArchived();
+  const { data: customers, isLoading } = useCustomers(archived);
   const [params] = useSearchParams();
   // Mặc định: Khách hàng của tôi; chưa phụ trách khách hàng nào thì mở Tất cả khách hàng
   const hasMine = (customers || []).some((c) => c.is_mine);
@@ -35,8 +36,9 @@ export default function CustomerWorkspace() {
   if (isLoading) return <Spinner />;
   return (
     <div className="cw">
-      <CustomerTree customers={customers || []} group={group} current={id ? Number(id) : null} currentProject={pid ? Number(pid) : null} />
-      {id && pid ? <ProjectView id={id} pid={pid} /> : id ? <CustomerView id={id} />
+      <CustomerTree customers={customers || []} group={group} current={id ? Number(id) : null} currentProject={pid ? Number(pid) : null}
+        archived={archived} setArchived={setArchived} />
+      {id && pid ? <ProjectView id={id} pid={pid} archived={archived} /> : id ? <CustomerView id={id} archived={archived} />
         : <CustomerTable list={list} total={group === 'mine' ? (customers || []).filter((c) => c.is_mine).length : customers?.length ?? 0}
           title={group === 'mine' ? 'Khách hàng của tôi' : 'Tất cả khách hàng'} q={q} setQ={setQ} />}
     </div>
@@ -47,7 +49,9 @@ const statusTone = (s: string) => CUSTOMER_STATUSES.find(([n]) => n === s)?.[1] 
 const salesTone = (s: string | null) => salesStatusClass(s).replace('lozenge lozenge-', '');
 
 /** Cột trái: 2 nhóm Khách hàng của tôi / Tất cả khách hàng; dưới mỗi khách hàng (cấp 1) là các dự án của khách hàng (cấp 2) */
-function CustomerTree({ customers, group, current, currentProject }: { customers: Customer[]; group: 'mine' | 'all'; current: number | null; currentProject: number | null }) {
+function CustomerTree({ customers, group, current, currentProject, archived, setArchived }: {
+  customers: Customer[]; group: 'mine' | 'all'; current: number | null; currentProject: number | null; archived: boolean; setArchived: (v: boolean) => void;
+}) {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState('');
   const groups: ['mine' | 'all', string, Customer[], React.ReactNode][] = [
@@ -58,6 +62,7 @@ function CustomerTree({ customers, group, current, currentProject }: { customers
   return (
     <aside className="cw-left">
       <div className="cw-search"><Search size={14} /><input placeholder="Tìm khách hàng, dự án…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <label className="check small cw-arch"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem đã lưu trữ</label>
       {groups.map(([key, label, items, icon]) => {
         const open = !closed[key] || searching;
         const tree = customerTree(items, q);
@@ -82,7 +87,7 @@ function CustomerTree({ customers, group, current, currentProject }: { customers
                       : <span className="cw-caret-space" />}
                     <Link to={`/customers/${c.id}?g=${key}`} title={c.name} className="cw-sub-link">
                       <span className={`cw-dot tone-${statusTone(c.status)}`} data-tip={c.status} />
-                      <span className="ellipsis grow">{c.name}</span>
+                      <span className="ellipsis grow">{c.name}</span>{!!c.is_archived && <Archive size={12} className="muted" data-tip="Đã lưu trữ" />}
                       {projects.length > 0 && <span className="cw-count">{projects.length}</span>}
                     </Link>
                   </div>
@@ -90,7 +95,7 @@ function CustomerTree({ customers, group, current, currentProject }: { customers
                     <Link key={p.id} to={`/customers/${c.id}/p/${p.id}?g=${key}`} title={`${p.code} ${p.name} — ${p.status ?? "Chưa áp dụng quy trình"}`}
                       className={`cw-sub cw-proj ${here && p.id === currentProject ? 'active' : ''}`}>
                       <FolderOpen size={13} className="muted" />
-                      <span className="ellipsis grow">{p.name}</span>
+                      <span className="ellipsis grow">{p.name}</span>{!!p.is_archived && <Archive size={12} className="muted" data-tip="Đã lưu trữ" />}
                       <span className={`cw-dot tone-${salesTone(p.status)}`} data-tip={p.status ?? "Chưa áp dụng quy trình"} />
                     </Link>
                   ))}
@@ -177,11 +182,13 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
   );
 }
 
-const useCustomer = (id: string) => useQuery<CustomerDetail>({ queryKey: ['customer', id], queryFn: () => api.get(`/customers/${id}`) });
+const useCustomer = (id: string, archived = false) => useQuery<CustomerDetail>({
+  queryKey: ['customer', id, archived], queryFn: () => api.get(`/customers/${id}${archived ? '?archived=1' : ''}`),
+});
 
 /** Màn khách hàng: giữa là các dự án của khách hàng, phải là thông tin khách hàng */
-function CustomerView({ id }: { id: string }) {
-  const { data: c, isLoading, error } = useCustomer(id);
+function CustomerView({ id, archived }: { id: string; archived: boolean }) {
+  const { data: c, isLoading, error } = useCustomer(id, archived);
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { data: me } = useMe();
@@ -197,27 +204,28 @@ function CustomerView({ id }: { id: string }) {
   if (isLoading) return <section className="cw-main"><Spinner /></section>;
   if (!c) return <section className="cw-main"><Empty title={error instanceof Error ? error.message : 'Không tìm thấy khách hàng'} /></section>;
   const g = params.get('g') ? `?g=${params.get('g')}` : '';
-  const canEdit = hasPerm(me, 'customer.edit');
+  const canAddProject = hasPerm(me, 'sales_project.create') && !c?.is_archived;
   return (
     <>
       <section className="cw-main">
         <div className="cw-head">
           <div className="grow" style={{ minWidth: 0 }}>
             <h2 className="ellipsis">{c.name}</h2>
+            {!!c.is_archived && <div className="cw-archived"><Archive size={15} /> Khách hàng đã lưu trữ — không hiện trong danh sách</div>}
             <div className="row gap-sm small muted" style={{ flexWrap: 'wrap' }}>
               <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>
               {[c.ward_name, c.province_name].filter(Boolean).join(', ')}
               {c.kd_names && <span>· Kinh doanh: {c.kd_names}</span>}{c.am_names && <span>· AM: {c.am_names}</span>}
             </div>
           </div>
-          {canEdit && <button className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> Thêm dự án</button>}
+          {canAddProject && <button className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> Thêm dự án</button>}
         </div>
         <div className="cw-toolbar"><h3 className="cw-title" style={{ fontSize: 15 }}>Dự án của khách hàng ({c.sales_projects.length})</h3></div>
         {!c.sales_projects.length ? (
           <div className="cw-scroll"><Empty title="Khách hàng chưa có dự án">
             <p className="muted">Mỗi dự án (sản phẩm có sẵn hoặc dự án làm mới) có tình trạng và hành trình bán hàng riêng theo quy trình I. Giải pháp → II. Hợp đồng → III. Triển khai → IV. Nghiệm thu – Thanh toán.
               Khi ký hợp đồng, dự án được chuyển sang phân hệ Dự án để Dev, BA, Tester sản xuất.</p>
-            {canEdit && <button className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> Thêm dự án</button>}
+            {canAddProject && <button className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> Thêm dự án</button>}
           </Empty></div>
         ) : (
           <div className="cw-scroll table-wrap">
@@ -247,8 +255,8 @@ function CustomerView({ id }: { id: string }) {
 }
 
 /** Màn dự án của khách hàng: giữa là hành trình bán hàng, phải là thông tin dự án hoặc bước đang chọn */
-function ProjectView({ id, pid }: { id: string; pid: string }) {
-  const { data: c } = useCustomer(id);
+function ProjectView({ id, pid, archived }: { id: string; pid: string; archived: boolean }) {
+  const { data: c } = useCustomer(id, archived);
   const { data: sp, isLoading, error } = useQuery<SalesProjectDetail>({ queryKey: ['sales-project', pid], queryFn: () => api.get(`/customers/${id}/projects/${pid}`) });
   const [params, setParams] = useSearchParams();
   const step = Number(params.get('step')) || null;
@@ -263,6 +271,7 @@ function ProjectView({ id, pid }: { id: string; pid: string }) {
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="muted small ellipsis"><Link to={`/customers/${c.id}${g}`}>{c.name}</Link> › Dự án</div>
             <h2 className="ellipsis">{sp.name}</h2>
+            {!!sp.is_archived && <div className="cw-archived"><Archive size={15} /> Dự án đã lưu trữ — không hiện trong danh sách</div>}
             <div className="row gap-sm small muted" style={{ flexWrap: 'wrap' }}>
               <span className="muted">{sp.code}</span> <span className={salesStatusClass(sp.status)}>{sp.status ?? "Chưa áp dụng quy trình"}</span>
               {sp.product_name ?? sp.product_type_name}
@@ -278,4 +287,11 @@ function ProjectView({ id, pid }: { id: string; pid: string }) {
       </aside>
     </>
   );
+}
+
+/** Ô "Xem đã lưu trữ" — nhớ trên máy (trình duyệt chặn lưu trữ thì mặc định không xem) */
+const ARCHIVED_KEY = 'qlda-customers-archived';
+function useShowArchived(): [boolean, (v: boolean) => void] {
+  const [v, setV] = useState(() => { try { return localStorage.getItem(ARCHIVED_KEY) === '1'; } catch { return false; } });
+  return [v, (n) => { setV(n); try { localStorage.setItem(ARCHIVED_KEY, n ? '1' : '0'); } catch { /* trình duyệt chặn lưu trữ */ } }];
 }

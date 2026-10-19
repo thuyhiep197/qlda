@@ -61,6 +61,23 @@ export const localDate = (d = new Date()) => new Date(d.getTime() - d.getTimezon
 // Chỉ THÊM phần tử mới vào cuối mảng, không sửa các phần tử đã phát hành.
 // ---------------------------------------------------------------------------
 const TS = "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))";
+/** Migration: nhóm người dùng / quyền riêng của người dùng có quyền `from` thì được thêm các quyền `add` */
+const grantWith = (from: string, add: string[]) => `
+   UPDATE roles SET permissions = json_insert(permissions, ${add.map((p) => `'$[#]', '${p}'`).join(', ')})
+     WHERE EXISTS (SELECT 1 FROM json_each(roles.permissions) WHERE value = '${from}');
+   INSERT OR IGNORE INTO user_permissions(user_id, permission, effect)
+     SELECT u.user_id, a.value, u.effect FROM user_permissions u, json_each('${JSON.stringify(add)}') a WHERE u.permission = '${from}';`;
+/** Migration: thêm nhóm người dùng nếu đã có dữ liệu (cài mới thì nhóm mặc định do seedRoles tạo) và chưa có nhóm cùng tên */
+const addRole = (name: string, description: string, permissions: string[]) => `
+   INSERT INTO roles(name, description, permissions) SELECT '${name}', '${description}', '${JSON.stringify(permissions)}'
+     WHERE EXISTS (SELECT 1 FROM roles) AND NOT EXISTS (SELECT 1 FROM roles WHERE name = '${name}');`;
+const PROJECT_VIEW_ROLE = ['dashboard.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'component.view'];
+// Khớp SALES_PERMISSIONS, BOARD_PERMISSIONS ở permissions.ts (db.ts không import permissions.ts)
+const SALES_ROLE = [...PROJECT_VIEW_ROLE, 'customer.view', 'customer.create', 'customer.edit', 'sales_project.view', 'sales_project.create', 'sales_project.edit',
+  'journey.view', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.view', 'ctask.create', 'ctask.edit',
+  'cfile.view', 'cfile.create', 'cfile.export', 'ctalk.view', 'ctalk.create', 'product.view', 'geo.view', 'department.view', 'staff.view'];
+const BOARD_ROLE = [...PROJECT_VIEW_ROLE, 'customer.view', 'customer_all.view', 'sales_project.view', 'journey.view', 'ctask.view', 'cfile.view', 'cfile.export',
+  'ctalk.view', 'product.view', 'geo.view', 'department.view', 'staff.view'];
 const migrations: string[] = [
   `
   CREATE TABLE users (
@@ -629,7 +646,8 @@ const migrations: string[] = [
   // Phân hệ Dự án gắn dự án sản xuất với dự án của khách hàng (sales_projects.project_id).
   // Công việc, tài liệu, trao đổi gắn được với một dự án (NULL = chung của khách hàng).
   // Dữ liệu cũ: không tự tạo dự án của khách hàng; hành trình cũ ở cấp khách hàng bỏ đi; người phụ trách cũ chia theo vị trí (Sale → Kinh doanh, AM → AM).
-  // Thêm nhóm người dùng Kinh doanh và AM.
+  // Khách hàng, dự án của khách hàng chỉ lưu trữ (không xóa). Ma trận quyền phân hệ Khách hàng theo module (dự án, hành trình, công việc, tài liệu, trao đổi).
+  // Thêm nhóm người dùng Kinh doanh, AM, Ban Giám đốc.
   `ALTER TABLE customers ADD COLUMN code TEXT;
    CREATE UNIQUE INDEX idx_customers_code ON customers(code) WHERE code IS NOT NULL;
    ALTER TABLE customer_owners ADD COLUMN role TEXT NOT NULL DEFAULT 'kd';
@@ -673,14 +691,17 @@ const migrations: string[] = [
    CREATE INDEX idx_customer_tasks_sp ON customer_tasks(sales_project_id);
    CREATE INDEX idx_customer_files_sp ON customer_files(sales_project_id);
    CREATE INDEX idx_customer_activities_sp ON customer_activities(sales_project_id);
-   INSERT INTO roles(name, description, permissions)
-     SELECT 'Kinh doanh', 'Phòng Kinh doanh (Sale): khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất',
-       '["dashboard.view","plan.view","plan.export","issue.view","comment.view","attachment.view","attachment.export","component.view","customer.view","customer.create","customer.edit","product.view","geo.view","department.view","staff.view"]'
-     WHERE EXISTS (SELECT 1 FROM roles) AND NOT EXISTS (SELECT 1 FROM roles WHERE name = 'Kinh doanh');
-   INSERT INTO roles(name, description, permissions)
-     SELECT 'AM', 'Phòng Kinh doanh (AM): chăm sóc khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất',
-       '["dashboard.view","plan.view","plan.export","issue.view","comment.view","attachment.view","attachment.export","component.view","customer.view","customer.create","customer.edit","product.view","geo.view","department.view","staff.view"]'
-     WHERE EXISTS (SELECT 1 FROM roles) AND NOT EXISTS (SELECT 1 FROM roles WHERE name = 'AM');`,
+   -- Lưu trữ thay cho xóa: khách hàng, dự án của khách hàng đã lưu trữ ẩn khỏi danh sách (xem lại / mở lại được)
+   ALTER TABLE customers ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE sales_projects ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;
+   -- Ma trận phân quyền phân hệ Khách hàng theo module: quyền Khách hàng cũ chuyển sang các module tương ứng (Xóa → Lưu trữ / Xóa)
+   ${grantWith('customer.view', ['sales_project.view', 'journey.view', 'ctask.view', 'cfile.view', 'cfile.export', 'ctalk.view'])}
+   ${grantWith('customer.create', ['sales_project.create'])}
+   ${grantWith('customer.edit', ['sales_project.edit', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.create', 'ctask.edit', 'cfile.create', 'ctalk.create'])}
+   ${grantWith('customer.delete', ['sales_project.delete', 'ctask.delete', 'cfile.delete', 'ctalk.delete'])}
+   ${addRole('Kinh doanh', 'Phòng Kinh doanh (Sale): khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', SALES_ROLE)}
+   ${addRole('AM', 'Phòng Kinh doanh (AM): chăm sóc khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', SALES_ROLE)}
+   ${addRole('Ban Giám đốc', 'Xem tất cả khách hàng, dự án của khách hàng và tiến độ dự án (chỉ xem)', BOARD_ROLE)}`,
 ];
 
 export function migrate() {

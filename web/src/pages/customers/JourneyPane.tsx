@@ -29,7 +29,7 @@ export const refreshCustomer = (customerId: number) => Promise.all([
 export default function JourneyPane({ customerId, sp, selected, onSelect }: { customerId: number; sp: SalesProject; selected: number | null; onSelect: (id: number | null) => void }) {
   const { data: me } = useMe();
   const { data: departments } = useDepartments();
-  const canEdit = hasPerm(me, 'customer.edit');
+  const canEdit = hasPerm(me, 'journey.edit'), canAddStep = hasPerm(me, 'journey.create');
   const { data, isLoading } = useQuery<JourneyData>({ queryKey: ['journey', sp.id], queryFn: () => api.get(`/customers/${customerId}/projects/${sp.id}/journey`) });
   const [collapsed, setCollapsed] = useState<Set<number> | null>(null);
   const [f, setF] = useState({ status: '', unit: '', mine: false, q: '' });
@@ -46,7 +46,7 @@ export default function JourneyPane({ customerId, sp, selected, onSelect }: { cu
     return <div className="cw-scroll"><Empty title="Dự án chưa có hành trình">
       <p className="muted">Hành trình theo quy trình I. Giải pháp → II. Hợp đồng → III. Triển khai → IV. Nghiệm thu – Thanh toán (có sẵn phòng thực hiện và phối hợp).
         Trước khi lưu có thể bỏ các nhánh không áp dụng và thêm bước mới.</p>
-      {canEdit && <button className="btn btn-primary" onClick={() => setApplying(true)}>Áp dụng quy trình mẫu</button>}
+      {canAddStep && <button className="btn btn-primary" onClick={() => setApplying(true)}>Áp dụng quy trình mẫu</button>}
     </Empty></div>;
   }
 
@@ -123,7 +123,7 @@ export default function JourneyPane({ customerId, sp, selected, onSelect }: { cu
       </td>
     </tr>
   );
-  const plus = (s: JourneyStep) => canEdit && !filtered && s.depth < MAX_DEPTH && (
+  const plus = (s: JourneyStep) => canAddStep && !filtered && s.depth < MAX_DEPTH && (
     <button className="icon-btn j-plus" aria-label="Thêm bước con" data-tip={s.depth === 0 ? 'Thêm giai đoạn' : 'Thêm bước con'}
       onClick={(e) => { e.stopPropagation(); startAdd(s); }}><Plus size={14} /></button>
   );
