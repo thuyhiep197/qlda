@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { customerKpis, customerTree, salesStatusClass, descriptionOf, filterCustomers, filterSteps, overdueDays, wardCodeOf } from './customer-filter';
+import { callAlert, callAlertText, customerKpis, worstCallAlert, customerTree, salesStatusClass, descriptionOf, filterCustomers, filterSteps, overdueDays, wardCodeOf } from './customer-filter';
 import type { Customer } from './types';
 
 const c = (o: Partial<Customer>): Customer => ({
@@ -105,4 +105,14 @@ test('customer project status colour follows the running part of the journey', (
   assert.equal(salesStatusClass('III. Triển khai'), 'lozenge lozenge-purple');
   assert.equal(salesStatusClass('IV. Nghiệm thu - Thanh toán'), 'lozenge lozenge-green');
   assert.equal(salesStatusClass('Hoàn thành'), 'lozenge lozenge-green');
+});
+
+test('call warning: due today or days late, worst project of a customer', () => {
+  assert.equal(callAlert(['2026-10-22'], '2026-10-21'), null);
+  assert.deepEqual(callAlert(['2026-10-22', '2026-10-19'], '2026-10-21'), { date: '2026-10-19', late: 2, count: 1 });
+  assert.equal(callAlertText({ date: '2026-10-21', late: 0, count: 1 }), 'Hôm nay phải gọi khách hàng');
+  assert.equal(callAlertText({ date: '2026-10-19', late: 2, count: 3 }), 'Quá hạn gọi khách hàng 2 ngày (lịch 19/10/2026) · 3 lịch chưa xác nhận');
+  assert.equal(worstCallAlert([{ call_alert: null }]), null);
+  assert.deepEqual(worstCallAlert([{ call_alert: { date: '2026-10-21', late: 0, count: 1 } }, { call_alert: null }, { call_alert: { date: '2026-10-18', late: 3, count: 2 } }]),
+    { date: '2026-10-18', late: 3, count: 3, projects: 2 });
 });

@@ -2,11 +2,11 @@ import { primaryCode } from '../positions.ts';
 import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
 import { badRequest, forbidden, notFound, requireUserPerm, userPermissions } from '../permissions.ts';
-import { cleanTask } from '../customer.ts';
+import { callAlert, callPingDue, cleanCall, cleanCallConfirm, cleanTask } from '../customer.ts';
 import { branchIds, cleanJourneyRows, journeyProgress, MAX_DEPTH, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus, type TemplateRow } from '../journey.ts';
 import { notifyCustomer } from '../notify.ts';
 import { syncJourneys } from '../journey-sync.ts';
-import { loadCustomer as loadVisible, loadSalesProjectOf, projectOf, requireManage, visibleCustomersSql } from '../customer-access.ts';
+import { customerMembers, loadCustomer as loadVisible, loadSalesProjectOf, projectOf, requireManage, requireMembers, visibleCustomersSql } from '../customer-access.ts';
 import type { Permission } from '../permissions.ts';
 
 /** Hành trình khách hàng (quy trình I–IV) và công việc kinh doanh của khách hàng */
@@ -137,6 +137,7 @@ r.get('/:id/journey/:sid', (req, res) => {
     LEFT JOIN users u ON u.id = f.uploader_id WHERE f.step_id = ? ORDER BY f.created_at DESC`, s.id);
   s.ping_options = PING_DAYS;
   s.sales_project_name = s.sales_project_id ? get<{ name: string }>('SELECT name FROM sales_projects WHERE id = ?', s.sales_project_id)?.name ?? null : null;
+  s.member_ids = [...customerMembers(c.id, s.sales_project_id)];
   res.json(s);
 });
 
@@ -148,6 +149,7 @@ r.patch('/:id/journey/:sid', (req, res) => {
   const status = b.status !== undefined ? String(b.status) : s.status;
   if (!(STEP_STATUSES as readonly string[]).includes(status)) throw badRequest('Trạng thái không hợp lệ');
   const assignee = b.assignee_id !== undefined ? activeUser(b.assignee_id ? Number(b.assignee_id) : null) : s.assignee_id;
+  requireMembers(c.id, s.sales_project_id, [assignee], [s.assignee_id]);
   const due = b.due_date !== undefined ? (String(b.due_date || '').trim() || null) : s.due_date;
   if (due && (!/^\d{4}-\d{2}-\d{2}$/.test(due) || Number.isNaN(Date.parse(due)))) throw badRequest('Hạn không hợp lệ');
   const ping = b.ping_days !== undefined ? Number(b.ping_days) || 0 : s.ping_days;
@@ -165,6 +167,7 @@ r.patch('/:id/journey/:sid', (req, res) => {
     const ids = [...new Set(b.supporter_ids.map(Number).filter((n: number) => n > 0))] as number[];
     ids.forEach((id) => activeUser(id));
     const before = new Set(all<{ user_id: number }>('SELECT user_id FROM journey_step_supporters WHERE step_id = ?', s.id).map((x) => x.user_id));
+    requireMembers(c.id, s.sales_project_id, ids, [...before]);
     tx(() => {
       run('DELETE FROM journey_step_supporters WHERE step_id = ?', s.id);
       ids.forEach((id) => run('INSERT INTO journey_step_supporters(step_id, user_id) VALUES (?, ?)', s.id, id));
@@ -215,6 +218,105 @@ export function pingJourney() {
     notifyCustomer([s.assignee_id], null, s.customer_id, 'ping', `step:${s.id}`, `${s.customer_name}${s.sales_project_name ? ` › ${s.sales_project_name}` : ''}: ${s.title} (${late})`);
     run('UPDATE journey_steps SET pinged_on = ? WHERE id = ?', today, s.id);
   }
+  pingCalls(today);
+}
+
+// ---------------------------------------------------------------------------
+// Lịch gọi điện của dự án của khách hàng: đặt lịch ngày gọi, giao người gọi (mặc định người đặt);
+// đến ngày mà chưa xác nhận Đã gọi / Chưa gọi được thì chuông nhắc người gọi mỗi ngày và cảnh báo trên danh sách
+// ---------------------------------------------------------------------------
+const CALL_SELECT = `SELECT k.*, u.full_name AS assignee_name, cb.full_name AS created_by_name, db.full_name AS done_by_name
+  FROM customer_calls k LEFT JOIN users u ON u.id = k.assignee_id LEFT JOIN users cb ON cb.id = k.created_by LEFT JOIN users db ON db.id = k.done_by`;
+/** Lịch gọi của dự án: lịch chờ gọi (ngày gần nhất trước), rồi lịch đã xác nhận (mới nhất trước) */
+export const callsOf = (salesProjectId: number) => all(`${CALL_SELECT} WHERE k.sales_project_id = ?
+  ORDER BY k.status <> 'planned', CASE WHEN k.status = 'planned' THEN k.call_date END, k.call_date DESC, k.id DESC`, salesProjectId);
+/** Cảnh báo lịch gọi đã đến ngày của các dự án: sales_project_id → { date, late, count } */
+export function callAlerts(today = localDate()) {
+  const planned = new Map<number, string[]>();
+  for (const k of all<{ sales_project_id: number; call_date: string }>("SELECT sales_project_id, call_date FROM customer_calls WHERE status = 'planned' AND call_date <= ?", today)) {
+    if (!planned.has(k.sales_project_id)) planned.set(k.sales_project_id, []);
+    planned.get(k.sales_project_id)!.push(k.call_date);
+  }
+  return new Map([...planned].map(([id, dates]) => [id, callAlert(dates, today)!]));
+}
+
+const vnDate = (d: string) => d.split('-').reverse().join('/');
+
+function addCall(req: Request, c: { id: number; name: string }, sp: { id: number; name: string }, v: ReturnType<typeof cleanCall>) {
+  const assignee = activeUser(v.assignee_id ?? req.user.id)!;
+  requireMembers(c.id, sp.id, [assignee]);
+  const { id } = run('INSERT INTO customer_calls(customer_id, sales_project_id, call_date, assignee_id, note, created_by) VALUES (?,?,?,?,?,?)',
+    c.id, sp.id, v.call_date, assignee, v.note, req.user.id);
+  // Người khác đặt lịch giao cho mình → báo ngay
+  notifyCustomer([assignee], req.user.id, c.id, 'assigned', `call:${sp.id}`, `${c.name} › ${sp.name}: lịch gọi khách hàng ngày ${vnDate(v.call_date)}`);
+  return id;
+}
+
+/** Lịch gọi :kid của khách hàng — cần quyền perm (dùng chung quyền Trao đổi) và liên quan tới dự án chứa lịch */
+function loadCall(req: Request, customerId: number, perm: Permission) {
+  const k = get('SELECT * FROM customer_calls WHERE id = ? AND customer_id = ?', Number(req.params.kid), customerId);
+  if (!k) throw notFound('Không tìm thấy lịch gọi');
+  const sp = loadSalesProjectOf(req.user, customerId, k.sales_project_id, perm);
+  return { k, sp };
+}
+
+r.post('/:id/projects/:pid/calls', (req, res) => {
+  const c = loadCustomer(req, 'ctalk.create');
+  const sp = loadSalesProjectOf(req.user, c.id, req.params.pid, 'ctalk.create');
+  const v = check(() => cleanCall(req.body || {}));
+  const id = addCall(req, c, sp, v);
+  res.status(201).json(get(`${CALL_SELECT} WHERE k.id = ?`, id));
+});
+
+/** Sửa lịch chờ gọi: ngày, người gọi, ghi chú — đổi ngày thì nhắc lại từ đầu */
+r.patch('/:id/calls/:kid', (req, res) => {
+  const c = loadCustomer(req, 'ctalk.create');
+  const { k, sp } = loadCall(req, c.id, 'ctalk.create');
+  if (k.status !== 'planned') throw badRequest('Lịch gọi đã xác nhận, không sửa được');
+  const v = check(() => cleanCall({ ...k, ...req.body }));
+  const assignee = activeUser(v.assignee_id ?? k.assignee_id ?? req.user.id)!;
+  requireMembers(c.id, sp.id, [assignee], [k.assignee_id]);
+  run('UPDATE customer_calls SET call_date = ?, assignee_id = ?, note = ?, pinged_on = ?, updated_at = ? WHERE id = ?',
+    v.call_date, assignee, v.note, v.call_date === k.call_date ? k.pinged_on : null, now(), k.id);
+  if (assignee !== k.assignee_id) notifyCustomer([assignee], req.user.id, c.id, 'assigned', `call:${sp.id}`, `${c.name} › ${sp.name}: lịch gọi khách hàng ngày ${vnDate(v.call_date)}`);
+  res.json({ ok: true });
+});
+
+/** Xác nhận lịch gọi: Đã gọi / Chưa gọi được (kèm kết quả), có thể đặt luôn lịch kế tiếp */
+r.post('/:id/calls/:kid/confirm', (req, res) => {
+  const c = loadCustomer(req, 'ctalk.create');
+  const { k, sp } = loadCall(req, c.id, 'ctalk.create');
+  if (k.status !== 'planned') throw badRequest('Lịch gọi này đã được xác nhận');
+  const v = check(() => cleanCallConfirm(req.body || {}));
+  const next = tx(() => {
+    run('UPDATE customer_calls SET status = ?, result = ?, done_at = ?, done_by = ?, updated_at = ? WHERE id = ?', v.status, v.result, now(), req.user.id, now(), k.id);
+    return v.next ? addCall(req, c, sp, { ...v.next, assignee_id: v.next.assignee_id ?? k.assignee_id }) : null;
+  });
+  res.json({ ok: true, next_id: next });
+});
+
+/** Xóa lịch gọi: người đặt lịch tự xóa được; của người khác cần quyền Xóa trao đổi */
+r.delete('/:id/calls/:kid', (req, res) => {
+  const c = loadCustomer(req);
+  const { k } = loadCall(req, c.id, 'ctalk.view');
+  const perms = userPermissions(req.user);
+  if (!(perms.has('ctalk.create') && k.created_by === req.user.id) && !perms.has('ctalk.delete')) throw forbidden('Bạn chỉ xóa được lịch gọi do mình đặt');
+  requireManage(req.user, c.id, k.sales_project_id);
+  run('DELETE FROM customer_calls WHERE id = ?', k.id);
+  res.json({ ok: true });
+});
+
+/** Nhắc lịch gọi: đến ngày gọi mà chưa xác nhận → chuông báo người gọi mỗi ngày một lần */
+function pingCalls(today: string) {
+  const rows = all(`SELECT k.*, c.name AS customer_name, sp.name AS sales_project_name FROM customer_calls k
+    JOIN customers c ON c.id = k.customer_id JOIN sales_projects sp ON sp.id = k.sales_project_id
+    WHERE k.status = 'planned' AND k.call_date <= ? AND k.assignee_id IS NOT NULL AND sp.is_archived = 0 AND c.is_archived = 0`, today);
+  for (const k of rows) {
+    if (!callPingDue(k, today)) continue;
+    const late = k.call_date < today ? `quá ${Math.round((Date.parse(today) - Date.parse(k.call_date)) / 86400_000)} ngày` : 'hôm nay';
+    notifyCustomer([k.assignee_id], null, k.customer_id, 'ping', `call:${k.sales_project_id}`, `${k.customer_name} › ${k.sales_project_name}: gọi khách hàng (${late})`);
+    run('UPDATE customer_calls SET pinged_on = ? WHERE id = ?', today, k.id);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +336,7 @@ r.post('/:id/tasks', (req, res) => {
   // Việc của một dự án của khách hàng (trống = việc chung của khách hàng)
   const spId = projectOf(req.user, c.id, req.body?.sales_project_id);
   requireManage(req.user, c.id, spId);
+  requireMembers(c.id, spId, [v.assignee_id]);
   const { id } = run(`INSERT INTO customer_tasks(customer_id, title, description, assignee_id, due_date, status, created_by, done_at, sales_project_id)
     VALUES (?,?,?,?,?,?,?,?,?)`, c.id, v.title, v.description, v.assignee_id, v.due_date, v.status, req.user.id, v.status === 'done' ? now() : null, spId);
   if (v.assignee_id) notifyCustomer([v.assignee_id], req.user.id, c.id, 'assigned', 'tasks', `${c.name}: ${v.title}`);
@@ -254,6 +357,7 @@ r.patch('/:id/tasks/:tid', (req, res) => {
   const t = loadTask(req, c.id);
   const v = check(() => cleanTask({ ...t, ...req.body }));
   activeUser(v.assignee_id);
+  requireMembers(c.id, t.sales_project_id, [v.assignee_id], [t.assignee_id]);
   const doneAt = v.status === 'done' ? t.done_at ?? now() : null;
   run('UPDATE customer_tasks SET title = ?, description = ?, assignee_id = ?, due_date = ?, status = ?, updated_at = ?, done_at = ? WHERE id = ?',
     v.title, v.description, v.assignee_id, v.due_date, v.status, now(), doneAt, t.id);

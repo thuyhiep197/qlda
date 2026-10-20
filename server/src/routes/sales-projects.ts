@@ -6,8 +6,8 @@ import { cleanSalesProject, customerCode, salesProjectCode } from '../customer.t
 import { journeyProgress, journeyStatus } from '../journey.ts';
 import { syncJourneys } from '../journey-sync.ts';
 import { autoProjectStatuses } from '../phases.ts';
-import { checkOwners, loadCustomer, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
-import { TASK_SELECT } from './customer-work.ts';
+import { checkOwners, customerMembers, loadCustomer, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
+import { callAlerts, callsOf, TASK_SELECT } from './customer-work.ts';
 
 /**
  * Dự án của khách hàng (cấp 2 dưới khách hàng) — do Kinh doanh tạo và theo dõi.
@@ -55,11 +55,13 @@ export function salesProjectsOf(customerIds: number[] | 'all', opts: { user?: Au
     if (!steps.has(st.sales_project_id)) steps.set(st.sales_project_id, []);
     steps.get(st.sales_project_id)!.push(st);
   }
+  // Lịch gọi đã đến ngày mà chưa xác nhận → cảnh báo cho mọi người xem được dự án
+  const calls = callAlerts(today);
   return rows.map((p: any) => {
     const list = steps.get(p.id) ?? [];
     const j = journeyProgress(list, today);
     return { ...p, status: journeyStatus(list), journey_pct: j.total ? j.pct : null,
-      journey_overdue: j.sections.reduce((n, s) => n + s.overdue, 0) };
+      journey_overdue: j.sections.reduce((n, s) => n + s.overdue, 0), call_alert: calls.get(p.id) ?? null };
   });
 }
 
@@ -130,6 +132,9 @@ r.get('/:id/projects/:pid', (req, res) => {
   p.activities = !perms.has('ctalk.view') ? [] : all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
     WHERE a.sales_project_id = ? AND a.step_id IS NULL ORDER BY a.created_at, a.id`, sp.id);
   // Dự án sản xuất: tiến độ theo số việc; người không là thành viên chỉ xem tên
+  p.calls = !perms.has('ctalk.view') ? [] : callsOf(sp.id);
+  // Người tham gia dự án — chỉ những người này được giao việc, lịch gọi, bước
+  p.member_ids = [...customerMembers(c.id, sp.id)];
   p.production = null;
   if (sp.project_id) {
     const access = accessibleProjectIds(req.user);

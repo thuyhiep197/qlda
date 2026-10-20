@@ -408,6 +408,15 @@ export interface SalesProject {
   /** % bước đã hoàn thành (null = chưa áp dụng quy trình), số bước quá hạn */
   journey_pct: number | null;
   journey_overdue: number;
+  /** Lịch gọi đã đến ngày mà chưa xác nhận: ngày sớm nhất, số ngày quá, số lịch */
+  call_alert: CallAlert | null;
+}
+export interface CallAlert { date: string; late: number; count: number }
+/** Lịch gọi điện của dự án của khách hàng: planned = chờ gọi, done = đã gọi, failed = chưa gọi được */
+export interface CustomerCall {
+  id: number; customer_id: number; sales_project_id: number; call_date: string; assignee_id: number | null; assignee_name: string | null;
+  note: string | null; status: 'planned' | 'done' | 'failed'; result: string | null; done_at: string | null; done_by_name: string | null;
+  created_by: number | null; created_by_name: string | null; created_at: string;
 }
 export interface SalesProjectDetail extends SalesProject {
   /** Được thêm / sửa / lưu trữ trên dự án này */
@@ -418,6 +427,9 @@ export interface SalesProjectDetail extends SalesProject {
   files: CustomerFile[];
   /** Trao đổi của dự án (không thuộc bước nào) */
   activities: CustomerActivity[];
+  calls: CustomerCall[];
+  /** Người tham gia dự án — chỉ giao việc, lịch gọi, bước cho những người này */
+  member_ids: number[];
   /** Dự án sản xuất đã gắn (phân hệ Dự án) */
   production: {
     id: number; key: string; name: string; project_status: string | null; status_auto: string; is_archived: number;
@@ -470,6 +482,7 @@ export interface StepDetail extends Omit<JourneyStep, 'files'> {
   ping_options: number[];
   sales_project_id: number | null;
   sales_project_name: string | null;
+  member_ids: number[];
 }
 export interface JourneySection { id: number; title: string; total: number; done: number; doing: number; overdue: number }
 export interface JourneyData {
@@ -525,7 +538,9 @@ export interface CustomerProject {
 export interface CustomerDetail extends Customer {
   /** Được thêm / sửa / lưu trữ trên khách hàng này (mình phụ trách, thực hiện hoặc phối hợp; xem tất cả chỉ để xem) */
   can_manage: boolean;
-  /** Kinh doanh phụ trách, AM hỗ trợ (id nhân sự) */
+  /** Người tham gia (gộp mọi dự án) — chỉ giao việc chung cho những người này */
+  member_ids: number[];
+  /** Sale, AM (id nhân sự) */
   kd_ids: number[];
   am_ids: number[];
   contacts: CustomerContact[];

@@ -122,6 +122,38 @@ export function cleanTask(b: any) {
   };
 }
 
+/** Lịch gọi điện: chờ gọi, đã gọi, chưa gọi được */
+export const CALL_STATUSES = ['planned', 'done', 'failed'] as const;
+const isDate = (d: string | null) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d));
+
+/** Lịch gọi điện của dự án của khách hàng: ngày gọi (bắt buộc), người gọi, ghi chú */
+export function cleanCall(b: any) {
+  const call_date = text(b.call_date, 10);
+  if (!call_date) throw badRequest('Chọn ngày gọi');
+  if (!isDate(call_date)) throw badRequest('Ngày gọi không hợp lệ');
+  const assignee_id = optId(b.assignee_id);
+  if (Number.isNaN(assignee_id)) throw badRequest('Người gọi không hợp lệ');
+  return { call_date, assignee_id, note: longText(b.note, 2000) };
+}
+
+/** Xác nhận lịch gọi: Đã gọi / Chưa gọi được, kết quả; kèm lịch kế tiếp (tùy chọn) */
+export function cleanCallConfirm(b: any) {
+  const status = oneOf(b.status, ['done', 'failed'] as const, 'Kết quả', null);
+  if (!status) throw badRequest('Chọn Đã gọi hoặc Chưa gọi được');
+  return { status, result: longText(b.result, 2000), next: b.next ? cleanCall(b.next) : null };
+}
+
+/** Cảnh báo lịch gọi: lịch chờ gọi sớm nhất đã đến ngày (hôm nay hoặc trước) — late = số ngày quá */
+export function callAlert(planned: string[], today: string) {
+  const due = planned.filter((d) => d <= today).sort()[0];
+  if (!due) return null;
+  return { date: due, late: Math.round((Date.parse(today) - Date.parse(due)) / 86400_000), count: planned.filter((d) => d <= today).length };
+}
+
+/** Nhắc lịch gọi qua chuông: chờ gọi, có người gọi, đã đến ngày, hôm nay chưa nhắc — mỗi ngày một lần tới khi xác nhận */
+export const callPingDue = (c: { status: string; call_date: string; assignee_id: number | null; pinged_on: string | null }, today: string) =>
+  c.status === 'planned' && !!c.assignee_id && c.call_date <= today && c.pinged_on !== today;
+
 /** Sản phẩm trong danh mục: tên, loại sản phẩm, mô tả (tự điền vào khách hàng khi chọn sản phẩm) */
 export function cleanProduct(b: any) {
   const name = text(b.name, 200);

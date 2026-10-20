@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, Plus, Search, Star } from 'lucide-react';
+import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, PhoneCall, Plus, Search, Star } from 'lucide-react';
 import { api } from '../../api';
 import { ManageContext, useCan } from './manage';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
-import { CUSTOMER_STATUSES, customerTree, filterCustomers, salesStatusClass } from '../../customer-filter';
+import { callAlertText, CUSTOMER_STATUSES, customerTree, filterCustomers, salesStatusClass, worstCallAlert } from '../../customer-filter';
 import { colorOf, fmtDate, lozengeOf } from '../../util';
 import { useCustomers } from '../Customers';
 import { Empty, Spinner } from '../../components/ui';
@@ -79,6 +79,7 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
               const ck = `${key}:${c.id}`;
               const expanded = searching || (closed[ck] === undefined ? c.id === current && group === key : !closed[ck]);
               const here = c.id === current && group === key;
+              const callC = worstCallAlert(c.sales_projects);
               return (
                 <Fragment key={c.id}>
                   <div className={`cw-sub cw-crow ${here && !currentProject ? 'active' : ''}`}>
@@ -88,13 +89,15 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
                     <Link to={`/customers/${c.id}?g=${key}`} title={c.name} className="cw-sub-link">
                       <span className={`cw-dot tone-${statusTone(c.status)}`} data-tip={c.status} />
                       <span className="ellipsis grow">{c.name}</span>{!!c.is_archived && <Archive size={12} className="muted" data-tip="Đã lưu trữ" />}
+                      {callC && <PhoneCall size={12} className="call-flag" data-tip={`${callC.projects} dự án: ${callAlertText(callC)}`} />}
                       {projects.length > 0 && <span className="cw-count">{projects.length}</span>}
                     </Link>
                   </div>
                   {expanded && projects.map((p) => (
-                    <Link key={p.id} to={`/customers/${c.id}/p/${p.id}?g=${key}`} title={`${p.code} ${p.name} — ${p.status ?? "Chưa áp dụng quy trình"}`}
-                      className={`cw-sub cw-proj ${here && p.id === currentProject ? 'active' : ''}`}>
-                      <FolderOpen size={13} className="muted" />
+                    <Link key={p.id} to={`/customers/${c.id}/p/${p.id}?g=${key}`} title={p.call_alert ? undefined : `${p.code} ${p.name} — ${p.status ?? "Chưa áp dụng quy trình"}`}
+                      data-tip={p.call_alert ? `${p.name}: ${callAlertText(p.call_alert)}` : undefined}
+                      className={`cw-sub cw-proj ${here && p.id === currentProject ? 'active' : ''} ${p.call_alert ? 'call-due' : ''}`}>
+                      {p.call_alert ? <PhoneCall size={13} className="call-flag" /> : <FolderOpen size={13} className="muted" />}
                       <span className="ellipsis grow">{p.name}</span>{!!p.is_archived && <Archive size={12} className="muted" data-tip="Đã lưu trữ" />}
                       <span className={`cw-dot tone-${salesTone(p.status)}`} data-tip={p.status ?? "Chưa áp dụng quy trình"} />
                     </Link>
@@ -121,6 +124,11 @@ function JourneyCell({ p }: { p: SalesProject }) {
     </>
   );
 }
+
+/** Tên dự án; có lịch gọi đến ngày chưa xác nhận → tô đỏ, biểu tượng điện thoại, rê chuột xem cảnh báo */
+const CallName = ({ p }: { p: SalesProject }) => p.call_alert
+  ? <span className="call-due-name row gap-xs" style={{ display: 'inline-flex' }} data-tip={callAlertText(p.call_alert)}><PhoneCall size={12} className="call-flag" />{p.name}</span>
+  : <>{p.name}</>;
 
 /** Dự án sản xuất đã gắn (phân hệ Dự án) */
 const ProductionChip = ({ p }: { p: SalesProject }) => p.project_key
@@ -162,7 +170,7 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
                 {c.sales_projects?.map((p) => (
                   <tr key={`p${p.id}`} className="click-row cw-row-proj" onClick={() => navigate(`/customers/${c.id}/p/${p.id}${g}`)}>
                     <td />
-                    <td><Link to={`/customers/${c.id}/p/${p.id}${g}`} onClick={(e) => e.stopPropagation()} className="row gap-xs"><FolderOpen size={13} className="muted" /> <span className="muted small">{p.code}</span> {p.name}</Link></td>
+                    <td><Link to={`/customers/${c.id}/p/${p.id}${g}`} onClick={(e) => e.stopPropagation()} className="row gap-xs"><FolderOpen size={13} className="muted" /> <span className="muted small">{p.code}</span> <CallName p={p} /></Link></td>
                     <td className="small">{p.product_name ?? <span className="muted">{p.product_type_name}</span>}</td>
                     <td><span className={salesStatusClass(p.status)}>{p.status ?? "Chưa áp dụng quy trình"}</span></td>
                     <td style={{ minWidth: 170 }}><JourneyCell p={p} /></td>
@@ -234,7 +242,7 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
               <tbody>{c.sales_projects.map((p) => (
                 <tr key={p.id} className="click-row" onClick={() => navigate(`/customers/${c.id}/p/${p.id}${g}`)}>
                   <td className="nowrap muted small">{p.code}</td>
-                  <td><Link to={`/customers/${c.id}/p/${p.id}${g}`} onClick={(e) => e.stopPropagation()}><b>{p.name}</b></Link></td>
+                  <td><Link to={`/customers/${c.id}/p/${p.id}${g}`} onClick={(e) => e.stopPropagation()}><b><CallName p={p} /></b></Link></td>
                   <td className="small">{p.product_name ?? <span className="muted">{p.product_type_name}</span>}</td>
                   <td><span className={salesStatusClass(p.status)}>{p.status ?? "Chưa áp dụng quy trình"}</span></td>
                   <td style={{ minWidth: 190 }}><JourneyCell p={p} /></td>
@@ -277,6 +285,7 @@ function ProjectView({ id, pid, archived }: { id: string; pid: string; archived:
               {sp.product_name ?? sp.product_type_name}
               {sp.kd_names && <span>· Sale: {sp.kd_names}</span>}{sp.am_names && <span>· AM: {sp.am_names}</span>}
               {sp.journey_overdue > 0 && <span className="overdue row gap-xs"><AlertTriangle size={12} /> {sp.journey_overdue} bước quá hạn</span>}
+              {sp.call_alert && <span className="overdue row gap-xs"><PhoneCall size={12} /> {callAlertText(sp.call_alert)}</span>}
             </div>
           </div>
         </div>

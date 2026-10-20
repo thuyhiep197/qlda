@@ -701,6 +701,25 @@ const migrations: string[] = [
    ${addRole('Kinh doanh', 'Phòng Kinh doanh (Sale): khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', SALES_ROLE)}
    ${addRole('AM', 'Phòng Kinh doanh (AM): chăm sóc khách hàng, dự án của khách hàng, hành trình bán hàng; xem tiến độ dự án sản xuất', SALES_ROLE)}
    ${addRole('Ban Giám đốc', 'Như Kinh doanh (thêm, sửa trên khách hàng, dự án mình phụ trách) + xem tất cả khách hàng, dự án của khách hàng', BOARD_ROLE)}`,
+  // v23: Lịch gọi điện của dự án của khách hàng — đặt lịch ngày gọi, giao người gọi; đến ngày chưa xác nhận thì nhắc và cảnh báo
+  `CREATE TABLE customer_calls (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+     sales_project_id INTEGER NOT NULL REFERENCES sales_projects(id) ON DELETE CASCADE,
+     call_date TEXT NOT NULL,
+     assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+     note TEXT,
+     -- planned: chờ gọi · done: đã gọi · failed: chưa gọi được
+     status TEXT NOT NULL DEFAULT 'planned',
+     result TEXT,
+     done_at TEXT,
+     done_by INTEGER REFERENCES users(id),
+     pinged_on TEXT,
+     created_by INTEGER REFERENCES users(id),
+     created_at TEXT NOT NULL DEFAULT ${TS},
+     updated_at TEXT
+   );
+   CREATE INDEX idx_customer_calls_sp ON customer_calls(sales_project_id, status, call_date);`,
 ];
 
 export function migrate() {

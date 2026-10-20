@@ -84,3 +84,24 @@ export function overdueDays(due: string | null | undefined, status: string, toda
   if (!due || status === 'done' || due >= today) return 0;
   return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86400_000);
 }
+
+/** Nội dung cảnh báo lịch gọi điện (tooltip trên tên dự án, dòng cảnh báo) */
+export function callAlertText(a: { date: string; late: number; count: number }) {
+  const when = a.late > 0 ? `Quá hạn gọi khách hàng ${a.late} ngày (lịch ${a.date.split('-').reverse().join('/')})` : 'Hôm nay phải gọi khách hàng';
+  return a.count > 1 ? `${when} · ${a.count} lịch chưa xác nhận` : when;
+}
+
+/** Cảnh báo gọi điện của khách hàng: dự án trễ lâu nhất trong các dự án đang có lịch đến ngày */
+export function worstCallAlert<T extends { call_alert?: { date: string; late: number; count: number } | null }>(projects: T[] | undefined) {
+  const alerts = (projects ?? []).map((p) => p.call_alert).filter((a): a is NonNullable<T['call_alert']> => !!a);
+  if (!alerts.length) return null;
+  const worst = alerts.reduce((m, a) => (a.late > m.late ? a : m));
+  return { ...worst, count: alerts.reduce((n, a) => n + a.count, 0), projects: alerts.length };
+}
+
+/** Lịch chờ gọi sớm nhất đã đến ngày (hôm nay hoặc trước) — như server: late = số ngày quá */
+export function callAlert(planned: string[], today: string) {
+  const due = planned.filter((d) => d <= today).sort();
+  if (!due.length) return null;
+  return { date: due[0], late: Math.round((Date.parse(today) - Date.parse(due[0])) / 86400_000), count: due.length };
+}

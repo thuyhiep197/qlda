@@ -1141,3 +1141,10 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 /* Khách hàng / dự án đã lưu trữ */
 .cw-archived { display: flex; align-items: center; gap: 6px; margin: 4px 0; padding: 6px 10px; border-radius: 6px; background: var(--sunken); color: var(--muted); font-size: 13px; }
 .cw-arch { margin: 0 4px 6px; }
+/* Lịch gọi điện của dự án của khách hàng: lịch đến ngày / quá ngày tô đỏ; cảnh báo trên cây, bảng */
+.call-alert { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 6px 10px; border-radius: 6px; background: var(--error-bg); color: var(--danger); font-weight: 600; font-size: 13px; }
+.call-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.call-item.due { background: var(--error-row-bg); box-shadow: inset 3px 0 0 var(--danger); padding-left: 8px; }
+.call-item.past { opacity: .85; }
+.call-flag { color: var(--danger); flex: none; }
+.cw-proj.call-due > .ellipsis, .call-due-name { color: var(--danger); font-weight: 600; }

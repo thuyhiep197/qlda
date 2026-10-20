@@ -13,7 +13,7 @@ import { MAX_DEPTH, refreshCustomer, STEP_STATUS } from './JourneyPane';
 import { PersonChip, UserPickerPopover } from '../../components/UserPicker';
 import { Block, FileList, Props, UploadButton } from './CustomerSide';
 
-/** Loại trao đổi; ghi chú gộp vào Nội bộ (dữ liệu ghi chú cũ hiển thị như Nội bộ) */
+/** Loại trao đổi; ghi chú gộp vào Nội bộ (dữ liệu ghi chú cũ hiển thị như Nội bộ); Gọi điện chỉ để hiện trao đổi cũ — gọi điện nay đặt ở Lịch gọi điện */
 const KIND: Partial<Record<ActivityKind, { label: string; icon: ReactNode }>> = {
   internal: { label: 'Nội bộ / Ghi chú', icon: <Lock size={13} /> },
   call: { label: 'Gọi điện', icon: <Phone size={13} /> },
@@ -53,7 +53,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
           {list.length ? list.map((p) => <PersonChip key={p.id} name={p.full_name} dept={p.dept} />) : <span className="muted">{canEdit ? 'Chọn người…' : '—'}</span>}
         </button>
         {planned && <div className="muted small">Theo quy trình: <span className="unit-chip planned">{planned}</span></div>}
-        {picking === field && <UserPickerPopover value={list.map((p) => p.id)} multi={field === 'supporters'} prefer={planned} onClose={() => setPicking(null)}
+        {picking === field && <UserPickerPopover value={list.map((p) => p.id)} multi={field === 'supporters'} prefer={planned} only={s.member_ids} onClose={() => setPicking(null)}
           onChange={(ids) => patch(field === 'assignee' ? { assignee_id: ids[0] ?? null } : { supporter_ids: ids })} />}
       </div>
     );
@@ -142,7 +142,7 @@ export function Talk({ customerId, activities, target, empty, canAdd, users }: {
       {canAdd && (
         <form className="stack-sm mt" onSubmit={send}>
           <div className="seg seg-sm" role="group" aria-label="Loại trao đổi">
-            {(Object.keys(KIND) as ActivityKind[]).map((k) => <button type="button" key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k]!.icon} {KIND[k]!.label}</button>)}
+            {(Object.keys(KIND) as ActivityKind[]).filter((k) => k !== 'call').map((k) => <button type="button" key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k]!.icon} {KIND[k]!.label}</button>)}
           </div>
           {kind !== 'internal' && <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} aria-label="Ngày làm việc với khách hàng" />}
           {kind === 'internal'

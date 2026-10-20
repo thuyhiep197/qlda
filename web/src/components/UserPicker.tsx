@@ -5,10 +5,10 @@ import { fold } from '../customer-filter';
 
 /**
  * Ô chọn người (một hoặc nhiều) dạng bảng nổi: tìm theo tên, nhóm theo phòng ban;
- * phòng ban gợi ý (VD theo quy trình mẫu: KD, BA+DEV) được đưa lên đầu.
+ * phòng ban gợi ý (VD theo quy trình mẫu: KD, BA+DEV) được đưa lên đầu; only: chỉ cho chọn trong những người này.
  */
-export function UserPickerPopover({ value, multi, prefer, onChange, onClose }: {
-  value: number[]; multi?: boolean; prefer?: string | null; onChange: (ids: number[]) => void; onClose: () => void;
+export function UserPickerPopover({ value, multi, prefer, only, onChange, onClose }: {
+  value: number[]; multi?: boolean; prefer?: string | null; only?: number[]; onChange: (ids: number[]) => void; onClose: () => void;
 }) {
   const { data: users } = useUsersBasic();
   const [q, setQ] = useState('');
@@ -27,7 +27,7 @@ export function UserPickerPopover({ value, multi, prefer, onChange, onClose }: {
     if (!multi) { onChange(sel[0] === id ? [] : [id]); onClose(); return; }
     setSel(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
   };
-  const list = (users ?? []).filter((u) => !q.trim() || fold(`${u.full_name} ${u.username} ${u.department_name ?? ''} ${(u.position_codes ?? []).join(' ')}`).includes(fold(q.trim())));
+  const list = (users ?? []).filter((u) => !only || only.includes(u.id)).filter((u) => !q.trim() || fold(`${u.full_name} ${u.username} ${u.department_name ?? ''} ${(u.position_codes ?? []).join(' ')}`).includes(fold(q.trim())));
   // Người có vị trí theo quy trình (VD KD, BA) lên đầu; sau đó theo thứ tự phòng ban trong sơ đồ tổ chức
   const fits = (u: (typeof list)[number]) => (u.position_codes ?? []).some((c) => preferred.includes(c.toUpperCase()));
   list.sort((a, b) => Number(fits(b)) - Number(fits(a)) || (a.department_order ?? 99) - (b.department_order ?? 99) || a.full_name.localeCompare(b.full_name, 'vi'));
@@ -52,7 +52,7 @@ export function UserPickerPopover({ value, multi, prefer, onChange, onClose }: {
             </div>
           );
         })}
-        {!list.length && <div className="muted small pad">Không tìm thấy</div>}
+        {!list.length && <div className="muted small pad">{only && !q.trim() ? 'Chưa có người tham gia dự án' : 'Không tìm thấy'}</div>}
       </div>
       {multi && <div className="picker-foot"><span className="muted small">Đã chọn {sel.length}</span><div className="spacer" /><button className="btn btn-primary btn-sm" onClick={done}>Xong</button></div>}
     </div>

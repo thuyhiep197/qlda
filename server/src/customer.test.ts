@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanActivity, cleanContact, cleanContacts, cleanCustomer, cleanProduct, cleanSalesProject, cleanTask, customerCode, fold, salesProjectCode, sameName } from './customer';
+import { callAlert, callPingDue, cleanActivity, cleanCall, cleanCallConfirm, cleanContact, cleanContacts, cleanCustomer, cleanProduct, cleanSalesProject, cleanTask, customerCode, fold, salesProjectCode, sameName } from './customer';
 
 test('customer needs an organisation name and starts as a new customer', () => {
   assert.throws(() => cleanCustomer({ name: '   ' }), /Tên cơ quan\/đơn vị/);
@@ -94,4 +94,33 @@ test('customer code comes from the initials of the name, numbered when taken', (
 test('customer project code is the customer code plus the next two-digit number', () => {
   assert.equal(salesProjectCode('SGDH', []), 'SGDH-01');
   assert.equal(salesProjectCode('SGDH', ['SGDH-01', 'SGDH-03', 'BTC-07']), 'SGDH-04');
+});
+
+test('call schedule needs a valid date; confirming needs called / not reached', () => {
+  assert.throws(() => cleanCall({}), /Chọn ngày gọi/);
+  assert.throws(() => cleanCall({ call_date: '2026-13-40' }), /Ngày gọi/);
+  assert.deepEqual(cleanCall({ call_date: '2026-10-21', assignee_id: '', note: ' hỏi lịch demo ' }), { call_date: '2026-10-21', assignee_id: null, note: 'hỏi lịch demo' });
+  assert.throws(() => cleanCallConfirm({}), /Đã gọi hoặc Chưa gọi được/);
+  assert.throws(() => cleanCallConfirm({ status: 'planned' }), /Kết quả/);
+  const v = cleanCallConfirm({ status: 'failed', result: 'Không nghe máy', next: { call_date: '2026-10-23' } });
+  assert.equal(v.status, 'failed');
+  assert.equal(v.next?.call_date, '2026-10-23');
+  assert.equal(cleanCallConfirm({ status: 'done' }).next, null);
+});
+
+test('call alert starts on the call date and counts days late', () => {
+  assert.equal(callAlert([], '2026-10-21'), null);
+  assert.equal(callAlert(['2026-10-22'], '2026-10-21'), null);
+  assert.deepEqual(callAlert(['2026-10-21'], '2026-10-21'), { date: '2026-10-21', late: 0, count: 1 });
+  assert.deepEqual(callAlert(['2026-10-25', '2026-10-18', '2026-10-20'], '2026-10-21'), { date: '2026-10-18', late: 3, count: 2 });
+});
+
+test('call reminder rings the caller once a day from the call date until confirmed', () => {
+  const k = { status: 'planned', call_date: '2026-10-21', assignee_id: 5, pinged_on: null };
+  assert.equal(callPingDue(k, '2026-10-20'), false);
+  assert.equal(callPingDue(k, '2026-10-21'), true);
+  assert.equal(callPingDue({ ...k, pinged_on: '2026-10-21' }, '2026-10-21'), false);
+  assert.equal(callPingDue({ ...k, pinged_on: '2026-10-21' }, '2026-10-22'), true);
+  assert.equal(callPingDue({ ...k, status: 'done' }, '2026-10-22'), false);
+  assert.equal(callPingDue({ ...k, assignee_id: null }, '2026-10-22'), false);
 });

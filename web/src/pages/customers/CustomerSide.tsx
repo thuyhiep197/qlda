@@ -136,7 +136,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
               : <div key={p.id} className="cw-project disabled" data-tip="Bạn chưa là thành viên dự án này">{body}</div>;
           })}
       </Block>
-      <Tasks customerId={c.id} tasks={c.tasks} showProject production={production} />
+      <Tasks customerId={c.id} tasks={c.tasks} showProject production={production} members={c.member_ids} />
       <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && <UploadButton customerId={c.id} />}>
         <FileList customerId={c.id} files={c.files} showWhere />
       </Block>
@@ -152,8 +152,10 @@ const TASK_STATUS = { todo: 'Chưa bắt đầu', doing: 'Đang thực hiện', 
  * Công việc: của khách hàng (gộp cả việc chung và việc của các dự án, showProject) hoặc của một dự án (projectId).
  * Có production (màn khách hàng): 2 tab Kinh doanh (mặc định) và Dự án (tiến độ; bấm để mở Kế hoạch chi tiết của dự án).
  */
-export function Tasks({ customerId, tasks, projectId, showProject, production }: {
+export function Tasks({ customerId, tasks, projectId, showProject, production, members }: {
   customerId: number; tasks: CustomerTask[]; projectId?: number; showProject?: boolean; production?: CustomerProject[];
+  /** Chỉ giao việc cho người tham gia dự án của khách hàng */
+  members: number[];
 }) {
   const { data: me } = useMe();
   const can = useCan();
@@ -207,7 +209,7 @@ export function Tasks({ customerId, tasks, projectId, showProject, production }:
           {d.title && <div className="row gap-sm">
             <select className="grow" value={d.assignee_id} onChange={(e) => setD({ ...d, assignee_id: e.target.value })} aria-label="Người thực hiện">
               <option value="">Người thực hiện…</option>
-              {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              {users?.filter((u) => members.includes(u.id)).map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
             </select>
             <input type="date" value={d.due_date} onChange={(e) => setD({ ...d, due_date: e.target.value })} aria-label="Hạn" />
             <button className="btn btn-primary btn-sm">Thêm</button>

@@ -75,7 +75,9 @@ export default function NotificationBell() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['notifications'] });
   const openItem = async (n: Notification) => {
     setShow(false);
-    if (n.customer_id) navigate(`/customers/${n.customer_id}${n.link?.startsWith('step:') ? `?step=${n.link.slice(5)}` : ''}`);
+    // Lịch gọi điện (call:<id dự án của khách hàng>) → mở dự án; bước (step:<id>) → mở bước
+    if (n.customer_id && n.link?.startsWith('call:')) navigate(`/customers/${n.customer_id}/p/${n.link.slice(5)}`);
+    else if (n.customer_id) navigate(`/customers/${n.customer_id}${n.link?.startsWith('step:') ? `?step=${n.link.slice(5)}` : ''}`);
     else if (n.issue_key) open(n.issue_key);
     if (!n.read_at) { await api.post(`/notifications/${n.id}/read`); refresh(); }
   };

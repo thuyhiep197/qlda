@@ -4,7 +4,7 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
-import { checkOwners, loadCustomer, managesCustomer, projectOf, requireManage, seesAllCustomers, staffOfUser, visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
+import { checkOwners, customerMembers, loadCustomer, managesCustomer, projectOf, requireManage, seesAllCustomers, staffOfUser, visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import { listIssues } from '../issues.ts';
 import { autoProjectStatuses } from '../phases.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -145,6 +145,8 @@ r.get('/:id', (req, res) => {
   const perms = userPermissions(req.user);
   // Thêm / sửa / lưu trữ chỉ trên khách hàng mình liên quan (xem tất cả chỉ để xem)
   c.can_manage = managesCustomer(req.user, c.id);
+  // Người tham gia (gộp mọi dự án) — chỉ những người này được giao việc chung của khách hàng
+  c.member_ids = [...customerMembers(c.id, null)];
   const spIds = visibleProjectIds(req.user, c.id);
   syncJourneys([...spIds]);
   const owners = ownersOf(c.id);

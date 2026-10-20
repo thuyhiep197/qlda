@@ -14,8 +14,9 @@ import { ProductModal } from '../AdminProducts';
 import { CreateProjectModal } from '../Projects';
 import { Block, FileList, Props, Tasks, UploadButton } from './CustomerSide';
 import { Talk } from './StepPanel';
+import CallSchedule from './CallSchedule';
 
-/** Cột phải của màn dự án (khi chưa chọn bước): thông tin dự án, dự án sản xuất đã gắn, công việc, tài liệu, trao đổi của dự án */
+/** Cột phải của màn dự án (khi chưa chọn bước): thông tin dự án, lịch gọi điện, dự án sản xuất đã gắn, công việc, tài liệu, trao đổi của dự án */
 export default function SalesProjectSide({ customer, sp }: { customer: CustomerDetail; sp: SalesProjectDetail }) {
   const can = useCan();
   const { data: users } = useUsersBasic();
@@ -48,6 +49,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
           ['Ghi chú', sp.note && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.note}</span>],
         ]} />
       </Block>
+      {can('ctalk.view') && <CallSchedule customerId={customer.id} projectId={sp.id} calls={sp.calls} members={sp.member_ids} />}
       <Block title="Liên kết tiến độ sản xuất">
         {!pr ? <p className="muted small">Chưa gắn. Phía phân hệ Dự án chọn dự án này của khách hàng khi tạo / sửa dự án.</p> : (() => {
           const body = <>
@@ -63,7 +65,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
         })()}
         {pr && <p className="muted small" style={{ margin: '6px 0 0' }}>Bước ở phần III, IV trùng tên với đầu việc của dự án sản xuất tự cập nhật trạng thái và hạn.</p>}
       </Block>
-      <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} />
+      <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} members={sp.member_ids} />
       <Block title={`Tài liệu (${sp.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} projectId={sp.id} />}>
         <FileList customerId={customer.id} files={sp.files} showWhere />
       </Block>
