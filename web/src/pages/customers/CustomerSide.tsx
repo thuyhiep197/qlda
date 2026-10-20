@@ -4,7 +4,7 @@ import { Archive, ArchiveRestore, ChevronDown, ChevronRight, Download, FileText,
 import { api, refreshAll } from '../../api';
 import { useMe, useUsersBasic } from '../../hooks';
 import { useCan } from './manage';
-import type { CustomerDetail, CustomerFile, CustomerProject, CustomerTask } from '../../types';
+import type { CustomerDetail, CustomerFile, CustomerTask } from '../../types';
 import { CUSTOMER_STATUSES, overdueDays } from '../../customer-filter';
 import { colorOf, fmtDate, fmtDateTime, fmtSize, lozengeOf, PROJECT_STATUSES, today } from '../../util';
 import { CustomerModal } from '../Customers';
@@ -136,7 +136,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
               : <div key={p.id} className="cw-project disabled" data-tip="Bạn chưa là thành viên dự án này">{body}</div>;
           })}
       </Block>
-      <Tasks customerId={c.id} tasks={c.tasks} showProject production={production} members={c.member_ids} />
+      <Tasks customerId={c.id} tasks={c.tasks} showProject members={c.member_ids} />
       <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && <UploadButton customerId={c.id} />}>
         <FileList customerId={c.id} files={c.files} showWhere />
       </Block>
@@ -150,10 +150,9 @@ const TASK_STATUS = { todo: 'Chưa bắt đầu', doing: 'Đang thực hiện', 
 
 /**
  * Công việc: của khách hàng (gộp cả việc chung và việc của các dự án, showProject) hoặc của một dự án (projectId).
- * Có production (màn khách hàng): 2 tab Kinh doanh (mặc định) và Dự án (tiến độ; bấm để mở Kế hoạch chi tiết của dự án).
  */
-export function Tasks({ customerId, tasks, projectId, showProject, production, members }: {
-  customerId: number; tasks: CustomerTask[]; projectId?: number; showProject?: boolean; production?: CustomerProject[];
+export function Tasks({ customerId, tasks, projectId, showProject, members }: {
+  customerId: number; tasks: CustomerTask[]; projectId?: number; showProject?: boolean;
   /** Chỉ giao việc cho người tham gia dự án của khách hàng */
   members: number[];
 }) {
@@ -161,7 +160,6 @@ export function Tasks({ customerId, tasks, projectId, showProject, production, m
   const can = useCan();
   const { data: users } = useUsersBasic();
   const canAdd = can('ctask.create'), canEdit = can('ctask.edit'), canDeleteAll = can('ctask.delete');
-  const [sub, setSub] = useState<'sales' | 'projects'>('sales');
   const [showDone, setShowDone] = useState(false);
   const [d, setD] = useState({ title: '', assignee_id: '', due_date: '' });
   const now = today();
@@ -186,22 +184,6 @@ export function Tasks({ customerId, tasks, projectId, showProject, production, m
 
   return (
     <Block title="Công việc">
-      {production && <div className="seg seg-sm mb" role="tablist">
-        <button role="tab" aria-selected={sub === 'sales'} className={sub === 'sales' ? 'on' : ''} onClick={() => setSub('sales')}>Kinh doanh ({open.length})</button>
-        <button role="tab" aria-selected={sub === 'projects'} className={sub === 'projects' ? 'on' : ''} onClick={() => setSub('projects')}>Dự án ({production.length})</button>
-      </div>}
-      {production && sub === 'projects' ? (!production.length ? <p className="muted small">Chưa có dự án. Gắn dự án với khách hàng ở Cài đặt dự án → Thông tin chung.</p> : production.map((p) => {
-        const pct = p.total_issues ? Math.round((p.done_issues / p.total_issues) * 100) : 0;
-        const st = p.project_status || p.status_auto;
-        const body = <>
-          <div className="row gap-sm"><span className="proj-dot" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span><b className="grow ellipsis">{p.name}</b>
-            {st && <span className={lozengeOf(PROJECT_STATUSES, st)}>{st}</span>}</div>
-          <div className="cust-bar"><div style={{ width: `${pct}%` }} /></div>
-          <div className="muted small">{p.done_issues}/{p.total_issues} việc · {pct}%{p.overdue_issues ? <span className="overdue"> · {p.overdue_issues} quá hạn</span> : null}
-            {p.accessible ? ' · Mở Kế hoạch chi tiết →' : ' · Bạn chưa là thành viên dự án'}</div>
-        </>;
-        return p.accessible ? <Link key={p.id} to={`/p/${p.key}/plan`} className="cw-project">{body}</Link> : <div key={p.id} className="cw-project">{body}</div>;
-      })) : <>
       {canAdd && (
         <form className="stack-sm mb" onSubmit={add}>
           <input required placeholder={projectId ? '+ Thêm việc của dự án, VD: Gửi báo giá…' : '+ Thêm việc chung của khách hàng…'} value={d.title}
@@ -234,7 +216,6 @@ export function Tasks({ customerId, tasks, projectId, showProject, production, m
         );
       })}
       {tasks.length > open.length && <a className="small" onClick={() => setShowDone(!showDone)}>{showDone ? 'Ẩn việc đã xong' : `Xem cả ${tasks.length - open.length} việc đã xong`}</a>}
-      </>}
     </Block>
   );
 }
