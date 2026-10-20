@@ -130,7 +130,7 @@ export const staffOfUser = (userId: number) => get<{ id: number; full_name: stri
 
 /**
  * Người tham gia dự án của khách hàng — chỉ những người này được giao việc, lịch gọi, thực hiện / phối hợp bước:
- * Sale / AM của khách hàng, Sale / AM và BA/PM của dự án, người thực hiện / phối hợp bước của dự án,
+ * Sale / AM của khách hàng, Sale / AM, BA/PM, Dev, Tester của dự án, người thực hiện / phối hợp bước của dự án,
  * cùng người được xem tất cả khách hàng. salesProjectId = null (việc chung của khách hàng): gộp mọi dự án của khách hàng.
  */
 export function customerMembers(customerId: number, salesProjectId: number | null): Set<number> {
@@ -140,9 +140,10 @@ export function customerMembers(customerId: number, salesProjectId: number | nul
   const projects = salesProjectId ? [salesProjectId] : all<{ id: number }>('SELECT id FROM sales_projects WHERE customer_id = ?', customerId).map((p) => p.id);
   for (const p of projects) {
     add(all('SELECT s.user_id FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE o.sales_project_id = ?', p));
-    // BA/PM lưu họ tên (chọn từ Danh mục nhân sự), cách nhau dấu phẩy
-    const ba = get<{ ba: string | null }>('SELECT ba FROM sales_projects WHERE id = ?', p)?.ba;
-    for (const name of (ba ?? '').split(',').map((x) => x.trim()).filter(Boolean)) add(all('SELECT user_id FROM staff WHERE full_name = ?', name));
+    // BA/PM, Dev, Tester lưu họ tên (chọn từ Danh mục nhân sự), cách nhau dấu phẩy
+    const people = get<{ ba: string | null; dev: string | null; tester: string | null }>('SELECT ba, dev, tester FROM sales_projects WHERE id = ?', p);
+    const names = [people?.ba, people?.dev, people?.tester].join(',').split(',').map((x) => x.trim()).filter(Boolean);
+    for (const name of names) add(all('SELECT user_id FROM staff WHERE full_name = ?', name));
     add(all('SELECT assignee_id AS user_id FROM journey_steps WHERE sales_project_id = ?', p));
     add(all('SELECT ss.user_id FROM journey_step_supporters ss JOIN journey_steps j ON j.id = ss.step_id WHERE j.sales_project_id = ?', p));
   }
@@ -158,6 +159,6 @@ export function requireMembers(customerId: number, salesProjectId: number | null
   if (!added.length) return;
   const members = customerMembers(customerId, salesProjectId);
   if (added.some((id) => !members.has(id))) {
-    throw badRequest('Chỉ giao được cho người đang tham gia dự án của khách hàng (Sale, AM, BA/PM, người thực hiện / phối hợp bước) hoặc người được xem tất cả khách hàng');
+    throw badRequest('Chỉ giao được cho người đang tham gia dự án của khách hàng (Sale, AM, BA/PM, Dev, Tester, người thực hiện / phối hợp bước) hoặc người được xem tất cả khách hàng');
   }
 }

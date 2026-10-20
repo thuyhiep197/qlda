@@ -390,8 +390,10 @@ export interface SalesProject {
   product_type_id: number | null;
   product_id: number | null;
   product_description: string | null;
-  /** BA/PM: họ tên chọn từ Danh mục nhân sự, cách nhau dấu phẩy */
+  /** BA/PM, Dev, Tester: họ tên chọn từ Danh mục nhân sự, cách nhau dấu phẩy */
   ba: string | null;
+  dev: string | null;
+  tester: string | null;
   note: string | null;
   project_id: number | null;
   created_at: string;

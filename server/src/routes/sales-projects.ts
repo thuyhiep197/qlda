@@ -105,8 +105,8 @@ r.post('/:id/projects', (req, res) => {
     if (!get<{ code: string | null }>('SELECT code FROM customers WHERE id = ?', c.id)?.code) assignCustomerCodes();
     const cc = get<{ code: string }>('SELECT code FROM customers WHERE id = ?', c.id)!.code;
     const code = salesProjectCode(cc, all<{ code: string }>('SELECT code FROM sales_projects WHERE code LIKE ?', `${cc}-%`).map((x) => x.code));
-    const { id } = run(`INSERT INTO sales_projects(customer_id, code, name, product_type_id, product_id, product_description, ba, note, created_by)
-      VALUES (?,?,?,?,?,?,?,?,?)`, c.id, code, v.name, v.product_type_id, v.product_id, v.product_description, v.ba, v.note, req.user.id);
+    const { id } = run(`INSERT INTO sales_projects(customer_id, code, name, product_type_id, product_id, product_description, ba, dev, tester, note, created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`, c.id, code, v.name, v.product_type_id, v.product_id, v.product_description, v.ba, v.dev, v.tester, v.note, req.user.id);
     saveOwners(id, v.kd_ids, v.am_ids);
     return id;
   });
@@ -156,8 +156,8 @@ r.patch('/:id/projects/:pid', (req, res) => {
   const owners = all<{ staff_id: number; role: string }>('SELECT staff_id, role FROM sales_project_owners WHERE sales_project_id = ?', sp.id);
   const v = validate({ ...sp, kd_ids: owners.filter((o) => o.role === 'kd').map((o) => o.staff_id), am_ids: owners.filter((o) => o.role === 'am').map((o) => o.staff_id), ...req.body });
   tx(() => {
-    run(`UPDATE sales_projects SET name = ?, product_type_id = ?, product_id = ?, product_description = ?, ba = ?, note = ?, updated_at = ? WHERE id = ?`,
-      v.name, v.product_type_id, v.product_id, v.product_description, v.ba, v.note, now(), sp.id);
+    run(`UPDATE sales_projects SET name = ?, product_type_id = ?, product_id = ?, product_description = ?, ba = ?, dev = ?, tester = ?, note = ?, updated_at = ? WHERE id = ?`,
+      v.name, v.product_type_id, v.product_id, v.product_description, v.ba, v.dev, v.tester, v.note, now(), sp.id);
     saveOwners(sp.id, v.kd_ids, v.am_ids);
   });
   audit(req, 'customer_updated', { target: c.name, detail: `Sửa dự án ${sp.code} ${v.name}` });

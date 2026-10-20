@@ -719,7 +719,10 @@ const migrations: string[] = [
      created_at TEXT NOT NULL DEFAULT ${TS},
      updated_at TEXT
    );
-   CREATE INDEX idx_customer_calls_sp ON customer_calls(sales_project_id, status, call_date);`,
+   CREATE INDEX idx_customer_calls_sp ON customer_calls(sales_project_id, status, call_date);
+   -- Dev, Tester của dự án của khách hàng: họ tên chọn từ Danh mục nhân sự, cách nhau dấu phẩy (như BA/PM)
+   ALTER TABLE sales_projects ADD COLUMN dev TEXT;
+   ALTER TABLE sales_projects ADD COLUMN tester TEXT;`,
 ];
 
 export function migrate() {

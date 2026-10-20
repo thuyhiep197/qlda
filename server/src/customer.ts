@@ -60,6 +60,8 @@ export function cleanSalesProject(b: any) {
     name, product_type_id, product_id,
     product_description: longText(b.product_description, 4000),
     ba: text(b.ba, 500),
+    dev: text(b.dev, 500),
+    tester: text(b.tester, 500),
     note: longText(b.note, 4000),
     kd_ids: idList(b.kd_ids),
     am_ids: idList(b.am_ids),

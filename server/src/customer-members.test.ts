@@ -18,9 +18,11 @@ const user = (username: string, role?: string) => {
 };
 const staff = (name: string, userId: number, positions: string) => run('INSERT INTO staff(full_name, positions, user_id) VALUES (?, ?, ?)', name, positions, userId).id;
 
-const sale = user('sale'), am = user('am'), ba = user('ba'), doer = user('doer'), helper = user('helper'), other = user('other'), boss = user('boss', 'Ban Giám đốc');
+const sale = user('sale'), am = user('am'), ba = user('ba'), dev = user('dev'), tester = user('tester'), doer = user('doer'), helper = user('helper'), other = user('other'), boss = user('boss', 'Ban Giám đốc');
 const saleStaff = staff('Sale A', sale, 'kd'), amStaff = staff('AM B', am, 'am');
 staff('BA C', ba, 'ba_pm');
+staff('Dev D', dev, 'dev');
+staff('Tester E', tester, 'tester');
 const cust = run("INSERT INTO customers(name) VALUES ('Sở X')").id;
 const p1 = run("INSERT INTO sales_projects(customer_id, code, name, ba) VALUES (?, 'SX-01', 'Dự án 1', 'BA C')", cust).id;
 const p2 = run("INSERT INTO sales_projects(customer_id, code, name) VALUES (?, 'SX-02', 'Dự án 2')", cust).id;
@@ -29,13 +31,15 @@ run("INSERT INTO customer_owners(customer_id, staff_id, role) VALUES (?, ?, 'am'
 const step = run("INSERT INTO journey_steps(customer_id, sales_project_id, position, depth, title, assignee_id) VALUES (?, ?, 10, 0, 'Bước', ?)", cust, p2, doer).id;
 run('INSERT INTO journey_step_supporters(step_id, user_id) VALUES (?, ?)', step, helper);
 
-test('project members: Sale/AM of customer and project, BA/PM, step performers/supporters, people who see all customers', () => {
+run("UPDATE sales_projects SET dev = 'Dev D', tester = 'Tester E' WHERE id = ?", p1);
+
+test('project members: Sale/AM of customer and project, BA/PM, Dev, Tester, step performers/supporters, people who see all customers', () => {
   const m1 = customerMembers(cust, p1);
-  for (const id of [sale, am, ba, boss]) assert.ok(m1.has(id), `p1 has ${id}`);
+  for (const id of [sale, am, ba, dev, tester, boss]) assert.ok(m1.has(id), `p1 has ${id}`);
   for (const id of [doer, helper, other]) assert.ok(!m1.has(id), `p1 lacks ${id}`);
   const m2 = customerMembers(cust, p2);
   for (const id of [am, doer, helper, boss]) assert.ok(m2.has(id));
-  for (const id of [sale, ba, other]) assert.ok(!m2.has(id));
+  for (const id of [sale, ba, dev, tester, other]) assert.ok(!m2.has(id));
   // Việc chung của khách hàng: gộp mọi dự án
   const all = customerMembers(cust, null);
   for (const id of [sale, am, ba, doer, helper, boss]) assert.ok(all.has(id));

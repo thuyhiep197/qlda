@@ -74,6 +74,9 @@ test('fold strips Vietnamese accents for search', () => {
 test('a customer project needs a name and keeps product, KD, AM, BA/PM and note', () => {
   assert.throws(() => cleanSalesProject({ name: ' ' }), /Tên dự án/);
   assert.throws(() => cleanSalesProject({ name: 'A', product_id: 'x' }), /Sản phẩm/);
+  const people = cleanSalesProject({ name: 'A', dev: ' Lưu Văn Đông ', tester: '' });
+  assert.equal(people.dev, 'Lưu Văn Đông');
+  assert.equal(people.tester, null);
   const p = cleanSalesProject({ name: '  Phần mềm  QL chợ ', product_type_id: '2', product_id: 5, kd_ids: [3, '3', 4, 0], am_ids: [7], ba: ' Nguyễn A, Trần B ', note: ' ghi chú ' });
   assert.equal(p.name, 'Phần mềm QL chợ');
   assert.equal(p.product_type_id, 2);

@@ -43,7 +43,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
           ['Mã dự án', sp.code],
           ['Tình trạng', <span className="nowrap"><span className={salesStatusClass(sp.status)}>{sp.status ?? 'Chưa áp dụng quy trình'}</span> <span className="muted small">⚙ theo hành trình</span></span>],
           ['Khách hàng', customer.name],
-          ['Sale', sp.kd_names], ['AM', sp.am_names], ['BA/PM', sp.ba],
+          ['Sale', sp.kd_names], ['AM', sp.am_names], ['BA/PM', sp.ba], ['Dev', sp.dev], ['Tester', sp.tester],
           ['Loại sản phẩm', sp.product_type_name], ['Sản phẩm', sp.product_name],
           ['Mô tả sản phẩm', sp.product_description && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.product_description}</span>],
           ['Ghi chú', sp.note && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.note}</span>],
@@ -76,7 +76,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
 }
 
 /**
- * Thêm / sửa dự án của khách hàng — như form Tạo dự án của phân hệ Dự án nhưng không có Dev, Tester; Trưởng dự án → Kinh doanh;
+ * Thêm / sửa dự án của khách hàng — như form Tạo dự án của phân hệ Dự án; Trưởng dự án → Sale;
  * mã dự án tự sinh (mã khách hàng + số); Kinh doanh, AM điền sẵn theo khách hàng; tình trạng tự động theo hành trình.
  */
 export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer: CustomerDetail; sp?: SalesProjectDetail; onClose: () => void; onSaved?: (id: number) => void }) {
@@ -84,7 +84,7 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
   const { data: products } = useProducts();
   const [d, setD] = useState({
     name: sp?.name ?? '', product_type_id: sp?.product_type_id ? String(sp.product_type_id) : '', product_id: sp?.product_id ? String(sp.product_id) : '',
-    product_description: sp?.product_description ?? '', ba: sp?.ba ?? '', note: sp?.note ?? '',
+    product_description: sp?.product_description ?? '', ba: sp?.ba ?? '', dev: sp?.dev ?? '', tester: sp?.tester ?? '', note: sp?.note ?? '',
   });
   const [kd, setKd] = useState<number[]>(sp?.kd_ids ?? customer.kd_ids);
   const [am, setAm] = useState<number[]>(sp?.am_ids ?? customer.am_ids);
@@ -143,6 +143,12 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
         </div>
         <div className="field"><span>BA/PM <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
           <StaffPicker position="ba_pm" value={d.ba} onChange={(v) => setD({ ...d, ba: v })} /></div>
+        <div className="form-grid">
+          <div className="field"><span>Dev <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
+            <StaffPicker position="dev" value={d.dev} onChange={(v) => setD({ ...d, dev: v })} /></div>
+          <div className="field"><span>Tester <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
+            <StaffPicker position="tester" value={d.tester} onChange={(v) => setD({ ...d, tester: v })} /></div>
+        </div>
         <div className="form-grid">
           <label className="field"><span>Loại sản phẩm</span>
             <select value={d.product_type_id} onChange={(e) => pickType(e.target.value)}>
