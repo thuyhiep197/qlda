@@ -48,7 +48,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
           ['Ghi chú', sp.note && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.note}</span>],
         ]} />
       </Block>
-      <Block title="Dự án sản xuất (phân hệ Dự án)">
+      <Block title="Liên kết tiến độ sản xuất">
         {!pr ? <p className="muted small">Chưa gắn. Phía phân hệ Dự án chọn dự án này của khách hàng khi tạo / sửa dự án.</p> : (() => {
           const body = <>
             <div className="row gap-sm" style={{ minWidth: 0 }}>
