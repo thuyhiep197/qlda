@@ -117,7 +117,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
           </div>
         ))}
       </Block>
-      <Block title={`Thông tin dự án (${production.length})`}>
+      <Block title={`Liên kết tiến độ sản xuất (${production.length})`}>
         {!production.length ? <p className="muted small">Chưa có dự án nào gắn với khách hàng này</p>
           : production.map((p) => {
             const st = p.project_status || p.status_auto;
