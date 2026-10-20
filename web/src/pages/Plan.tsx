@@ -438,7 +438,8 @@ export default function Plan() {
               ? <button className="icon-btn" onClick={() => toggle(r)} aria-label="Mở/đóng">{isOpen(r) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
               : <span className="plan-spacer" />}
             {i.id > 0 && <TypeIcon type={i.type} subtype={i.subtype} size={15} />}
-            <a className="ellipsis" onClick={() => i.id > 0 && open(i.key)} data-tip={i.summary}>
+            {/* Việc đã hoàn thành: gạch ngang tên như ở Kanban, bảng sprint, danh sách issue */}
+            <a className={`ellipsis ${i.status_category === 'done' ? 'plan-done' : ''}`} onClick={() => i.id > 0 && open(i.key)} data-tip={i.summary}>
               {i.key && <span className="issue-key">{i.key}</span>} <FlagMark flagged={i.flagged} /> {i.summary}
             </a>
             {r.children.length > 0 && <span className="muted small nowrap">({r.children.length})</span>}
