@@ -752,7 +752,7 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .plan-row.lvl-2 .plan-name a { color: var(--text); font-weight: 400; }
 .plan-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .plan-name a { color: var(--text); cursor: pointer; min-width: 0; }
-.plan-name a.plan-done, .plan-row.lvl-2 .plan-name a.plan-done { text-decoration: line-through; color: var(--muted); }
+.plan-name a.plan-name-done, .plan-row.lvl-2 .plan-name a.plan-name-done { text-decoration: line-through; color: var(--muted); }
 .plan-spacer { width: 28px; flex-shrink: 0; }
 .plan-pct { display: flex; align-items: center; gap: 6px; min-width: 90px; }
 .plan-pct .plan-bar { flex: 1; margin: 0; height: 8px; }
