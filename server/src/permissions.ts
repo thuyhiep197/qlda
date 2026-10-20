@@ -30,7 +30,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   // ---- Phân hệ Khách hàng ----
   {
     key: 'crm', label: 'Module Khách hàng', subsystem: 'customer', features: [
-      { key: 'customer', label: 'Thông tin khách hàng', hint: 'Cơ quan/đơn vị, đầu mối, Kinh doanh phụ trách, AM hỗ trợ', actions: ['view', 'create', 'edit', 'delete'],
+      { key: 'customer', label: 'Thông tin khách hàng', hint: 'Cơ quan/đơn vị, đầu mối, Sale, AM', actions: ['view', 'create', 'edit', 'delete'],
         actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ / mở lại khách hàng (ẩn khỏi danh sách)' } },
       { key: 'customer_all', label: 'Phạm vi: Tất cả khách hàng', hint: 'Tích thì các quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án của khách hàng; không tích thì chỉ khách hàng, dự án mình phụ trách, thực hiện hoặc phối hợp', actions: ['view'] },
     ],

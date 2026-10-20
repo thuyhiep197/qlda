@@ -199,7 +199,7 @@ r.patch('/:id', (req, res) => {
   checkOwners(v.am_ids, 'am');
   const mine = staffOfUser(req.user.id);
   if (!seesAllCustomers(req.user) && mine && owners.some((o) => o.id === mine.id) && !v.kd_ids.includes(mine.id) && !v.am_ids.includes(mine.id)) {
-    throw badRequest('Bạn không thể bỏ chính mình khỏi Kinh doanh phụ trách / AM hỗ trợ (sẽ không còn xem được khách hàng này)');
+    throw badRequest('Bạn không thể bỏ chính mình khỏi Sale / AM của khách hàng (sẽ không còn xem được khách hàng này)');
   }
   const contacts = req.body?.contacts !== undefined ? check(() => cleanContacts(req.body.contacts)) : null;
   if (nameTaken(v.name, cur.id)) throw badRequest('Đã có khách hàng (cơ quan/đơn vị) này');

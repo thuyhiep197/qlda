@@ -42,7 +42,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
           ['Mã dự án', sp.code],
           ['Tình trạng', <span className="nowrap"><span className={salesStatusClass(sp.status)}>{sp.status ?? 'Chưa áp dụng quy trình'}</span> <span className="muted small">⚙ theo hành trình</span></span>],
           ['Khách hàng', customer.name],
-          ['Kinh doanh', sp.kd_names], ['AM', sp.am_names], ['BA/PM', sp.ba],
+          ['Sale', sp.kd_names], ['AM', sp.am_names], ['BA/PM', sp.ba],
           ['Loại sản phẩm', sp.product_type_name], ['Sản phẩm', sp.product_name],
           ['Mô tả sản phẩm', sp.product_description && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.product_description}</span>],
           ['Ghi chú', sp.note && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.note}</span>],
@@ -136,7 +136,7 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
           <label className="field"><span>Khách hàng</span><input value={customer.name} disabled /></label>
         </div>
         <div className="form-grid">
-          <div className="field"><span>Kinh doanh <small className="muted">(nhân sự Sale hoặc BGĐ)</small></span><OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
+          <div className="field"><span>Sale <small className="muted">(nhân sự Sale hoặc BGĐ)</small></span><OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
           <div className="field"><span>AM <small className="muted">(nhân sự AM)</small></span><OwnerPicker position="am" value={am} onChange={setAm} /></div>
         </div>
         <div className="field"><span>BA/PM <small className="muted">(chọn từ Danh mục nhân sự)</small></span>

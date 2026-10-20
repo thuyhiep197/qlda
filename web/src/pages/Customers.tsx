@@ -108,9 +108,9 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
             </select></label>
         </div>
         <div className="form-grid">
-          <div className="field"><span>Kinh doanh phụ trách <small className="muted">(nhân sự Sale hoặc BGĐ)</small></span>
+          <div className="field"><span>Sale <small className="muted">(nhân sự Sale hoặc BGĐ)</small></span>
             <OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
-          <div className="field"><span>AM hỗ trợ <small className="muted">(nhân sự AM)</small></span>
+          <div className="field"><span>AM <small className="muted">(nhân sự AM)</small></span>
             <OwnerPicker position="am" value={am} onChange={setAm} /></div>
         </div>
         {!customer && (
@@ -138,7 +138,7 @@ export function OwnerPicker({ position, value, onChange }: { position: 'kd' | 'a
         <span key={id} className="chip">{name(id)}
           <button type="button" aria-label={`Bỏ ${name(id)}`} onClick={() => onChange(value.filter((x) => x !== id))}><X size={12} /></button></span>
       ))}
-      <select value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label={position === 'kd' ? 'Thêm Kinh doanh' : 'Thêm AM'}>
+      <select value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label={position === 'kd' ? 'Thêm Sale' : 'Thêm AM'}>
         <option value="">+ Thêm…</option>
         {pool.filter((x) => !value.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{x.full_name}{x.user_id ? '' : ' (chưa gắn tài khoản)'}</option>)}
       </select>

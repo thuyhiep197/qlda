@@ -108,7 +108,7 @@ export function loadSalesProjectOf(user: AuthUser, customerId: number, id: unkno
 /** Kinh doanh phụ trách phải là nhân sự Sale (kd) hoặc Ban Giám đốc (bgd), AM hỗ trợ phải là nhân sự AM (am) — khách hàng và dự án của khách hàng */
 export const OWNER_POSITIONS = { kd: ['kd', 'bgd'], am: ['am'] } as const;
 export function checkOwners(ids: number[], role: 'kd' | 'am') {
-  const label = role === 'kd' ? 'Kinh doanh phụ trách' : 'AM hỗ trợ';
+  const label = role === 'kd' ? 'Sale' : 'AM';
   for (const id of ids) {
     const st = get<{ positions: string }>('SELECT positions FROM staff WHERE id = ?', id);
     if (!st) throw badRequest(`${label} không có trong Danh mục nhân sự`);

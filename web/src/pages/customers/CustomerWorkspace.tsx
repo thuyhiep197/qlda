@@ -143,7 +143,7 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
         {!total && <p className="muted small">Bạn chỉ thấy khách hàng mình phụ trách hoặc có việc được giao.</p>}</Empty> : (
         <div className="cw-scroll table-wrap">
           <table className="table cw-table">
-            <thead><tr><th className="num">STT</th><th>Khách hàng / Dự án</th><th>Sản phẩm</th><th>Tình trạng</th><th>Hành trình</th><th>Kinh doanh</th><th>AM</th><th>Sản xuất</th><th>Đầu mối</th><th>Làm việc gần nhất</th></tr></thead>
+            <thead><tr><th className="num">STT</th><th>Khách hàng / Dự án</th><th>Sản phẩm</th><th>Tình trạng</th><th>Hành trình</th><th>Sale</th><th>AM</th><th>Sản xuất</th><th>Đầu mối</th><th>Làm việc gần nhất</th></tr></thead>
             <tbody>{list.map((c, i) => (
               <Fragment key={c.id}>
                 <tr className="click-row cw-row-cust" onClick={() => navigate(`/customers/${c.id}${g}`)}>
@@ -215,7 +215,7 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
             <div className="row gap-sm small muted" style={{ flexWrap: 'wrap' }}>
               <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>
               {[c.ward_name, c.province_name].filter(Boolean).join(', ')}
-              {c.kd_names && <span>· Kinh doanh: {c.kd_names}</span>}{c.am_names && <span>· AM: {c.am_names}</span>}
+              {c.kd_names && <span>· Sale: {c.kd_names}</span>}{c.am_names && <span>· AM: {c.am_names}</span>}
             </div>
           </div>
           {canAddProject && <button className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> Thêm dự án</button>}
@@ -230,7 +230,7 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
         ) : (
           <div className="cw-scroll table-wrap">
             <table className="table cw-table">
-              <thead><tr><th>Mã</th><th>Tên dự án</th><th>Sản phẩm</th><th>Tình trạng</th><th>Hành trình</th><th>Kinh doanh</th><th>AM</th><th>Việc đang mở</th><th>Sản xuất</th></tr></thead>
+              <thead><tr><th>Mã</th><th>Tên dự án</th><th>Sản phẩm</th><th>Tình trạng</th><th>Hành trình</th><th>Sale</th><th>AM</th><th>Việc đang mở</th><th>Sản xuất</th></tr></thead>
               <tbody>{c.sales_projects.map((p) => (
                 <tr key={p.id} className="click-row" onClick={() => navigate(`/customers/${c.id}/p/${p.id}${g}`)}>
                   <td className="nowrap muted small">{p.code}</td>
@@ -275,7 +275,7 @@ function ProjectView({ id, pid, archived }: { id: string; pid: string; archived:
             <div className="row gap-sm small muted" style={{ flexWrap: 'wrap' }}>
               <span className="muted">{sp.code}</span> <span className={salesStatusClass(sp.status)}>{sp.status ?? "Chưa áp dụng quy trình"}</span>
               {sp.product_name ?? sp.product_type_name}
-              {sp.kd_names && <span>· Kinh doanh: {sp.kd_names}</span>}{sp.am_names && <span>· AM: {sp.am_names}</span>}
+              {sp.kd_names && <span>· Sale: {sp.kd_names}</span>}{sp.am_names && <span>· AM: {sp.am_names}</span>}
               {sp.journey_overdue > 0 && <span className="overdue row gap-xs"><AlertTriangle size={12} /> {sp.journey_overdue} bước quá hạn</span>}
             </div>
           </div>

@@ -57,7 +57,7 @@ export default function ProjectInfo({ onEdit }: { onEdit?: () => void }) {
                   ['Cơ quan/đơn vị', <b>{c.name}</b>],
                   ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
                   ['Địa chỉ', [c.ward_name, c.province_name].filter(Boolean).join(', ')],
-                  ['Kinh doanh phụ trách', c.kd_names], ['AM hỗ trợ', c.am_names],
+                  ['Sale', c.kd_names], ['AM', c.am_names],
                   ['Dự án của khách hàng', c.sales_project
                     ? (hasPerm(me, 'customer.view')
                       ? <Link to={`/customers/${c.id}/p/${c.sales_project.id}`}>{c.sales_project.code} · {c.sales_project.name}</Link>

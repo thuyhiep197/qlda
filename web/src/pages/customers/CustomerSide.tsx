@@ -104,7 +104,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
           ['Mã khách hàng', c.code],
           ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
           ['Tỉnh thành', c.province_name], ['Phường/Xã', c.ward_name], ['Nguồn', c.source],
-          ['Kinh doanh phụ trách', c.kd_names], ['AM hỗ trợ', c.am_names],
+          ['Sale', c.kd_names], ['AM', c.am_names],
         ]} />
         <div className="prop-label mt">Đầu mối liên hệ</div>
         {!c.contacts.length ? <p className="muted small">Chưa có đầu mối</p> : c.contacts.map((ct) => (
