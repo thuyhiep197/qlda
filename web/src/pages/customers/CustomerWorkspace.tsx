@@ -157,6 +157,7 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
   const [params] = useSearchParams();
   const g = params.get('g') ? `?g=${params.get('g') === 'all' ? 'all' : 'mine'}` : '';
   const projectCount = list.reduce((n, c) => n + (c.sales_projects?.length ?? 0), 0);
+  let stt = 0;
   return (
     <section className="cw-main">
       <div className="cw-toolbar">
@@ -168,12 +169,16 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
         <div className="cw-scroll table-wrap">
           <table className="table cw-table">
             <thead><tr><th className="num">STT</th><th>Khách hàng / Dự án</th><th>Sản phẩm</th><th>Tình trạng</th><th>Hành trình</th><th>Sale</th><th>AM</th><th>Sản xuất</th><th>Đầu mối</th><th>Làm việc gần nhất</th></tr></thead>
-            <tbody>{list.map((c, i) => (
+            {/* Gom theo tỉnh/thành phố (như cây bên trái): dòng tỉnh → khách hàng → dự án; STT đánh liên tục */}
+            <tbody>{byProvince(list.map((c) => ({ customer: c }))).map(({ province, items }) => (
+              <Fragment key={province}>
+                <tr className="cw-row-prov"><td colSpan={10}><MapPin size={13} /> {province} <span className="muted small">· {items.length} khách hàng</span></td></tr>
+                {items.map(({ customer: c }) => { const i = stt++; return (
               <Fragment key={c.id}>
                 <tr className="click-row cw-row-cust" onClick={() => navigate(`/customers/${c.id}${g}`)}>
                   <td className="num muted">{i + 1}</td>
                   <td><Link to={`/customers/${c.id}${g}`} onClick={(e) => e.stopPropagation()}><b>{c.name}</b></Link>
-                    {(c.province_name || c.ward_name) && <div className="muted small">{[c.ward_name, c.province_name].filter(Boolean).join(', ')}</div>}</td>
+                    {c.ward_name && <div className="muted small">{c.ward_name}</div>}</td>
                   <td className="muted small">{c.sales_projects?.length ? `${c.sales_projects.length} dự án` : 'Chưa có dự án'}</td>
                   <td><span className={CUSTOMER_STATUS_CLASS}>{c.status}</span></td>
                   <td />
@@ -196,6 +201,8 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
                     <td /><td />
                   </tr>
                 ))}
+              </Fragment>
+                ); })}
               </Fragment>
             ))}</tbody>
           </table>
