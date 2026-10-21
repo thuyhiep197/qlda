@@ -74,7 +74,6 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'project', label: 'Module Thông tin dự án', subsystem: 'project', features: [
       { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình; không tích Xem tất cả thì chỉ vào dự án mình là thành viên', actions: ['create', 'edit', 'delete', 'view_all'],
         actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ dự án', view_all: 'Vào mọi dự án (không cần là thành viên); các quyền đang có áp dụng trên tất cả' } },
-      { key: 'component', label: 'Mô-đun & BA phụ trách', hint: 'Ai vào được dự án cũng thấy mô-đun; các quyền dưới đây là quản lý mô-đun', actions: ['create', 'edit', 'delete'] },
     ],
   },
   {
@@ -160,7 +159,7 @@ const OLD_MAP: Record<string, string[]> = {
   'issue.create': ['issue.create'], 'issue.edit': ['issue.edit'], 'issue.edit_own': ['issue_own.edit'], 'issue.assign': ['assign.edit'],
   'issue.transition': ['transition.edit', 'worklog.create'], 'issue.delete': ['issue.delete'], 'issue.import': ['issue.import'],
   'sprint.manage': ['sprint.create', 'sprint.edit', 'sprint.delete', 'backlog.edit'],
-  'project.admin': ['project.edit', 'component.create', 'component.edit', 'component.delete', 'worklog.delete'],
+  'project.admin': ['project.edit', 'worklog.delete'],
   'comment.create': ['comment.create'], 'comment.delete_any': ['comment.edit', 'comment.delete'],
   'attachment.create': ['attachment.create'], 'attachment.delete_any': ['attachment.delete'],
 };

@@ -1,35 +1,32 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
-import { useComponents, useMe, hasPerm, can } from '../hooks';
-import type { Category, Component, IssueType, Side, Status } from '../types';
-import { CATEGORY_LABELS, SIDE_LABELS, statusesFor, TYPE_LABELS, typeTip } from '../util';
-import { Avatar, Modal, SideBadge, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
+import { useMe, hasPerm, can } from '../hooks';
+import type { Category, IssueType, Status } from '../types';
+import { CATEGORY_LABELS, statusesFor, TYPE_LABELS, typeTip } from '../util';
+import { Modal, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
 import { useProjectCtx } from './ProjectLayout';
 import { ProjectInfoFields, projectInfoOf } from '../components/ProjectInfoFields';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import ProjectInfo from './ProjectInfo';
 
 /** Tab Thông tin của dự án: thông tin dự án (mọi thành viên xem; trưởng dự án hoặc người có quyền Sửa dự án sửa được),
- *  và các phần cài đặt Mô-đun, Trạng thái & quy trình theo quyền. Thành viên dự án = người ở các vai trò (BA/PM, Dev, Tester, AM). */
+ *  và phần cài đặt Trạng thái & quy trình theo quyền (Mô-đun không còn quản lý ở đây). Thành viên dự án = người ở các vai trò (BA/PM, Dev, Tester, AM). */
 export default function ProjectSettings() {
   const project = useProjectCtx();
   // Quy trình: quyền Sửa dự án; Mô-đun: quyền riêng của Mô-đun; Thông tin: thêm trưởng dự án
   const canProject = can(project.permissions, 'project.edit');
   const canInfo = canProject;
-  const canComp = ['component.create', 'component.edit', 'component.delete'].some((p) => can(project.permissions, p));
-  const [tab, setTab] = useState<'general' | 'components' | 'workflow'>('general');
+  const [tab, setTab] = useState<'general' | 'workflow'>('general');
   const [editing, setEditing] = useState(false);
-  const showTabs = canProject || canComp;
+  const showTabs = canProject;
   return (
     <div className="page-pad">
       {showTabs && <div className="tabs tabs-sm">
         <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>Thông tin chung</button>
-        {canComp && <button className={tab === 'components' ? 'active' : ''} onClick={() => setTab('components')}>Mô-đun & BA phụ trách</button>}
         {canProject && <button className={tab === 'workflow' ? 'active' : ''} onClick={() => setTab('workflow')}>Trạng thái & quy trình</button>}
       </div>}
       {tab === 'general' && (editing ? <General onDone={() => setEditing(false)} canArchive={canProject} /> : <ProjectInfo onEdit={canInfo ? () => setEditing(true) : undefined} />)}
-      {tab === 'components' && <Components />}
       {tab === 'workflow' && <Workflow />}
     </div>
   );
@@ -78,86 +75,6 @@ function General({ onDone, canArchive }: { onDone: () => void; canArchive: boole
   );
 }
 
-function Components() {
-  const project = useProjectCtx();
-  const { data: list } = useComponents(project.key);
-  const [editing, setEditing] = useState<Partial<Component> | null>(null);
-  const bas = project.members.filter((m) => /BA/i.test(m.role_name || '')).concat(project.members.filter((m) => !/BA/i.test(m.role_name || '')));
-
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!editing) return;
-    const body = { name: editing.name, description: editing.description || null, side: editing.side || null, lead_id: editing.lead_id || null };
-    try {
-      if (editing.id) await api.patch(`/projects/${project.key}/components/${editing.id}`, body);
-      else await api.post(`/projects/${project.key}/components`, body);
-      toast('Đã lưu mô-đun');
-      setEditing(null);
-      await refreshAll();
-    } catch (err) { toastError(err); }
-  };
-  const del = async (c: Component) => {
-    if (!confirm(`Xóa mô-đun "${c.name}"? ${c.issue_count} issue của mô-đun vẫn được giữ, chỉ bỏ trống trường Mô-đun.`)) return;
-    try { await api.del(`/projects/${project.key}/components/${c.id}`); await refreshAll(); } catch (err) { toastError(err); }
-  };
-
-  return (
-    <div className="card">
-      <div className="card-head">
-        <h3>Mô-đun ({list?.length ?? 0})</h3>
-        {can(project.permissions, 'component.create') && <button className="btn btn-primary" onClick={() => setEditing({ side: null })}>+ Thêm mô-đun</button>}
-      </div>
-      <p className="muted small">Mỗi issue thuộc một mô-đun. <b>BA phụ trách</b> mô-đun là đầu mối nghiệp vụ với dev, tự được theo dõi mọi issue của mô-đun
-        (nhận thông báo bình luận, chuyển trạng thái) và kiểm thử khi issue chuyển sang <b>Kiểm thử</b>.</p>
-      <table className="table">
-        <thead><tr><th>Mô-đun</th><th>Side</th><th>BA phụ trách</th><th className="num">Issue</th><th /></tr></thead>
-        <tbody>
-          {list?.map((c) => (
-            <tr key={c.id}>
-              <td><b>{c.name}</b>{c.description && <div className="muted small">{c.description}</div>}</td>
-              <td>{c.side ? <SideBadge side={c.side} /> : <span className="muted">—</span>}</td>
-              <td>{c.lead_name ? <div className="row gap-xs"><Avatar name={c.lead_name} src={project.members.find((m) => m.id === c.lead_id)?.avatar_url} size={22} /> {c.lead_name}</div> : <span className="muted">Chưa có</span>}</td>
-              <td className="num">{c.done_count}/{c.issue_count}</td>
-              <td className="num nowrap">
-                {can(project.permissions, 'component.edit') && <button className="btn btn-subtle btn-sm" onClick={() => setEditing(c)}>Sửa</button>}
-                {can(project.permissions, 'component.delete') && <button className="btn btn-subtle btn-sm" onClick={() => del(c)}>Xóa</button>}
-              </td>
-            </tr>
-          ))}
-          {!list?.length && <tr><td colSpan={5} className="muted">Chưa có mô-đun nào.</td></tr>}
-        </tbody>
-      </table>
-
-      {editing && (
-        <Modal title={editing.id ? 'Sửa mô-đun' : 'Thêm mô-đun'} onClose={() => setEditing(null)} footer={<>
-          <div className="spacer" />
-          <button className="btn" onClick={() => setEditing(null)}>Hủy</button>
-          <button className="btn btn-primary" form="component-form">Lưu</button>
-        </>}>
-          <form id="component-form" onSubmit={save} className="stack">
-            <label className="field"><span>Tên mô-đun *</span><input autoFocus required value={editing.name || ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></label>
-            <div className="form-grid">
-              <label className="field"><span>Side</span>
-                <select value={editing.side || ''} onChange={(e) => setEditing({ ...editing, side: (e.target.value || null) as Side | null })}>
-                  <option value="">— Không chọn —</option>
-                  {(Object.keys(SIDE_LABELS) as Side[]).map((s) => <option key={s} value={s}>{SIDE_LABELS[s]}</option>)}
-                </select>
-              </label>
-              <label className="field"><span>BA phụ trách</span>
-                <select value={editing.lead_id ?? ''} onChange={(e) => setEditing({ ...editing, lead_id: e.target.value ? Number(e.target.value) : null })}>
-                  <option value="">— Chưa có —</option>
-                  {bas.map((m) => <option key={m.id} value={m.id}>{m.full_name} ({m.role_name})</option>)}
-                </select>
-              </label>
-            </div>
-            <label className="field"><span>Mô tả</span><textarea rows={2} value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></label>
-            {editing.id && <p className="muted small">Đổi BA phụ trách: người mới tự được thêm vào theo dõi toàn bộ issue của mô-đun.</p>}
-          </form>
-        </Modal>
-      )}
-    </div>
-  );
-}
 
 const WF_TYPES: IssueType[] = ['epic', 'story', 'task', 'bug', 'subtask'];
 
