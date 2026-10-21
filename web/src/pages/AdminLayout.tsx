@@ -37,7 +37,7 @@ export default function AdminLayout() {
     </NavLink>
   );
   return (
-    <div className="cw">
+    <div className="cw cw-admin">
       <aside className="cw-left">
         {hasPerm(me, 'user.view') && item(['users', 'Người dùng', Users])}
         {hasPerm(me, 'role.view') && item(['roles', 'Phân quyền', ShieldCheck])}

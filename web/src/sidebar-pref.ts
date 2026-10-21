@@ -10,9 +10,10 @@ export function saveCollapsed(value: boolean, store: Store | undefined = globalT
   try { store?.setItem(KEY, value ? '1' : '0'); } catch { /* trình duyệt chặn lưu trữ */ }
 }
 
-/** Độ rộng thanh bên khi mở rộng (người dùng kéo mép phải để co giãn) — giới hạn trong [MIN_WIDTH, MAX_WIDTH] */
-const WIDTH_KEY = 'qlda-sidebar-width';
-export const DEFAULT_WIDTH = 240, MIN_WIDTH = 180, MAX_WIDTH = 400;
+/** Độ rộng thanh bên khi mở rộng (người dùng kéo mép phải để co giãn) — giới hạn trong [MIN_WIDTH, MAX_WIDTH].
+ *  Khóa v2: mặc định gọn hơn (vừa tên phân hệ), độ rộng đã kéo theo mặc định cũ không dùng lại */
+const WIDTH_KEY = 'qlda-sidebar-width-v2';
+export const DEFAULT_WIDTH = 184, MIN_WIDTH = 160, MAX_WIDTH = 400;
 /** Kéo hẹp hơn mức này thì thu gọn thành chỉ còn biểu tượng */
 export const COLLAPSE_BELOW = 130;
 
