@@ -28,14 +28,14 @@ export function filterCustomers<T extends Customer>(list: T[], f: CustomerFilter
     (!f.mine || !!c.is_mine));
 }
 
-/** Cây Khách hàng (cấp 1) → Dự án (cấp 2) ở cột trái, lọc theo từ khóa:
- *  khách hàng khớp tên thì giữ mọi dự án; không thì chỉ giữ các dự án khớp tên (và khách hàng chứa chúng) */
-export function customerTree<C extends { name: string; sales_projects?: { name: string }[] }>(list: C[], q: string) {
+/** Cây Khách hàng → Dự án ở cột trái, lọc theo từ khóa:
+ *  khách hàng khớp tên (hoặc tên tỉnh/thành phố) thì giữ mọi dự án; không thì chỉ giữ các dự án khớp tên (và khách hàng chứa chúng) */
+export function customerTree<C extends { name: string; province_name?: string | null; sales_projects?: { name: string }[] }>(list: C[], q: string) {
   type P = NonNullable<C['sales_projects']>[number];
   const k = fold(q.trim());
   return list.flatMap((c): { customer: C; projects: P[] }[] => {
     const projects: P[] = c.sales_projects ?? [];
-    if (!k || fold(c.name).includes(k)) return [{ customer: c, projects }];
+    if (!k || fold(c.name).includes(k) || fold(c.province_name ?? '').includes(k)) return [{ customer: c, projects }];
     const hit = projects.filter((p) => fold(p.name).includes(k));
     return hit.length ? [{ customer: c, projects: hit }] : [];
   });
@@ -104,3 +104,18 @@ export function callAlert(planned: string[], today: string) {
   if (!due.length) return null;
   return { date: due[0], late: Math.round((Date.parse(today) - Date.parse(due[0])) / 86400_000), count: due.length };
 }
+
+/** Cây 3 cấp: Tỉnh/Thành phố → Khách hàng → Dự án. Tỉnh theo thứ tự chữ cái, khách hàng chưa có tỉnh xếp cuối */
+export const NO_PROVINCE = 'Chưa có tỉnh/thành phố';
+export function byProvince<T extends { customer: { province_name?: string | null } }>(tree: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const t of tree) {
+    const k = t.customer.province_name || NO_PROVINCE;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(t);
+  }
+  return [...groups].map(([province, items]) => ({ province, items }))
+    .sort((a, b) => Number(a.province === NO_PROVINCE) - Number(b.province === NO_PROVINCE) || provinceKey(a.province).localeCompare(provinceKey(b.province), 'vi'));
+}
+/** Sắp theo tên chính của tỉnh (bỏ "Tỉnh", "Thành phố"): Bắc Ninh, Hà Nội, Sơn La… */
+const provinceKey = (name: string) => name.replace(/^(tỉnh|thành phố)\s+/i, '');

@@ -1166,3 +1166,8 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .status-catalog tr[draggable="true"] { cursor: grab; }
 .status-catalog tr.dragging td { background: var(--primary-soft); }
 .status-catalog .drag-handle { width: 32px; }
+/* Cây Khách hàng 3 cấp: Tỉnh/Thành phố → Khách hàng → Dự án */
+.cw-left > .cw-group > .cw-sub.cw-prow { padding: 4px 8px 4px 12px; gap: 4px; cursor: pointer; font-weight: 600; }
+.cw-left > .cw-group > .cw-sub.cw-prow .cw-caret { pointer-events: none; }
+.cw-left > .cw-group > .cw-sub.cw-crow { padding-left: 30px; }
+.cw-left > .cw-group > .cw-sub.cw-proj { padding-left: 86px; }

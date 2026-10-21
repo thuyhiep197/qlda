@@ -116,3 +116,16 @@ test('call warning: due today or days late, worst project of a customer', () => 
   assert.deepEqual(worstCallAlert([{ call_alert: { date: '2026-10-21', late: 0, count: 1 } }, { call_alert: null }, { call_alert: { date: '2026-10-18', late: 3, count: 2 } }]),
     { date: '2026-10-18', late: 3, count: 3, projects: 2 });
 });
+
+test('left tree groups customers by province (A→Z, no province last); typing a province name finds its customers', async () => {
+  const { byProvince, NO_PROVINCE } = await import('./customer-filter');
+  const cs = [
+    { name: 'Sở GD & ĐT', province_name: 'Tỉnh Sơn La', sales_projects: [{ name: 'iMate' }] },
+    { name: 'Cục Thống Kê', province_name: 'Thành phố Hà Nội', sales_projects: [] },
+    { name: 'Khách lẻ', province_name: null, sales_projects: [] },
+    { name: 'Xã Lục Nam', province_name: 'Tỉnh Bắc Ninh', sales_projects: [] },
+  ];
+  const g = byProvince(customerTree(cs, ''));
+  assert.deepEqual(g.map((x) => x.province), ['Tỉnh Bắc Ninh', 'Thành phố Hà Nội', 'Tỉnh Sơn La', NO_PROVINCE]);
+  assert.deepEqual(customerTree(cs, 'son la').map((t) => t.customer.name), ['Sở GD & ĐT']);
+});

@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, PhoneCall, Plus, Search, Star } from 'lucide-react';
+import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, MapPin, PhoneCall, Plus, Search, Star } from 'lucide-react';
 import { api } from '../../api';
 import { ManageContext, useCan } from './manage';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
-import { callAlertText, CUSTOMER_STATUS_CLASS, customerTree, filterCustomers, salesStatusClass, worstCallAlert } from '../../customer-filter';
+import { byProvince, callAlertText, CUSTOMER_STATUS_CLASS, customerTree, filterCustomers, salesStatusClass, worstCallAlert } from '../../customer-filter';
 import { colorOf, fmtDate } from '../../util';
 import { useCustomers } from '../Customers';
 import { Empty, Spinner } from '../../components/ui';
@@ -47,7 +47,7 @@ export default function CustomerWorkspace() {
 
 const salesTone = (s: string | null) => salesStatusClass(s).replace('lozenge lozenge-', '');
 
-/** Cột trái: 2 nhóm Khách hàng của tôi / Tất cả khách hàng; dưới mỗi khách hàng (cấp 1) là các dự án của khách hàng (cấp 2) */
+/** Cột trái: 2 nhóm Khách hàng của tôi / Tất cả khách hàng; mỗi nhóm là cây 3 cấp Tỉnh/Thành phố → Khách hàng → Dự án của khách hàng */
 function CustomerTree({ customers, group, current, currentProject, archived, setArchived }: {
   customers: Customer[]; group: 'mine' | 'all'; current: number | null; currentProject: number | null; archived: boolean; setArchived: (v: boolean) => void;
 }) {
@@ -73,7 +73,21 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
               <Link to={`/customers?g=${key}`} className="cw-group-link">{icon}<span className="grow ellipsis">{label}</span></Link>
               <span className="cw-count">{items.length}</span>
             </div>
-            {open && tree.map(({ customer: c, projects }) => {
+            {open && byProvince(tree).map(({ province, items: inProvince }) => {
+              // Tỉnh/thành phố: mở sẵn ở tỉnh chứa khách hàng đang xem, khi tìm kiếm; bấm mũi tên để mở / thu gọn
+              const pk = `${key}:p:${province}`;
+              const pOpen = searching || (closed[pk] === undefined ? inProvince.some((t) => t.customer.id === current) && group === key : !closed[pk]);
+              const callP = worstCallAlert(inProvince.flatMap((t) => t.customer.sales_projects ?? []));
+              return (
+                <Fragment key={province}>
+                  <div className="cw-sub cw-prow" onClick={() => setClosed({ ...closed, [pk]: pOpen })} role="button" aria-expanded={pOpen}>
+                    <span className="cw-caret">{pOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</span>
+                    <MapPin size={13} className="muted" />
+                    <span className="ellipsis grow" title={province}>{province}</span>
+                    {callP && <PhoneCall size={12} className="call-flag" data-tip={`${callP.projects} dự án: ${callAlertText(callP)}`} />}
+                    <span className="cw-count">{inProvince.length}</span>
+                  </div>
+                  {pOpen && inProvince.map(({ customer: c, projects }) => {
               // Dự án của khách hàng: mở sẵn ở khách hàng đang xem, khi tìm kiếm; bấm mũi tên để mở / thu gọn
               const ck = `${key}:${c.id}`;
               const expanded = searching || (closed[ck] === undefined ? c.id === current && group === key : !closed[ck]);
@@ -101,6 +115,9 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
                       <span className={`cw-dot tone-${salesTone(p.status)}`} data-tip={p.status ?? "Chưa áp dụng quy trình"} />
                     </Link>
                   ))}
+                </Fragment>
+              );
+                  })}
                 </Fragment>
               );
             })}
