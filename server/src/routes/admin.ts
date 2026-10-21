@@ -60,7 +60,9 @@ function setProjects(userId: number, list: unknown) {
 
 r.get('/users', need('user.view'), (_req, res) => {
   const users = all(`SELECT ${USER_COLS} FROM users ORDER BY is_active DESC, full_name`);
-  res.json(users.map((u: any) => ({ ...userJson(u), memberships: memberships(u.id) })));
+  // Số quyền cấp thêm riêng (ngoài nhóm) — hiện ở Phân quyền → Theo người dùng
+  const extra = new Map(all<{ user_id: number; n: number }>("SELECT user_id, COUNT(*) n FROM user_permissions WHERE effect = 'allow' GROUP BY user_id").map((x) => [x.user_id, x.n]));
+  res.json(users.map((u: any) => ({ ...userJson(u), memberships: memberships(u.id), extra_permissions: extra.get(u.id) ?? 0 })));
 });
 
 function checkUsername(v: unknown) {
@@ -225,8 +227,9 @@ function userPermView(userId: number) {
   const role = u.default_role_id ? get<{ name: string; permissions: string }>('SELECT name, permissions FROM roles WHERE id = ?', u.default_role_id) : null;
   let group: string[] = [];
   try { group = role ? JSON.parse(role.permissions) : []; } catch { /* nhóm lỗi */ }
-  const overrides = Object.fromEntries(all<{ permission: string; effect: string }>('SELECT permission, effect FROM user_permissions WHERE user_id = ?', userId)
-    .map((o) => [o.permission, o.effect]));
+  // Quyền cấp thêm riêng (ngoài nhóm)
+  const overrides = Object.fromEntries(all<{ permission: string }>("SELECT permission FROM user_permissions WHERE user_id = ? AND effect = 'allow'", userId)
+    .filter((o) => isPermission(o.permission) && !group.includes(o.permission)).map((o) => [o.permission, 'allow']));
   const effective = [...userPermissions(u)].filter(isPermission);
   return { user_id: u.id, full_name: u.full_name, is_admin: !!u.is_admin, role_name: role?.name ?? null, group: group.filter(isPermission), overrides, effective };
 }
@@ -237,15 +240,13 @@ r.get('/users/:id/permissions', (req, res) => {
   res.json(userPermView(id));
 });
 
-/** Ghi đè quyền riêng: { overrides: { issue.import: allow, issue.delete: deny, ... } } — quyền không có trong danh sách = theo nhóm. */
+/** Quyền cấp thêm riêng cho người dùng: { overrides: { issue.import: 'allow', ... } } — quyền thực tế = quyền nhóm + các quyền này (không chặn bớt quyền nhóm). */
 r.put('/users/:id/permissions', need('role.edit'), (req, res) => {
   const id = Number(req.params.id);
   if (!get('SELECT 1 FROM users WHERE id = ?', id)) throw notFound();
   const o = req.body?.overrides;
   if (!o || typeof o !== 'object') throw badRequest('Dữ liệu phân quyền không hợp lệ');
-  const entries = Object.entries(o as Record<string, unknown>).filter(([p, e]) => isPermission(p) && (e === 'allow' || e === 'deny'));
-  // Không tự chặn quyền phân quyền của chính mình (tránh tự khóa)
-  if (id === req.user.id && entries.some(([p, e]) => e === 'deny' && p.startsWith('role.'))) throw badRequest('Không thể tự chặn quyền phân quyền của chính mình');
+  const entries = Object.entries(o as Record<string, unknown>).filter(([p, e]) => isPermission(p) && e === 'allow');
   tx(() => {
     run('DELETE FROM user_permissions WHERE user_id = ?', id);
     for (const [p, e] of entries) run('INSERT INTO user_permissions(user_id, permission, effect) VALUES (?,?,?)', id, p, String(e));

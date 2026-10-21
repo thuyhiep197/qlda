@@ -5,8 +5,8 @@ import { api, refreshAll } from '../api';
 import { hasPerm, useDepartments, useMe, useRoles } from '../hooks';
 import { suggestPlacement } from '../people';
 import { STAFF_POSITION_LABELS } from '../util';
-import type { PermissionCatalog, User, UserPermView } from '../types';
-import { PermMatrix } from '../components/PermMatrix';
+import type { User } from '../types';
+import { UserPermEditor } from '../components/UserPermEditor';
 import { fmtDateTime } from '../util';
 import { Avatar, Modal, Spinner, toast, toastError } from '../components/ui';
 
@@ -258,53 +258,9 @@ function ResetModal({ user, onClose }: { user: User; onClose: () => void }) {
  * bỏ tick quyền của nhóm = chặn (đỏ). Ô trùng với nhóm thì không lưu gì riêng.
  */
 function UserPermModal({ user, onClose }: { user: User; onClose: () => void }) {
-  const { data: me } = useMe();
-  const { data: catalog } = useQuery<PermissionCatalog>({ queryKey: ['permissions'], queryFn: () => api.get('/permissions') });
-  const { data: view } = useQuery<UserPermView>({ queryKey: ['user-perms', user.id], queryFn: () => api.get(`/users/${user.id}/permissions`) });
-  const [overrides, setOverrides] = useState<Record<string, 'allow' | 'deny'> | null>(null);
-  const cur = overrides ?? view?.overrides ?? {};
-  const group = new Set(view?.group ?? []);
-  const has = (p: string) => (cur[p] === 'allow' ? true : cur[p] === 'deny' ? false : group.has(p));
-  const onSet = (perms: string[], value: boolean) => {
-    const n = { ...cur };
-    for (const p of perms) {
-      if (value === group.has(p)) delete n[p]; // trùng quyền nhóm → không cần ghi riêng
-      else n[p] = value ? 'allow' : 'deny';
-    }
-    setOverrides(n);
-  };
-  const save = async () => {
-    try {
-      await api.put(`/users/${user.id}/permissions`, { overrides: cur });
-      toast(`Đã lưu phân quyền của ${user.full_name}`);
-      await refreshAll();
-      onClose();
-    } catch (e) { toastError(e); }
-  };
-  const canEdit = hasPerm(me, 'role.edit') && !view?.is_admin;
-  const nAllow = Object.values(cur).filter((v) => v === 'allow').length;
-  const nDeny = Object.values(cur).filter((v) => v === 'deny').length;
-
   return (
-    <Modal title={`Phân quyền: ${user.full_name}`} width={980} onClose={onClose} footer={<>
-      {canEdit && (nAllow + nDeny > 0) && <button className="btn btn-subtle" onClick={() => setOverrides({})}>Khôi phục theo nhóm</button>}
-      <div className="spacer" />
-      <button className="btn" onClick={onClose}>{canEdit ? 'Hủy' : 'Đóng'}</button>
-      {canEdit && <button className="btn btn-primary" onClick={save}>Lưu</button>}
-    </>}>
-      {!catalog || !view ? <Spinner /> : (
-        <div className="stack">
-          <div className="perm-legend small">
-            <span>Nhóm người dùng: <b>{view.role_name || 'Chưa có'}</b></span>
-            <span><i style={{ background: 'var(--surface)' }} />Theo nhóm</span>
-            <span><i style={{ background: 'var(--st-done-bg)' }} />Cấp thêm riêng ({nAllow})</span>
-            <span><i style={{ background: 'var(--red-bg)' }} />Chặn riêng ({nDeny})</span>
-          </div>
-          {view.is_admin && <div className="form-error">Tài khoản Quản trị hệ thống luôn có toàn quyền; phân quyền riêng không áp dụng.</div>}
-          <PermMatrix catalog={catalog} has={has} onSet={onSet} mark={(p) => cur[p]} readOnly={!canEdit} />
-          <p className="muted small">Tick thêm ô chưa có trong nhóm để cấp thêm quyền; bỏ tick ô của nhóm để chặn quyền đó với riêng người này. Đổi quyền của nhóm thì người này vẫn giữ phần cấp thêm/chặn riêng.</p>
-        </div>
-      )}
+    <Modal title={`Phân quyền: ${user.full_name}`} width={980} onClose={onClose}>
+      <UserPermEditor userId={user.id} onSaved={onClose} />
     </Modal>
   );
 }

@@ -1,13 +1,75 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, refreshAll } from '../api';
+import { Search } from 'lucide-react';
 import { hasPerm, useMe, useRoles } from '../hooks';
-import type { PermissionCatalog } from '../types';
+import type { PermissionCatalog, User } from '../types';
 import { HelpTip, Spinner, toast, toastError } from '../components/ui';
 import { PermMatrix } from '../components/PermMatrix';
+import { UserPermEditor } from '../components/UserPermEditor';
+import { fold } from '../customer-filter';
 
-/** Nhóm người dùng & phân quyền: mỗi nhóm có bảng quyền Chức năng × Hành động, gán mặc định cho người thuộc nhóm. */
+/**
+ * Phân quyền, 2 tab: Theo nhóm người dùng (bảng quyền Chức năng × Hành động gán mặc định cho người thuộc nhóm)
+ * và Theo người dùng (quyền nhóm + quyền cấp thêm riêng cho từng người).
+ */
 export default function AdminRoles() {
+  const [tab, setTab] = useState<'roles' | 'users'>('roles');
+  const tabs = (
+    <div className="tabs tabs-sm mb-sm">
+      <button className={tab === 'roles' ? 'active' : ''} onClick={() => setTab('roles')}>Theo nhóm người dùng</button>
+      <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Theo người dùng</button>
+    </div>
+  );
+  return tab === 'roles' ? <RolesTab tabs={tabs} /> : <UsersTab tabs={tabs} />;
+}
+
+/** Theo người dùng: danh sách người (bên trái), ma trận quyền nhóm (khóa) + quyền cấp thêm riêng (bên phải) */
+function UsersTab({ tabs }: { tabs: React.ReactNode }) {
+  const { data: me } = useMe();
+  const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: () => api.get('/users'), enabled: hasPerm(me, 'user.view') });
+  const [q, setQ] = useState('');
+  const [selected, setSelected] = useState<number | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const list = (users ?? []).filter((u) => u.is_active && (!q.trim() || fold(`${u.full_name} ${u.username} ${u.default_role_name ?? ''}`).includes(fold(q.trim()))));
+  const cur = list.find((u) => u.id === selected) ?? list[0];
+  const pick = (id: number) => {
+    if (dirty && !confirm('Người dùng hiện tại có thay đổi chưa lưu. Bỏ thay đổi?')) return;
+    setSelected(id);
+  };
+  return (
+    <div className="page">
+      <div className="page-head">
+        <h1>Nhóm người dùng & phân quyền</h1>
+        <HelpTip text="Quyền thực tế của một người = quyền của nhóm người dùng + quyền cấp thêm riêng cho người đó. Quyền nhóm sửa ở tab Theo nhóm người dùng." />
+      </div>
+      {tabs}
+      {!hasPerm(me, 'user.view') ? <p className="muted">Cần quyền Người dùng – Xem để phân quyền theo người dùng.</p> : !users ? <Spinner /> : (
+        <div className="perm-layout">
+          <aside className="perm-groups">
+            <div className="cw-search mb-sm"><Search size={13} /><input placeholder="Tìm người, nhóm…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+            {list.map((u) => (
+              <button key={u.id} className={u.id === cur?.id ? 'active' : ''} onClick={() => pick(u.id)}>
+                <b>{u.full_name}</b>
+                <span className="muted small">{u.default_role_name ?? 'Chưa có nhóm'}{u.extra_permissions ? ` · +${u.extra_permissions} quyền riêng` : ''}</span>
+              </button>
+            ))}
+            {!list.length && <div className="muted small pad">Không tìm thấy</div>}
+          </aside>
+          {cur && (
+            <section className="perm-main">
+              <h2 className="mb-sm">{cur.full_name} <span className="muted small">@{cur.username}</span></h2>
+              <UserPermEditor key={cur.id} userId={cur.id} onDirty={setDirty} />
+            </section>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Theo nhóm người dùng: mỗi nhóm có bảng quyền Chức năng × Hành động, gán mặc định cho người thuộc nhóm. */
+function RolesTab({ tabs }: { tabs: React.ReactNode }) {
   const { data: me } = useMe();
   const { data: roles } = useRoles();
   const { data: catalog } = useQuery<PermissionCatalog>({ queryKey: ['permissions'], queryFn: () => api.get('/permissions') });
@@ -69,10 +131,11 @@ export default function AdminRoles() {
     <div className="page">
       <div className="page-head">
         <h1>Nhóm người dùng & phân quyền</h1>
-        <HelpTip text="Quyền của nhóm được gán mặc định cho mọi người thuộc nhóm. Muốn cấp thêm hoặc bỏ bớt quyền cho riêng một người, vào Người dùng → Phân quyền. Nhóm Quản trị hệ thống luôn có toàn quyền." />
+        <HelpTip text="Quyền của nhóm được gán mặc định cho mọi người thuộc nhóm. Muốn cấp thêm quyền cho riêng một người, dùng tab Theo người dùng. Nhóm Quản trị hệ thống luôn có toàn quyền." />
         <div className="spacer" />
         {hasPerm(me, 'role.create') && <button className="btn" onClick={create}>+ Tạo nhóm</button>}
       </div>
+      {tabs}
 
       <div className="perm-layout">
         <aside className="perm-groups">

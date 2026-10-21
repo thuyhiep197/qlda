@@ -31,3 +31,14 @@ test('a member of a normal group only has that group permissions', () => {
   const perms = userPermissions({ id: u, is_admin: 0 });
   assert.ok(!perms.has('role.edit') && !perms.has('customer.view_all'));
 });
+
+test('per-user permissions only add to the group (group + extra), never take away', () => {
+  const dev = get<{ id: number }>("SELECT id FROM roles WHERE name = 'Dev'")!.id;
+  const u = run("INSERT INTO users(username, full_name, password_hash, default_role_id) VALUES ('dev2', 'Dev 2', 'x', ?)", dev).id;
+  const group = userPermissions({ id: u, is_admin: 0 });
+  const some = [...group].find((p) => p === 'issue.view')!;
+  run("INSERT INTO user_permissions(user_id, permission, effect) VALUES (?, 'customer.view', 'allow'), (?, ?, 'deny')", u, u, some);
+  const perms = userPermissions({ id: u, is_admin: 0 });
+  assert.ok(perms.has('customer.view'), 'extra permission added');
+  assert.ok(perms.has(some), 'group permission is not removed by an old deny row');
+});

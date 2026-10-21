@@ -231,7 +231,7 @@ export interface AuthUser {
   must_change_password: number;
 }
 
-/** Quyền thực tế của tài khoản (mọi dự án): quyền của nhóm người dùng + quyền cho phép thêm − quyền bị chặn. */
+/** Quyền thực tế của tài khoản (mọi dự án): quyền của nhóm người dùng + quyền cấp thêm riêng cho người dùng (không chặn bớt quyền nhóm). */
 export function userPermissions(user: Pick<AuthUser, 'id' | 'is_admin'>, fallbackRoleId?: number | null): Set<Permission> {
   if (user.is_admin) return withDerived(new Set(ALL_PERMISSIONS));
   const row = get<{ permissions: string }>(
@@ -239,9 +239,7 @@ export function userPermissions(user: Pick<AuthUser, 'id' | 'is_admin'>, fallbac
   let base: string[] = [];
   try { base = row ? JSON.parse(row.permissions) : []; } catch { /* nhóm lỗi → không có quyền */ }
   const set = new Set<Permission>(base.filter(isPermission));
-  for (const o of all<{ permission: string; effect: string }>('SELECT permission, effect FROM user_permissions WHERE user_id = ?', user.id)) {
-    if (o.effect === 'allow') set.add(o.permission); else set.delete(o.permission);
-  }
+  for (const o of all<{ permission: string }>("SELECT permission FROM user_permissions WHERE user_id = ? AND effect = 'allow'", user.id)) set.add(o.permission);
   return withDerived(set);
 }
 

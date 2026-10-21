@@ -53,6 +53,8 @@ export interface User extends UserBasic {
   created_at: string;
   last_login_at: string | null;
   memberships: Membership[];
+  /** Số quyền cấp thêm riêng (ngoài nhóm) */
+  extra_permissions?: number;
   default_role_id: number | null;
   default_role_name: string | null;
 }
