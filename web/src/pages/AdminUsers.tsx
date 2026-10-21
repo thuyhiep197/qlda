@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, refreshAll } from '../api';
-import { hasPerm, useMe, useProjects, useRoles } from '../hooks';
+import { hasPerm, useMe, useRoles } from '../hooks';
 import type { PermissionCatalog, User, UserPermView } from '../types';
 import { PermMatrix } from '../components/PermMatrix';
 import { fmtDateTime } from '../util';
@@ -102,7 +102,6 @@ export default function AdminUsers() {
 
 function UserModal({ user, onClose }: { user: User | null; onClose: () => void }) {
   const { data: me } = useMe();
-  const { data: projects } = useProjects();
   const { data: roles } = useRoles();
   const [username, setUsername] = useState(user?.username || '');
   const [fullName, setFullName] = useState(user?.full_name || '');
@@ -110,7 +109,6 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const [isAdmin, setIsAdmin] = useState(!!user?.is_admin);
   const [roleId, setRoleId] = useState(user?.default_role_id ? String(user.default_role_id) : '');
 
-  const [projectIds, setProjectIds] = useState<number[]>(() => user?.memberships.map((m) => m.project_id) ?? []);
   const [password, setPassword] = useState(() => (user ? '' : genPassword()));
   const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
   const role = roles?.find((r) => String(r.id) === roleId);
@@ -118,7 +116,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: fullName, email, is_admin: isAdmin, default_role_id: Number(roleId), project_ids: projectIds };
+      const body = { full_name: fullName, email, is_admin: isAdmin, default_role_id: Number(roleId) };
       if (user) {
         await api.patch(`/users/${user.id}`, body);
         toast('Đã lưu');
@@ -174,18 +172,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
               <button type="button" className="btn" onClick={() => setPassword(genPassword())}>Tạo ngẫu nhiên</button>
             </div></label>
         )}
-        <div className="field"><span>Dự án được tham gia</span>
-          <div className="check-list">
-            {projects?.map((p) => (
-              <label key={p.id} className="check">
-                <input type="checkbox" checked={projectIds.includes(p.id)}
-                  onChange={(e) => setProjectIds(e.target.checked ? [...projectIds, p.id] : projectIds.filter((x) => x !== p.id))} />
-                {p.name} <span className="muted small">({p.key})</span>
-              </label>
-            ))}
-            {!projects?.length && <div className="muted small">Chưa có dự án nào. Tạo dự án ở mục Tất cả dự án rồi quay lại thêm sau.</div>}
-          </div>
-        </div>
+        {/* Không chọn dự án ở đây: vào dự án theo phân quyền (phạm vi Tất cả dự án) và danh sách người tham gia của từng dự án */}
         <label className="check">
           <input type="checkbox" checked={isAdmin} disabled={user?.id === me?.id} onChange={(e) => setIsAdmin(e.target.checked)} />
           <span>Quản trị hệ thống <small className="muted">(toàn quyền: quản lý người dùng, phân quyền, tạo dự án, truy cập mọi dự án)</small></span>
