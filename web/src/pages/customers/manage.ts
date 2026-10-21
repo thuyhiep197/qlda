@@ -3,7 +3,7 @@ import { hasPerm, useMe } from '../../hooks';
 
 /**
  * Khách hàng / dự án đang mở có do mình quản lý không (phụ trách, thực hiện, phối hợp — server trả can_manage).
- * "Xem tất cả" chỉ mở rộng phạm vi xem: thêm / sửa / lưu trữ / xóa còn cần đang quản lý khách hàng, dự án đó.
+ * "Xem tất cả" (Thông tin khách hàng): mọi khách hàng, dự án đều coi như mình quản lý — thêm / sửa / lưu trữ / xóa theo quyền đang có.
  */
 export const ManageContext = createContext(true);
 

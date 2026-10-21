@@ -9,14 +9,14 @@ import { badRequest, forbidden, notFound, requireUserPerm, userPermissions, type
  *  · Phụ trách một dự án (Kinh doanh / AM của dự án), thực hiện hoặc phối hợp một bước hành trình, thực hiện một công việc của dự án
  *    → khách hàng đó và chỉ dự án đó;
  *  · Thực hiện một công việc chung của khách hàng → khách hàng đó (không kèm dự án nào).
- * Xem: người liên quan; có quyền "Phạm vi: Tất cả khách hàng" thì xem mọi khách hàng, mọi dự án.
- * Phạm vi "Tất cả khách hàng" là phạm vi cao nhất: mọi quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án;
- * không có phạm vi này thì các quyền chỉ áp dụng trên khách hàng, dự án mình liên quan.
+ * Xem: người liên quan; có quyền "Thông tin khách hàng – Xem tất cả" thì xem mọi khách hàng, mọi dự án.
+ * "Xem tất cả" là phạm vi cao nhất: mọi quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án;
+ * chỉ có "Xem" thì các quyền chỉ áp dụng trên khách hàng, dự án mình liên quan.
  * Quản trị hệ thống: toàn quyền trên mọi khách hàng.
  */
 type U = Pick<AuthUser, 'id' | 'is_admin'>;
 
-export const seesAllCustomers = (user: U) => userPermissions(user).has('customer_all.view');
+export const seesAllCustomers = (user: U) => userPermissions(user).has('customer.view_all');
 /** Hành động ghi (thêm, sửa, lưu trữ, xóa) — xem và tải về là hành động đọc */
 export const isWrite = (perm: Permission) => !/\.(view|export)$/.test(perm);
 
@@ -50,7 +50,7 @@ export function visibleSalesProjectsSql(user: U): { sql: string; params: number[
   return seesAllCustomers(user) ? { sql: '1=1', params: [] } : relatedSalesProjectsSql(user);
 }
 
-/** Được thêm / sửa / lưu trữ trên khách hàng này: quản trị hệ thống, phạm vi Tất cả khách hàng, hoặc người liên quan */
+/** Được thêm / sửa / lưu trữ trên khách hàng này: quản trị hệ thống, Xem tất cả khách hàng, hoặc người liên quan */
 export function managesCustomer(user: U, customerId: number) {
   if (user.is_admin || seesAllCustomers(user)) return true;
   const v = relatedCustomersSql(user);
@@ -66,7 +66,7 @@ export function managesSalesProject(user: U, salesProjectId: number) {
 export function canSeeCustomer(user: U, customerId: number) {
   const perms = userPermissions(user);
   if (!perms.has('customer.view')) return false;
-  if (perms.has('customer_all.view')) return true;
+  if (perms.has('customer.view_all')) return true;
   const v = visibleCustomersSql(user);
   return !!get(`SELECT 1 FROM customers c WHERE c.id = ? AND ${v.sql}`, customerId, ...v.params);
 }

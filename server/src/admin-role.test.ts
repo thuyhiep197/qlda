@@ -29,5 +29,5 @@ test('a member of a normal group only has that group permissions', () => {
   const dev = get<{ id: number }>("SELECT id FROM roles WHERE name = 'Dev'")!.id;
   const u = run("INSERT INTO users(username, full_name, password_hash, default_role_id) VALUES ('dev1', 'Dev 1', 'x', ?)", dev).id;
   const perms = userPermissions({ id: u, is_admin: 0 });
-  assert.ok(!perms.has('role.edit') && !perms.has('customer_all.view'));
+  assert.ok(!perms.has('role.edit') && !perms.has('customer.view_all'));
 });

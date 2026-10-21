@@ -737,6 +737,10 @@ const migrations: string[] = [
    UPDATE users SET is_admin = CASE WHEN default_role_id IS NOT NULL AND default_role_id = (SELECT id FROM roles WHERE is_admin = 1) THEN 1 ELSE 0 END;
    UPDATE project_members SET role_id = (SELECT default_role_id FROM users WHERE users.id = project_members.user_id)
      WHERE user_id IN (SELECT id FROM users WHERE is_admin = 1);`,
+  // v25: bỏ dòng "Phạm vi" — thay bằng cột Xem tất cả ở Thông tin khách hàng và Dự án (giữ nguyên quyền đã cấp)
+  `UPDATE roles SET permissions = REPLACE(REPLACE(permissions, '"customer_all.view"', '"customer.view_all"'), '"project_all.view"', '"project.view_all"');
+   UPDATE user_permissions SET permission = 'customer.view_all' WHERE permission = 'customer_all.view';
+   UPDATE user_permissions SET permission = 'project.view_all' WHERE permission = 'project_all.view';`,
 ];
 
 export function migrate() {

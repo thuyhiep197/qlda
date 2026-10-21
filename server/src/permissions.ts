@@ -2,12 +2,13 @@ import { ADMIN_ROLE_NAME, all, get, run } from './db.ts';
 import { isLegacyPermissionList } from './perm-legacy.ts';
 
 // ---------------------------------------------------------------------------
-// Danh mục phân quyền: Phân hệ → Module → Chức năng → Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
+// Danh mục phân quyền: Phân hệ → Module → Chức năng → Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import, Xem tất cả).
+// Xem = chỉ khách hàng / dự án mình tham gia; Xem tất cả = mọi khách hàng / dự án (quyền Thêm, Sửa, Xóa đang có áp dụng trên tất cả).
 // Mã quyền = "<chức năng>.<hành động>", VD: issue.create, plan.export.
 // Ô nào mang nghĩa riêng (VD cột Xóa = Lưu trữ) thì ghi trong actionLabels và hiện ngay trong ô.
 // Nhóm người dùng (vai trò) là một tập mã quyền; mỗi người dùng có thể được cho phép thêm / chặn riêng từng quyền.
 // ---------------------------------------------------------------------------
-export const ACTIONS = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa', export: 'Tải', import: 'Import' } as const;
+export const ACTIONS = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa', export: 'Tải', import: 'Import', view_all: 'Xem tất cả' } as const;
 export type Action = keyof typeof ACTIONS;
 
 export interface FeatureDef {
@@ -15,8 +16,6 @@ export interface FeatureDef {
   actionHints?: Partial<Record<Action, string>>;
   /** Tên riêng của hành động ở chức năng này (hiện trong ô), VD delete → Lưu trữ */
   actionLabels?: Partial<Record<Action, string>>;
-  /** Ô phạm vi (Tất cả khách hàng / dự án): chỉ tích riêng, không theo ô tích cả cột / cả module / cả phân hệ */
-  scope?: boolean;
 }
 /** Module (nhóm chức năng) thuộc một phân hệ */
 export interface FeatureGroup { key: string; label: string; subsystem: string; features: FeatureDef[] }
@@ -32,9 +31,10 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   // ---- Phân hệ Khách hàng ----
   {
     key: 'crm', label: 'Module Khách hàng', subsystem: 'customer', features: [
-      { key: 'customer', label: 'Thông tin khách hàng', hint: 'Cơ quan/đơn vị, đầu mối, Sale, AM', actions: ['view', 'create', 'edit', 'delete'],
-        actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ / mở lại khách hàng (ẩn khỏi danh sách)' } },
-      { key: 'customer_all', scope: true, label: 'Phạm vi: Tất cả khách hàng', hint: 'Tích thì các quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án của khách hàng; không tích thì chỉ khách hàng, dự án mình phụ trách, thực hiện hoặc phối hợp', actions: ['view'] },
+      { key: 'customer', label: 'Thông tin khách hàng', hint: 'Cơ quan/đơn vị, đầu mối, Sale, AM', actions: ['view', 'create', 'edit', 'delete', 'view_all'],
+        actionLabels: { delete: 'Lưu trữ' },
+        actionHints: { view: 'Chỉ khách hàng, dự án mình phụ trách, thực hiện hoặc phối hợp', delete: 'Lưu trữ / mở lại khách hàng (ẩn khỏi danh sách)',
+          view_all: 'Mọi khách hàng, dự án của khách hàng; các quyền Thêm, Sửa, Xóa đang có áp dụng trên tất cả' } },
     ],
   },
   {
@@ -71,9 +71,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   // ---- Phân hệ Dự án ----
   {
     key: 'project', label: 'Module Thông tin dự án', subsystem: 'project', features: [
-      { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình', actions: ['create', 'edit', 'delete'],
-        actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ dự án' } },
-      { key: 'project_all', scope: true, label: 'Phạm vi: Tất cả dự án', hint: 'Tích thì các quyền đang có áp dụng trên mọi dự án; không tích thì chỉ dự án mình là thành viên', actions: ['view'] },
+      { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình; không tích Xem tất cả thì chỉ vào dự án mình là thành viên', actions: ['create', 'edit', 'delete', 'view_all'],
+        actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ dự án', view_all: 'Vào mọi dự án (không cần là thành viên); các quyền đang có áp dụng trên tất cả' } },
       { key: 'component', label: 'Mô-đun & BA phụ trách', hint: 'Ai vào được dự án cũng thấy mô-đun; các quyền dưới đây là quản lý mô-đun', actions: ['create', 'edit', 'delete'] },
     ],
   },
@@ -197,7 +196,7 @@ export const SALES_PERMISSIONS: Permission[] = [...PROJECT_VIEW,
   'journey.view', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.view', 'ctask.create', 'ctask.edit',
   'cfile.view', 'cfile.create', 'cfile.export', 'ctalk.view', 'ctalk.create', 'product.view', 'geo.view', 'department.view', 'staff.view'];
 /** Nhóm Ban Giám đốc: như Kinh doanh (thêm / sửa trên khách hàng, dự án mình phụ trách) + xem tất cả khách hàng */
-export const BOARD_PERMISSIONS: Permission[] = [...SALES_PERMISSIONS, 'customer_all.view'];
+export const BOARD_PERMISSIONS: Permission[] = [...SALES_PERMISSIONS, 'customer.view_all'];
 
 export const DEFAULT_ROLES: { name: string; description: string; permissions: Permission[] }[] = [
   { name: 'BA Lead', description: 'Toàn quyền: quản trị dự án, xóa issue, quản trị hệ thống', permissions: ALL_PERMISSIONS },
@@ -251,7 +250,7 @@ export function projectPermissions(user: AuthUser, projectId: number): Set<Permi
   // Quyền theo tài khoản (nhóm + quyền riêng); thành viên dự án chỉ quyết định có được vào dự án hay không
   const m = get<{ role_id: number }>('SELECT role_id FROM project_members WHERE project_id = ? AND user_id = ?', projectId, user.id);
   // Phạm vi Tất cả dự án: vào mọi dự án, áp dụng quyền của tài khoản
-  if (!m) { const own = userPermissions(user); return own.has('project_all.view') ? own : null; }
+  if (!m) { const own = userPermissions(user); return own.has('project.view_all') ? own : null; }
   return userPermissions(user, m.role_id);
 }
 
@@ -285,7 +284,7 @@ export function accountRoleId(userId: number): number {
 }
 
 export function accessibleProjectIds(user: AuthUser): number[] | 'all' {
-  if (user.is_admin || userPermissions(user).has('project_all.view')) return 'all';
+  if (user.is_admin || userPermissions(user).has('project.view_all')) return 'all';
   return all<{ project_id: number }>('SELECT project_id FROM project_members WHERE user_id = ?', user.id)
     .map((r) => r.project_id);
 }

@@ -177,7 +177,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
               <button type="button" className="btn" onClick={() => setPassword(genPassword())}>Tạo ngẫu nhiên</button>
             </div></label>
         )}
-        {/* Không chọn dự án ở đây: vào dự án theo phân quyền (phạm vi Tất cả dự án) và danh sách người tham gia của từng dự án */}
+        {/* Không chọn dự án ở đây: vào dự án theo quyền Dự án – Xem tất cả và danh sách người tham gia của từng dự án */}
       </form>
     </Modal>
   );
