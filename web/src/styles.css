@@ -1149,3 +1149,12 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .call-item.past { opacity: .85; }
 .call-flag { color: var(--danger); flex: none; }
 .cw-proj.call-due > .ellipsis, .call-due-name { color: var(--danger); font-weight: 600; }
+/* Bảng Người dùng: cột co theo nội dung, dự án tham gia xếp ngang và xuống dòng, thao tác là biểu tượng */
+.users-table td { padding: 6px 6px; }
+.users-table th { padding: 8px 6px; }
+.users-table .membership-chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 280px; }
+.users-table .membership-chips .label-chip { margin-right: 0; }
+.users-actions { width: 1%; }
+.users-actions .icon-btn { margin-left: 0; padding: 4px; }
+.users-dept { min-width: 110px; max-width: 130px; }
+.users-email { max-width: 180px; overflow-wrap: anywhere; }

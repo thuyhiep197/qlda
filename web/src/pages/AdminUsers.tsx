@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { KeyRound, Lock, LockOpen, Pencil, ShieldCheck } from 'lucide-react';
 import { api, refreshAll } from '../api';
 import { hasPerm, useMe, useRoles } from '../hooks';
 import type { PermissionCatalog, User, UserPermView } from '../types';
@@ -61,37 +62,41 @@ export default function AdminUsers() {
         <span className="muted small">{list?.length ?? 0} tài khoản</span>
       </div>
       {isLoading ? <Spinner /> : (
-        <table className="table">
-          <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Phòng ban</th><th>Nhóm người dùng</th><th>Dự án tham gia</th><th>Email</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th /></tr></thead>
+        // Bảng gọn: cột co theo nội dung, dự án tham gia xếp ngang; thao tác là biểu tượng (rê chuột xem tên)
+        <div className="table-wrap">
+        <table className="table users-table">
+          <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Phòng ban</th><th>Nhóm người dùng</th><th>Dự án tham gia</th><th>Email</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th className="num">Thao tác</th></tr></thead>
           <tbody>
             {list?.map((u) => (
               <tr key={u.id} className={u.is_active ? '' : 'inactive'}>
-                <td><div className="row gap-sm"><Avatar name={u.full_name} src={u.avatar_url} size={26} /> {u.full_name}</div></td>
-                <td>@{u.username}</td>
-                <td className="small">{u.department_name ?? <span className="muted" data-tip="Gắn tài khoản với nhân sự ở Quản trị → Danh mục → Phòng ban & Nhân sự">Chưa gắn nhân sự</span>}</td>
+                <td className="nowrap"><div className="row gap-sm"><Avatar name={u.full_name} src={u.avatar_url} size={24} /> {u.full_name}</div></td>
+                <td className="nowrap">@{u.username}</td>
+                <td className="small users-dept">{u.department_name ?? <span className="muted nowrap" data-tip="Gắn tài khoản với nhân sự ở Quản trị → Danh mục → Phòng ban & Nhân sự">Chưa gắn</span>}</td>
                 <td className="nowrap">
                   {u.default_role_name ? <span className="lozenge lozenge-default">{u.default_role_name}</span> : <span className="small danger">Chưa chọn</span>}
-                  {!!u.is_admin && <> <span className="lozenge lozenge-purple">Quản trị</span></>}
                 </td>
                 <td>
                   <div className="membership-chips">
                     {u.memberships.map((m) => <span key={m.project_id} className="label-chip" title={m.project_name}>{m.project_key}</span>)}
-                    {!u.memberships.length && <span className="muted small">{u.is_admin ? 'Mọi dự án (quản trị)' : 'Chưa tham gia dự án'}</span>}
+                    {!u.memberships.length && <span className="muted small nowrap">{u.is_admin ? 'Mọi dự án' : 'Chưa tham gia'}</span>}
                   </div>
                 </td>
-                <td>{u.email}</td>
-                <td className="small">{u.last_login_at ? fmtDateTime(u.last_login_at) : <span className="muted">Chưa đăng nhập</span>}</td>
-                <td>{u.is_active ? <span className="lozenge lozenge-green">Hoạt động</span> : <span className="lozenge lozenge-red">Đã khóa</span>}</td>
-                <td className="num nowrap">
-                  {(hasPerm(me, 'role.view') || hasPerm(me, 'role.edit')) && <button className="btn btn-subtle btn-sm" onClick={() => setPermUser(u)}>Phân quyền</button>}
-                  {hasPerm(me, 'user.edit') && <button className="btn btn-subtle btn-sm" onClick={() => setEditing(u)}>Sửa</button>}
-                  {hasPerm(me, 'user.edit') && <button className="btn btn-subtle btn-sm" onClick={() => setReset(u)}>Đặt lại mật khẩu</button>}
-                  {u.id !== me?.id && hasPerm(me, u.is_active ? 'user.delete' : 'user.edit') && <button className="btn btn-subtle btn-sm" onClick={() => toggleActive(u)}>{u.is_active ? 'Khóa' : 'Mở khóa'}</button>}
+                <td className="small users-email">{u.email}</td>
+                <td className="small nowrap">{u.last_login_at ? fmtDateTime(u.last_login_at) : <span className="muted">Chưa đăng nhập</span>}</td>
+                <td className="nowrap">{u.is_active ? <span className="lozenge lozenge-green">Hoạt động</span> : <span className="lozenge lozenge-red">Đã khóa</span>}</td>
+                <td className="num nowrap users-actions">
+                  {(hasPerm(me, 'role.view') || hasPerm(me, 'role.edit')) && <button className="icon-btn" aria-label="Phân quyền" data-tip="Phân quyền" onClick={() => setPermUser(u)}><ShieldCheck size={16} /></button>}
+                  {hasPerm(me, 'user.edit') && <button className="icon-btn" aria-label="Sửa" data-tip="Sửa" onClick={() => setEditing(u)}><Pencil size={16} /></button>}
+                  {hasPerm(me, 'user.edit') && <button className="icon-btn" aria-label="Đặt lại mật khẩu" data-tip="Đặt lại mật khẩu" onClick={() => setReset(u)}><KeyRound size={16} /></button>}
+                  {u.id !== me?.id && hasPerm(me, u.is_active ? 'user.delete' : 'user.edit') && (u.is_active
+                    ? <button className="icon-btn" aria-label="Khóa tài khoản" data-tip="Khóa tài khoản" onClick={() => toggleActive(u)}><Lock size={16} /></button>
+                    : <button className="icon-btn" aria-label="Mở khóa tài khoản" data-tip="Mở khóa tài khoản" onClick={() => toggleActive(u)}><LockOpen size={16} /></button>)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
       {editing && <UserModal user={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       {reset && <ResetModal user={reset} onClose={() => setReset(null)} />}
