@@ -2,10 +2,11 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Paperclip, Plus, X } from 'lucide-react';
 import { api, refreshAll } from '../api';
-import { useProvinces, useWards } from '../hooks';
+import { useCustomerStatuses, useProvinces, useWards } from '../hooks';
 import { PeoplePicker } from '../components/PeoplePicker';
 import type { Customer, CustomerContact } from '../types';
-import { CUSTOMER_SOURCES, CUSTOMER_STATUSES, wardCodeOf } from '../customer-filter';
+import { CUSTOMER_SOURCES, wardCodeOf } from '../customer-filter';
+import { statusOptions } from '../reorder';
 import { Modal, toast, toastError } from '../components/ui';
 
 /** Khách hàng (kèm dự án) người dùng được xem; archived: kèm khách hàng, dự án đã lưu trữ */
@@ -16,7 +17,7 @@ export const useCustomers = (archived = false) => useQuery<Customer[]>({
 type Draft = Record<'name' | 'province_code' | 'ward_code' | 'source' | 'status', string>;
 type ContactDraft = { id?: number; full_name: string; phone: string; email: string };
 const draftOf = (c?: Customer): Draft => ({
-  name: c?.name ?? '', province_code: c?.province_code ?? '', ward_code: c?.ward_code ?? '', source: c?.source ?? '', status: c?.status ?? 'Mới',
+  name: c?.name ?? '', province_code: c?.province_code ?? '', ward_code: c?.ward_code ?? '', source: c?.source ?? '', status: c?.status ?? '',
 });
 const blankContact = (): ContactDraft => ({ full_name: '', phone: '', email: '' });
 
@@ -29,6 +30,7 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
   const [am, setAm] = useState<number[]>(amIds ?? []);
   const [d, setD] = useState(draftOf(customer));
   const { data: provinces } = useProvinces();
+  const { data: statuses } = useCustomerStatuses();
   const { data: wards } = useWards(d.province_code);
   // Ô phường/xã: gõ để tìm trong danh mục của tỉnh đã chọn; chỉ nhận tên có trong danh mục
   const [wardText, setWardText] = useState(customer?.ward_name ?? '');
@@ -104,8 +106,8 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
             <input list="customer-sources" value={d.source} onChange={set('source')} placeholder="Chọn hoặc gõ nguồn" />
             <datalist id="customer-sources">{CUSTOMER_SOURCES.map((n) => <option key={n} value={n} />)}</datalist></label>
           <label className="field"><span>Tình trạng</span>
-            <select value={d.status} onChange={set('status')}>
-              {CUSTOMER_STATUSES.map(([n]) => <option key={n}>{n}</option>)}
+            <select value={d.status || statusOptions(statuses ?? [], customer?.status)[0] || ''} onChange={set('status')}>
+              {statusOptions(statuses ?? [], customer?.status).map((n) => <option key={n}>{n}</option>)}
             </select></label>
         </div>
         <div className="form-grid">

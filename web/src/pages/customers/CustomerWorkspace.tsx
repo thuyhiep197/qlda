@@ -5,8 +5,8 @@ import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutLi
 import { api } from '../../api';
 import { ManageContext, useCan } from './manage';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
-import { callAlertText, CUSTOMER_STATUSES, customerTree, filterCustomers, salesStatusClass, worstCallAlert } from '../../customer-filter';
-import { colorOf, fmtDate, lozengeOf } from '../../util';
+import { callAlertText, CUSTOMER_STATUS_CLASS, customerTree, filterCustomers, salesStatusClass, worstCallAlert } from '../../customer-filter';
+import { colorOf, fmtDate } from '../../util';
 import { useCustomers } from '../Customers';
 import { Empty, Spinner } from '../../components/ui';
 import JourneyPane from './JourneyPane';
@@ -45,7 +45,6 @@ export default function CustomerWorkspace() {
   );
 }
 
-const statusTone = (s: string) => CUSTOMER_STATUSES.find(([n]) => n === s)?.[1] ?? 'default';
 const salesTone = (s: string | null) => salesStatusClass(s).replace('lozenge lozenge-', '');
 
 /** Cột trái: 2 nhóm Khách hàng của tôi / Tất cả khách hàng; dưới mỗi khách hàng (cấp 1) là các dự án của khách hàng (cấp 2) */
@@ -87,7 +86,7 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
                       onClick={() => setClosed({ ...closed, [ck]: expanded })}>{expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</button>
                       : <span className="cw-caret-space" />}
                     <Link to={`/customers/${c.id}?g=${key}`} title={c.name} className="cw-sub-link">
-                      <span className={`cw-dot tone-${statusTone(c.status)}`} data-tip={c.status} />
+                      <span className="cw-dot tone-default" data-tip={c.status} />
                       <span className="ellipsis grow">{c.name}</span>{!!c.is_archived && <Archive size={12} className="muted" data-tip="Đã lưu trữ" />}
                       {callC && <PhoneCall size={12} className="call-flag" data-tip={`${callC.projects} dự án: ${callAlertText(callC)}`} />}
                       {projects.length > 0 && <span className="cw-count">{projects.length}</span>}
@@ -159,7 +158,7 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
                   <td><Link to={`/customers/${c.id}${g}`} onClick={(e) => e.stopPropagation()}><b>{c.name}</b></Link>
                     {(c.province_name || c.ward_name) && <div className="muted small">{[c.ward_name, c.province_name].filter(Boolean).join(', ')}</div>}</td>
                   <td className="muted small">{c.sales_projects?.length ? `${c.sales_projects.length} dự án` : 'Chưa có dự án'}</td>
-                  <td><span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span></td>
+                  <td><span className={CUSTOMER_STATUS_CLASS}>{c.status}</span></td>
                   <td />
                   <td className="small">{c.kd_names}</td>
                   <td className="small">{c.am_names}</td>
@@ -221,7 +220,7 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
             <h2 className="ellipsis">{c.name}</h2>
             {!!c.is_archived && <div className="cw-archived"><Archive size={15} /> Khách hàng đã lưu trữ — không hiện trong danh sách</div>}
             <div className="row gap-sm small muted" style={{ flexWrap: 'wrap' }}>
-              <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>
+              <span className={CUSTOMER_STATUS_CLASS}>{c.status}</span>
               {[c.ward_name, c.province_name].filter(Boolean).join(', ')}
               {c.kd_names && <span>· Sale: {c.kd_names}</span>}{c.am_names && <span>· AM: {c.am_names}</span>}
             </div>

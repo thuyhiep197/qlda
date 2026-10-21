@@ -122,6 +122,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'catalog', label: 'Module Danh mục', subsystem: 'admin', features: [
       { key: 'department', label: 'Phòng ban (sơ đồ tổ chức)', hint: 'Ban Giám đốc và các phòng; nhân sự thuộc phòng ban', actions: ['view', 'create', 'edit', 'delete'] },
       { key: 'geo', label: 'Danh mục địa chính', hint: 'Tỉnh/thành phố, phường/xã dùng để chọn địa chỉ khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'cstatus', label: 'Tình trạng khách hàng', hint: 'Danh mục tình trạng chọn cho khách hàng; kéo thả để sắp xếp thứ tự hiển thị', actions: ['view', 'create', 'edit', 'delete'],
+        actionLabels: { delete: 'Ngừng sử dụng' }, actionHints: { delete: 'Ngừng / dùng lại một tình trạng (khách hàng đang ở tình trạng đó giữ nguyên)' } },
       { key: 'product', label: 'Danh mục Loại sản phẩm & Sản phẩm', hint: 'Sản phẩm kèm mô tả, dùng để chọn cho dự án của khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
       { key: 'staff', label: 'Nhân sự', hint: 'Xếp tài khoản vào phòng ban, chọn vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC) và quản lý', actions: ['view', 'create', 'edit', 'delete'] },
     ],

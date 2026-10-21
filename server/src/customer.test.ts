@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { callAlert, callPingDue, cleanActivity, cleanCall, cleanCallConfirm, cleanContact, cleanContacts, cleanCustomer, cleanProduct, cleanSalesProject, cleanTask, customerCode, fold, salesProjectCode, sameName } from './customer';
 
-test('customer needs an organisation name and starts as a new customer', () => {
+test('customer needs an organisation name; status is checked against the status catalog', () => {
   assert.throws(() => cleanCustomer({ name: '   ' }), /Tên cơ quan\/đơn vị/);
   const c = cleanCustomer({ name: '  Sở Tài chính   Đồng Nai ', ward_code: '', product_id: '' });
   assert.equal(c.name, 'Sở Tài chính Đồng Nai');
-  assert.equal(c.status, 'Mới');
+  assert.equal(c.status, null); // trống → tình trạng đầu tiên đang dùng (route)
   assert.equal(c.ward_code, null);
   assert.equal(c.product_id, null);
   assert.deepEqual(c.kd_ids, []);
@@ -14,9 +14,8 @@ test('customer needs an organisation name and starts as a new customer', () => {
   assert.deepEqual(cleanCustomer({ name: 'A', kd_ids: [3, '3', 5, 'x', -1] }).kd_ids, [3, 5]);
 });
 
-test('customer rejects unknown status and bad product ids', () => {
-  assert.throws(() => cleanCustomer({ name: 'A', status: 'Tiềm năng' }), /Tình trạng/);
-  assert.equal(cleanCustomer({ name: 'A', status: 'Đang làm sản phẩm' }).status, 'Đang làm sản phẩm');
+test('customer rejects bad product ids', () => {
+  assert.equal(cleanCustomer({ name: 'A', status: ' Đang làm sản phẩm ' }).status, 'Đang làm sản phẩm');
   assert.throws(() => cleanCustomer({ name: 'A', product_id: 'abc' }), /Sản phẩm/);
   assert.throws(() => cleanCustomer({ name: 'A', product_type_id: -1 }), /Loại sản phẩm/);
   const c = cleanCustomer({ name: 'A', product_type_id: '2', product_id: 5, product_description: ' Phần mềm QL ' });

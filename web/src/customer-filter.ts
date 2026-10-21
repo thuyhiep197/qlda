@@ -1,9 +1,8 @@
 import type { Customer, CustomerDetail, Product } from './types';
 
 // Danh mục của module Khách hàng (khớp với server/src/customer.ts); [tên, màu lozenge]
-export const CUSTOMER_STATUSES: [string, string][] = [
-  ['Mới', 'default'], ['Đang tư vấn', 'blue'], ['Chờ phản hồi', 'yellow'], ['Đang làm sản phẩm', 'purple'], ['Đã ký hợp đồng', 'green'], ['Đã thanh toán', 'green'],
-];
+/** Nhãn tình trạng khách hàng: mọi tình trạng cùng một màu (danh mục Tình trạng khách hàng) */
+export const CUSTOMER_STATUS_CLASS = 'lozenge lozenge-default';
 /** Màu lozenge cho tình trạng dự án của khách hàng (tự động theo phần I–IV đang chạy của hành trình) */
 export function salesStatusClass(status: string | null) {
   const tone = !status ? 'default' : status === 'Hoàn thành' ? 'green' : /^IV\./.test(status) ? 'green' : /^III\./.test(status) ? 'purple'

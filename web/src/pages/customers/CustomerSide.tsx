@@ -5,7 +5,7 @@ import { api, refreshAll } from '../../api';
 import { hasPerm, useMe, useUsersBasic } from '../../hooks';
 import { useCan } from './manage';
 import type { CustomerDetail, CustomerFile, CustomerTask } from '../../types';
-import { CUSTOMER_STATUSES, overdueDays } from '../../customer-filter';
+import { CUSTOMER_STATUS_CLASS, overdueDays } from '../../customer-filter';
 import { colorOf, fmtDate, fmtDateTime, fmtSize, lozengeOf, PROJECT_STATUSES, today } from '../../util';
 import { CustomerModal } from '../Customers';
 import { toast, toastError } from '../../components/ui';
@@ -103,7 +103,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
       </>}>
         <Props rows={[
           ['Mã khách hàng', c.code],
-          ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
+          ['Tình trạng', <span className={CUSTOMER_STATUS_CLASS}>{c.status}</span>],
           ['Tỉnh thành', c.province_name], ['Phường/Xã', c.ward_name], ['Nguồn', c.source],
           ['Sale', c.kd_names], ['AM', c.am_names],
         ]} />

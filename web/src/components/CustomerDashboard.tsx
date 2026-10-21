@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import type { CustomerTask, StepStatus } from '../types';
-import { CUSTOMER_STATUSES } from '../customer-filter';
+import { CUSTOMER_STATUS_CLASS } from '../customer-filter';
+import { useCustomerStatuses } from '../hooks';
 import { fmtDate } from '../util';
 
 interface Summary {
@@ -17,7 +18,10 @@ interface Summary {
 /** Phần Khách hàng của Dashboard chung: khách hàng theo tình trạng, việc kinh doanh và bước hành trình được giao cho tôi */
 export default function CustomerDashboard() {
   const { data } = useQuery<Summary>({ queryKey: ['customer-summary'], queryFn: () => api.get('/customers/summary') });
+  const { data: statuses } = useCustomerStatuses();
   if (!data) return null;
+  // Tình trạng theo thứ tự danh mục: đang sử dụng, hoặc đã ngừng nhưng còn khách hàng
+  const shown = (statuses ?? []).filter((s) => s.is_active || data.by_status.some((x) => x.status === s.name && x.n > 0));
   const count = (s: string) => data.by_status.find((x) => x.status === s)?.n ?? 0;
   const due = (d: string | null) => <span className={d && d < data.today ? 'overdue small nowrap' : 'muted small nowrap'}>{d ? fmtDate(d) : ''}</span>;
   return (
@@ -25,9 +29,9 @@ export default function CustomerDashboard() {
       <div className="card">
         <div className="card-head"><h3>Khách hàng ({data.total})</h3><Link to="/customers" className="small">Quản lý khách hàng</Link></div>
         <div className="status-funnel">
-          {CUSTOMER_STATUSES.map(([s, tone]) => (
+          {shown.map(({ name: s }) => (
             <Link key={s} to="/customers" className="funnel-step">
-              <span className={`lozenge lozenge-${tone}`}>{s}</span>
+              <span className={CUSTOMER_STATUS_CLASS}>{s}</span>
               <b>{count(s)}</b>
             </Link>
           ))}

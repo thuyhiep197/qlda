@@ -14,6 +14,7 @@ import { cleanActivity, cleanContacts, cleanCustomer, sameName } from '../custom
 import { TASK_SELECT } from './customer-work.ts';
 import { assignCustomerCodes, salesProjectsOf } from './sales-projects.ts';
 import { syncJourneys } from '../journey-sync.ts';
+import { checkCustomerStatus } from './customer-statuses.ts';
 import { mentionedCustomerUsers, notifyCustomer } from '../notify.ts';
 
 const r = Router();
@@ -36,8 +37,9 @@ const ownersOf = (customerId: number) => all<{ id: number; full_name: string; ro
 const OWNER_NAMES = (role: 'kd' | 'am') => namesSql('customer_owners', 'customer_id', 'c.id', role);
 
 /** Kiểm tra thông tin khách hàng với danh mục: tỉnh, phường/xã theo Danh mục địa chính (phường/xã phải thuộc tỉnh đã chọn) */
-function validate(body: any) {
+function validate(body: any, currentStatus?: string | null) {
   const v = check(() => cleanCustomer(body));
+  v.status = checkCustomerStatus(v.status, currentStatus);
   if (v.province_code && !get('SELECT 1 FROM geo_provinces WHERE code = ?', v.province_code)) throw badRequest('Tỉnh/thành phố không có trong Danh mục địa chính');
   if (v.ward_code) {
     const w = get<{ province_code: string }>('SELECT province_code FROM geo_wards WHERE code = ?', v.ward_code);
@@ -195,7 +197,7 @@ r.get('/:id', (req, res) => {
 r.patch('/:id', (req, res) => {
   const cur = loadCustomer(req, 'customer.edit');
   const owners = ownersOf(cur.id);
-  const v = validate({ ...cur, kd_ids: owners.filter((o) => o.role === 'kd').map((o) => o.id), am_ids: owners.filter((o) => o.role === 'am').map((o) => o.id), ...req.body });
+  const v = validate({ ...cur, kd_ids: owners.filter((o) => o.role === 'kd').map((o) => o.id), am_ids: owners.filter((o) => o.role === 'am').map((o) => o.id), ...req.body }, cur.status);
   checkPeople(v.kd_ids, 'kd', owners.filter((o) => o.role === 'kd').map((o) => o.id));
   checkPeople(v.am_ids, 'am', owners.filter((o) => o.role === 'am').map((o) => o.id));
   const me = req.user.id;

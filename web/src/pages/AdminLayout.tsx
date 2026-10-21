@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BookMarked, ChevronDown, ChevronRight, MapPinned, Network, Package, ScrollText, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
+import { BookMarked, ChevronDown, ChevronRight, ListChecks, MapPinned, Network, Package, ScrollText, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 import { hasPerm, useMe } from '../hooks';
 
 type Me = Parameters<typeof hasPerm>[0];
-/** Danh mục trong Quản trị: Phòng ban & Nhân sự (sơ đồ tổ chức), Địa chính, Sản phẩm (mỗi mục theo quyền Xem) */
+/** Danh mục trong Quản trị: Phòng ban & Nhân sự (sơ đồ tổ chức), Địa chính, Sản phẩm, Tình trạng khách hàng (mỗi mục theo quyền Xem) */
 export const catalogItems = (me: Me): [string, string, LucideIcon][] => ([
   ['org', 'Phòng ban & Nhân sự', Network, hasPerm(me, 'department.view') || hasPerm(me, 'staff.view')],
   ['geo', 'Địa chính', MapPinned, hasPerm(me, 'geo.view')], ['products', 'Sản phẩm', Package, hasPerm(me, 'product.view')],
+  ['customer-statuses', 'Tình trạng khách hàng', ListChecks, hasPerm(me, 'cstatus.view')],
 ] as [string, string, LucideIcon, boolean][]).filter(([, , , ok]) => ok).map(([k, l, i]) => [k, l, i]);
 
 /** Các mục của phân hệ Quản trị (mục đầu tiên được mở khi bấm Quản trị) */

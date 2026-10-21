@@ -22,6 +22,7 @@ import AdminAudit from './pages/AdminAudit';
 import CustomerWorkspace from './pages/customers/CustomerWorkspace';
 import AdminGeo from './pages/AdminGeo';
 import AdminProducts from './pages/AdminProducts';
+import AdminCustomerStatuses from './pages/AdminCustomerStatuses';
 import AdminOrg from './pages/AdminOrg';
 import ProjectShell from './pages/ProjectShell';
 import Docs from './pages/Docs';
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="staff" element={null} />
             {hasPerm(me, 'geo.view') && <Route path="geo" element={<AdminGeo />} />}
             {hasPerm(me, 'product.view') && <Route path="products" element={<AdminProducts />} />}
+            {hasPerm(me, 'cstatus.view') && <Route path="customer-statuses" element={<AdminCustomerStatuses />} />}
           </Route>
           {hasPerm(me, 'customer.view') && <Route path="customers" element={<CustomerWorkspace />} />}
           {hasPerm(me, 'customer.view') && <Route path="customers/:id" element={<CustomerWorkspace />} />}

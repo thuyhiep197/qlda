@@ -1161,3 +1161,8 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 /* Quản trị: danh sách mục ngắn → cột trái hẹp hơn cây khách hàng / dự án */
 .cw.cw-admin { grid-template-columns: 218px minmax(0, 1fr); }
 @media (max-width: 1100px) { .cw.cw-admin { grid-template-columns: minmax(0, 1fr); } }
+/* Danh mục Tình trạng khách hàng: kéo thả dòng để sắp xếp */
+.narrow-page { max-width: 860px; }
+.status-catalog tr[draggable="true"] { cursor: grab; }
+.status-catalog tr.dragging td { background: var(--primary-soft); }
+.status-catalog .drag-handle { width: 32px; }

@@ -746,6 +746,16 @@ const migrations: (string | (() => void))[] = [
   // Sale / AM / BA/PM / Dev / Tester của khách hàng, dự án của khách hàng, dự án sản xuất lưu theo id tài khoản;
   // thành viên dự án sản xuất = Trưởng dự án + những người được chọn ở các vai trò. Tên không khớp tài khoản nào thì bỏ (ghi ra log).
   migrateV26,
+  // v27: danh mục Tình trạng khách hàng (thêm, sửa, ngừng / dùng lại, kéo thả sắp xếp); khách hàng vẫn lưu tên tình trạng
+  `CREATE TABLE customer_statuses (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+     position INTEGER NOT NULL DEFAULT 0,
+     is_active INTEGER NOT NULL DEFAULT 1,
+     created_at TEXT NOT NULL DEFAULT ${TS}
+   );
+   INSERT INTO customer_statuses(name, position) VALUES ('Mới', 1), ('Đang tư vấn', 2), ('Chờ phản hồi', 3), ('Đang làm sản phẩm', 4), ('Đã ký hợp đồng', 5), ('Đã thanh toán', 6);
+   INSERT OR IGNORE INTO customer_statuses(name, position) SELECT DISTINCT TRIM(status), 100 FROM customers WHERE status IS NOT NULL AND TRIM(status) <> '';`,
 ];
 
 function migrateV26() {

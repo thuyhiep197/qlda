@@ -2,7 +2,6 @@
 const badRequest = (msg: string) => new Error(msg);
 
 // Danh mục khách hàng (CRM): tình trạng quan hệ, loại hoạt động chăm sóc
-export const CUSTOMER_STATUSES = ['Mới', 'Đang tư vấn', 'Chờ phản hồi', 'Đang làm sản phẩm', 'Đã ký hợp đồng', 'Đã thanh toán'] as const;
 /** Trao đổi: làm việc với khách hàng (gọi điện, gặp mặt, email, ghi chú) và thảo luận nội bộ (internal, có @nhắc tên) */
 export const ACTIVITY_KINDS = ['call', 'meeting', 'email', 'note', 'internal'] as const;
 export const TASK_STATUSES = ['todo', 'doing', 'done'] as const;
@@ -42,7 +41,8 @@ export function cleanCustomer(b: any) {
     product_id,
     product_description: longText(b.product_description, 4000),
     source: text(b.source, 200),
-    status: oneOf(b.status, CUSTOMER_STATUSES, 'Tình trạng', 'Mới')!,
+    // Tình trạng: chọn trong danh mục Tình trạng khách hàng (route kiểm tra); trống = tình trạng đầu tiên đang dùng
+    status: text(b.status, 100),
     // Kinh doanh phụ trách (nhân sự Sale), AM hỗ trợ (nhân sự AM)
     kd_ids: idList(b.kd_ids),
     am_ids: idList(b.am_ids),

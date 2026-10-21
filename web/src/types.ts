@@ -569,3 +569,6 @@ export interface CustomerDetail extends Customer {
   issues: Issue[];
   recent: { id: number; field: string; new_label: string; created_at: string; user_name: string; user_avatar_url?: string | null; key: string; summary: string; type: IssueType; project_key: string }[];
 }
+
+/** Danh mục Tình trạng khách hàng (thứ tự theo position; ngừng sử dụng thì không chọn được nữa) */
+export interface CustomerStatus { id: number; name: string; position: number; is_active: number; customer_count: number }

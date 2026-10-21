@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Pencil, Phone } from 'lucide-react';
 import { hasPerm, useMe, useProjects } from '../hooks';
-import { CUSTOMER_STATUSES } from '../customer-filter';
+import { CUSTOMER_STATUS_CLASS } from '../customer-filter';
 import { fmtDate, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 import { splitNames } from '../components/ProjectInfoFields';
 import { Avatar } from '../components/ui';
@@ -55,7 +55,7 @@ export default function ProjectInfo({ onEdit }: { onEdit?: () => void }) {
               <div className="stack-sm">
                 <Props rows={[
                   ['Cơ quan/đơn vị', <b>{c.name}</b>],
-                  ['Tình trạng', <span className={lozengeOf(CUSTOMER_STATUSES, c.status)}>{c.status}</span>],
+                  ['Tình trạng', <span className={CUSTOMER_STATUS_CLASS}>{c.status}</span>],
                   ['Địa chỉ', [c.ward_name, c.province_name].filter(Boolean).join(', ')],
                   ['Sale', c.kd_names], ['AM', c.am_names],
                   ['Dự án của khách hàng', c.sales_project
