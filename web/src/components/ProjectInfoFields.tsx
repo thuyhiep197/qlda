@@ -6,7 +6,7 @@ import { PROJECT_PRIORITIES, PROJECT_STATUSES } from '../util';
 import { PeoplePicker } from './PeoplePicker';
 import { ROLE_LABELS } from '../people';
 
-/** Vai trò người của dự án sản xuất (id tài khoản) — cùng Trưởng dự án là thành viên dự án */
+/** Vai trò người của dự án sản xuất (id tài khoản) — chính là thành viên dự án */
 const PROJECT_ROLES = ['ba', 'dev', 'tester', 'am'] as const;
 
 // Thông tin quản lý dự án — dùng chung cho form Tạo dự án và Cài đặt dự án

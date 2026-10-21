@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
-import { useComponents, useMe, useUsersBasic, hasPerm, can } from '../hooks';
+import { useComponents, useMe, hasPerm, can } from '../hooks';
 import type { Category, Component, IssueType, Side, Status } from '../types';
 import { CATEGORY_LABELS, SIDE_LABELS, statusesFor, TYPE_LABELS, typeTip } from '../util';
 import { Avatar, Modal, SideBadge, StatusBadge, toast, toastError, TypeIcon } from '../components/ui';
@@ -9,16 +9,14 @@ import { useProjectCtx } from './ProjectLayout';
 import { ProjectInfoFields, projectInfoOf } from '../components/ProjectInfoFields';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import ProjectInfo from './ProjectInfo';
-import { personLabel } from '../people';
 
 /** Tab Thông tin của dự án: thông tin dự án (mọi thành viên xem; trưởng dự án hoặc người có quyền Sửa dự án sửa được),
- *  và các phần cài đặt Mô-đun, Trạng thái & quy trình theo quyền. Thành viên dự án = Trưởng dự án + người ở các vai trò (BA/PM, Dev, Tester, AM). */
+ *  và các phần cài đặt Mô-đun, Trạng thái & quy trình theo quyền. Thành viên dự án = người ở các vai trò (BA/PM, Dev, Tester, AM). */
 export default function ProjectSettings() {
   const project = useProjectCtx();
-  const { data: me } = useMe();
   // Quy trình: quyền Sửa dự án; Mô-đun: quyền riêng của Mô-đun; Thông tin: thêm trưởng dự án
   const canProject = can(project.permissions, 'project.edit');
-  const canInfo = canProject || project.lead_id === me?.id;
+  const canInfo = canProject;
   const canComp = ['component.create', 'component.edit', 'component.delete'].some((p) => can(project.permissions, p));
   const [tab, setTab] = useState<'general' | 'components' | 'workflow'>('general');
   const [editing, setEditing] = useState(false);
@@ -44,14 +42,12 @@ function General({ onDone, canArchive }: { onDone: () => void; canArchive: boole
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description || '');
   const [type, setType] = useState(project.type);
-  const [lead, setLead] = useState(String(project.lead_id));
   const [info, setInfo] = useState(projectInfoOf(project));
-  const { data: users } = useUsersBasic();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await api.patch(`/projects/${project.key}`, { name, description, type, lead_id: Number(lead), ...info });
+      await api.patch(`/projects/${project.key}`, { name, description, type, ...info });
       toast('Đã lưu thông tin dự án');
       await refreshAll();
       onDone();
@@ -69,10 +65,6 @@ function General({ onDone, canArchive }: { onDone: () => void; canArchive: boole
       <label className="field"><span>Mô hình</span>
         <select value={type} onChange={(e) => setType(e.target.value as 'scrum' | 'kanban')}>
           <option value="scrum">Scrum</option><option value="kanban">Kanban</option>
-        </select></label>
-      <label className="field"><span>Trưởng dự án</span>
-        <select value={lead} onChange={(e) => setLead(e.target.value)}>
-          {users?.map((u) => <option key={u.id} value={u.id}>{personLabel(u)}</option>)}
         </select></label>
       <ProjectInfoFields value={info} onChange={setInfo} />
       <label className="field"><span>Mô tả</span><textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} /></label>

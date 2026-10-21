@@ -759,6 +759,10 @@ const migrations: (string | (() => void))[] = [
   // v28: xóa hẳn mọi khách hàng (người dùng yêu cầu 2026-10-21, nhập lại từ CRM cũ): dự án KH, hành trình, công việc, tài liệu,
   // trao đổi, lịch gọi, đầu mối, người phụ trách xóa theo; dự án sản xuất giữ nguyên, chỉ gỡ liên kết khách hàng. Bản sao lưu trước nâng cấp giữ dữ liệu cũ.
   `DELETE FROM customers;`,
+  // v29: bỏ Trưởng dự án — thành viên dự án chỉ còn người ở các ô BA/PM, Dev, Tester, AM (cột lead_id giữ lại, không dùng)
+  `DELETE FROM project_members;
+   INSERT OR IGNORE INTO project_members(project_id, user_id, role_id)
+     SELECT pp.project_id, u.id, u.default_role_id FROM project_people pp JOIN users u ON u.id = pp.user_id WHERE u.default_role_id IS NOT NULL;`,
 ];
 
 function migrateV26() {

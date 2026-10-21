@@ -182,7 +182,6 @@ export interface Project {
   description: string | null;
   type: 'scrum' | 'kanban';
   lead_id: number;
-  lead: { id: number; full_name: string } | null;
   customer_id: number | null;
   customer: string | null;
   /** Thông tin khách hàng của dự án (thành viên dự án đều xem được) */
@@ -191,7 +190,7 @@ export interface Project {
     sales_project: { id: number; code: string; name: string; status: string | null; product_name: string | null; kd_names: string | null; am_names: string | null } | null }) | null;
   priority: string | null;
   project_status: string | null;
-  /** Người theo vai trò: id tài khoản và họ tên — cùng Trưởng dự án là thành viên dự án */
+  /** Người theo vai trò: id tài khoản và họ tên — chính là thành viên dự án */
   ba_ids: number[]; dev_ids: number[]; tester_ids: number[]; am_ids: number[];
   ba_names: string | null; dev_names: string | null; tester_names: string | null; am_names: string | null;
   workflow_strict: number;

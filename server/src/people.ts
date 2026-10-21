@@ -52,12 +52,10 @@ export function savePeople(table: 'customer_owners' | 'sales_project_owners' | '
 export const namesSql = (table: string, key: string, col: string, role: PeopleRole) =>
   `(SELECT GROUP_CONCAT(u.full_name, ', ') FROM ${table} o JOIN users u ON u.id = o.user_id WHERE o.${key} = ${col} AND o.role = '${role}')`;
 
-/** Thành viên dự án sản xuất = Trưởng dự án + người ở các vai trò BA/PM, Dev, Tester, AM (vai trò trong dự án theo nhóm của tài khoản) */
+/** Thành viên dự án sản xuất = người ở các vai trò BA/PM, Dev, Tester, AM (vai trò trong dự án theo nhóm của tài khoản) */
 export function syncProjectMembers(projectId: number) {
   tx(() => {
     run('DELETE FROM project_members WHERE project_id = ?', projectId);
-    run(`INSERT OR IGNORE INTO project_members(project_id, user_id, role_id)
-      SELECT p.id, u.id, u.default_role_id FROM projects p JOIN users u ON u.id = p.lead_id WHERE p.id = ? AND u.default_role_id IS NOT NULL`, projectId);
     run(`INSERT OR IGNORE INTO project_members(project_id, user_id, role_id)
       SELECT pp.project_id, u.id, u.default_role_id FROM project_people pp JOIN users u ON u.id = pp.user_id WHERE pp.project_id = ? AND u.default_role_id IS NOT NULL`, projectId);
   });

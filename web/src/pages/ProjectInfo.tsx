@@ -34,7 +34,6 @@ export default function ProjectInfo({ onEdit }: { onEdit?: () => void }) {
               {canEdit && <button className="btn btn-sm" onClick={onEdit}><Pencil size={14} /> Sửa</button>}</div>
             <Props rows={[
               ['Tên dự án', <b>{project.name}</b>], ['Mã dự án', project.key], ['Mô hình', project.type === 'scrum' ? 'Scrum' : 'Kanban'],
-              ['Trưởng dự án', project.lead?.full_name],
               ['Trạng thái', status && <span className="nowrap"><span className={lozengeOf(PROJECT_STATUSES, status)}>{status}</span> <span className="muted small">{project.project_status ? '📌 ghim tay' : '⚙ tự động'}</span></span>],
               ['Ưu tiên', project.priority && <span className={lozengeOf(PROJECT_PRIORITIES, project.priority)}>{project.priority}</span>],
               ['Sprint đang chạy', sprint && `${sprint.name}${sprint.end_date ? ` (đến ${fmtDate(sprint.end_date)})` : ''}`],

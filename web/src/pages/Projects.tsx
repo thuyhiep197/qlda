@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, refreshAll } from '../api';
-import { useMe, useUsersBasic, hasPerm } from '../hooks';
+import { useMe, hasPerm } from '../hooks';
 import { useProjectGroup } from './ProjectShell';
 import type { ProjectSummary } from '../types';
 import { colorOf, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
@@ -108,13 +108,10 @@ function ProjectStatus({ p }: { p: ProjectSummary }) {
 /** Tạo dự án (dự án tự có trong Danh mục sản phẩm loại Dự án). onCreated: mở từ form khác → không chuyển sang trang dự án */
 export function CreateProjectModal({ onClose, onCreated, initialName }: { onClose: () => void; onCreated?: (p: { id: number; key: string; name: string }) => void; initialName?: string }) {
   const navigate = useNavigate();
-  const { data: me } = useMe();
-  const { data: users } = useUsersBasic();
   const [name, setName] = useState(initialName ?? '');
   const [key, setKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
   const [type, setType] = useState<'scrum' | 'kanban'>('scrum');
-  const [lead, setLead] = useState(String(me?.id ?? ''));
   const [description, setDescription] = useState('');
   const [info, setInfo] = useState(projectInfoOf());
 
@@ -124,7 +121,7 @@ export function CreateProjectModal({ onClose, onCreated, initialName }: { onClos
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const created = await api.post<{ id: number; key: string; name: string }>('/projects', { name, key, type, lead_id: Number(lead), description, ...info });
+      const created = await api.post<{ id: number; key: string; name: string }>('/projects', { name, key, type, description, ...info });
       toast('Đã tạo dự án — đã có trong Danh mục sản phẩm (loại Dự án)');
       await refreshAll();
       onClose();
@@ -155,10 +152,6 @@ export function CreateProjectModal({ onClose, onCreated, initialName }: { onClos
             </label>
           </div>
         </div>
-        <label className="field"><span>Trưởng dự án <small className="muted">(tự được thêm vào dự án)</small></span>
-          <select value={lead} onChange={(e) => setLead(e.target.value)}>
-            {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name} (@{u.username}){u.default_role_name ? ` · ${u.default_role_name}` : ''}</option>)}
-          </select></label>
         <ProjectInfoFields value={info} onChange={setInfo} />
         <label className="field"><span>Mô tả</span>
           <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></label>

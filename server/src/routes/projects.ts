@@ -25,7 +25,7 @@ export function loadProject(req: Request, perm?: Permission) {
 
 // Thông tin quản lý dự án: khách hàng, ưu tiên, trạng thái dự án (ghim), nhân sự (họ tên theo Danh mục nhân sự, cách nhau dấu phẩy)
 export const INFO_FIELDS = ['customer', 'priority', 'project_status'] as const;
-/** Người của dự án theo vai trò (id tài khoản): BA/PM, Dev, Tester, AM — cùng Trưởng dự án là thành viên dự án */
+/** Người của dự án theo vai trò (id tài khoản): BA/PM, Dev, Tester, AM — chính là thành viên dự án */
 const PROJECT_ROLES: PeopleRole[] = ['ba', 'dev', 'tester', 'am'];
 const projectPeopleIds = (projectId: number) => {
   const rows = all<{ user_id: number; role: PeopleRole }>('SELECT user_id, role FROM project_people WHERE project_id = ?', projectId);
@@ -130,8 +130,8 @@ r.post('/', (req, res) => {
   const name = String(b.name || '').trim();
   if (!name) throw badRequest('Tên dự án không được để trống');
   const type = b.type === 'kanban' ? 'kanban' : 'scrum';
-  const leadId = b.lead_id ? Number(b.lead_id) : req.user.id;
-  if (!get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', leadId)) throw badRequest('Trưởng dự án không hợp lệ');
+  // Không còn Trưởng dự án (cột lead_id giữ người tạo, không hiển thị, không dùng cho thành viên / quyền)
+  const leadId = req.user.id;
 
   const id = tx(() => {
     const { id } = run(`INSERT INTO projects(key, name, description, type, lead_id, ${INFO_COLS.join(', ')}) VALUES (?,?,?,?,?${',?'.repeat(INFO_COLS.length)})`,
@@ -158,7 +158,6 @@ r.get('/:key', (req, res) => {
   const { transitions, type_statuses } = workflowConfig(project.id);
   // Như Jira (sprint song song): có thể có nhiều sprint cùng chạy
   const activeSprints = all("SELECT * FROM sprints WHERE project_id = ? AND state = 'active' ORDER BY start_date, id", project.id);
-  const lead = get('SELECT id, full_name FROM users WHERE id = ?', project.lead_id) ?? null;
   const labels = new Set<string>();
   for (const row of all<{ labels: string }>('SELECT DISTINCT labels FROM issues WHERE project_id = ? AND labels IS NOT NULL', project.id)) {
     row.labels.split(',').forEach((l) => l && labels.add(l));
@@ -178,23 +177,22 @@ r.get('/:key', (req, res) => {
   const names = (ids: number[]) => ids.map((id) => get<{ full_name: string }>('SELECT full_name FROM users WHERE id = ?', id)?.full_name).filter(Boolean).join(', ') || null;
   const roleFields = Object.fromEntries(PROJECT_ROLES.flatMap((r) => [[`${r}_ids`, people[r]], [`${r}_names`, names(people[r])]]));
   res.json({
-    ...project, ...roleFields, customer_info: customerInfo ?? null, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
+    ...project, ...roleFields, customer_info: customerInfo ?? null, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
     labels: [...labels].sort(), permissions: [...perms],
   });
 });
 
-/** Sửa thông tin dự án: người có quyền Sửa dự án, hoặc trưởng dự án */
+/** Sửa thông tin dự án: người có quyền Dự án – Sửa */
 r.patch('/:key', (req, res) => {
   const { project, perms } = loadProject(req);
-  if (!perms.has('project.admin') && project.lead_id !== req.user.id) throw forbidden('Chỉ trưởng dự án hoặc người có quyền Sửa dự án được sửa thông tin');
+  if (!perms.has('project.admin')) throw forbidden('Bạn không có quyền sửa thông tin dự án');
   const b = req.body || {};
   const name = b.name !== undefined ? String(b.name).trim() : project.name;
   if (!name) throw badRequest('Tên dự án không được để trống');
   const type = b.type !== undefined ? (b.type === 'kanban' ? 'kanban' : 'scrum') : project.type;
-  const leadId = b.lead_id !== undefined ? Number(b.lead_id) : project.lead_id;
   tx(() => {
-    run(`UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ?, ${INFO_COLS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
-      name, b.description !== undefined ? b.description || null : project.description, type, leadId, ...infoValues(b, project), project.id);
+    run(`UPDATE projects SET name = ?, description = ?, type = ?, ${INFO_COLS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
+      name, b.description !== undefined ? b.description || null : project.description, type, ...infoValues(b, project), project.id);
     linkSalesProject(project.id, get<{ customer_id: number | null }>('SELECT customer_id FROM projects WHERE id = ?', project.id)!.customer_id, b.sales_project_id);
     saveProjectPeople(project.id, b);
   });
@@ -211,7 +209,7 @@ r.post('/:key/archive', (req, res) => {
   res.json({ ok: true });
 });
 
-// Thành viên dự án không thêm / bớt tay: là Trưởng dự án + người ở các vai trò BA/PM, Dev, Tester, AM (syncProjectMembers)
+// Thành viên dự án không thêm / bớt tay: là người ở các vai trò BA/PM, Dev, Tester, AM (syncProjectMembers)
 
 // ---------------------------------------------------------------------------
 // Trạng thái & workflow

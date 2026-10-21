@@ -27,15 +27,15 @@ test('each role only accepts accounts with the matching position', () => {
   assert.doesNotThrow(() => checkPeople([coder], 'tester', [coder]));
 });
 
-test('project members = lead + people in the role fields, kept in sync', () => {
+test('project members = people in the role fields (no project lead), kept in sync', () => {
   const p = run("INSERT INTO projects(key, name, type, lead_id) VALUES ('PX', 'Dự án X', 'scrum', ?)", lead).id;
   savePeople('project_people', 'project_id', p, { ba: [nhungBa], dev: [coder] });
   syncProjectMembers(p);
   const members = () => all<{ user_id: number }>('SELECT user_id FROM project_members WHERE project_id = ? ORDER BY user_id', p).map((x) => x.user_id);
-  assert.deepEqual(members(), [nhungBa, lead, coder].sort((a, b) => a - b));
+  assert.deepEqual(members(), [nhungBa, coder].sort((a, b) => a - b)); // người tạo (lead_id) không còn tự là thành viên
   assert.deepEqual(peopleOf('project_people', 'project_id', p).ba?.map((x) => x.id), [nhungBa]);
   // Bỏ Dev → không còn là thành viên; vai trò không gửi lên (BA) giữ nguyên
   savePeople('project_people', 'project_id', p, { dev: [] });
   syncProjectMembers(p);
-  assert.deepEqual(members(), [nhungBa, lead].sort((a, b) => a - b));
+  assert.deepEqual(members(), [nhungBa]);
 });
