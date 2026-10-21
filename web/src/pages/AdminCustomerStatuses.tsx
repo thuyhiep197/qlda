@@ -23,13 +23,15 @@ export default function AdminCustomerStatuses() {
   const [order, setOrder] = useState<CustomerStatus[] | null>(null);
   // Thứ tự đang kéo (ref: thả ngay sau khi rê vẫn lấy đúng thứ tự mới nhất)
   const orderRef = useRef<CustomerStatus[] | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const canCreate = hasPerm(me, 'cstatus.create'), canEdit = hasPerm(me, 'cstatus.edit'), canStop = hasPerm(me, 'cstatus.delete');
   if (isLoading || !list) return <div className="page"><Spinner /></div>;
   const rows = order ?? list;
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    // Chưa nhập tên: đưa con trỏ vào ô tên và nhắc (nút Thêm luôn bấm được)
+    if (!name.trim()) { nameRef.current?.focus(); toastError(new Error('Nhập tên tình trạng mới vào ô bên trái rồi bấm Thêm')); return; }
     try { await api.post('/customer-statuses', { name }); setName(''); toast('Đã thêm — kéo dòng để đặt vị trí hiển thị'); await refresh(); } catch (err) { toastError(err); }
   };
   const rename = async () => {
@@ -61,8 +63,8 @@ export default function AdminCustomerStatuses() {
       <p className="muted small">Tình trạng chọn cho khách hàng. {canEdit ? 'Kéo biểu tượng ⋮⋮ ở đầu dòng để sắp xếp thứ tự hiển thị. ' : ''}Tình trạng ngừng sử dụng không chọn được nữa; khách hàng đang ở tình trạng đó giữ nguyên.</p>
       {canCreate && (
         <form className="row gap-sm mb-sm" onSubmit={add}>
-          <input className="grow" placeholder="Tên tình trạng mới, VD: Tạm dừng" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
-          <button className="btn btn-primary" disabled={!name.trim()}>+ Thêm</button>
+          <input ref={nameRef} className="grow" placeholder="Nhập tên tình trạng mới, VD: Tạm dừng" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
+          <button className="btn btn-primary">+ Thêm</button>
         </form>
       )}
       <table className="table status-catalog">
