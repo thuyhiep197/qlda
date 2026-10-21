@@ -31,7 +31,9 @@ const findUser = () => {
 if (cmd === 'restore') {
   const u = findUser();
   const pw = `${crypto.randomBytes(6).toString('base64url')}${crypto.randomInt(10, 99)}Aa`;
-  run('UPDATE users SET is_active = 1, is_admin = 1, password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(pw), u.id);
+  // Đưa vào nhóm Quản trị hệ thống (thuộc nhóm = quản trị)
+  run(`UPDATE users SET is_active = 1, is_admin = 1, default_role_id = COALESCE((SELECT id FROM roles WHERE is_admin = 1 ORDER BY id LIMIT 1), default_role_id),
+    password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?`, hashPassword(pw), u.id);
   log('emergency_restore', u.username, 'Mở khóa, cấp quyền quản trị, đặt mật khẩu tạm');
   console.log(`Đã khôi phục tài khoản ${u.username}. Mật khẩu tạm: ${pw}\nĐăng nhập rồi đổi mật khẩu ngay.`);
 } else if (cmd === 'lock') {

@@ -69,6 +69,8 @@ export interface Role {
   description: string | null;
   permissions: string[];
   usage: number;
+  /** Nhóm Quản trị hệ thống: thuộc nhóm = quản trị hệ thống, toàn quyền cố định */
+  is_admin: number;
 }
 
 export type PermAction = 'view' | 'create' | 'edit' | 'delete' | 'export' | 'import';

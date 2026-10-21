@@ -56,16 +56,20 @@ export default function AdminRoles() {
     if (!role || !confirm(`Xóa nhóm "${role.name}"?`)) return;
     try { await api.del(`/roles/${role.id}`); toast('Đã xóa nhóm'); setSelected(null); await refreshAll(); } catch (e) { toastError(e); }
   };
+  // Mọi quyền trong danh mục — nhóm Quản trị hệ thống hiển thị và sao chép như toàn quyền
+  const allPerms = catalog.groups.flatMap((g) => g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`)));
+  const permsOf = (r: (typeof roles)[number]) => (r.is_admin ? allPerms : r.permissions);
   const copyFrom = (id: string) => {
     const src = roles.find((r) => String(r.id) === id);
-    if (src) { setDraft(new Set(src.permissions)); setDirty(true); }
+    if (src) { setDraft(new Set(permsOf(src))); setDirty(true); }
   };
+  const fixed = !!role?.is_admin;
 
   return (
     <div className="page">
       <div className="page-head">
         <h1>Nhóm người dùng & phân quyền</h1>
-        <HelpTip text="Quyền của nhóm được gán mặc định cho mọi người thuộc nhóm. Muốn cấp thêm hoặc bỏ bớt quyền cho riêng một người, vào Người dùng → Phân quyền. Quản trị hệ thống luôn có toàn quyền." />
+        <HelpTip text="Quyền của nhóm được gán mặc định cho mọi người thuộc nhóm. Muốn cấp thêm hoặc bỏ bớt quyền cho riêng một người, vào Người dùng → Phân quyền. Nhóm Quản trị hệ thống luôn có toàn quyền." />
         <div className="spacer" />
         {hasPerm(me, 'role.create') && <button className="btn" onClick={create}>+ Tạo nhóm</button>}
       </div>
@@ -75,7 +79,7 @@ export default function AdminRoles() {
           {roles.map((r) => (
             <button key={r.id} className={r.id === role?.id ? 'active' : ''} onClick={() => pick(r.id)}>
               <b>{r.name}</b>
-              <span className="muted small">{r.usage} người · {r.permissions.length} quyền</span>
+              <span className="muted small">{r.usage} người · {r.is_admin ? 'Toàn quyền' : `${r.permissions.length} quyền`}</span>
             </button>
           ))}
         </aside>
@@ -84,17 +88,18 @@ export default function AdminRoles() {
           <section className="perm-main">
             <div className="row gap-sm wrap mb-sm">
               <h2 className="grow">{role.name}{role.description && <span className="muted small"> — {role.description}</span>}</h2>
-              {canEdit && (
+              {canEdit && !fixed && (
                 <select value="" onChange={(e) => copyFrom(e.target.value)} data-tip="Chép bảng quyền của nhóm khác làm điểm bắt đầu">
                   <option value="">Sao chép quyền từ nhóm…</option>
                   {roles.filter((r) => r.id !== role.id).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               )}
-              {canEdit && <button className="btn btn-sm" onClick={rename}>Đổi tên</button>}
-              {hasPerm(me, 'role.delete') && role.usage === 0 && <button className="btn btn-sm btn-subtle danger" onClick={remove}>Xóa nhóm</button>}
-              {canEdit && <button className="btn btn-primary" disabled={!dirty} onClick={save}>Lưu thay đổi</button>}
+              {canEdit && !fixed && <button className="btn btn-sm" onClick={rename}>Đổi tên</button>}
+              {hasPerm(me, 'role.delete') && role.usage === 0 && !fixed && <button className="btn btn-sm btn-subtle danger" onClick={remove}>Xóa nhóm</button>}
+              {canEdit && !fixed && <button className="btn btn-primary" disabled={!dirty} onClick={save}>Lưu thay đổi</button>}
             </div>
-            <PermMatrix catalog={catalog} has={(p) => draft.has(p)} onSet={onSet} readOnly={!canEdit} />
+            {fixed && <p className="muted small mb-sm">Người thuộc nhóm này là Quản trị hệ thống: luôn có toàn quyền trên mọi phân hệ, dự án, khách hàng. Quyền của nhóm cố định, không sửa được. Cấp / gỡ quản trị bằng cách đổi nhóm của tài khoản ở Người dùng.</p>}
+            <PermMatrix catalog={catalog} has={(p) => fixed || draft.has(p)} onSet={onSet} readOnly={!canEdit || fixed} />
             <p className="muted small">Ô trống: hành động không áp dụng cho chức năng đó. Ô "Tất cả" ở mỗi dòng bật/tắt mọi hành động của chức năng; dòng tiêu đề nhóm bật/tắt theo cột hoặc cả nhóm chức năng.</p>
           </section>
         )}

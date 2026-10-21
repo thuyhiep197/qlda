@@ -101,12 +101,10 @@ export default function AdminUsers() {
 }
 
 function UserModal({ user, onClose }: { user: User | null; onClose: () => void }) {
-  const { data: me } = useMe();
   const { data: roles } = useRoles();
   const [username, setUsername] = useState(user?.username || '');
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [isAdmin, setIsAdmin] = useState(!!user?.is_admin);
   const [roleId, setRoleId] = useState(user?.default_role_id ? String(user.default_role_id) : '');
 
   const [password, setPassword] = useState(() => (user ? '' : genPassword()));
@@ -116,7 +114,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: fullName, email, is_admin: isAdmin, default_role_id: Number(roleId) };
+      const body = { full_name: fullName, email, default_role_id: Number(roleId) };
       if (user) {
         await api.patch(`/users/${user.id}`, body);
         toast('Đã lưu');
@@ -162,7 +160,9 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
         </div>
         {role && (
           <div className="muted small">
-            <b>{role.name}</b>: {role.description || ''}. Quyền của nhóm được gán mặc định, áp dụng trên mọi dự án người dùng tham gia. Cấp thêm hoặc bỏ bớt quyền riêng bằng nút Phân quyền.
+            <b>{role.name}</b>: {role.description || ''}. {role.is_admin
+              ? 'Tài khoản thuộc nhóm này là Quản trị hệ thống, luôn có toàn quyền.'
+              : 'Quyền của nhóm được gán mặc định, áp dụng trên mọi dự án người dùng tham gia. Cấp thêm hoặc bỏ bớt quyền riêng bằng nút Phân quyền.'}
           </div>
         )}
         {!user && (
@@ -173,10 +173,6 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
             </div></label>
         )}
         {/* Không chọn dự án ở đây: vào dự án theo phân quyền (phạm vi Tất cả dự án) và danh sách người tham gia của từng dự án */}
-        <label className="check">
-          <input type="checkbox" checked={isAdmin} disabled={user?.id === me?.id} onChange={(e) => setIsAdmin(e.target.checked)} />
-          <span>Quản trị hệ thống <small className="muted">(toàn quyền: quản lý người dùng, phân quyền, tạo dự án, truy cập mọi dự án)</small></span>
-        </label>
       </form>
     </Modal>
   );

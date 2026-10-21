@@ -1,4 +1,4 @@
-import { all, get, run } from './db.ts';
+import { ADMIN_ROLE_NAME, all, get, run } from './db.ts';
 import { isLegacyPermissionList } from './perm-legacy.ts';
 
 // ---------------------------------------------------------------------------
@@ -297,7 +297,13 @@ export function accessibleProjectIds(user: AuthUser): number[] | 'all' {
 export function seedRoles() {
   const count = get<{ c: number }>('SELECT COUNT(*) c FROM roles')!.c;
   if (count > 0) return;
+  run("INSERT INTO roles(name, description, permissions, is_admin) VALUES (?, 'Toàn quyền: quản lý người dùng, phân quyền, mọi phân hệ, mọi dự án, mọi khách hàng', '[]', 1)", ADMIN_ROLE_NAME);
   for (const r of DEFAULT_ROLES) {
     run('INSERT INTO roles(name, description, permissions) VALUES (?, ?, ?)', r.name, r.description, JSON.stringify(r.permissions));
   }
 }
+
+/** Nhóm Quản trị hệ thống (thuộc nhóm này = quản trị hệ thống, toàn quyền) */
+export const adminRoleId = () => get<{ id: number }>('SELECT id FROM roles WHERE is_admin = 1 ORDER BY id LIMIT 1')?.id ?? null;
+/** Nhóm roleId có phải nhóm Quản trị hệ thống không */
+export const isAdminRole = (roleId: number | null | undefined) => !!roleId && !!get('SELECT 1 FROM roles WHERE id = ? AND is_admin = 1', roleId);

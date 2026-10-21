@@ -77,6 +77,8 @@ const SALES_ROLE = [...PROJECT_VIEW_ROLE, 'customer.view', 'customer.create', 'c
   'journey.view', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.view', 'ctask.create', 'ctask.edit',
   'cfile.view', 'cfile.create', 'cfile.export', 'ctalk.view', 'ctalk.create', 'product.view', 'geo.view', 'department.view', 'staff.view'];
 const BOARD_ROLE = [...SALES_ROLE, 'customer_all.view'];
+/** Nhóm quản trị hệ thống (roles.is_admin = 1): thuộc nhóm này là toàn quyền; ma trận quyền của nhóm không dùng */
+export const ADMIN_ROLE_NAME = 'Quản trị hệ thống';
 const migrations: string[] = [
   `
   CREATE TABLE users (
@@ -723,6 +725,18 @@ const migrations: string[] = [
    -- Dev, Tester của dự án của khách hàng: họ tên chọn từ Danh mục nhân sự, cách nhau dấu phẩy (như BA/PM)
    ALTER TABLE sales_projects ADD COLUMN dev TEXT;
    ALTER TABLE sales_projects ADD COLUMN tester TEXT;`,
+  // v24: nhóm "Quản trị hệ thống" thay cho ô tích quản trị — thuộc nhóm này là quản trị hệ thống (toàn quyền).
+  // Chỉ tài khoản admin vào nhóm (người dùng chốt 2026-10-21); chưa có tài khoản admin đang hoạt động thì giữ các quản trị hiện tại.
+  // Cài mới (chưa có nhóm nào): seedRoles tạo nhóm này cùng các nhóm mặc định.
+  `ALTER TABLE roles ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;
+   INSERT INTO roles(name, description, permissions, is_admin)
+     SELECT '${ADMIN_ROLE_NAME}', 'Toàn quyền: quản lý người dùng, phân quyền, mọi phân hệ, mọi dự án, mọi khách hàng', '[]', 1
+     WHERE EXISTS (SELECT 1 FROM roles) AND NOT EXISTS (SELECT 1 FROM roles WHERE is_admin = 1);
+   UPDATE users SET default_role_id = (SELECT id FROM roles WHERE is_admin = 1)
+     WHERE is_admin = 1 AND (username = 'admin' OR NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin' AND is_admin = 1 AND is_active = 1));
+   UPDATE users SET is_admin = CASE WHEN default_role_id IS NOT NULL AND default_role_id = (SELECT id FROM roles WHERE is_admin = 1) THEN 1 ELSE 0 END;
+   UPDATE project_members SET role_id = (SELECT default_role_id FROM users WHERE users.id = project_members.user_id)
+     WHERE user_id IN (SELECT id FROM users WHERE is_admin = 1);`,
 ];
 
 export function migrate() {

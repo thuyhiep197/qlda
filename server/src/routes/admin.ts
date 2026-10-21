@@ -5,7 +5,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { hashPassword, validatePassword } from '../auth.ts';
 import { audit, listAudit } from '../audit.ts';
 import {
-  accountRoleId, ACTIONS, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound, SUBSYSTEMS,
+  accountRoleId, ACTIONS, isAdminRole, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound, SUBSYSTEMS,
   requireUserPerm, userPermissions,
 } from '../permissions.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -75,16 +75,18 @@ r.post('/users', need('user.create'), (req, res) => {
   const password = validatePassword(b.password, username);
   const roleId = checkRole(b.default_role_id);
   if (!roleId) throw badRequest('Vui lòng chọn nhóm người dùng cho tài khoản');
-  if (b.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được tạo tài khoản quản trị');
+  // Thuộc nhóm Quản trị hệ thống = quản trị hệ thống
+  const isAdmin = isAdminRole(roleId);
+  if (isAdmin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được tạo tài khoản quản trị');
   const id = tx(() => {
     const { id } = run(
       'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password) VALUES (?,?,?,?,?,?,1)',
-      username, full_name, b.email || null, hashPassword(password), !!b.is_admin, roleId,
+      username, full_name, b.email || null, hashPassword(password), isAdmin ? 1 : 0, roleId,
     );
     if (b.project_ids !== undefined) setProjects(id, b.project_ids);
     return id;
   });
-  audit(req, 'user_created', { target: username, detail: { full_name, role: get('SELECT name FROM roles WHERE id = ?', roleId)?.name, is_admin: !!b.is_admin } });
+  audit(req, 'user_created', { target: username, detail: { full_name, role: get('SELECT name FROM roles WHERE id = ?', roleId)?.name, is_admin: isAdmin } });
   res.status(201).json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
 });
 
@@ -93,20 +95,26 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   const u = get('SELECT * FROM users WHERE id = ?', id);
   if (!u) throw notFound();
   const b = req.body || {};
-  if (b.is_admin !== undefined && !!b.is_admin !== !!u.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được cấp hoặc gỡ quyền quản trị');
+  // Quản trị hệ thống theo nhóm: vào / rời nhóm Quản trị hệ thống là cấp / gỡ quyền quản trị
+  const roleId = b.default_role_id !== undefined ? checkRole(b.default_role_id) : u.default_role_id;
+  const isAdmin = isAdminRole(roleId);
+  if (isAdmin !== !!u.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được cấp hoặc gỡ quyền quản trị');
   if (b.is_active === false && u.is_active) requireUserPerm(req.user, 'user.delete');
-  if (id === req.user.id && (b.is_active === false || b.is_admin === false)) {
-    throw badRequest('Không thể tự khóa hoặc tự gỡ quyền quản trị của chính mình');
+  if (id === req.user.id && (b.is_active === false || (u.is_admin && !isAdmin))) {
+    throw badRequest('Không thể tự khóa hoặc tự rời nhóm Quản trị hệ thống');
   }
+  // Luôn còn ít nhất một quản trị hệ thống đang hoạt động
+  if (u.is_admin && u.is_active && (!isAdmin || b.is_active === false)
+    && !get('SELECT 1 FROM users WHERE is_admin = 1 AND is_active = 1 AND id <> ?', id)) throw badRequest('Phải còn ít nhất một tài khoản Quản trị hệ thống');
   const full_name = b.full_name !== undefined ? String(b.full_name).trim() : u.full_name;
   if (!full_name) throw badRequest('Họ tên không được để trống');
   tx(() => {
     run('UPDATE users SET full_name = ?, email = ?, is_admin = ?, is_active = ?, default_role_id = ? WHERE id = ?',
       full_name,
       b.email !== undefined ? b.email || null : u.email,
-      b.is_admin !== undefined ? !!b.is_admin : u.is_admin,
+      isAdmin ? 1 : 0,
       b.is_active !== undefined ? !!b.is_active : u.is_active,
-      b.default_role_id !== undefined ? checkRole(b.default_role_id) : u.default_role_id,
+      roleId,
       id);
     run('UPDATE project_members SET role_id = ? WHERE user_id = ?', accountRoleId(id), id);
     if (b.project_ids !== undefined) setProjects(id, b.project_ids);
@@ -163,6 +171,10 @@ r.post('/roles', need('role.create'), (req, res) => {
 r.patch('/roles/:id', need('role.edit'), (req, res) => {
   const role = get('SELECT * FROM roles WHERE id = ?', Number(req.params.id));
   if (!role) throw notFound();
+  // Nhóm Quản trị hệ thống: toàn quyền cố định, không đổi tên / quyền
+  if (role.is_admin && ((req.body?.name !== undefined && String(req.body.name).trim() !== role.name) || req.body?.permissions !== undefined)) {
+    throw badRequest('Nhóm Quản trị hệ thống luôn có toàn quyền, không đổi tên hay sửa quyền được');
+  }
   const name = req.body?.name !== undefined ? String(req.body.name).trim() : role.name;
   if (!name) throw badRequest('Tên vai trò không được để trống');
   if (get('SELECT 1 FROM roles WHERE name = ? AND id <> ?', name, role.id)) throw badRequest('Tên vai trò đã tồn tại');
@@ -181,6 +193,7 @@ r.patch('/roles/:id', need('role.edit'), (req, res) => {
 
 r.delete('/roles/:id', need('role.delete'), (req, res) => {
   const id = Number(req.params.id);
+  if (isAdminRole(id)) throw badRequest('Không xóa được nhóm Quản trị hệ thống');
   if (get('SELECT 1 FROM users WHERE default_role_id = ?', id)) {
     throw badRequest('Vai trò đang là vai trò chính của một số tài khoản, hãy đổi vai trò của các tài khoản đó trước khi xóa');
   }
