@@ -147,8 +147,9 @@ r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
 r.get('/permissions', (_req, res) => res.json({ actions: ACTIONS, subsystems: SUBSYSTEMS, groups: FEATURE_GROUPS }));
 
 r.get('/roles', (_req, res) => {
-  const rows = all(`SELECT r.*, (SELECT COUNT(*) FROM project_members pm WHERE pm.role_id = r.id)
-      + (SELECT COUNT(*) FROM users u WHERE u.default_role_id = r.id) AS usage
+  // Số người = số tài khoản thuộc nhóm (không cộng lượt tham gia dự án — vai trò trong dự án theo nhóm của tài khoản)
+  const rows = all(`SELECT r.*, (SELECT COUNT(*) FROM users u WHERE u.default_role_id = r.id) AS usage,
+      (SELECT COUNT(*) FROM project_members pm WHERE pm.role_id = r.id) AS project_usage
     FROM roles r ORDER BY r.id`);
   res.json(rows.map((x) => ({ ...x, permissions: cleanPermissionList(JSON.parse(x.permissions)) })));
 });

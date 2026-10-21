@@ -95,7 +95,7 @@ export default function AdminRoles() {
                 </select>
               )}
               {canEdit && !fixed && <button className="btn btn-sm" onClick={rename}>Đổi tên</button>}
-              {hasPerm(me, 'role.delete') && role.usage === 0 && !fixed && <button className="btn btn-sm btn-subtle danger" onClick={remove}>Xóa nhóm</button>}
+              {hasPerm(me, 'role.delete') && role.usage === 0 && !role.project_usage && !fixed && <button className="btn btn-sm btn-subtle danger" onClick={remove}>Xóa nhóm</button>}
               {canEdit && !fixed && <button className="btn btn-primary" disabled={!dirty} onClick={save}>Lưu thay đổi</button>}
             </div>
             {fixed && <p className="muted small mb-sm">Người thuộc nhóm này là Quản trị hệ thống: luôn có toàn quyền trên mọi phân hệ, dự án, khách hàng. Quyền của nhóm cố định, không sửa được. Cấp / gỡ quản trị bằng cách đổi nhóm của tài khoản ở Người dùng.</p>}

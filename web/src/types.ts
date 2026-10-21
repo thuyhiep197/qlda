@@ -68,7 +68,10 @@ export interface Role {
   name: string;
   description: string | null;
   permissions: string[];
+  /** Số tài khoản thuộc nhóm */
   usage: number;
+  /** Số lượt tham gia dự án đang mang nhóm này (còn > 0 thì chưa xóa được nhóm) */
+  project_usage: number;
   /** Nhóm Quản trị hệ thống: thuộc nhóm = quản trị hệ thống, toàn quyền cố định */
   is_admin: number;
 }
