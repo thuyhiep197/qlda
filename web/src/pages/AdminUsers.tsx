@@ -2,7 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { KeyRound, Lock, LockOpen, Pencil, ShieldCheck } from 'lucide-react';
 import { api, refreshAll } from '../api';
-import { hasPerm, useMe, useRoles } from '../hooks';
+import { hasPerm, useDepartments, useMe, useRoles } from '../hooks';
+import { suggestPlacement } from '../people';
+import { STAFF_POSITION_LABELS } from '../util';
 import type { PermissionCatalog, User, UserPermView } from '../types';
 import { PermMatrix } from '../components/PermMatrix';
 import { fmtDateTime } from '../util';
@@ -111,6 +113,30 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [roleId, setRoleId] = useState(user?.default_role_id ? String(user.default_role_id) : '');
+  // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự): chọn nhóm thì gợi ý sẵn khi chưa xếp phòng; sửa lại được
+  const { data: deps } = useDepartments();
+  const [depId, setDepId] = useState(user?.department_id ? String(user.department_id) : '');
+  const [positions, setPositions] = useState<string[]>(user?.positions ?? []);
+  const [placeTouched, setPlaceTouched] = useState(!!user?.department_id);
+  const dep = deps?.find((d) => String(d.id) === depId);
+  const allowed = dep?.allowed_positions ?? [];
+  const pickRole = (id: string) => {
+    setRoleId(id);
+    if (placeTouched) return;
+    const s = suggestPlacement(roles?.find((r) => String(r.id) === id)?.name, deps ?? []);
+    setDepId(s ? String(s.department_id) : ''); setPositions(s?.positions ?? []);
+  };
+  const pickDep = (id: string) => {
+    setPlaceTouched(true); setDepId(id);
+    const d = deps?.find((x) => String(x.id) === id);
+    const keep = positions.filter((p) => (d?.allowed_positions as string[] | undefined)?.includes(p));
+    setPositions(keep.length ? keep : d?.preset_position ? [d.preset_position] : []);
+  };
+  const depName = (id: number | null): string => {
+    const d = deps?.find((x) => x.id === id);
+    const parent = d && deps?.find((x) => x.id === d.parent_id);
+    return !d ? '' : parent && parent.parent_id ? `${depName(parent.id)} › ${d.name}` : d.name;
+  };
 
   const [password, setPassword] = useState(() => (user ? '' : genPassword()));
   const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
@@ -119,7 +145,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: fullName, email, default_role_id: Number(roleId) };
+      const body = { full_name: fullName, email, default_role_id: Number(roleId), department_id: depId || null, positions: depId ? positions : [] };
       if (user) {
         await api.patch(`/users/${user.id}`, body);
         toast('Đã lưu');
@@ -158,7 +184,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
           <label className="field"><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
 
           <label className="field"><span>Nhóm người dùng *</span>
-            <select value={roleId} onChange={(e) => setRoleId(e.target.value)} required>
+            <select value={roleId} onChange={(e) => pickRole(e.target.value)} required>
               <option value="" disabled>— Chọn nhóm —</option>
               {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select></label>
@@ -170,6 +196,20 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
               : 'Quyền của nhóm được gán mặc định, áp dụng trên mọi dự án người dùng tham gia. Cấp thêm hoặc bỏ bớt quyền riêng bằng nút Phân quyền.'}
           </div>
         )}
+        <div className="form-grid">
+          <label className="field"><span>Phòng ban <small className="muted">(sơ đồ Phòng ban & Nhân sự)</small></span>
+            <select value={depId} onChange={(e) => pickDep(e.target.value)}>
+              <option value="">— Chưa xếp phòng ban —</option>
+              {deps?.map((d) => <option key={d.id} value={d.id}>{depName(d.id)}</option>)}
+            </select></label>
+          {depId && <div className="field"><span>Vị trí * <small className="muted">(chọn một hoặc nhiều)</small></span>
+            <div className="row gap-sm" style={{ flexWrap: 'wrap', minHeight: 34, alignItems: 'center' }}>
+              {STAFF_POSITION_LABELS.filter((p) => (allowed as string[]).includes(p.key)).map((p) => (
+                <label key={p.key} className="check"><input type="checkbox" checked={positions.includes(p.key)}
+                  onChange={() => { setPlaceTouched(true); setPositions(positions.includes(p.key) ? positions.filter((x) => x !== p.key) : [...positions, p.key]); }} /> {p.label}</label>
+              ))}
+            </div></div>}
+        </div>
         {!user && (
           <label className="field"><span>Mật khẩu tạm (≥ 10 ký tự, có chữ và số)</span>
             <div className="row gap-xs">

@@ -12,6 +12,13 @@ import { departmentCodes } from './departments.ts';
  */
 const r = Router();
 
+/** Phòng ban + vị trí (+ quản lý, ghi chú) của tài khoản; requireDepartment = false: bỏ trống phòng ban là chưa xếp phòng */
+export function cleanPlacement(b: any, requireDepartment = true) {
+  const department_id = b.department_id ? Number(b.department_id) : null;
+  if (!department_id && !requireDepartment) return { positions: '', note: String(b.note ?? '').trim().slice(0, 200) || null, department_id: null, manager_id: null };
+  return clean(b);
+}
+
 function clean(b: any) {
   const list = (Array.isArray(b.positions) ? b.positions : String(b.positions ?? '').split(',')).map((x: unknown) => String(x).trim()).filter(Boolean);
   if (!list.length) throw badRequest('Chọn ít nhất một vị trí');

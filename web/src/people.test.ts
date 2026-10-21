@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { candidates, personLabel, projectDevOptions } from './people';
+import { candidates, personLabel, projectDevOptions, suggestPlacement } from './people';
 
 // Hai tài khoản cùng họ tên ở hai phòng — hiện kèm phòng ban để phân biệt
 const users = [
@@ -26,4 +26,13 @@ test('issue Dev options: the project Devs, or every Dev without a project', () =
   assert.deepEqual(projectDevOptions(users, [9]).map((u) => u.id), [9]);
   assert.deepEqual(projectDevOptions(users, []).map((u) => u.id), []);
   assert.deepEqual(projectDevOptions(users, undefined).map((u) => u.id), [9]);
+});
+
+test('creating an account suggests the department and position of its group', () => {
+  const deps = [{ id: 1, code: 'BGĐ' }, { id: 7, code: 'P.KD.AM' }, { id: 6, code: 'P.KD.SALE' }, { id: 9, code: 'P.DA.BA' }];
+  assert.deepEqual(suggestPlacement('AM', deps), { department_id: 7, positions: ['am'] });
+  assert.deepEqual(suggestPlacement('Kinh doanh', deps), { department_id: 6, positions: ['kd'] });
+  assert.deepEqual(suggestPlacement('Ban Giám Đốc', deps), { department_id: 1, positions: ['bgd'] });
+  assert.equal(suggestPlacement('BA Lead', deps), null);
+  assert.equal(suggestPlacement('Dev', deps), null); // không có phòng Dev trong sơ đồ → không gợi ý
 });

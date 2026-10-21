@@ -9,17 +9,19 @@ import {
   requireUserPerm, userPermissions,
 } from '../permissions.ts';
 import { avatarUrl } from '../avatar.ts';
+import { cleanPlacement } from './staff.ts';
 
 /** Middleware: bắt buộc có quyền (theo tài khoản). */
 const need = (perm: string) => (req: Request, _res: Response, next: NextFunction) => { requireUserPerm(req.user, perm); next(); };
 
 const r = Router();
 
-const USER_COLS = `id, username, full_name, email, avatar, is_admin, is_active, must_change_password, created_at, last_login_at,
+const USER_COLS = `id, username, full_name, email, avatar, is_admin, is_active, must_change_password, created_at, last_login_at, department_id, positions,
   default_role_id, (SELECT name FROM roles WHERE roles.id = users.default_role_id) AS default_role_name,
   (SELECT CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END FROM departments d LEFT JOIN departments pd ON pd.id = d.parent_id
     WHERE d.id = users.department_id) AS department_name`;
-const userJson = (u: any) => { const { avatar, ...user } = u; return { ...user, avatar_url: avatarUrl(avatar) }; };
+/** Tài khoản trả về: ảnh đại diện, vị trí dạng danh sách */
+const userJson = (u: any) => { const { avatar, ...user } = u; return { ...user, positions: String(u.positions ?? '').split(',').filter(Boolean), avatar_url: avatarUrl(avatar) }; };
 
 function checkRole(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
@@ -58,7 +60,7 @@ function setProjects(userId: number, list: unknown) {
 
 r.get('/users', need('user.view'), (_req, res) => {
   const users = all(`SELECT ${USER_COLS} FROM users ORDER BY is_active DESC, full_name`);
-  res.json(users.map((u: any) => { const { avatar, ...user } = u; return { ...user, avatar_url: avatarUrl(avatar), memberships: memberships(u.id) }; }));
+  res.json(users.map((u: any) => ({ ...userJson(u), memberships: memberships(u.id) })));
 });
 
 function checkUsername(v: unknown) {
@@ -79,10 +81,12 @@ r.post('/users', need('user.create'), (req, res) => {
   // Thuộc nhóm Quản trị hệ thống = quản trị hệ thống
   const isAdmin = isAdminRole(roleId);
   if (isAdmin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được tạo tài khoản quản trị');
+  // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự); bỏ trống = chưa xếp phòng
+  const place = cleanPlacement(b, false);
   const id = tx(() => {
     const { id } = run(
-      'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password) VALUES (?,?,?,?,?,?,1)',
-      username, full_name, b.email || null, hashPassword(password), isAdmin ? 1 : 0, roleId,
+      'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password, department_id, positions) VALUES (?,?,?,?,?,?,1,?,?)',
+      username, full_name, b.email || null, hashPassword(password), isAdmin ? 1 : 0, roleId, place.department_id, place.positions,
     );
     if (b.project_ids !== undefined) setProjects(id, b.project_ids);
     return id;
@@ -118,6 +122,11 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
       roleId,
       id);
     run('UPDATE project_members SET role_id = ? WHERE user_id = ?', accountRoleId(id), id);
+    // Phòng ban + vị trí (gửi kèm thì cập nhật; bỏ trống phòng ban = chưa xếp phòng)
+    if (b.department_id !== undefined || b.positions !== undefined) {
+      const place = cleanPlacement({ department_id: u.department_id, positions: u.positions, note: u.staff_note, ...b }, false);
+      run('UPDATE users SET department_id = ?, positions = ?, manager_id = CASE WHEN ? IS NULL THEN NULL ELSE manager_id END WHERE id = ?', place.department_id, place.positions, place.department_id, id);
+    }
     if (b.project_ids !== undefined) setProjects(id, b.project_ids);
   });
   const after = get('SELECT * FROM users WHERE id = ?', id);
