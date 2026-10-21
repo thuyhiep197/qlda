@@ -150,7 +150,7 @@ r.get('/roles', (_req, res) => {
   const rows = all(`SELECT r.*, (SELECT COUNT(*) FROM project_members pm WHERE pm.role_id = r.id)
       + (SELECT COUNT(*) FROM users u WHERE u.default_role_id = r.id) AS usage
     FROM roles r ORDER BY r.id`);
-  res.json(rows.map((x) => ({ ...x, permissions: JSON.parse(x.permissions) })));
+  res.json(rows.map((x) => ({ ...x, permissions: cleanPermissionList(JSON.parse(x.permissions)) })));
 });
 
 function cleanPerms(v: unknown) {

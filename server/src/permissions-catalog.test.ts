@@ -33,3 +33,8 @@ test('default roles only use existing permission codes; Ban Giám đốc = Kinh 
   assert.ok(!SALES_PERMISSIONS.includes('customer_all.view'));
   assert.ok(DEFAULT_ROLES.some((r) => r.name === 'Ban Giám đốc'));
 });
+
+test('the matrix has no cells without effect (removed screens and actions)', () => {
+  for (const p of ['dashboard.view', 'report.view', 'report.export', 'worklog.edit', 'component.view']) assert.ok(!ALL_PERMISSIONS.includes(p), p);
+  for (const p of ['worklog.delete', 'component.create', 'plan.view', 'plan.export']) assert.ok(ALL_PERMISSIONS.includes(p), p);
+});

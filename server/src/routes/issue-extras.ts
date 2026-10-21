@@ -60,17 +60,18 @@ r.post('/:key/worklogs', (req, res) => {
   res.status(201).json({ ok: true });
 });
 
-function loadWorklog(req: Express.Request & { params: any }, perm: 'worklog.edit' | 'worklog.delete') {
+/** Giờ đã ghi: của mình luôn sửa / xóa được; xóa giờ của người khác cần quyền perm, sửa giờ của người khác không cho phép (perm = null) */
+function loadWorklog(req: Express.Request & { params: any }, perm: 'worklog.delete' | null) {
   const w = get<{ id: number; issue_id: number; user_id: number; minutes: number; project_id: number }>(
     'SELECT w.*, i.project_id FROM worklogs w JOIN issues i ON i.id = w.issue_id WHERE w.id = ?', Number(req.params.id));
   if (!w) throw notFound();
   const perms = requireProjectAccess(req.user, w.project_id);
-  if (w.user_id !== req.user.id && !perms.has(perm)) throw forbidden('Bạn chỉ sửa/xóa được giờ do mình ghi');
+  if (w.user_id !== req.user.id && !(perm && perms.has(perm))) throw forbidden('Bạn chỉ sửa/xóa được giờ do mình ghi');
   return w;
 }
 
 r.patch('/worklogs/:id', (req, res) => {
-  const w = loadWorklog(req, 'worklog.edit');
+  const w = loadWorklog(req, null);
   const b = req.body || {};
   const minutes = b.time_spent !== undefined ? parseDuration(b.time_spent, 'Thời gian đã làm') : w.minutes;
   if (!minutes) throw badRequest('Thời gian đã làm phải lớn hơn 0');

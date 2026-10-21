@@ -343,7 +343,7 @@ function Timesheet() {
         <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -6)); setTo(todayStr()); }}>7 ngày</button>
         <button className="btn btn-sm" onClick={() => { setFrom(addDaysStr(todayStr(), -29)); setTo(todayStr()); }}>30 ngày</button>
         <div className="spacer" />
-        {can(project.permissions, 'report.export') && <button className="btn btn-sm" disabled={!data?.rows.length} onClick={exportCsv}><Download size={14} /> Xuất Excel (CSV)</button>}
+        {can(project.permissions, 'plan.export') && <button className="btn btn-sm" disabled={!data?.rows.length} onClick={exportCsv}><Download size={14} /> Xuất Excel (CSV)</button>}
       </div>
       {isLoading || !data ? <Spinner /> : (
         <>

@@ -72,12 +72,11 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình', actions: ['create', 'edit', 'delete'],
         actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ dự án' } },
       { key: 'project_all', label: 'Phạm vi: Tất cả dự án', hint: 'Tích thì các quyền đang có áp dụng trên mọi dự án; không tích thì chỉ dự án mình là thành viên', actions: ['view'] },
-      { key: 'component', label: 'Mô-đun & BA phụ trách', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'component', label: 'Mô-đun & BA phụ trách', hint: 'Ai vào được dự án cũng thấy mô-đun; các quyền dưới đây là quản lý mô-đun', actions: ['create', 'edit', 'delete'] },
     ],
   },
   {
-    key: 'monitor', label: 'Module Dashboard & Kế hoạch', subsystem: 'project', features: [
-      { key: 'dashboard', label: 'Dashboard dự án', actions: ['view'] },
+    key: 'monitor', label: 'Module Kế hoạch', subsystem: 'project', features: [
       { key: 'plan', label: 'Kế hoạch chi tiết & tổng quan', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel kế hoạch' } },
     ],
   },
@@ -99,13 +98,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
         actionHints: { edit: 'Sửa bình luận của người khác (của mình luôn sửa được)', delete: 'Xóa bình luận của người khác' } },
       { key: 'attachment', label: 'Tệp đính kèm', actions: ['view', 'create', 'delete', 'export'],
         actionHints: { delete: 'Xóa tệp của người khác (của mình luôn xóa được)', export: 'Tải tệp về máy' } },
-      { key: 'worklog', label: 'Ghi thời gian làm việc', actions: ['view', 'create', 'edit', 'delete'],
-        actionHints: { edit: 'Sửa giờ của người khác', delete: 'Xóa giờ của người khác' } },
-    ],
-  },
-  {
-    key: 'report_m', label: 'Module Báo cáo', subsystem: 'project', features: [
-      { key: 'report', label: 'Báo cáo', hint: 'Khối lượng còn lại, báo cáo sprint, năng suất, giờ công', actions: ['view', 'export'], actionHints: { export: 'Xuất Excel giờ công' } },
+      { key: 'worklog', label: 'Ghi thời gian làm việc', actions: ['view', 'create', 'delete'],
+        actionHints: { delete: 'Xóa giờ của người khác (của mình luôn xóa được)' } },
     ],
   },
   // ---- Phân hệ Tài liệu nội bộ ----
@@ -162,14 +156,14 @@ const OLD_MAP: Record<string, string[]> = {
   'issue.create': ['issue.create'], 'issue.edit': ['issue.edit'], 'issue.edit_own': ['issue_own.edit'], 'issue.assign': ['assign.edit'],
   'issue.transition': ['transition.edit', 'worklog.create'], 'issue.delete': ['issue.delete'], 'issue.import': ['issue.import'],
   'sprint.manage': ['sprint.create', 'sprint.edit', 'sprint.delete', 'backlog.edit'],
-  'project.admin': ['project.edit', 'component.create', 'component.edit', 'component.delete', 'worklog.edit', 'worklog.delete'],
+  'project.admin': ['project.edit', 'component.create', 'component.edit', 'component.delete', 'worklog.delete'],
   'comment.create': ['comment.create'], 'comment.delete_any': ['comment.edit', 'comment.delete'],
   'attachment.create': ['attachment.create'], 'attachment.delete_any': ['attachment.delete'],
 };
 // Người trực tiếp làm việc thấy mọi màn hình; người chỉ theo dõi (Người xem, Phối hợp) chỉ thấy Dashboard & Kế hoạch
-const VIEW_WORKER = ['dashboard.view', 'plan.view', 'plan.export', 'report.view', 'report.export', 'search.view', 'search.export',
-  'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'worklog.view', 'sprint.view', 'backlog.view', 'component.view'];
-const VIEW_FOLLOWER = ['dashboard.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'component.view'];
+const VIEW_WORKER = ['plan.view', 'plan.export', 'search.view', 'search.export',
+  'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'worklog.view', 'sprint.view', 'backlog.view'];
+const VIEW_FOLLOWER = ['plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export'];
 
 export function convertLegacyPermissions(old: string[]): Permission[] {
   const worker = old.some((p) => ['issue.create', 'issue.edit', 'issue.edit_own', 'issue.transition'].includes(p));
@@ -194,7 +188,7 @@ export const cleanPermissionList = (v: unknown): Permission[] => (Array.isArray(
 export const isPermission = (p: string) => VALID.has(p);
 
 /** Xem tiến độ phân hệ Dự án (không sửa) */
-const PROJECT_VIEW: Permission[] = ['dashboard.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'component.view'];
+const PROJECT_VIEW: Permission[] = ['plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export'];
 /** Nhóm Kinh doanh / AM: dùng phân hệ Khách hàng (khách hàng mình phụ trách, thực hiện, phối hợp); phân hệ Dự án chỉ xem tiến độ (khớp migration v22) */
 export const SALES_PERMISSIONS: Permission[] = [...PROJECT_VIEW,
   'customer.view', 'customer.create', 'customer.edit', 'sales_project.view', 'sales_project.create', 'sales_project.edit',

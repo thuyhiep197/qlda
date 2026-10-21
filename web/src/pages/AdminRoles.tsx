@@ -41,7 +41,7 @@ export default function AdminRoles() {
     const name = prompt('Tên nhóm người dùng mới (VD: Kiểm thử, Khách hàng):');
     if (!name?.trim()) return;
     try {
-      const r = await api.post<{ id: number }>('/roles', { name, permissions: ['dashboard.view', 'plan.view', 'issue.view', 'comment.view', 'comment.create'] });
+      const r = await api.post<{ id: number }>('/roles', { name, permissions: ['plan.view', 'issue.view', 'comment.view', 'comment.create'] });
       await refreshAll(); setSelected(r.id);
     } catch (e) { toastError(e); }
   };
