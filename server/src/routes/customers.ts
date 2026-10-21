@@ -167,7 +167,8 @@ r.get('/:id', (req, res) => {
   // Dự án của khách hàng kèm tiến độ; công việc chỉ hiện ở dự án người xem là thành viên
   const access = accessibleProjectIds(req.user);
   const auto = autoProjectStatuses();
-  c.projects = all(`SELECT p.id, p.key, p.name, p.type, p.priority, p.project_status, p.is_archived,
+  // Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ trả về khi có quyền Kế hoạch – Xem
+  c.projects = !perms.has('plan.view') ? [] : all(`SELECT p.id, p.key, p.name, p.type, p.priority, p.project_status, p.is_archived,
       ${(['ba', 'dev', 'tester', 'am'] as const).map((r) => `${namesSql('project_people', 'project_id', 'p.id', r)} AS ${r}`).join(', ')},
       u.full_name AS lead_name,
       (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id AND i.type <> 'epic') AS total_issues,

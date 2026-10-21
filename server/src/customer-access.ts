@@ -147,3 +147,20 @@ export function requireMembers(customerId: number, salesProjectId: number | null
     throw badRequest('Chỉ giao được cho người đang tham gia dự án của khách hàng (Sale, AM, BA/PM, Dev, Tester, người thực hiện / phối hợp bước) hoặc người được xem tất cả khách hàng');
   }
 }
+
+/**
+ * Dự án sản xuất liên kết với khách hàng mà người dùng được vào (xem theo quyền phân hệ Dự án của mình):
+ * dự án sản xuất của khách hàng mình là Sale / AM (hoặc được xem tất cả khách hàng),
+ * và dự án sản xuất gắn với dự án của khách hàng mà mình được xem.
+ */
+export function linkedProjectIds(user: U): number[] {
+  const perms = userPermissions(user);
+  if (!perms.has('customer.view')) return [];
+  const byCustomer = perms.has('customer.view_all')
+    ? all<{ id: number }>('SELECT id FROM projects WHERE customer_id IS NOT NULL')
+    : all<{ id: number }>('SELECT p.id FROM projects p JOIN customer_owners co ON co.customer_id = p.customer_id WHERE co.user_id = ?', user.id);
+  const v = visibleSalesProjectsSql(user);
+  const bySalesProject = perms.has('sales_project.view')
+    ? all<{ id: number }>(`SELECT sp.project_id AS id FROM sales_projects sp WHERE sp.project_id IS NOT NULL AND ${v.sql}`, ...v.params) : [];
+  return [...new Set([...byCustomer, ...bySalesProject].map((x) => x.id))];
+}

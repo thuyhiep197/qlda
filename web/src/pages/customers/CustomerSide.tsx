@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Archive, ArchiveRestore, ChevronDown, ChevronRight, Download, FileText, Mail, Paperclip, Pencil, Phone, Trash2 } from 'lucide-react';
 import { api, refreshAll } from '../../api';
-import { useMe, useUsersBasic } from '../../hooks';
+import { hasPerm, useMe, useUsersBasic } from '../../hooks';
 import { useCan } from './manage';
 import type { CustomerDetail, CustomerFile, CustomerTask } from '../../types';
 import { CUSTOMER_STATUSES, overdueDays } from '../../customer-filter';
@@ -85,6 +85,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
   const { data: users } = useUsersBasic();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
+  const { data: me } = useMe();
   const canEdit = can('customer.edit'), canArchive = can('customer.delete');
   // Khách hàng chỉ lưu trữ (không xóa): ẩn khỏi danh sách, mở lại được
   const archive = async (archived: boolean) => {
@@ -117,7 +118,8 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
           </div>
         ))}
       </Block>
-      <Block title={`Liên kết tiến độ sản xuất (${production.length})`}>
+      {/* Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ hiện khi có quyền Kế hoạch – Xem; bấm mở Kế hoạch chi tiết */}
+      {hasPerm(me, 'plan.view') && <Block title={`Liên kết tiến độ sản xuất (${production.length})`}>
         {!production.length ? <p className="muted small">Chưa có dự án nào gắn với khách hàng này</p>
           : production.map((p) => {
             const st = p.project_status || p.status_auto;
@@ -130,12 +132,11 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
               </div>
               <div className="muted small">{p.key}{p.ba ? ` · BA/PM: ${p.ba}` : ''}{p.total_issues ? ` · ${p.done_issues}/${p.total_issues} việc (${pct}%)` : ''}</div>
             </>;
-            // Mở màn Thông tin của dự án trong phân hệ Dự án; chưa là thành viên thì chỉ xem tên
             return p.accessible
-              ? <Link key={p.id} to={`/p/${p.key}/info?g=all`} className="cw-project" data-tip="Mở thông tin dự án">{body}</Link>
-              : <div key={p.id} className="cw-project disabled" data-tip="Bạn chưa là thành viên dự án này">{body}</div>;
+              ? <Link key={p.id} to={`/p/${p.key}/plan`} className="cw-project" data-tip="Mở Kế hoạch chi tiết">{body}</Link>
+              : <div key={p.id} className="cw-project disabled" data-tip="Dự án không thuộc khách hàng, dự án bạn phụ trách">{body}</div>;
           })}
-      </Block>
+      </Block>}
       <Tasks customerId={c.id} tasks={c.tasks} showProject members={c.member_ids} />
       <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && <UploadButton customerId={c.id} />}>
         <FileList customerId={c.id} files={c.files} showWhere />

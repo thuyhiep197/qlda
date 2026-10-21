@@ -138,8 +138,9 @@ r.get('/:id/projects/:pid', (req, res) => {
   p.calls = !perms.has('ctalk.view') ? [] : callsOf(sp.id);
   // Người tham gia dự án — chỉ những người này được giao việc, lịch gọi, bước
   p.member_ids = [...customerMembers(c.id, sp.id)];
+  // Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ trả về khi có quyền Kế hoạch – Xem
   p.production = null;
-  if (sp.project_id) {
+  if (sp.project_id && perms.has('plan.view')) {
     const access = accessibleProjectIds(req.user);
     const pr: any = get(`SELECT p.id, p.key, p.name, p.project_status, p.is_archived,
         (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id AND i.type <> 'epic') AS total_issues,

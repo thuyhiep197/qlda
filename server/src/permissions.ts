@@ -1,5 +1,6 @@
 import { ADMIN_ROLE_NAME, all, get, run } from './db.ts';
 import { isLegacyPermissionList } from './perm-legacy.ts';
+import { linkedProjectIds } from './customer-access.ts';
 
 // ---------------------------------------------------------------------------
 // Danh mục phân quyền: Phân hệ → Module → Chức năng → Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import, Xem tất cả).
@@ -244,13 +245,15 @@ export function userPermissions(user: Pick<AuthUser, 'id' | 'is_admin'>, fallbac
   return withDerived(set);
 }
 
-/** Tập quyền của user trong dự án; null nếu user không phải thành viên và không có phạm vi "Tất cả dự án". */
+/** Tập quyền của user trong dự án; null nếu không vào được: không là thành viên, không có Dự án – Xem tất cả,
+ *  và dự án không liên kết với khách hàng / dự án của khách hàng mình phụ trách hoặc được xem. */
 export function projectPermissions(user: AuthUser, projectId: number): Set<Permission> | null {
   if (user.is_admin) return userPermissions(user);
   // Quyền theo tài khoản (nhóm + quyền riêng); thành viên dự án chỉ quyết định có được vào dự án hay không
   const m = get<{ role_id: number }>('SELECT role_id FROM project_members WHERE project_id = ? AND user_id = ?', projectId, user.id);
   // Phạm vi Tất cả dự án: vào mọi dự án, áp dụng quyền của tài khoản
-  if (!m) { const own = userPermissions(user); return own.has('project.view_all') ? own : null; }
+  // Xem tất cả dự án, hoặc dự án sản xuất liên kết với khách hàng mình phụ trách: vào được, áp dụng quyền của tài khoản
+  if (!m) { const own = userPermissions(user); return own.has('project.view_all') || linkedProjectIds(user).includes(projectId) ? own : null; }
   return userPermissions(user, m.role_id);
 }
 
@@ -285,8 +288,8 @@ export function accountRoleId(userId: number): number {
 
 export function accessibleProjectIds(user: AuthUser): number[] | 'all' {
   if (user.is_admin || userPermissions(user).has('project.view_all')) return 'all';
-  return all<{ project_id: number }>('SELECT project_id FROM project_members WHERE user_id = ?', user.id)
-    .map((r) => r.project_id);
+  const member = all<{ project_id: number }>('SELECT project_id FROM project_members WHERE user_id = ?', user.id).map((r) => r.project_id);
+  return [...new Set([...member, ...linkedProjectIds(user)])];
 }
 
 export function seedRoles() {

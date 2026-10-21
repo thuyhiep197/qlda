@@ -51,3 +51,19 @@ test('only project members can be newly assigned; keeping an existing assignee i
   run('UPDATE users SET is_active = 0 WHERE id = ?', sale);
   assert.ok(!customerMembers(cust, p1).has(sale));
 });
+
+test('production projects linked to my customer / customer project are open to me (with my own permissions)', async () => {
+  const { projectPermissions, accessibleProjectIds } = await import('./permissions.ts');
+  const { linkedProjectIds } = await import('./customer-access.ts');
+  // Nhóm Kinh doanh: có quyền xem khách hàng, dự án của khách hàng
+  const kd = get<{ id: number }>("SELECT id FROM roles WHERE name = 'Kinh doanh'")!.id;
+  run('UPDATE users SET default_role_id = ? WHERE id IN (?, ?)', kd, am, other);
+  const linked = run("INSERT INTO projects(key, name, type, lead_id, customer_id) VALUES ('LK', 'Sản xuất', 'scrum', ?, ?)", boss, cust).id;
+  const u = (id: number) => ({ id, is_admin: 0, username: '', full_name: '', email: null, must_change_password: 0 });
+  // AM của khách hàng → vào được dự án sản xuất của khách hàng; người ngoài thì không
+  assert.ok(linkedProjectIds(u(am)).includes(linked));
+  assert.ok(projectPermissions(u(am), linked));
+  assert.equal(projectPermissions(u(other), linked), null);
+  const ids = accessibleProjectIds(u(am));
+  assert.ok(ids !== 'all' && ids.includes(linked));
+});
