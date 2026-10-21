@@ -756,6 +756,9 @@ const migrations: (string | (() => void))[] = [
    );
    INSERT INTO customer_statuses(name, position) VALUES ('Mới', 1), ('Đang tư vấn', 2), ('Chờ phản hồi', 3), ('Đang làm sản phẩm', 4), ('Đã ký hợp đồng', 5), ('Đã thanh toán', 6);
    INSERT OR IGNORE INTO customer_statuses(name, position) SELECT DISTINCT TRIM(status), 100 FROM customers WHERE status IS NOT NULL AND TRIM(status) <> '';`,
+  // v28: xóa hẳn mọi khách hàng (người dùng yêu cầu 2026-10-21, nhập lại từ CRM cũ): dự án KH, hành trình, công việc, tài liệu,
+  // trao đổi, lịch gọi, đầu mối, người phụ trách xóa theo; dự án sản xuất giữ nguyên, chỉ gỡ liên kết khách hàng. Bản sao lưu trước nâng cấp giữ dữ liệu cũ.
+  `DELETE FROM customers;`,
 ];
 
 function migrateV26() {
