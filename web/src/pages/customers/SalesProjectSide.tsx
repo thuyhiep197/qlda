@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Archive, ArchiveRestore, Pencil } from 'lucide-react';
 import { api, queryClient, refreshAll } from '../../api';
 import { hasPerm, useMe, useProducts, useProductTypes, useUsersBasic } from '../../hooks';
 import { useCan } from './manage';
 import type { CustomerDetail, Product, SalesProjectDetail } from '../../types';
 import { descriptionOf, salesStatusClass } from '../../customer-filter';
-import { colorOf, lozengeOf, PROJECT_STATUSES } from '../../util';
 import { Modal, toast, toastError } from '../../components/ui';
 import { PeoplePicker } from '../../components/PeoplePicker';
 import { ROLE_LABELS, type PeopleRole } from '../../people';
@@ -16,10 +15,10 @@ import { Block, FileList, Props, Tasks, UploadButton } from './CustomerSide';
 import { Talk } from './StepPanel';
 import CallSchedule from './CallSchedule';
 
-/** Cột phải của màn dự án (khi chưa chọn bước): thông tin dự án, lịch gọi điện, dự án sản xuất đã gắn, công việc, tài liệu, trao đổi của dự án */
+/** Cột phải của màn dự án (khi chưa chọn bước): thông tin dự án, lịch gọi điện, công việc, tài liệu, trao đổi của dự án.
+ *  Tiến độ dự án sản xuất xem ở khối Liên kết tiến độ sản xuất của màn khách hàng. */
 export default function SalesProjectSide({ customer, sp }: { customer: CustomerDetail; sp: SalesProjectDetail }) {
   const can = useCan();
-  const { data: me } = useMe();
   const { data: users } = useUsersBasic();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -29,9 +28,6 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
     if (archived && !confirm(`Lưu trữ dự án ${sp.code} ${sp.name}? Dự án ẩn khỏi danh sách; xem lại bằng ô "Xem đã lưu trữ" và mở lại được.`)) return;
     try { await api.post(`/customers/${customer.id}/projects/${sp.id}/archive`, { archived }); toast(archived ? 'Đã lưu trữ dự án' : 'Đã mở lại dự án'); await refreshAll(); if (archived) navigate(`/customers/${customer.id}`); } catch (e) { toastError(e); }
   };
-  const pr = sp.production;
-  const prStatus = pr ? pr.project_status || pr.status_auto : null;
-  const pct = pr?.total_issues ? Math.round((pr.done_issues / pr.total_issues) * 100) : 0;
   return (
     <>
       <Block title="Thông tin dự án" extra={<>
@@ -51,22 +47,6 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
         ]} />
       </Block>
       {can('ctalk.view') && <CallSchedule customerId={customer.id} projectId={sp.id} calls={sp.calls} members={sp.member_ids} />}
-      {/* Dữ liệu phân hệ Dự án: chỉ hiện khi có quyền Kế hoạch – Xem */}
-      {hasPerm(me, 'plan.view') && <Block title="Liên kết tiến độ sản xuất">
-        {!pr ? <p className="muted small">Chưa gắn. Phía phân hệ Dự án chọn dự án này của khách hàng khi tạo / sửa dự án.</p> : (() => {
-          const body = <>
-            <div className="row gap-sm" style={{ minWidth: 0 }}>
-              <span className="proj-dot sm" style={{ background: colorOf(pr.key) }}>{pr.key.slice(0, 2)}</span>
-              <b className="grow ellipsis">{pr.name}</b>
-              {prStatus && <span className={lozengeOf(PROJECT_STATUSES, prStatus)}>{prStatus}</span>}
-            </div>
-            <div className="cust-bar"><div style={{ width: `${pct}%` }} /></div>
-            <div className="muted small">{pr.key} · {pr.done_issues}/{pr.total_issues} việc · {pct}%{pr.accessible ? ' · Mở Kế hoạch chi tiết →' : ''}</div>
-          </>;
-          return pr.accessible ? <Link to={`/p/${pr.key}/plan`} className="cw-project">{body}</Link> : <div className="cw-project">{body}</div>;
-        })()}
-        {pr && <p className="muted small" style={{ margin: '6px 0 0' }}>Bước ở phần III, IV trùng tên với đầu việc của dự án sản xuất tự cập nhật trạng thái và hạn.</p>}
-      </Block>}
       <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} members={sp.member_ids} />
       <Block title={`Tài liệu (${sp.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} projectId={sp.id} />}>
         <FileList customerId={customer.id} files={sp.files} showWhere />
