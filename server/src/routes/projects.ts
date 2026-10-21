@@ -6,6 +6,7 @@ import { runImport } from '../importer.ts';
 import { autoProjectStatuses, checkPhase } from '../phases.ts';
 import { mapStatusForType, projectStatuses, workflowConfig } from '../workflow.ts';
 import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission, requireUserPerm } from '../permissions.ts';
+import { checkPeople, idList, namesSql, savePeople, syncProjectMembers, type PeopleRole } from '../people.ts';
 import { avatarUrl } from '../avatar.ts';
 import { sameName } from '../customer.ts';
 import { syncProjectProduct } from '../project-product.ts';
@@ -23,7 +24,26 @@ export function loadProject(req: Request, perm?: Permission) {
 }
 
 // Thông tin quản lý dự án: khách hàng, ưu tiên, trạng thái dự án (ghim), nhân sự (họ tên theo Danh mục nhân sự, cách nhau dấu phẩy)
-export const INFO_FIELDS = ['customer', 'priority', 'project_status', 'ba', 'dev', 'tester', 'am'] as const;
+export const INFO_FIELDS = ['customer', 'priority', 'project_status'] as const;
+/** Người của dự án theo vai trò (id tài khoản): BA/PM, Dev, Tester, AM — cùng Trưởng dự án là thành viên dự án */
+const PROJECT_ROLES: PeopleRole[] = ['ba', 'dev', 'tester', 'am'];
+const projectPeopleIds = (projectId: number) => {
+  const rows = all<{ user_id: number; role: PeopleRole }>('SELECT user_id, role FROM project_people WHERE project_id = ?', projectId);
+  return Object.fromEntries(PROJECT_ROLES.map((r) => [r, rows.filter((x) => x.role === r).map((x) => x.user_id)])) as Record<PeopleRole, number[]>;
+};
+/** Lưu người ở các vai trò gửi lên (ba_ids, dev_ids…; không gửi = giữ nguyên) rồi cập nhật thành viên dự án */
+function saveProjectPeople(projectId: number, b: any) {
+  const before = projectPeopleIds(projectId);
+  const people: Partial<Record<PeopleRole, number[]>> = {};
+  for (const r of PROJECT_ROLES) {
+    if (b[`${r}_ids`] === undefined) continue;
+    const ids = idList(b[`${r}_ids`]);
+    checkPeople(ids, r, before[r]);
+    people[r] = ids;
+  }
+  savePeople('project_people', 'project_id', projectId, people);
+  syncProjectMembers(projectId);
+}
 /** Cột lưu thông tin quản lý dự án (thêm customer_id = khách hàng trong danh mục Khách hàng) */
 const INFO_COLS = [...INFO_FIELDS, 'customer_id'];
 function infoValues(b: any, project?: any) {
@@ -64,7 +84,7 @@ r.get('/', (req, res) => {
   const ids = accessibleProjectIds(req.user);
   const showArchived = req.query.archived === '1' && req.user.is_admin;
   const rows = all(`
-    SELECT p.*, u.full_name AS lead_name,
+    SELECT p.*, u.full_name AS lead_name, ${PROJECT_ROLES.map((r) => `${namesSql('project_people', 'project_id', 'p.id', r)} AS ${r}_names`).join(', ')},
       (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS member_count,
       (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id
         WHERE i.project_id = p.id AND s.category <> 'done') AS open_count,
@@ -117,7 +137,7 @@ r.post('/', (req, res) => {
     const { id } = run(`INSERT INTO projects(key, name, description, type, lead_id, ${INFO_COLS.join(', ')}) VALUES (?,?,?,?,?${',?'.repeat(INFO_COLS.length)})`,
       key, name, b.description || null, type, leadId, ...infoValues(b));
     DEFAULT_STATUSES.forEach(([n, c], i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?,?,?,?)', id, n, c, i));
-    run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, leadId, accountRoleId(leadId));
+    saveProjectPeople(id, b);
     linkSalesProject(id, get<{ customer_id: number | null }>('SELECT customer_id FROM projects WHERE id = ?', id)!.customer_id, b.sales_project_id);
     return id;
   });
@@ -143,8 +163,7 @@ r.get('/:key', (req, res) => {
   for (const row of all<{ labels: string }>('SELECT DISTINCT labels FROM issues WHERE project_id = ? AND labels IS NOT NULL', project.id)) {
     row.labels.split(',').forEach((l) => l && labels.add(l));
   }
-  const owners = (role: string) => `(SELECT GROUP_CONCAT(s.full_name, ', ') FROM customer_owners co JOIN staff s ON s.id = co.staff_id
-      WHERE co.customer_id = c.id AND co.role = '${role}')`;
+  const owners = (role: 'kd' | 'am') => namesSql('customer_owners', 'customer_id', 'c.id', role);
   const customerInfo = project.customer_id ? get(`SELECT c.id, c.code, c.name, c.status, c.source, ${owners('kd')} AS kd_names, ${owners('am')} AS am_names,
       gp.name AS province_name, gw.name AS ward_name FROM customers c
     LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code WHERE c.id = ?`, project.customer_id) : null;
@@ -154,8 +173,12 @@ r.get('/:key', (req, res) => {
     const sp = salesProjectsOf([customerInfo.id], { archived: true }).find((x: any) => x.project_id === project.id);
     customerInfo.sales_project = sp ? { id: sp.id, code: sp.code, name: sp.name, status: sp.status, product_name: sp.product_name, kd_names: sp.kd_names, am_names: sp.am_names } : null;
   }
+  // Người theo vai trò: id (để sửa) và họ tên (để hiện)
+  const people = projectPeopleIds(project.id);
+  const names = (ids: number[]) => ids.map((id) => get<{ full_name: string }>('SELECT full_name FROM users WHERE id = ?', id)?.full_name).filter(Boolean).join(', ') || null;
+  const roleFields = Object.fromEntries(PROJECT_ROLES.flatMap((r) => [[`${r}_ids`, people[r]], [`${r}_names`, names(people[r])]]));
   res.json({
-    ...project, customer_info: customerInfo ?? null, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
+    ...project, ...roleFields, customer_info: customerInfo ?? null, lead, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
     labels: [...labels].sort(), permissions: [...perms],
   });
 });
@@ -173,6 +196,7 @@ r.patch('/:key', (req, res) => {
     run(`UPDATE projects SET name = ?, description = ?, type = ?, lead_id = ?, ${INFO_COLS.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`,
       name, b.description !== undefined ? b.description || null : project.description, type, leadId, ...infoValues(b, project), project.id);
     linkSalesProject(project.id, get<{ customer_id: number | null }>('SELECT customer_id FROM projects WHERE id = ?', project.id)!.customer_id, b.sales_project_id);
+    saveProjectPeople(project.id, b);
   });
   syncProjectProduct(project.id);
   res.json({ ok: true });
@@ -187,30 +211,7 @@ r.post('/:key/archive', (req, res) => {
   res.json({ ok: true });
 });
 
-// ---------------------------------------------------------------------------
-// Thành viên
-// ---------------------------------------------------------------------------
-r.post('/:key/members', (req, res) => {
-  const { project } = loadProject(req, 'project.admin');
-  const ids: number[] = (Array.isArray(req.body?.user_ids) ? req.body.user_ids : [req.body?.user_id]).map(Number);
-  tx(() => {
-    for (const userId of ids) {
-      if (!get('SELECT 1 FROM users WHERE id = ? AND is_active = 1', userId)) throw badRequest('Người dùng không hợp lệ');
-      run('INSERT OR IGNORE INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', project.id, userId, accountRoleId(userId));
-    }
-  });
-  audit(req, 'member_added', { target: project.key, detail: ids.map((id) => get('SELECT username FROM users WHERE id = ?', id)?.username).join(', ') });
-  res.status(201).json({ ok: true });
-});
-
-r.delete('/:key/members/:userId', (req, res) => {
-  const { project } = loadProject(req, 'project.admin');
-  const userId = Number(req.params.userId);
-  if (userId === req.user.id && !req.user.is_admin) throw badRequest('Không thể tự xóa mình khỏi dự án');
-  run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', project.id, userId);
-  audit(req, 'member_removed', { target: project.key, detail: get('SELECT username FROM users WHERE id = ?', userId)?.username });
-  res.json({ ok: true });
-});
+// Thành viên dự án không thêm / bớt tay: là Trưởng dự án + người ở các vai trò BA/PM, Dev, Tester, AM (syncProjectMembers)
 
 // ---------------------------------------------------------------------------
 // Trạng thái & workflow

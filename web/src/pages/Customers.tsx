@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Paperclip, Plus, X } from 'lucide-react';
 import { api, refreshAll } from '../api';
-import { useProvinces, useStaff, useWards } from '../hooks';
+import { useProvinces, useWards } from '../hooks';
+import { PeoplePicker } from '../components/PeoplePicker';
 import type { Customer, CustomerContact } from '../types';
 import { CUSTOMER_SOURCES, CUSTOMER_STATUSES, wardCodeOf } from '../customer-filter';
 import { Modal, toast, toastError } from '../components/ui';
@@ -108,10 +109,10 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
             </select></label>
         </div>
         <div className="form-grid">
-          <div className="field"><span>Sale <small className="muted">(nhân sự Sale hoặc BGĐ)</small></span>
-            <OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
-          <div className="field"><span>AM <small className="muted">(nhân sự AM)</small></span>
-            <OwnerPicker position="am" value={am} onChange={setAm} /></div>
+          <div className="field"><span>Sale <small className="muted">(Phòng Kinh doanh)</small></span>
+            <PeoplePicker role="kd" value={kd} onChange={setKd} /></div>
+          <div className="field"><span>AM <small className="muted">(Phòng Kinh doanh)</small></span>
+            <PeoplePicker role="am" value={am} onChange={setAm} /></div>
         </div>
         {!customer && (
           <div className="field"><span>Tài liệu</span>
@@ -126,22 +127,3 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
   );
 }
 
-/** Chọn Kinh doanh (nhân sự Sale hoặc Ban Giám đốc) hoặc AM (nhân sự AM); người được chọn xem và quản lý được khách hàng */
-export function OwnerPicker({ position, value, onChange }: { position: 'kd' | 'am'; value: number[]; onChange: (v: number[]) => void }) {
-  const { data: staff } = useStaff();
-  const allowed = position === 'kd' ? ['kd', 'bgd'] : ['am'];
-  const pool = (staff || []).filter((x) => x.positions.split(',').some((p) => allowed.includes(p)));
-  const name = (id: number) => staff?.find((x) => x.id === id)?.full_name ?? `#${id}`;
-  return (
-    <div className="staff-picker">
-      {value.map((id) => (
-        <span key={id} className="chip">{name(id)}
-          <button type="button" aria-label={`Bỏ ${name(id)}`} onClick={() => onChange(value.filter((x) => x !== id))}><X size={12} /></button></span>
-      ))}
-      <select value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label={position === 'kd' ? 'Thêm Sale' : 'Thêm AM'}>
-        <option value="">+ Thêm…</option>
-        {pool.filter((x) => !value.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{x.full_name}{x.user_id ? '' : ' (chưa gắn tài khoản)'}</option>)}
-      </select>
-    </div>
-  );
-}

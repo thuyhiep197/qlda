@@ -122,7 +122,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'department', label: 'Phòng ban (sơ đồ tổ chức)', hint: 'Ban Giám đốc và các phòng; nhân sự thuộc phòng ban', actions: ['view', 'create', 'edit', 'delete'] },
       { key: 'geo', label: 'Danh mục địa chính', hint: 'Tỉnh/thành phố, phường/xã dùng để chọn địa chỉ khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
       { key: 'product', label: 'Danh mục Loại sản phẩm & Sản phẩm', hint: 'Sản phẩm kèm mô tả, dùng để chọn cho dự án của khách hàng', actions: ['view', 'create', 'edit', 'delete'] },
-      { key: 'staff', label: 'Nhân sự', hint: 'Nhân sự trong từng phòng ban: vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC), tài khoản đăng nhập', actions: ['view', 'create', 'edit', 'delete'] },
+      { key: 'staff', label: 'Nhân sự', hint: 'Xếp tài khoản vào phòng ban, chọn vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC) và quản lý', actions: ['view', 'create', 'edit', 'delete'] },
     ],
   },
 ];

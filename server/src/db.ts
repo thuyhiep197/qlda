@@ -79,7 +79,8 @@ const SALES_ROLE = [...PROJECT_VIEW_ROLE, 'customer.view', 'customer.create', 'c
 const BOARD_ROLE = [...SALES_ROLE, 'customer_all.view'];
 /** Nhóm quản trị hệ thống (roles.is_admin = 1): thuộc nhóm này là toàn quyền; ma trận quyền của nhóm không dùng */
 export const ADMIN_ROLE_NAME = 'Quản trị hệ thống';
-const migrations: string[] = [
+/** Mỗi phiên bản: câu lệnh SQL, hoặc hàm (khi cần xử lý dữ liệu bằng code) — chạy trong cùng giao dịch */
+const migrations: (string | (() => void))[] = [
   `
   CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -741,7 +742,86 @@ const migrations: string[] = [
   `UPDATE roles SET permissions = REPLACE(REPLACE(permissions, '"customer_all.view"', '"customer.view_all"'), '"project_all.view"', '"project.view_all"');
    UPDATE user_permissions SET permission = 'customer.view_all' WHERE permission = 'customer_all.view';
    UPDATE user_permissions SET permission = 'project.view_all' WHERE permission = 'project_all.view';`,
+  // v26: người = tài khoản. Danh mục nhân sự gộp vào Người dùng (mỗi tài khoản có phòng ban, vị trí, quản lý);
+  // Sale / AM / BA/PM / Dev / Tester của khách hàng, dự án của khách hàng, dự án sản xuất lưu theo id tài khoản;
+  // thành viên dự án sản xuất = Trưởng dự án + những người được chọn ở các vai trò. Tên không khớp tài khoản nào thì bỏ (ghi ra log).
+  migrateV26,
 ];
+
+function migrateV26() {
+  db.exec(`ALTER TABLE users ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL;
+    ALTER TABLE users ADD COLUMN positions TEXT NOT NULL DEFAULT '';
+    ALTER TABLE users ADD COLUMN manager_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE users ADD COLUMN staff_note TEXT;`);
+  // Nhân sự "Nguyễn Huỳnh Bảo Hân" (chưa gắn tài khoản) chính là tài khoản "Nguyễn Bảo Hân" — người dùng xác nhận 2026-10-21
+  const han = all<{ id: number }>("SELECT id FROM users WHERE full_name = 'Nguyễn Bảo Hân'");
+  const hanId = han.length === 1 && !get('SELECT 1 FROM staff WHERE user_id = ?', han[0].id) ? han[0].id : null;
+  if (hanId) run("UPDATE staff SET user_id = ? WHERE full_name = 'Nguyễn Huỳnh Bảo Hân' AND user_id IS NULL", hanId);
+  db.exec(`UPDATE users SET
+      department_id = (SELECT s.department_id FROM staff s WHERE s.user_id = users.id),
+      positions = COALESCE((SELECT s.positions FROM staff s WHERE s.user_id = users.id), ''),
+      staff_note = (SELECT s.note FROM staff s WHERE s.user_id = users.id),
+      manager_id = (SELECT m.user_id FROM staff s JOIN staff m ON m.id = s.manager_id WHERE s.user_id = users.id);`);
+  // Họ tên (ghi trong các trường người của dự án) → tài khoản gắn với nhân sự đó
+  const byName = new Map(all<{ full_name: string; user_id: number }>('SELECT full_name, user_id FROM staff WHERE user_id IS NOT NULL').map((x) => [x.full_name, x.user_id]));
+  if (hanId) { byName.set('Bảo Hân', hanId); byName.set('Nguyễn Huỳnh Bảo Hân', hanId); }
+  const dropped: string[] = [];
+  const idsOf = (text: string | null, where: string) => String(text ?? '').split(',').map((x) => x.trim()).filter(Boolean).flatMap((n) => {
+    const id = byName.get(n);
+    if (!id) dropped.push(`${where}: ${n}`);
+    return id ? [id] : [];
+  });
+  db.exec(`CREATE TABLE customer_owners_v26 (
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      PRIMARY KEY (customer_id, user_id, role));
+    INSERT OR IGNORE INTO customer_owners_v26(customer_id, user_id, role)
+      SELECT co.customer_id, s.user_id, co.role FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE s.user_id IS NOT NULL;
+    DROP TABLE customer_owners;
+    ALTER TABLE customer_owners_v26 RENAME TO customer_owners;
+    CREATE INDEX idx_customer_owners_user ON customer_owners(user_id);
+    CREATE TABLE sales_project_owners_v26 (
+      sales_project_id INTEGER NOT NULL REFERENCES sales_projects(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      PRIMARY KEY (sales_project_id, user_id, role));
+    INSERT OR IGNORE INTO sales_project_owners_v26(sales_project_id, user_id, role)
+      SELECT o.sales_project_id, s.user_id, o.role FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE s.user_id IS NOT NULL;
+    DROP TABLE sales_project_owners;
+    ALTER TABLE sales_project_owners_v26 RENAME TO sales_project_owners;
+    CREATE INDEX idx_sales_project_owners_user ON sales_project_owners(user_id);
+    CREATE TABLE project_people (
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      PRIMARY KEY (project_id, user_id, role));
+    CREATE INDEX idx_project_people_user ON project_people(user_id);
+    ALTER TABLE issues ADD COLUMN dev_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    UPDATE issues SET dev_user_id = (SELECT s.user_id FROM staff s WHERE s.id = issues.dev_id) WHERE dev_id IS NOT NULL;
+    -- Dev của issue nay là tài khoản: cột cũ (nhân sự) đổi tên để giữ lại, cột mới mang tên dev_id
+    ALTER TABLE issues RENAME COLUMN dev_id TO dev_staff_id;
+    ALTER TABLE issues RENAME COLUMN dev_user_id TO dev_id;`);
+  for (const sp of all<{ id: number; code: string; ba: string | null; dev: string | null; tester: string | null }>('SELECT id, code, ba, dev, tester FROM sales_projects')) {
+    for (const role of ['ba', 'dev', 'tester'] as const) {
+      for (const id of idsOf(sp[role], `Dự án KH ${sp.code} · ${role}`)) run('INSERT OR IGNORE INTO sales_project_owners(sales_project_id, user_id, role) VALUES (?,?,?)', sp.id, id, role);
+    }
+  }
+  for (const pr of all<{ id: number; key: string; ba: string | null; dev: string | null; tester: string | null; am: string | null }>('SELECT id, key, ba, dev, tester, am FROM projects')) {
+    for (const role of ['ba', 'dev', 'tester', 'am'] as const) {
+      for (const id of idsOf(pr[role], `Dự án ${pr.key} · ${role}`)) run('INSERT OR IGNORE INTO project_people(project_id, user_id, role) VALUES (?,?,?)', pr.id, id, role);
+    }
+  }
+  // Thành viên dự án = Trưởng dự án + người ở các vai trò (vai trò trong dự án theo nhóm của tài khoản)
+  db.exec(`DELETE FROM project_members;
+    INSERT OR IGNORE INTO project_members(project_id, user_id, role_id)
+      SELECT p.id, u.id, u.default_role_id FROM projects p JOIN users u ON u.id = p.lead_id WHERE u.default_role_id IS NOT NULL;
+    INSERT OR IGNORE INTO project_members(project_id, user_id, role_id)
+      SELECT pp.project_id, u.id, u.default_role_id FROM project_people pp JOIN users u ON u.id = pp.user_id WHERE u.default_role_id IS NOT NULL;`);
+  // Tên cũ (dạng chữ) đã chuyển sang bảng người theo tài khoản — xóa để không hiện nhầm (bản sao lưu trước nâng cấp vẫn giữ)
+  db.exec('UPDATE sales_projects SET ba = NULL, dev = NULL, tester = NULL; UPDATE projects SET ba = NULL, dev = NULL, tester = NULL, am = NULL;');
+  if (dropped.length) console.log(`[db] v26: ${dropped.length} tên không khớp tài khoản nào, đã bỏ:\n  ${dropped.join('\n  ')}`);
+}
 
 export function migrate() {
   const current = Number((db.prepare('PRAGMA user_version').get() as any).user_version);
@@ -755,7 +835,8 @@ export function migrate() {
   }
   for (let v = current; v < migrations.length; v++) {
     tx(() => {
-      db.exec(migrations[v]);
+      const m = migrations[v];
+      if (typeof m === 'function') m(); else db.exec(m);
       db.exec(`PRAGMA user_version = ${v + 1}`);
     });
     console.log(`[db] migrated to schema v${v + 1}`);

@@ -38,7 +38,7 @@ export default function Projects() {
   const group = useProjectGroup(projects);
   const list = projects
     ?.filter((p) => archived || group === 'all' || p.my_role)
-    .filter((p) => !q || [p.name, p.key, p.customer, p.ba, p.dev, p.tester, p.am].join(' ').toLowerCase().includes(q))
+    .filter((p) => !q || [p.name, p.key, p.customer, p.ba_names, p.dev_names, p.tester_names, p.am_names].join(' ').toLowerCase().includes(q))
     .filter((p) => !statusF || statusOf(p) === (statusF === '-' ? '' : statusF))
     .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
     .sort((a, b) => notRunning(a) - notRunning(b) || rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
@@ -83,7 +83,7 @@ export default function Projects() {
                 <td>{canSeeCustomer && p.customer_id ? <Link to={`/customers/${p.customer_id}`}>{p.customer}</Link> : p.customer}</td>
                 <td>{p.priority && <span className={lozengeOf(PROJECT_PRIORITIES, p.priority)}>{p.priority}</span>}</td>
                 <td><ProjectStatus p={p} /></td>
-                {STAFF_POSITIONS.map((sp) => <td key={sp.key} className="people">{splitNames(p[sp.field]).map((n) => <div key={n}>{n}</div>)}</td>)}
+                {STAFF_POSITIONS.map((sp) => <td key={sp.key} className="people">{splitNames(p[`${sp.field}_names`]).map((n) => <div key={n}>{n}</div>)}</td>)}
                 <td>{p.type === 'scrum' ? 'Scrum' : 'Kanban'}</td>
                 {canArchive && <td className="num"><button className="btn btn-subtle btn-sm" onClick={() => toggleArchive(p)}>{p.is_archived ? 'Khôi phục' : 'Lưu trữ'}</button></td>}
               </tr>

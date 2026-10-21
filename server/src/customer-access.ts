@@ -21,9 +21,9 @@ export const seesAllCustomers = (user: U) => userPermissions(user).has('customer
 export const isWrite = (perm: Permission) => !/\.(view|export)$/.test(perm);
 
 /** Người dùng là Kinh doanh phụ trách / AM hỗ trợ của khách hàng (bí danh bảng khách hàng: col) */
-const OWNS_CUSTOMER = (col: string) => `EXISTS (SELECT 1 FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = ${col} AND s.user_id = ?)`;
-/** Người dùng liên quan tới dự án (bí danh bảng dự án của khách hàng: col): phụ trách, thực hiện / phối hợp bước, thực hiện công việc */
-const IN_PROJECT = (col: string) => `(EXISTS (SELECT 1 FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE o.sales_project_id = ${col} AND s.user_id = ?)
+const OWNS_CUSTOMER = (col: string) => `EXISTS (SELECT 1 FROM customer_owners co WHERE co.customer_id = ${col} AND co.user_id = ?)`;
+/** Người dùng liên quan tới dự án (bí danh bảng dự án của khách hàng: col): Sale / AM của dự án, thực hiện / phối hợp bước, thực hiện công việc */
+const IN_PROJECT = (col: string) => `(EXISTS (SELECT 1 FROM sales_project_owners o WHERE o.sales_project_id = ${col} AND o.role IN ('kd', 'am') AND o.user_id = ?)
       OR EXISTS (SELECT 1 FROM journey_steps j WHERE j.sales_project_id = ${col} AND j.assignee_id = ?)
       OR EXISTS (SELECT 1 FROM journey_step_supporters ss JOIN journey_steps j ON j.id = ss.step_id WHERE j.sales_project_id = ${col} AND ss.user_id = ?)
       OR EXISTS (SELECT 1 FROM customer_tasks t WHERE t.sales_project_id = ${col} AND t.assignee_id = ?))`;
@@ -105,16 +105,6 @@ export function loadSalesProjectOf(user: AuthUser, customerId: number, id: unkno
   return sp;
 }
 
-/** Kinh doanh phụ trách phải là nhân sự Sale (kd) hoặc Ban Giám đốc (bgd), AM hỗ trợ phải là nhân sự AM (am) — khách hàng và dự án của khách hàng */
-export const OWNER_POSITIONS = { kd: ['kd', 'bgd'], am: ['am'] } as const;
-export function checkOwners(ids: number[], role: 'kd' | 'am') {
-  const label = role === 'kd' ? 'Sale' : 'AM';
-  for (const id of ids) {
-    const st = get<{ positions: string }>('SELECT positions FROM staff WHERE id = ?', id);
-    if (!st) throw badRequest(`${label} không có trong Danh mục nhân sự`);
-    if (!st.positions.split(',').some((p) => (OWNER_POSITIONS[role] as readonly string[]).includes(p))) throw badRequest(`${label} phải là nhân sự ${role === 'kd' ? 'Sale hoặc Ban Giám đốc' : 'AM'}`);
-  }
-}
 
 /** Dự án của khách hàng được chọn (trống = chung của khách hàng); dự án phải thuộc khách hàng này và người dùng được xem */
 export function projectOf(user: AuthUser, customerId: number, raw: unknown) {
@@ -125,8 +115,6 @@ export function projectOf(user: AuthUser, customerId: number, raw: unknown) {
   return sp.id;
 }
 
-/** Nhân sự (Danh mục nhân sự) gắn với tài khoản */
-export const staffOfUser = (userId: number) => get<{ id: number; full_name: string; positions: string }>('SELECT id, full_name, positions FROM staff WHERE user_id = ?', userId);
 
 /**
  * Người tham gia dự án của khách hàng — chỉ những người này được giao việc, lịch gọi, thực hiện / phối hợp bước:
@@ -136,14 +124,11 @@ export const staffOfUser = (userId: number) => get<{ id: number; full_name: stri
 export function customerMembers(customerId: number, salesProjectId: number | null): Set<number> {
   const ids = new Set<number>();
   const add = (rows: { user_id: number | null }[]) => { for (const r of rows) if (r.user_id) ids.add(r.user_id); };
-  add(all('SELECT s.user_id FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = ?', customerId));
+  add(all('SELECT user_id FROM customer_owners WHERE customer_id = ?', customerId));
   const projects = salesProjectId ? [salesProjectId] : all<{ id: number }>('SELECT id FROM sales_projects WHERE customer_id = ?', customerId).map((p) => p.id);
   for (const p of projects) {
-    add(all('SELECT s.user_id FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE o.sales_project_id = ?', p));
-    // BA/PM, Dev, Tester lưu họ tên (chọn từ Danh mục nhân sự), cách nhau dấu phẩy
-    const people = get<{ ba: string | null; dev: string | null; tester: string | null }>('SELECT ba, dev, tester FROM sales_projects WHERE id = ?', p);
-    const names = [people?.ba, people?.dev, people?.tester].join(',').split(',').map((x) => x.trim()).filter(Boolean);
-    for (const name of names) add(all('SELECT user_id FROM staff WHERE full_name = ?', name));
+    // Sale, AM, BA/PM, Dev, Tester của dự án
+    add(all('SELECT user_id FROM sales_project_owners WHERE sales_project_id = ?', p));
     add(all('SELECT assignee_id AS user_id FROM journey_steps WHERE sales_project_id = ?', p));
     add(all('SELECT ss.user_id FROM journey_step_supporters ss JOIN journey_steps j ON j.id = ss.step_id WHERE j.sales_project_id = ?', p));
   }

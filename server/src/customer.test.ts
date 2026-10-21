@@ -71,19 +71,20 @@ test('fold strips Vietnamese accents for search', () => {
   assert.equal(fold('Sở Tài chính Đồng Nai'), 'so tai chinh dong nai');
 });
 
-test('a customer project needs a name and keeps product, KD, AM, BA/PM and note', () => {
+test('a customer project needs a name and keeps product, people (account ids) and note', () => {
   assert.throws(() => cleanSalesProject({ name: ' ' }), /Tên dự án/);
   assert.throws(() => cleanSalesProject({ name: 'A', product_id: 'x' }), /Sản phẩm/);
-  const people = cleanSalesProject({ name: 'A', dev: ' Lưu Văn Đông ', tester: '' });
-  assert.equal(people.dev, 'Lưu Văn Đông');
-  assert.equal(people.tester, null);
-  const p = cleanSalesProject({ name: '  Phần mềm  QL chợ ', product_type_id: '2', product_id: 5, kd_ids: [3, '3', 4, 0], am_ids: [7], ba: ' Nguyễn A, Trần B ', note: ' ghi chú ' });
+  const people = cleanSalesProject({ name: 'A', dev_ids: [12, '12', 'x'], tester_ids: [] });
+  assert.deepEqual(people.dev_ids, [12]);
+  assert.deepEqual(people.tester_ids, []);
+  assert.deepEqual(people.ba_ids, []);
+  const p = cleanSalesProject({ name: '  Phần mềm  QL chợ ', product_type_id: '2', product_id: 5, kd_ids: [3, '3', 4, 0], am_ids: [7], ba_ids: [9, 10], note: ' ghi chú ' });
   assert.equal(p.name, 'Phần mềm QL chợ');
   assert.equal(p.product_type_id, 2);
   assert.equal(p.product_id, 5);
   assert.deepEqual(p.kd_ids, [3, 4]);
   assert.deepEqual(p.am_ids, [7]);
-  assert.equal(p.ba, 'Nguyễn A, Trần B');
+  assert.deepEqual(p.ba_ids, [9, 10]);
   assert.equal(p.note, 'ghi chú');
 });
 

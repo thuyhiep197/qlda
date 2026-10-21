@@ -28,10 +28,12 @@ export interface UserBasic {
     avatar_url?: string | null;
   default_role_id?: number | null;
   default_role_name?: string | null;
-  /** Theo nhân sự đã gắn với tài khoản: phòng ban, mã vị trí chính (KD, AM, BA…) và mọi mã vị trí */
+  /** Phòng ban, vị trí của tài khoản: tên đầy đủ / tên ngắn (nhóm gần nhất, VD BA), vị trí (kd, am, ba_pm…), mã vị trí chính (KD, AM, BA…) và mọi mã */
   department_id?: number | null;
   department_name?: string | null;
+  department_short?: string | null;
   department_order?: number | null;
+  positions?: string[];
   department_code?: string | null;
   position_codes?: string[];
 }
@@ -164,10 +166,11 @@ export interface ProjectSummary {
   customer: string | null;
   priority: string | null;
   project_status: string | null;
-  ba: string | null;
-  dev: string | null;
-  tester: string | null;
-  am: string | null;
+  /** Họ tên người theo vai trò (BA/PM, Dev, Tester, AM), cách nhau dấu phẩy */
+  ba_names: string | null;
+  dev_names: string | null;
+  tester_names: string | null;
+  am_names: string | null;
 }
 
 export interface Project {
@@ -186,10 +189,9 @@ export interface Project {
     sales_project: { id: number; code: string; name: string; status: string | null; product_name: string | null; kd_names: string | null; am_names: string | null } | null }) | null;
   priority: string | null;
   project_status: string | null;
-  ba: string | null;
-  dev: string | null;
-  tester: string | null;
-  am: string | null;
+  /** Người theo vai trò: id tài khoản và họ tên — cùng Trưởng dự án là thành viên dự án */
+  ba_ids: number[]; dev_ids: number[]; tester_ids: number[]; am_ids: number[];
+  ba_names: string | null; dev_names: string | null; tester_names: string | null; am_names: string | null;
   workflow_strict: number;
   statuses: Status[];
   members: Member[];
@@ -395,10 +397,6 @@ export interface SalesProject {
   product_type_id: number | null;
   product_id: number | null;
   product_description: string | null;
-  /** BA/PM, Dev, Tester: họ tên chọn từ Danh mục nhân sự, cách nhau dấu phẩy */
-  ba: string | null;
-  dev: string | null;
-  tester: string | null;
   note: string | null;
   project_id: number | null;
   created_at: string;
@@ -407,8 +405,12 @@ export interface SalesProject {
   product_name: string | null;
   project_key: string | null;
   project_name: string | null;
+  /** Họ tên người theo vai trò (Sale, AM, BA/PM, Dev, Tester), cách nhau dấu phẩy */
   kd_names: string | null;
   am_names: string | null;
+  ba_names: string | null;
+  dev_names: string | null;
+  tester_names: string | null;
   open_tasks: number;
   /** Tình trạng tự động theo phần đang chạy của hành trình; null = chưa áp dụng quy trình */
   status: string | null;
@@ -428,8 +430,12 @@ export interface CustomerCall {
 export interface SalesProjectDetail extends SalesProject {
   /** Được thêm / sửa / lưu trữ trên dự án này */
   can_manage: boolean;
+  /** Người theo vai trò (id tài khoản) */
   kd_ids: number[];
   am_ids: number[];
+  ba_ids: number[];
+  dev_ids: number[];
+  tester_ids: number[];
   tasks: CustomerTask[];
   files: CustomerFile[];
   /** Trao đổi của dự án (không thuộc bước nào) */

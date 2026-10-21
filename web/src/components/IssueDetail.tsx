@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { can, useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useStaff, useUsersBasic, useVersions } from '../hooks';
+import { can, useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions } from '../hooks';
 import { typeOptions } from '../issue-type-options';
 import type { Issue, IssueDetail as TIssueDetail, IssueType, Priority, SubType, Worklog } from '../types';
-import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, PROJECT_STATUSES, projectDevOptions, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
+import { FIELD_LABELS, fmtDate, fmtDateTime, fmtDuration, fmtSize, isOverdue, PRIORITIES, PRIORITY_LABELS, PROJECT_STATUSES, timeAgo, RELEASES_ENABLED, today, TYPE_LABELS } from '../util';
+import { projectDevOptions } from '../people';
 import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge, toast, toastError, TypeIcon } from './ui';
 import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
@@ -50,7 +51,6 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const { data: sprints } = useSprints(issue?.project_key, 'future,active');
   const { data: versions } = useVersions(issue?.project_key);
   const { data: components } = useComponents(issue?.project_key);
-  const { data: staff } = useStaff();
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', issue?.project_key],
     queryFn: () => api.get(`/issues${qs({ project: issue!.project_key, type: 'epic', sort: 'key' })}`),
@@ -87,9 +87,9 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const canAssign = can(perms, 'issue.assign');
   const canTransition = can(perms, 'issue.transition');
   // Dev phụ trách chỉ chọn trong nhân sự Dev của dự án; giữ người đang chọn nếu đã bị gỡ khỏi dự án
-  const devOptions = projectDevOptions(staff, project?.dev ?? '');
+  const devOptions = projectDevOptions(allUsers, project?.dev_ids ?? []);
   if (issue.dev_id && !devOptions.some((s) => s.id === issue.dev_id))
-    devOptions.unshift({ id: issue.dev_id, full_name: issue.dev_name ?? `#${issue.dev_id}`, positions: '', note: null });
+    devOptions.unshift({ id: issue.dev_id, username: '', full_name: issue.dev_name ?? `#${issue.dev_id}` });
 
 
   const save = async (data: Record<string, unknown>) => {

@@ -4,7 +4,8 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
-import { checkOwners, customerMembers, loadCustomer, managesCustomer, projectOf, requireManage, seesAllCustomers, staffOfUser, visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
+import { customerMembers, loadCustomer, managesCustomer, projectOf, requireManage, seesAllCustomers, visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
+import { checkPeople, namesSql, savePeople, userPositions } from '../people.ts';
 import { listIssues } from '../issues.ts';
 import { autoProjectStatuses } from '../phases.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -28,15 +29,11 @@ const nameTaken = (name: string, exceptId?: number) =>
 /** Sản phẩm nay theo từng dự án của khách hàng; tình trạng khách hàng vẫn nhập tay */
 const FIELDS = ['name', 'province_code', 'ward_code', 'source', 'status'] as const;
 
-/** Kinh doanh phụ trách (role kd) và AM hỗ trợ (role am) */
-function saveOwners(customerId: number, kd: number[], am: number[]) {
-  run('DELETE FROM customer_owners WHERE customer_id = ?', customerId);
-  for (const id of kd) run("INSERT OR IGNORE INTO customer_owners(customer_id, staff_id, role) VALUES (?, ?, 'kd')", customerId, id);
-  for (const id of am) run("INSERT OR IGNORE INTO customer_owners(customer_id, staff_id, role) VALUES (?, ?, 'am')", customerId, id);
-}
-const ownersOf = (customerId: number) => all<{ id: number; full_name: string; user_id: number | null; role: 'kd' | 'am' }>(
-  'SELECT s.id, s.full_name, s.user_id, co.role FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = ? ORDER BY s.full_name', customerId);
-const OWNER_NAMES = (role: string) => `(SELECT GROUP_CONCAT(s.full_name, ', ') FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = c.id AND co.role = '${role}')`;
+/** Sale (role kd) và AM (role am) của khách hàng — tài khoản (id người dùng) */
+const saveOwners = (customerId: number, kd: number[], am: number[]) => savePeople('customer_owners', 'customer_id', customerId, { kd, am });
+const ownersOf = (customerId: number) => all<{ id: number; full_name: string; role: 'kd' | 'am' }>(
+  'SELECT u.id, u.full_name, co.role FROM customer_owners co JOIN users u ON u.id = co.user_id WHERE co.customer_id = ? ORDER BY u.full_name', customerId);
+const OWNER_NAMES = (role: 'kd' | 'am') => namesSql('customer_owners', 'customer_id', 'c.id', role);
 
 /** Kiểm tra thông tin khách hàng với danh mục: tỉnh, phường/xã theo Danh mục địa chính (phường/xã phải thuộc tỉnh đã chọn) */
 function validate(body: any) {
@@ -97,9 +94,9 @@ r.get('/', (req, res) => {
       (SELECT MAX(activity_date) FROM customer_activities a WHERE a.customer_id = c.id) AS last_activity_date,
       ${FIRST_CONTACT('full_name')} AS contact_name, ${FIRST_CONTACT('phone')} AS contact_phone, ${FIRST_CONTACT('email')} AS contact_email,
       ${OWNER_NAMES('kd')} AS kd_names, ${OWNER_NAMES('am')} AS am_names,
-      (EXISTS (SELECT 1 FROM customer_owners co JOIN staff s ON s.id = co.staff_id WHERE co.customer_id = c.id AND s.user_id = ?)
-        OR EXISTS (SELECT 1 FROM sales_project_owners o JOIN sales_projects sp ON sp.id = o.sales_project_id JOIN staff s ON s.id = o.staff_id
-          WHERE sp.customer_id = c.id AND s.user_id = ?)) AS is_mine
+      (EXISTS (SELECT 1 FROM customer_owners co WHERE co.customer_id = c.id AND co.user_id = ?)
+        OR EXISTS (SELECT 1 FROM sales_project_owners o JOIN sales_projects sp ON sp.id = o.sales_project_id
+          WHERE sp.customer_id = c.id AND o.user_id = ?)) AS is_mine
     FROM customers c LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code
     WHERE ${vis.sql} ${archived ? '' : 'AND c.is_archived = 0'} ORDER BY c.name`, req.user.id, req.user.id, ...vis.params).map((c: any) => {
     const projects = projectsByCustomer.get(c.id) ?? [];
@@ -113,12 +110,12 @@ r.post('/', (req, res) => {
   const v = validate(req.body || {});
   const contacts = check(() => cleanContacts(req.body?.contacts));
   if (nameTaken(v.name)) throw badRequest('Đã có khách hàng (cơ quan/đơn vị) này');
-  // Người tạo thuộc Kinh doanh (Sale) / Ban Giám đốc → Kinh doanh phụ trách, thuộc AM → AM hỗ trợ (mặc định); người khác tự chọn người phụ trách
-  const mine = staffOfUser(req.user.id);
-  const pos = mine?.positions.split(',') ?? [];
-const isKd = pos.includes('kd') || pos.includes('bgd');  if (mine && isKd && !v.kd_ids.includes(mine.id)) v.kd_ids.push(mine.id);  else if (mine && !isKd && pos.includes('am') && !v.am_ids.includes(mine.id)) v.am_ids.push(mine.id);
-  checkOwners(v.kd_ids, 'kd');
-  checkOwners(v.am_ids, 'am');
+  // Người tạo có vị trí Sale → Sale của khách hàng, vị trí AM → AM (mặc định); người khác tự chọn người phụ trách
+  const pos = userPositions(req.user.id);
+  if (pos.includes('kd') && !v.kd_ids.includes(req.user.id)) v.kd_ids.push(req.user.id);
+  else if (pos.includes('am') && !v.am_ids.includes(req.user.id)) v.am_ids.push(req.user.id);
+  checkPeople(v.kd_ids, 'kd');
+  checkPeople(v.am_ids, 'am');
   const id = tx(() => {
     const { id } = run(`INSERT INTO customers(${FIELDS.join(', ')}, created_by) VALUES (${FIELDS.map(() => '?').join(',')}, ?)`,
       ...FIELDS.map((f) => v[f]), req.user.id);
@@ -170,7 +167,8 @@ r.get('/:id', (req, res) => {
   // Dự án của khách hàng kèm tiến độ; công việc chỉ hiện ở dự án người xem là thành viên
   const access = accessibleProjectIds(req.user);
   const auto = autoProjectStatuses();
-  c.projects = all(`SELECT p.id, p.key, p.name, p.type, p.priority, p.project_status, p.is_archived, p.ba, p.dev, p.tester, p.am,
+  c.projects = all(`SELECT p.id, p.key, p.name, p.type, p.priority, p.project_status, p.is_archived,
+      ${(['ba', 'dev', 'tester', 'am'] as const).map((r) => `${namesSql('project_people', 'project_id', 'p.id', r)} AS ${r}`).join(', ')},
       u.full_name AS lead_name,
       (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id AND i.type <> 'epic') AS total_issues,
       (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.project_id = p.id AND i.type <> 'epic' AND s.category = 'done') AS done_issues,
@@ -197,10 +195,10 @@ r.patch('/:id', (req, res) => {
   const cur = loadCustomer(req, 'customer.edit');
   const owners = ownersOf(cur.id);
   const v = validate({ ...cur, kd_ids: owners.filter((o) => o.role === 'kd').map((o) => o.id), am_ids: owners.filter((o) => o.role === 'am').map((o) => o.id), ...req.body });
-  checkOwners(v.kd_ids, 'kd');
-  checkOwners(v.am_ids, 'am');
-  const mine = staffOfUser(req.user.id);
-  if (!seesAllCustomers(req.user) && mine && owners.some((o) => o.id === mine.id) && !v.kd_ids.includes(mine.id) && !v.am_ids.includes(mine.id)) {
+  checkPeople(v.kd_ids, 'kd', owners.filter((o) => o.role === 'kd').map((o) => o.id));
+  checkPeople(v.am_ids, 'am', owners.filter((o) => o.role === 'am').map((o) => o.id));
+  const me = req.user.id;
+  if (!seesAllCustomers(req.user) && owners.some((o) => o.id === me) && !v.kd_ids.includes(me) && !v.am_ids.includes(me)) {
     throw badRequest('Bạn không thể bỏ chính mình khỏi Sale / AM của khách hàng (sẽ không còn xem được khách hàng này)');
   }
   const contacts = req.body?.contacts !== undefined ? check(() => cleanContacts(req.body.contacts)) : null;

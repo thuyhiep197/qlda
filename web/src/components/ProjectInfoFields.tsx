@@ -1,9 +1,13 @@
-import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api, queryClient } from '../api';
-import { hasPerm, useCustomerNames, useMe, useStaff } from '../hooks';
+import { hasPerm, useCustomerNames, useMe } from '../hooks';
 import { toastError } from './ui';
-import { PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
+import { PROJECT_PRIORITIES, PROJECT_STATUSES } from '../util';
+import { PeoplePicker } from './PeoplePicker';
+import { ROLE_LABELS } from '../people';
+
+/** Vai trò người của dự án sản xuất (id tài khoản) — cùng Trưởng dự án là thành viên dự án */
+const PROJECT_ROLES = ['ba', 'dev', 'tester', 'am'] as const;
 
 // Thông tin quản lý dự án — dùng chung cho form Tạo dự án và Cài đặt dự án
 export type ProjectInfo = {
@@ -11,46 +15,25 @@ export type ProjectInfo = {
   customer_id: string; customer: string; priority: string; project_status: string;
   /** Dự án của khách hàng (phía Kinh doanh) được gắn với dự án này ('' = chưa gắn) */
   sales_project_id: string;
-  ba: string; dev: string; tester: string; am: string;
+  /** Người theo vai trò (id tài khoản) */
+  ba_ids: number[]; dev_ids: number[]; tester_ids: number[]; am_ids: number[];
 };
 
-export function projectInfoOf(p?: Partial<Record<Exclude<keyof ProjectInfo, 'customer_id' | 'sales_project_id'>, string | null>> & {
+export function projectInfoOf(p?: { customer?: string | null; priority?: string | null; project_status?: string | null;
+  ba_ids?: number[]; dev_ids?: number[]; tester_ids?: number[]; am_ids?: number[];
   customer_id?: number | null; customer_info?: { sales_project: { id: number } | null } | null;
 }): ProjectInfo {
   return {
     customer_id: p?.customer_id ? String(p.customer_id) : '', customer: p?.customer ?? '', priority: p?.priority ?? '', project_status: p?.project_status ?? '',
-    ba: p?.ba ?? '', dev: p?.dev ?? '', tester: p?.tester ?? '', am: p?.am ?? '',
+    ba_ids: p?.ba_ids ?? [], dev_ids: p?.dev_ids ?? [], tester_ids: p?.tester_ids ?? [], am_ids: p?.am_ids ?? [],
     sales_project_id: p?.customer_info?.sales_project ? String(p.customer_info.sales_project.id) : '',
   };
 }
 
-export const splitNames = (v: string | null | undefined) => (v ? v.split(',').map((x) => x.trim()).filter(Boolean) : []);
-
-/** Chọn nhiều người từ Danh mục nhân sự theo vị trí (một hoặc nhiều vị trí); tên cũ không còn trong danh mục vẫn giữ (gạch chân chấm). */
-export function StaffPicker({ position, value, onChange }: { position: string | string[]; value: string; onChange: (v: string) => void }) {
-  const { data: staff } = useStaff();
-  const chosen = splitNames(value);
-  const known = new Set(staff?.map((s) => s.full_name));
-  const options = (staff || []).filter((s) => [position].flat().some((x) => s.positions.split(',').includes(x)) && !chosen.includes(s.full_name));
-  return (
-    <div className="staff-picker">
-      {chosen.map((n) => (
-        <span key={n} className={`chip ${staff && !known.has(n) ? 'chip-unknown' : ''}`}
-          data-tip={staff && !known.has(n) ? 'Không có trong Danh mục nhân sự' : undefined}>
-          {n}
-          <button type="button" aria-label={`Bỏ ${n}`} onClick={() => onChange(chosen.filter((x) => x !== n).join(', '))}><X size={12} /></button>
-        </span>
-      ))}
-      <select value="" onChange={(e) => e.target.value && onChange([...chosen, e.target.value].join(', '))} aria-label="Thêm người">
-        <option value="">+ Thêm…</option>
-        {options.map((s) => <option key={s.id} value={s.full_name}>{s.full_name}{s.note ? ` (${s.note})` : ''}</option>)}
-      </select>
-    </div>
-  );
-}
+export const splitNames = (v: string | null | undefined) => (v ? v.split(",").map((x) => x.trim()).filter(Boolean) : []);
 
 export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onChange: (v: ProjectInfo) => void }) {
-  const set = (k: keyof ProjectInfo, v: string) => onChange({ ...value, [k]: v });
+  const set = (k: 'customer_id' | 'customer' | 'priority' | 'project_status' | 'sales_project_id', v: string) => onChange({ ...value, [k]: v });
   const { data: me } = useMe();
   const { data: customers } = useCustomerNames();
   // Thêm nhanh khách hàng mới ngay trong form dự án
@@ -89,11 +72,11 @@ export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onC
             </optgroup>
           </select></label>
       </div>
-      <div className="field"><span>Nhân sự <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
+      <div className="field"><span>Nhân sự <small className="muted">(chọn tài khoản theo vị trí — là thành viên dự án)</small></span>
         <div className="info-people">
-          {STAFF_POSITIONS.map((p) => (
-            <div key={p.key}><small className="muted">{p.label}</small>
-              <StaffPicker position={p.key} value={value[p.field]} onChange={(v) => set(p.field, v)} /></div>
+          {PROJECT_ROLES.map((r) => (
+            <div key={r}><small className="muted">{ROLE_LABELS[r]}</small>
+              <PeoplePicker role={r} value={value[`${r}_ids`]} onChange={(v) => onChange({ ...value, [`${r}_ids`]: v })} /></div>
           ))}
         </div>
       </div>

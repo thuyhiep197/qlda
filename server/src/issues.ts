@@ -11,7 +11,6 @@ import {
 } from './permissions.ts';
 import { avatarUrl } from './avatar.ts';
 import { checkIssueNote } from './issue-note.ts';
-import { inStaffList } from './dev-roster.ts';
 import { autoStartSprint } from './sprint-autostart.ts';
 import { typeChangeError } from './issue-type.ts';
 
@@ -80,7 +79,7 @@ LEFT JOIN versions v ON v.id = i.version_id
 LEFT JOIN components cp ON cp.id = i.component_id
 LEFT JOIN users cu ON cu.id = cp.lead_id
 LEFT JOIN users bu ON bu.id = i.ba_id
-LEFT JOIN staff ds ON ds.id = i.dev_id`;
+LEFT JOIN users ds ON ds.id = i.dev_id`;
 
 export function serialize(row: any) {
   const { assignee_avatar, reporter_avatar, ...rest } = row;
@@ -224,7 +223,6 @@ export function addHistory(issueId: number, userId: number | null, field: string
 
 const statusName = (id: number | null) => (id ? get('SELECT name FROM statuses WHERE id = ?', id)?.name : null);
 const userName = (id: number | null) => (id ? get('SELECT full_name FROM users WHERE id = ?', id)?.full_name : null);
-const staffName = (id: number | null) => (id ? get('SELECT full_name FROM staff WHERE id = ?', id)?.full_name : null);
 const versionName = (id: number | null) => (id ? get('SELECT name FROM versions WHERE id = ?', id)?.name : null);
 export const fmtMinutes = (m: number | null | undefined) => {
   if (m === null || m === undefined) return null;
@@ -262,15 +260,12 @@ function checkLabels(v: unknown): string | null {
   return clean.length ? clean.join(',') : null;
 }
 
-/** Dev phụ trách: nhân sự vị trí Dev và phải nằm trong nhân sự Dev của chính dự án (mục Nhân sự trong Cài đặt dự án). */
+/** Dev phụ trách: tài khoản nằm trong Dev của chính dự án (Thông tin dự án). */
 function checkDev(projectId: number, v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
   const id = Number(v);
-  const member = get<{ id: number; full_name: string }>("SELECT id, full_name FROM staff WHERE id = ? AND (',' || positions || ',') LIKE '%,dev,%'", id);
-  if (!member) throw badRequest('Dev phụ trách phải thuộc danh sách nhân sự vị trí Dev');
-  const roster = get<{ dev: string | null }>('SELECT dev FROM projects WHERE id = ?', projectId)?.dev;
-  if (!inStaffList(roster, member.full_name)) throw badRequest('Dev phụ trách phải thuộc nhân sự Dev của dự án');
-  return member.id;
+  if (!get("SELECT 1 FROM project_people WHERE project_id = ? AND user_id = ? AND role = 'dev'", projectId, id)) throw badRequest('Dev phụ trách phải thuộc Dev của dự án');
+  return id;
 }
 
 /** Kiểm tra issue cha hợp lệ theo loại issue. Trả về id cha. */
@@ -587,7 +582,7 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       const v = checkDev(issue.project_id, data.dev_id);
       if (v !== issue.dev_id) {
         sets.dev_id = v;
-        history.push(['dev', issue.dev_id, v, staffName(issue.dev_id) ?? 'Chưa có', staffName(v) ?? 'Chưa có']);
+        history.push(['dev', issue.dev_id, v, userName(issue.dev_id) ?? 'Chưa có', userName(v) ?? 'Chưa có']);
       }
     }
     if (has('component_id')) {

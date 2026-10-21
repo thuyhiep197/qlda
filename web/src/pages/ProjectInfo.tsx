@@ -43,7 +43,7 @@ export default function ProjectInfo({ onEdit }: { onEdit?: () => void }) {
           </div>
           <div className="card">
             <div className="card-head"><h3>Nhân sự</h3></div>
-            <Props rows={STAFF_POSITIONS.map((p) => [p.label, splitNames(project[p.field]).join(', ')] as [string, ReactNode])} />
+            <Props rows={STAFF_POSITIONS.map((p) => [p.label, splitNames(project[`${p.field}_names`]).join(', ')] as [string, ReactNode])} />
           </div>
         </div>
         <div className="stack">

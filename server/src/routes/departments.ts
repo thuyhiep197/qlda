@@ -18,7 +18,7 @@ export function departmentCodes(id: number): string[] {
 
 /**
  * Phòng ban & Nhân sự (sơ đồ tổ chức): Ban Giám đốc đứng đầu, dưới là các phòng (parent_id);
- * nhân sự (Danh mục nhân sự) thuộc một phòng ban, gắn với tài khoản đăng nhập.
+ * nhân sự = tài khoản người dùng thuộc một phòng ban (phòng ban, vị trí, quản lý lưu ở tài khoản).
  */
 const r = Router();
 
@@ -43,9 +43,9 @@ function checkNoCycle(id: number, parentId: number | null) {
 // Mọi người đã đăng nhập đều xem được: phòng ban kèm danh sách nhân sự
 r.get('/', (_req, res) => {
   const deps = all(`SELECT d.id, d.code, d.name, d.parent_id, d.position FROM departments d ORDER BY d.position, d.name`);
-  const staff = all(`SELECT s.id, s.full_name, s.positions, s.note, s.user_id, s.department_id, u.username, u.is_active,
-      s.manager_id, (SELECT m.full_name FROM staff m WHERE m.id = s.manager_id) AS manager_name
-    FROM staff s LEFT JOIN users u ON u.id = s.user_id ORDER BY s.full_name`);
+  const staff = all(`SELECT u.id, u.full_name, u.positions, u.staff_note AS note, u.id AS user_id, u.department_id, u.username, u.is_active,
+      u.manager_id, (SELECT m.full_name FROM users m WHERE m.id = u.manager_id) AS manager_name
+    FROM users u WHERE u.department_id IS NOT NULL ORDER BY u.full_name`);
   // allowed_positions: vị trí được chọn khi thêm nhân sự vào phòng ban; preset: vị trí tích sẵn của nhóm
   res.json(deps.map((d: any) => { const a = allowedPositions(departmentCodes(d.id)); return { ...d, allowed_positions: a.allowed, preset_position: a.preset, staff: staff.filter((x: any) => x.department_id === d.id) }; }));
 });
@@ -76,7 +76,7 @@ r.delete('/:id', (req, res) => {
   const d = get('SELECT * FROM departments WHERE id = ?', Number(req.params.id));
   if (!d) throw notFound();
   if (get('SELECT 1 FROM departments WHERE parent_id = ?', d.id)) throw badRequest('Phòng ban đang có phòng ban cấp dưới');
-  if (get('SELECT 1 FROM staff WHERE department_id = ?', d.id)) throw badRequest('Phòng ban đang có nhân sự, hãy chuyển nhân sự sang phòng ban khác trước');
+  if (get('SELECT 1 FROM users WHERE department_id = ?', d.id)) throw badRequest('Phòng ban đang có nhân sự, hãy chuyển nhân sự sang phòng ban khác trước');
   run('DELETE FROM departments WHERE id = ?', d.id);
   audit(req, 'department_deleted', { target: d.name });
   res.json({ ok: true });

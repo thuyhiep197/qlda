@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs, refreshAll } from '../api';
-import { can, useComponents, useIssueModal, useProject, useProjects, useSprints, useStaff, useVersions } from '../hooks';
+import { can, useComponents, useIssueModal, useProject, useProjects, useSprints, useUsersBasic, useVersions } from '../hooks';
 import { Plus } from 'lucide-react';
 import type { Issue, IssueType, Priority } from '../types';
-import { PRIORITIES, PRIORITY_LABELS, projectDevOptions, TYPE_LABELS, typeTip } from '../util';
+import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS, typeTip } from '../util';
+import { projectDevOptions } from '../people';
 import { Modal, toast, toastError, TypeIcon } from './ui';
 
 const TYPE_HINTS: Record<IssueType, string> = {
@@ -34,7 +35,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
   const { data: sprints } = useSprints(key || undefined, 'future,active');
   const { data: versions } = useVersions(key || undefined);
   const { data: components } = useComponents(key || undefined);
-  const { data: staff } = useStaff();
+  const { data: users } = useUsersBasic();
 
   const [type, setType] = useState<IssueType>(defaults?.type || 'story');
   const [summary, setSummary] = useState('');
@@ -194,7 +195,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
             <span>Dev phụ trách</span>
             <select value={dev} onChange={(e) => setDev(e.target.value)}>
               <option value="">— Chưa có —</option>
-              {projectDevOptions(staff, project?.dev ?? (key ? '' : undefined))
+              {projectDevOptions(users, project?.dev_ids ?? (key ? [] : undefined))
                 .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
             </select>
           </label>

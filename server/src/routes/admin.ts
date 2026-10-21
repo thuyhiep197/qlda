@@ -17,8 +17,8 @@ const r = Router();
 
 const USER_COLS = `id, username, full_name, email, avatar, is_admin, is_active, must_change_password, created_at, last_login_at,
   default_role_id, (SELECT name FROM roles WHERE roles.id = users.default_role_id) AS default_role_name,
-  (SELECT CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END FROM staff st JOIN departments d ON d.id = st.department_id LEFT JOIN departments pd ON pd.id = d.parent_id
-    WHERE st.user_id = users.id) AS department_name`;
+  (SELECT CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END FROM departments d LEFT JOIN departments pd ON pd.id = d.parent_id
+    WHERE d.id = users.department_id) AS department_name`;
 const userJson = (u: any) => { const { avatar, ...user } = u; return { ...user, avatar_url: avatarUrl(avatar) }; };
 
 function checkRole(v: unknown): number | null {
@@ -31,12 +31,13 @@ function checkRole(v: unknown): number | null {
 /** Danh sách rút gọn cho mọi người dùng đã đăng nhập (dùng khi chọn người). */
 r.get('/users/basic', (_req, res) => {
   const users = all(`SELECT u.id, u.username, u.full_name, u.avatar, u.default_role_id, r.name AS default_role_name,
-      st.department_id, CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END AS department_name, COALESCE(pd.position, d.position) * 100 + d.position AS department_order, st.positions
-    FROM users u LEFT JOIN roles r ON r.id = u.default_role_id LEFT JOIN staff st ON st.user_id = u.id LEFT JOIN departments d ON d.id = st.department_id
+      u.department_id, CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END AS department_name, d.name AS department_short,
+      COALESCE(pd.position, d.position) * 100 + d.position AS department_order, u.positions
+    FROM users u LEFT JOIN roles r ON r.id = u.default_role_id LEFT JOIN departments d ON d.id = u.department_id
       LEFT JOIN departments pd ON pd.id = d.parent_id
     WHERE u.is_active = 1 ORDER BY u.full_name`);
-  // Mã vị trí (KD, AM, BA, DEV, HC, BGĐ) theo nhân sự đã gắn với tài khoản — hiện cạnh tên trong hành trình khách hàng
-  res.json(users.map((u: any) => { const { avatar, positions, ...user } = u; return { ...user, position_codes: positionCodes(positions), department_code: primaryCode(positions), avatar_url: avatarUrl(avatar) }; }));
+  // Vị trí của tài khoản (lọc người theo vai trò) và mã vị trí (KD, AM, BA, DEV, HC, BGĐ) hiện cạnh tên trong hành trình khách hàng
+  res.json(users.map((u: any) => { const { avatar, ...user } = u; return { ...user, positions: (u.positions ?? '').split(',').filter(Boolean), position_codes: positionCodes(u.positions), department_code: primaryCode(u.positions), avatar_url: avatarUrl(avatar) }; }));
 });
 
 function memberships(userId: number) {

@@ -9,29 +9,28 @@ import { useProjectCtx } from './ProjectLayout';
 import { ProjectInfoFields, projectInfoOf } from '../components/ProjectInfoFields';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import ProjectInfo from './ProjectInfo';
+import { personLabel } from '../people';
 
 /** Tab Thông tin của dự án: thông tin dự án (mọi thành viên xem; trưởng dự án hoặc người có quyền Sửa dự án sửa được),
- *  và các phần cài đặt Thành viên, Mô-đun, Trạng thái & quy trình theo quyền. */
+ *  và các phần cài đặt Mô-đun, Trạng thái & quy trình theo quyền. Thành viên dự án = Trưởng dự án + người ở các vai trò (BA/PM, Dev, Tester, AM). */
 export default function ProjectSettings() {
   const project = useProjectCtx();
   const { data: me } = useMe();
-  // Thành viên, quy trình: quyền Sửa dự án; Mô-đun: quyền riêng của Mô-đun; Thông tin: thêm trưởng dự án
+  // Quy trình: quyền Sửa dự án; Mô-đun: quyền riêng của Mô-đun; Thông tin: thêm trưởng dự án
   const canProject = can(project.permissions, 'project.edit');
   const canInfo = canProject || project.lead_id === me?.id;
   const canComp = ['component.create', 'component.edit', 'component.delete'].some((p) => can(project.permissions, p));
-  const [tab, setTab] = useState<'general' | 'members' | 'components' | 'workflow'>('general');
+  const [tab, setTab] = useState<'general' | 'components' | 'workflow'>('general');
   const [editing, setEditing] = useState(false);
   const showTabs = canProject || canComp;
   return (
     <div className="page-pad">
       {showTabs && <div className="tabs tabs-sm">
         <button className={tab === 'general' ? 'active' : ''} onClick={() => setTab('general')}>Thông tin chung</button>
-        {canProject && <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>Thành viên</button>}
         {canComp && <button className={tab === 'components' ? 'active' : ''} onClick={() => setTab('components')}>Mô-đun & BA phụ trách</button>}
         {canProject && <button className={tab === 'workflow' ? 'active' : ''} onClick={() => setTab('workflow')}>Trạng thái & quy trình</button>}
       </div>}
       {tab === 'general' && (editing ? <General onDone={() => setEditing(false)} canArchive={canProject} /> : <ProjectInfo onEdit={canInfo ? () => setEditing(true) : undefined} />)}
-      {tab === 'members' && <Members />}
       {tab === 'components' && <Components />}
       {tab === 'workflow' && <Workflow />}
     </div>
@@ -47,6 +46,7 @@ function General({ onDone, canArchive }: { onDone: () => void; canArchive: boole
   const [type, setType] = useState(project.type);
   const [lead, setLead] = useState(String(project.lead_id));
   const [info, setInfo] = useState(projectInfoOf(project));
+  const { data: users } = useUsersBasic();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -72,7 +72,7 @@ function General({ onDone, canArchive }: { onDone: () => void; canArchive: boole
         </select></label>
       <label className="field"><span>Trưởng dự án</span>
         <select value={lead} onChange={(e) => setLead(e.target.value)}>
-          {project.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+          {users?.map((u) => <option key={u.id} value={u.id}>{personLabel(u)}</option>)}
         </select></label>
       <ProjectInfoFields value={info} onChange={setInfo} />
       <label className="field"><span>Mô tả</span><textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
@@ -86,84 +86,6 @@ function General({ onDone, canArchive }: { onDone: () => void; canArchive: boole
   );
 }
 
-function Members() {
-  const project = useProjectCtx();
-  const { data: me } = useMe();
-  const { data: users } = useUsersBasic();
-  const [adding, setAdding] = useState(false);
-  const [userIds, setUserIds] = useState<number[]>([]);
-  const [q, setQ] = useState('');
-
-  const remove = async (userId: number, name: string) => {
-    if (!confirm(`Xóa ${name} khỏi dự án? Các issue đang giao cho người này vẫn được giữ nguyên.`)) return;
-    try { await api.del(`/projects/${project.key}/members/${userId}`); await refreshAll(); } catch (e) { toastError(e); }
-  };
-  const add = async () => {
-    try {
-      await api.post(`/projects/${project.key}/members`, { user_ids: userIds });
-      toast(`Đã thêm ${userIds.length} thành viên`);
-      setAdding(false); setUserIds([]);
-      await refreshAll();
-    } catch (e) { toastError(e); }
-  };
-  const candidates = (users?.filter((u) => !project.members.some((m) => m.id === u.id)) ?? [])
-    .filter((u) => !q || `${u.full_name} ${u.username} ${u.default_role_name || ''}`.toLowerCase().includes(q.toLowerCase()));
-
-  return (
-    <div className="card">
-      <div className="card-head">
-        <h3>Thành viên ({project.members.length})</h3>
-        <button className="btn btn-primary" onClick={() => setAdding(true)}>+ Thêm thành viên</button>
-      </div>
-      <table className="table">
-        <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Email</th><th>Vai trò</th><th /></tr></thead>
-        <tbody>
-          {project.members.map((m) => (
-            <tr key={m.id}>
-              <td><div className="row gap-sm"><Avatar name={m.full_name} src={m.avatar_url} size={26} /> {m.full_name} {!m.is_active && <span className="lozenge lozenge-red">Đã khóa</span>}</div></td>
-              <td>@{m.username}</td>
-              <td>{m.email}</td>
-              <td><span className="lozenge lozenge-default">{m.role_name}</span></td>
-              <td className="num">{(m.id !== me?.id || me?.is_admin) && <button className="btn btn-subtle btn-sm" onClick={() => remove(m.id, m.full_name)}>Xóa khỏi dự án</button>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="muted small">
-        Thành viên dự án quyết định ai được vào dự án. Quyền của mỗi người lấy theo <b>vai trò của tài khoản</b>
-        {me?.is_admin ? <> (đổi ở mục <b>Người dùng</b>)</> : null}. Quản trị hệ thống luôn có toàn quyền trên mọi dự án.
-      </p>
-
-      {adding && (
-        <Modal title="Thêm thành viên" onClose={() => setAdding(false)} footer={<>
-          <div className="spacer" />
-          <button className="btn" onClick={() => setAdding(false)}>Hủy</button>
-          <button className="btn btn-primary" disabled={!userIds.length} onClick={add}>Thêm {userIds.length || ''}</button>
-        </>}>
-          <div className="stack">
-            <input autoFocus placeholder="Tìm theo tên hoặc vai trò (VD: Dev)" value={q} onChange={(e) => setQ(e.target.value)} />
-            <div className="field"><span>Chọn người dùng ({candidates.length} người chưa tham gia)</span>
-              <div className="check-list">
-                {candidates.map((u) => (
-                  <label key={u.id} className="check">
-                    <input type="checkbox" checked={userIds.includes(u.id)}
-                      onChange={(e) => setUserIds(e.target.checked ? [...userIds, u.id] : userIds.filter((x) => x !== u.id))} />
-                    <Avatar name={u.full_name} src={u.avatar_url} size={22} /> {u.full_name} <span className="muted small">@{u.username}</span>
-                    <span className="spacer" />
-                    {u.default_role_name ? <span className="lozenge lozenge-default">{u.default_role_name}</span> : <span className="small danger">Chưa có vai trò</span>}
-                  </label>
-                ))}
-                {!candidates.length && <div className="muted small">Không còn người dùng nào để thêm. Quản trị viên có thể tạo thêm tài khoản ở mục Người dùng.</div>}
-              </div>
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-/** Mô-đun (Component theo Jira): mỗi mô-đun có BA phụ trách và thuộc side Sở / Trường / Chung. */
 function Components() {
   const project = useProjectCtx();
   const { data: list } = useComponents(project.key);

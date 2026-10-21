@@ -49,7 +49,7 @@ export function cleanCustomer(b: any) {
   };
 }
 
-/** Dự án của khách hàng (do Kinh doanh tạo): tên, Kinh doanh, AM, BA/PM, sản phẩm, ghi chú. Tình trạng tự động theo hành trình. */
+/** Dự án của khách hàng (do Kinh doanh tạo): tên, Sale, AM, BA/PM, Dev, Tester (id tài khoản), sản phẩm, ghi chú. Tình trạng tự động theo hành trình. */
 export function cleanSalesProject(b: any) {
   const name = text(b.name, 200);
   if (!name) throw badRequest('Tên dự án không được để trống');
@@ -59,12 +59,12 @@ export function cleanSalesProject(b: any) {
   return {
     name, product_type_id, product_id,
     product_description: longText(b.product_description, 4000),
-    ba: text(b.ba, 500),
-    dev: text(b.dev, 500),
-    tester: text(b.tester, 500),
     note: longText(b.note, 4000),
     kd_ids: idList(b.kd_ids),
     am_ids: idList(b.am_ids),
+    ba_ids: idList(b.ba_ids),
+    dev_ids: idList(b.dev_ids),
+    tester_ids: idList(b.tester_ids),
   };
 }
 

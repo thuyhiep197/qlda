@@ -6,7 +6,8 @@ import { cleanSalesProject, customerCode, salesProjectCode } from '../customer.t
 import { journeyProgress, journeyStatus } from '../journey.ts';
 import { syncJourneys } from '../journey-sync.ts';
 import { autoProjectStatuses } from '../phases.ts';
-import { checkOwners, customerMembers, loadCustomer, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
+import { customerMembers, loadCustomer, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
+import { checkPeople, namesSql, savePeople, type PeopleRole } from '../people.ts';
 import { callAlerts, callsOf, TASK_SELECT } from './customer-work.ts';
 
 /**
@@ -30,9 +31,10 @@ export function assignCustomerCodes() {
   }
 }
 
+/** Vai trò người của dự án của khách hàng (id tài khoản): Sale, AM, BA/PM, Dev, Tester */
+const ROLES: PeopleRole[] = ['kd', 'am', 'ba', 'dev', 'tester'];
 const SP_SELECT = `SELECT sp.*, c.name AS customer_name, pt.name AS product_type_name, pd.name AS product_name, pr.key AS project_key, pr.name AS project_name,
-    (SELECT GROUP_CONCAT(s.full_name, ', ') FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE o.sales_project_id = sp.id AND o.role = 'kd') AS kd_names,
-    (SELECT GROUP_CONCAT(s.full_name, ', ') FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE o.sales_project_id = sp.id AND o.role = 'am') AS am_names,
+    ${ROLES.map((r) => `${namesSql('sales_project_owners', 'sales_project_id', 'sp.id', r)} AS ${r}_names`).join(',\n    ')},
     (SELECT COUNT(*) FROM customer_tasks t WHERE t.sales_project_id = sp.id AND t.status <> 'done') AS open_tasks
   FROM sales_projects sp JOIN customers c ON c.id = sp.customer_id LEFT JOIN product_types pt ON pt.id = sp.product_type_id
   LEFT JOIN products pd ON pd.id = sp.product_id LEFT JOIN projects pr ON pr.id = sp.project_id`;
@@ -81,15 +83,18 @@ function validate(body: any) {
     if (v.product_type_id && p.type_id !== v.product_type_id) throw badRequest('Sản phẩm không thuộc loại sản phẩm đã chọn');
     v.product_type_id = p.type_id;
   }
-  checkOwners(v.kd_ids, 'kd');
-  checkOwners(v.am_ids, 'am');
   return v;
 }
 
-function saveOwners(spId: number, kd: number[], am: number[]) {
-  run('DELETE FROM sales_project_owners WHERE sales_project_id = ?', spId);
-  for (const id of kd) run("INSERT OR IGNORE INTO sales_project_owners(sales_project_id, staff_id, role) VALUES (?, ?, 'kd')", spId, id);
-  for (const id of am) run("INSERT OR IGNORE INTO sales_project_owners(sales_project_id, staff_id, role) VALUES (?, ?, 'am')", spId, id);
+/** Id tài khoản theo vai trò của dự án: { kd: [...], am: [...], ... } */
+const ownerIds = (spId: number) => {
+  const rows = all<{ user_id: number; role: PeopleRole }>('SELECT user_id, role FROM sales_project_owners WHERE sales_project_id = ?', spId);
+  return Object.fromEntries(ROLES.map((r) => [r, rows.filter((o) => o.role === r).map((o) => o.user_id)])) as Record<PeopleRole, number[]>;
+};
+/** Kiểm tra (người mới phải đúng vị trí) và lưu người ở mọi vai trò */
+function savePeopleOf(spId: number, v: Record<`${PeopleRole}_ids`, number[]>, before: Partial<Record<PeopleRole, number[]>> = {}) {
+  for (const r of ROLES) checkPeople(v[`${r}_ids`], r, before[r] ?? []);
+  savePeople('sales_project_owners', 'sales_project_id', spId, Object.fromEntries(ROLES.map((r) => [r, v[`${r}_ids`]])));
 }
 
 /** Tên dự án của một khách hàng — để phía phân hệ Dự án chọn gắn dự án sản xuất (ai tạo / sửa dự án cũng xem được tên) */
@@ -105,9 +110,9 @@ r.post('/:id/projects', (req, res) => {
     if (!get<{ code: string | null }>('SELECT code FROM customers WHERE id = ?', c.id)?.code) assignCustomerCodes();
     const cc = get<{ code: string }>('SELECT code FROM customers WHERE id = ?', c.id)!.code;
     const code = salesProjectCode(cc, all<{ code: string }>('SELECT code FROM sales_projects WHERE code LIKE ?', `${cc}-%`).map((x) => x.code));
-    const { id } = run(`INSERT INTO sales_projects(customer_id, code, name, product_type_id, product_id, product_description, ba, dev, tester, note, created_by)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)`, c.id, code, v.name, v.product_type_id, v.product_id, v.product_description, v.ba, v.dev, v.tester, v.note, req.user.id);
-    saveOwners(id, v.kd_ids, v.am_ids);
+    const { id } = run(`INSERT INTO sales_projects(customer_id, code, name, product_type_id, product_id, product_description, note, created_by)
+      VALUES (?,?,?,?,?,?,?,?)`, c.id, code, v.name, v.product_type_id, v.product_id, v.product_description, v.note, req.user.id);
+    savePeopleOf(id, v);
     return id;
   });
   audit(req, 'customer_updated', { target: c.name, detail: `Thêm dự án ${v.name}` });
@@ -119,11 +124,9 @@ r.get('/:id/projects/:pid', (req, res) => {
   const { c, sp } = loadSalesProject(req);
   syncJourneys([sp.id]);
   const p: any = salesProjectsOf([c.id], { archived: true }).find((x: any) => x.id === sp.id);
-  const owners = all<{ id: number; full_name: string; user_id: number | null; role: string }>(
-    'SELECT s.id, s.full_name, s.user_id, o.role FROM sales_project_owners o JOIN staff s ON s.id = o.staff_id WHERE o.sales_project_id = ? ORDER BY s.full_name', sp.id);
   p.can_manage = managesSalesProject(req.user, sp.id);
-  p.kd_ids = owners.filter((o) => o.role === 'kd').map((o) => o.id);
-  p.am_ids = owners.filter((o) => o.role === 'am').map((o) => o.id);
+  const ids = ownerIds(sp.id);
+  for (const r of ROLES) p[`${r}_ids`] = ids[r];
   const perms = userPermissions(req.user);
   p.tasks = !perms.has('ctask.view') ? [] : all(`${TASK_SELECT} WHERE t.sales_project_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, sp.id);
   p.files = !perms.has('cfile.view') ? [] : all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name, f.step_id, s.title AS step_title
@@ -153,12 +156,12 @@ r.get('/:id/projects/:pid', (req, res) => {
 
 r.patch('/:id/projects/:pid', (req, res) => {
   const { c, sp } = loadSalesProject(req, 'sales_project.edit');
-  const owners = all<{ staff_id: number; role: string }>('SELECT staff_id, role FROM sales_project_owners WHERE sales_project_id = ?', sp.id);
-  const v = validate({ ...sp, kd_ids: owners.filter((o) => o.role === 'kd').map((o) => o.staff_id), am_ids: owners.filter((o) => o.role === 'am').map((o) => o.staff_id), ...req.body });
+  const before = ownerIds(sp.id);
+  const v = validate({ ...sp, ...Object.fromEntries(ROLES.map((r) => [`${r}_ids`, before[r]])), ...req.body });
   tx(() => {
-    run(`UPDATE sales_projects SET name = ?, product_type_id = ?, product_id = ?, product_description = ?, ba = ?, dev = ?, tester = ?, note = ?, updated_at = ? WHERE id = ?`,
-      v.name, v.product_type_id, v.product_id, v.product_description, v.ba, v.dev, v.tester, v.note, now(), sp.id);
-    saveOwners(sp.id, v.kd_ids, v.am_ids);
+    run(`UPDATE sales_projects SET name = ?, product_type_id = ?, product_id = ?, product_description = ?, note = ?, updated_at = ? WHERE id = ?`,
+      v.name, v.product_type_id, v.product_id, v.product_description, v.note, now(), sp.id);
+    savePeopleOf(sp.id, v, before);
   });
   audit(req, 'customer_updated', { target: c.name, detail: `Sửa dự án ${sp.code} ${v.name}` });
   res.json({ ok: true });

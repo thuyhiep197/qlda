@@ -16,12 +16,12 @@ const depPath = (deps: Department[], d: Department): string => {
 
 /**
  * Quản trị → Danh mục → Phòng ban & Nhân sự: sơ đồ tổ chức (Ban Giám đốc đứng đầu, dưới là các phòng),
- * mỗi phòng liệt kê nhân sự với vị trí và tài khoản đăng nhập.
+ * mỗi phòng liệt kê tài khoản người dùng thuộc phòng với vị trí. Nhân sự = tài khoản (tạo tài khoản ở Người dùng).
  */
 export default function AdminOrg() {
   const { data: me } = useMe();
   const { data: deps, isLoading } = useDepartments();
-  const { data: staff } = useStaff();
+  const { data: users } = useUsersBasic();
   const [q, setQ] = useState('');
   const [editDep, setEditDep] = useState<Partial<Department> | null>(null);
   const [editStaff, setEditStaff] = useState<Partial<StaffMember> | null>(null);
@@ -31,14 +31,15 @@ export default function AdminOrg() {
 
   const match = (x: StaffMember) => !q.trim() || fold(`${x.full_name} ${x.username ?? ''} ${x.positions.split(',').map((p) => posLabel(p)?.label ?? '').join(' ')}`).includes(fold(q.trim()));
   const children = (id: number | null) => deps.filter((d) => d.parent_id === id);
-  const unassigned = (staff ?? []).filter((x) => !x.department_id);
+  // Tài khoản chưa xếp phòng ban: bấm để xếp vào phòng
+  const unassigned = (users ?? []).filter((u) => !u.department_id);
   const removeDep = async (d: Department) => {
     if (!confirm(`Xóa ${d.name}?`)) return;
     try { await api.del(`/departments/${d.id}`); toast('Đã xóa'); await refreshAll(); } catch (e) { toastError(e); }
   };
   const removeStaff = async (x: StaffMember) => {
-    if (!confirm(`Xóa ${x.full_name} khỏi danh mục? Dự án đã ghi tên người này vẫn giữ nguyên.`)) return;
-    try { await api.del(`/staff/${x.id}`); toast('Đã xóa'); await refreshAll(); } catch (e) { toastError(e); }
+    if (!confirm(`Bỏ ${x.full_name} khỏi phòng ban? Tài khoản vẫn còn; khách hàng, dự án đã chọn người này giữ nguyên.`)) return;
+    try { await api.del(`/staff/${x.id}`); toast('Đã bỏ khỏi phòng ban'); await refreshAll(); } catch (e) { toastError(e); }
   };
 
   // Tổng nhân sự của phòng ban, gồm cả các nhóm / bộ phận bên trong
@@ -89,14 +90,19 @@ export default function AdminOrg() {
         <div className="spacer" />
         <div className="cw-search" style={{ width: 240 }}><Search size={14} /><input placeholder="Tìm nhân sự, vị trí…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         {canDep.create && <button className="btn" onClick={() => setEditDep({ parent_id: deps.find((d) => !d.parent_id)?.id ?? null })}>+ Thêm phòng ban</button>}
-        {canStaff.create && <button className="btn btn-primary" onClick={() => setEditStaff({ positions: '' })}>+ Thêm nhân sự</button>}
+        {canStaff.create && <button className="btn btn-primary" onClick={() => setEditStaff({ positions: '' })}>+ Xếp người vào phòng</button>}
       </div>
-      <p className="muted small">Mỗi nhân sự thuộc một phòng ban, có vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC) và gắn với tài khoản đăng nhập. Mã vị trí hiện cạnh tên Người thực hiện / phối hợp trong hành trình khách hàng; nhân sự Kinh doanh, AM được chọn làm Nhân viên phụ trách khách hàng.</p>
+      <p className="muted small">Nhân sự là tài khoản người dùng (tạo ở Quản trị → Người dùng). Mỗi người thuộc một phòng ban, có vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC). Vị trí quyết định người đó được chọn ở vai trò nào: Sale, AM của khách hàng; BA/PM, Dev, Tester, AM của dự án. Mã vị trí hiện cạnh tên trong hành trình khách hàng.</p>
       <div className="org-tree">{children(null).map((d) => tree(d, 0))}</div>
       {unassigned.length > 0 && (
         <div className="org-card org-unassigned">
-          <div className="org-card-head"><b className="grow">Chưa xếp phòng ban ({unassigned.length})</b></div>
-          <div className="org-staff">{unassigned.filter(match).map((x) => <StaffRow key={x.id} x={x} onEdit={canStaff.edit ? () => setEditStaff(x) : undefined} onDelete={canStaff.del ? () => removeStaff(x) : undefined} />)}</div>
+          <div className="org-card-head"><b className="grow">Tài khoản chưa xếp phòng ban ({unassigned.length})</b></div>
+          <div className="org-staff">{unassigned.filter((u) => !q.trim() || fold(`${u.full_name} ${u.username}`).includes(fold(q.trim()))).map((u) => (
+            <div key={u.id} className={`org-person ${canStaff.create ? 'editable' : ''}`} onClick={canStaff.create ? () => setEditStaff({ user_id: u.id, positions: '' }) : undefined}
+              data-tip={canStaff.create ? 'Bấm để xếp vào phòng ban' : undefined}>
+              <UserRound size={14} className="muted" />
+              <div className="grow ellipsis">{u.full_name} <span className="muted small">@{u.username}</span></div>
+            </div>))}</div>
         </div>
       )}
       {editDep && <DepModal d={editDep} deps={deps} onClose={() => setEditDep(null)} />}
@@ -114,10 +120,10 @@ function StaffRow({ x, onEdit, onDelete }: { x: StaffMember; onEdit?: () => void
         {x.manager_name && <div className="muted small ellipsis">Quản lý: {x.manager_name}</div>}
         <div className="row gap-xs" style={{ flexWrap: 'wrap' }}>
           {x.positions.split(',').filter(Boolean).map((p) => <span key={p} className="unit-chip">{posLabel(p)?.code ?? p}</span>)}
-          {x.username ? <span className="muted small">@{x.username}</span> : <span className="small warn-text" data-tip="Gắn tài khoản để người này nhận việc và xem khách hàng mình phụ trách">Chưa gắn tài khoản</span>}
+          {x.username && <span className="muted small">@{x.username}</span>}
         </div>
       </div>
-      {onDelete && <button className="icon-btn" aria-label={`Xóa ${x.full_name}`} data-tip="Xóa" onClick={(e) => { e.stopPropagation(); onDelete(); }}><Trash2 size={13} /></button>}
+      {onDelete && <button className="icon-btn" aria-label={`Bỏ ${x.full_name} khỏi phòng ban`} data-tip="Bỏ khỏi phòng ban" onClick={(e) => { e.stopPropagation(); onDelete(); }}><Trash2 size={13} /></button>}
     </div>
   );
 }
@@ -166,7 +172,7 @@ function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Depar
   };
   const startDep = x.department_id ? String(x.department_id) : '';
   const [d, setD] = useState({
-    full_name: x.full_name ?? '', note: x.note ?? '', user_id: x.user_id ? String(x.user_id) : '', department_id: startDep,
+    note: x.note ?? '', user_id: x.user_id ? String(x.user_id) : '', department_id: startDep,
     manager_id: x.manager_id ? String(x.manager_id) : '',
     // Thêm mới vào một nhóm: tích sẵn vị trí của nhóm (VD nhóm Sale → Sale)
     positions: (x.id ? (x.positions ?? '').split(',').filter(Boolean) : depOf(startDep)?.preset_position ? [depOf(startDep)!.preset_position!] : []) as StaffPosition[],
@@ -183,20 +189,24 @@ function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Depar
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: d.full_name, positions: d.positions.filter((p) => allowed.includes(p)), note: d.note, user_id: d.user_id || null, department_id: d.department_id || null, manager_id: d.manager_id || null };
+      const body = { positions: d.positions.filter((p) => allowed.includes(p)), note: d.note, user_id: d.user_id || null, department_id: d.department_id || null, manager_id: d.manager_id || null };
       if (x.id) await api.patch(`/staff/${x.id}`, body); else await api.post('/staff', body);
-      toast(x.id ? 'Đã lưu' : 'Đã thêm nhân sự');
+      toast(x.id ? 'Đã lưu' : 'Đã xếp vào phòng ban');
       await refreshAll();
       onClose();
     } catch (err) { toastError(err); }
   };
   return (
-    <Modal title={x.id ? 'Sửa nhân sự' : 'Thêm nhân sự'} onClose={onClose} footer={<>
+    <Modal title={x.id ? `Sửa: ${x.full_name}` : 'Xếp người vào phòng ban'} onClose={onClose} footer={<>
       <div className="spacer" /><button className="btn" onClick={onClose}>Hủy</button>
       <button className="btn btn-primary" form="staff-form">{x.id ? 'Lưu' : 'Thêm'}</button>
     </>}>
       <form id="staff-form" className="stack" onSubmit={submit}>
-        <label className="field"><span>Họ tên *</span><input autoFocus required value={d.full_name} onChange={(e) => setD({ ...d, full_name: e.target.value })} placeholder="VD: Nguyễn Văn A" /></label>
+        {!x.id && <label className="field"><span>Tài khoản * <small className="muted">(tài khoản chưa thuộc phòng ban nào)</small></span>
+          <select autoFocus required value={d.user_id} onChange={(e) => setD({ ...d, user_id: e.target.value })}>
+            <option value="">— Chọn tài khoản —</option>
+            {users?.filter((u) => !u.department_id || String(u.id) === d.user_id).map((u) => <option key={u.id} value={u.id}>{u.full_name} (@{u.username})</option>)}
+          </select></label>}
         <label className="field"><span>Phòng ban</span>
           <select value={d.department_id} onChange={(e) => changeDep(e.target.value)}>
             <option value="">— Chưa xếp phòng ban —</option>
@@ -210,18 +220,13 @@ function StaffModal({ x, deps, onClose }: { x: Partial<StaffMember>; deps: Depar
           </div>
           {dropped.length > 0 && <small className="warn-text">Vị trí {dropped.map((p) => STAFF_POSITION_LABELS.find((x2) => x2.key === p)?.label ?? p).join(', ')} không thuộc phòng ban này, sẽ bị bỏ khi lưu</small>}
         </div>
-        <label className="field"><span>Quản lý <small className="muted">(chọn từ danh sách nhân sự)</small></span>
+        <label className="field"><span>Quản lý</span>
           <select value={d.manager_id} onChange={(e) => setD({ ...d, manager_id: e.target.value })}>
             <option value="">— Không có —</option>
             {/* Người cùng phòng lên trước; không chọn được chính mình */}
             {[...(staff ?? [])].filter((m) => m.id !== x.id)
               .sort((a, b) => Number(depRoot(b.department_id) === depRoot(Number(d.department_id) || null)) - Number(depRoot(a.department_id) === depRoot(Number(d.department_id) || null)) || a.full_name.localeCompare(b.full_name, 'vi'))
               .map((m) => <option key={m.id} value={m.id}>{m.full_name}{m.department_name ? ` — ${m.department_name}` : ''}</option>)}
-          </select></label>
-        <label className="field"><span>Tài khoản đăng nhập <small className="muted">(để nhận việc, xem khách hàng mình phụ trách)</small></span>
-          <select value={d.user_id} onChange={(e) => setD({ ...d, user_id: e.target.value })}>
-            <option value="">— Chưa gắn —</option>
-            {users?.map((u) => <option key={u.id} value={u.id}>{u.full_name} (@{u.username})</option>)}
           </select></label>
         <label className="field"><span>Ghi chú</span><input value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} placeholder="VD: TTS, CTV…" /></label>
       </form>

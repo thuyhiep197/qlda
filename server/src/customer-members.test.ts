@@ -16,22 +16,20 @@ const user = (username: string, role?: string) => {
   const roleId = role ? get<{ id: number }>('SELECT id FROM roles WHERE name = ?', role)?.id ?? null : null;
   return run("INSERT INTO users(username, full_name, password_hash, default_role_id) VALUES (?, ?, 'x', ?)", username, username, roleId).id;
 };
-const staff = (name: string, userId: number, positions: string) => run('INSERT INTO staff(full_name, positions, user_id) VALUES (?, ?, ?)', name, positions, userId).id;
+// Vị trí của tài khoản (thay cho Danh mục nhân sự từ v26)
+const position = (userId: number, positions: string) => run('UPDATE users SET positions = ? WHERE id = ?', positions, userId);
 
 const sale = user('sale'), am = user('am'), ba = user('ba'), dev = user('dev'), tester = user('tester'), doer = user('doer'), helper = user('helper'), other = user('other'), boss = user('boss', 'Ban Giám đốc');
-const saleStaff = staff('Sale A', sale, 'kd'), amStaff = staff('AM B', am, 'am');
-staff('BA C', ba, 'ba_pm');
-staff('Dev D', dev, 'dev');
-staff('Tester E', tester, 'tester');
+position(sale, 'kd'); position(am, 'am'); position(ba, 'ba_pm'); position(dev, 'dev'); position(tester, 'tester');
 const cust = run("INSERT INTO customers(name) VALUES ('Sở X')").id;
-const p1 = run("INSERT INTO sales_projects(customer_id, code, name, ba) VALUES (?, 'SX-01', 'Dự án 1', 'BA C')", cust).id;
+const p1 = run("INSERT INTO sales_projects(customer_id, code, name) VALUES (?, 'SX-01', 'Dự án 1')", cust).id;
 const p2 = run("INSERT INTO sales_projects(customer_id, code, name) VALUES (?, 'SX-02', 'Dự án 2')", cust).id;
-run("INSERT INTO sales_project_owners(sales_project_id, staff_id, role) VALUES (?, ?, 'kd')", p1, saleStaff);
-run("INSERT INTO customer_owners(customer_id, staff_id, role) VALUES (?, ?, 'am')", cust, amStaff);
+const owner = (spId: number, userId: number, role: string) => run('INSERT INTO sales_project_owners(sales_project_id, user_id, role) VALUES (?, ?, ?)', spId, userId, role);
+owner(p1, sale, 'kd'); owner(p1, ba, 'ba'); owner(p1, dev, 'dev'); owner(p1, tester, 'tester');
+run("INSERT INTO customer_owners(customer_id, user_id, role) VALUES (?, ?, 'am')", cust, am);
 const step = run("INSERT INTO journey_steps(customer_id, sales_project_id, position, depth, title, assignee_id) VALUES (?, ?, 10, 0, 'Bước', ?)", cust, p2, doer).id;
 run('INSERT INTO journey_step_supporters(step_id, user_id) VALUES (?, ?)', step, helper);
 
-run("UPDATE sales_projects SET dev = 'Dev D', tester = 'Tester E' WHERE id = ?", p1);
 
 test('project members: Sale/AM of customer and project, BA/PM, Dev, Tester, step performers/supporters, people who see all customers', () => {
   const m1 = customerMembers(cust, p1);

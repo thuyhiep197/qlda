@@ -8,8 +8,8 @@ import type { CustomerDetail, Product, SalesProjectDetail } from '../../types';
 import { descriptionOf, salesStatusClass } from '../../customer-filter';
 import { colorOf, lozengeOf, PROJECT_STATUSES } from '../../util';
 import { Modal, toast, toastError } from '../../components/ui';
-import { StaffPicker } from '../../components/ProjectInfoFields';
-import { OwnerPicker } from '../Customers';
+import { PeoplePicker } from '../../components/PeoplePicker';
+import { ROLE_LABELS, type PeopleRole } from '../../people';
 import { ProductModal } from '../AdminProducts';
 import { CreateProjectModal } from '../Projects';
 import { Block, FileList, Props, Tasks, UploadButton } from './CustomerSide';
@@ -43,7 +43,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
           ['Mã dự án', sp.code],
           ['Tình trạng', <span className="nowrap"><span className={salesStatusClass(sp.status)}>{sp.status ?? 'Chưa áp dụng quy trình'}</span> <span className="muted small">⚙ theo hành trình</span></span>],
           ['Khách hàng', customer.name],
-          ['Sale', sp.kd_names], ['AM', sp.am_names], ['BA/PM', sp.ba], ['Dev', sp.dev], ['Tester', sp.tester],
+          ['Sale', sp.kd_names], ['AM', sp.am_names], ['BA/PM', sp.ba_names], ['Dev', sp.dev_names], ['Tester', sp.tester_names],
           ['Loại sản phẩm', sp.product_type_name], ['Sản phẩm', sp.product_name],
           ['Mô tả sản phẩm', sp.product_description && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.product_description}</span>],
           ['Ghi chú', sp.note && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.note}</span>],
@@ -76,18 +76,24 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
 }
 
 /**
- * Thêm / sửa dự án của khách hàng — như form Tạo dự án của phân hệ Dự án; Trưởng dự án → Sale;
- * mã dự án tự sinh (mã khách hàng + số); Kinh doanh, AM điền sẵn theo khách hàng; tình trạng tự động theo hành trình.
+ * Thêm / sửa dự án của khách hàng — như form Tạo dự án của phân hệ Dự án; người theo vai trò chọn theo tài khoản;
+ * mã dự án tự sinh (mã khách hàng + số); Sale, AM điền sẵn theo khách hàng; tình trạng tự động theo hành trình.
  */
 export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer: CustomerDetail; sp?: SalesProjectDetail; onClose: () => void; onSaved?: (id: number) => void }) {
   const { data: types } = useProductTypes();
   const { data: products } = useProducts();
   const [d, setD] = useState({
     name: sp?.name ?? '', product_type_id: sp?.product_type_id ? String(sp.product_type_id) : '', product_id: sp?.product_id ? String(sp.product_id) : '',
-    product_description: sp?.product_description ?? '', ba: sp?.ba ?? '', dev: sp?.dev ?? '', tester: sp?.tester ?? '', note: sp?.note ?? '',
+    product_description: sp?.product_description ?? '', note: sp?.note ?? '',
   });
-  const [kd, setKd] = useState<number[]>(sp?.kd_ids ?? customer.kd_ids);
-  const [am, setAm] = useState<number[]>(sp?.am_ids ?? customer.am_ids);
+  // Người theo vai trò (id tài khoản); dự án mới: Sale, AM điền sẵn theo khách hàng
+  const [people, setPeople] = useState<Record<PeopleRole, number[]>>({
+    kd: sp?.kd_ids ?? customer.kd_ids, am: sp?.am_ids ?? customer.am_ids, ba: sp?.ba_ids ?? [], dev: sp?.dev_ids ?? [], tester: sp?.tester_ids ?? [],
+  });
+  const person = (r: PeopleRole, hint?: string) => (
+    <div className="field"><span>{ROLE_LABELS[r]}{hint && <small className="muted"> ({hint})</small>}</span>
+      <PeoplePicker role={r} value={people[r]} onChange={(v) => setPeople({ ...people, [r]: v })} /></div>
+  );
   const [busy, setBusy] = useState(false);
   const { data: me } = useMe();
   const isProjectType = !!types?.find((t) => String(t.id) === d.product_type_id)?.is_project;
@@ -113,7 +119,8 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
     e.preventDefault();
     setBusy(true);
     try {
-      const body = { ...d, product_type_id: d.product_type_id || null, product_id: d.product_id || null, kd_ids: kd, am_ids: am };
+      const body = { ...d, product_type_id: d.product_type_id || null, product_id: d.product_id || null,
+        kd_ids: people.kd, am_ids: people.am, ba_ids: people.ba, dev_ids: people.dev, tester_ids: people.tester };
       let id = sp?.id;
       if (id) await api.patch(`/customers/${customer.id}/projects/${id}`, body);
       else id = (await api.post<{ id: number }>(`/customers/${customer.id}/projects`, body)).id;
@@ -137,18 +144,9 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
             <input value={sp?.code ?? `${customer.code ?? ''}-… (tự sinh)`} disabled /></label>
           <label className="field"><span>Khách hàng</span><input value={customer.name} disabled /></label>
         </div>
-        <div className="form-grid">
-          <div className="field"><span>Sale <small className="muted">(nhân sự Sale hoặc BGĐ)</small></span><OwnerPicker position="kd" value={kd} onChange={setKd} /></div>
-          <div className="field"><span>AM <small className="muted">(nhân sự AM)</small></span><OwnerPicker position="am" value={am} onChange={setAm} /></div>
-        </div>
-        <div className="field"><span>BA/PM <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
-          <StaffPicker position="ba_pm" value={d.ba} onChange={(v) => setD({ ...d, ba: v })} /></div>
-        <div className="form-grid">
-          <div className="field"><span>Dev <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
-            <StaffPicker position="dev" value={d.dev} onChange={(v) => setD({ ...d, dev: v })} /></div>
-          <div className="field"><span>Tester <small className="muted">(chọn từ Danh mục nhân sự)</small></span>
-            <StaffPicker position="tester" value={d.tester} onChange={(v) => setD({ ...d, tester: v })} /></div>
-        </div>
+        <div className="form-grid">{person('kd', 'Phòng Kinh doanh')}{person('am', 'Phòng Kinh doanh')}</div>
+        {person('ba')}
+        <div className="form-grid">{person('dev')}{person('tester')}</div>
         <div className="form-grid">
           <label className="field"><span>Loại sản phẩm</span>
             <select value={d.product_type_id} onChange={(e) => pickType(e.target.value)}>

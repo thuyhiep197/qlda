@@ -1,98 +1,83 @@
 import { Router } from 'express';
-import { all, get, run, tx } from '../db.ts';
+import { all, get, run } from '../db.ts';
 import { audit } from '../audit.ts';
 import { badRequest, notFound, requireUserPerm } from '../permissions.ts';
 
 import { allowedPositions, POSITION_CODES, POSITIONS, type Position } from '../positions.ts';
 import { departmentCodes } from './departments.ts';
 
-/** Vị trí trong danh mục nhân sự ↔ trường nhân sự của dự án (KD, HC, BGĐ không có trường tương ứng) */
-const PROJECT_FIELD: Partial<Record<Position, string>> = { ba_pm: 'ba', tester: 'tester', am: 'am', dev: 'dev' };
-
+/**
+ * Nhân sự = tài khoản người dùng: xếp tài khoản vào phòng ban, chọn vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC), quản lý, ghi chú.
+ * Họ tên lấy theo tài khoản (sửa ở Người dùng); tạo tài khoản ở Người dùng. id = id tài khoản.
+ */
 const r = Router();
 
 function clean(b: any) {
-  const full_name = String(b.full_name ?? '').replace(/\s+/g, ' ').trim();
-  if (!full_name) throw badRequest('Họ tên không được để trống');
-  if (full_name.length > 100) throw badRequest('Họ tên quá dài');
-  if (full_name.includes(',')) throw badRequest('Họ tên không được chứa dấu phẩy');
   const list = (Array.isArray(b.positions) ? b.positions : String(b.positions ?? '').split(',')).map((x: unknown) => String(x).trim()).filter(Boolean);
   if (!list.length) throw badRequest('Chọn ít nhất một vị trí');
   if (list.some((p: string) => !(POSITIONS as readonly string[]).includes(p))) throw badRequest('Vị trí không hợp lệ');
   const positions = POSITIONS.filter((p) => list.includes(p)).join(',');
   const note = String(b.note ?? '').trim().slice(0, 200) || null;
-  const user_id = b.user_id ? Number(b.user_id) : null;
-  if (user_id && !get('SELECT 1 FROM users WHERE id = ?', user_id)) throw badRequest('Tài khoản đăng nhập không hợp lệ');
   const department_id = b.department_id ? Number(b.department_id) : null;
   if (department_id && !get('SELECT 1 FROM departments WHERE id = ?', department_id)) throw badRequest('Phòng ban không hợp lệ');
+  if (!department_id) throw badRequest('Chọn phòng ban');
   // Vị trí phải thuộc bộ vị trí của phòng (VD Phòng Kinh doanh: Sale, AM)
-  if (department_id) {
-    const { allowed } = allowedPositions(departmentCodes(department_id));
-    const wrong = positions.split(',').filter((p) => p && !(allowed as string[]).includes(p));
-    if (wrong.length) throw badRequest(`Vị trí ${wrong.map((p) => POSITION_CODES[p as Position] ?? p).join(', ')} không thuộc phòng ban này`);
-  }
+  const { allowed } = allowedPositions(departmentCodes(department_id));
+  const wrong = positions.split(',').filter((p) => p && !(allowed as string[]).includes(p));
+  if (wrong.length) throw badRequest(`Vị trí ${wrong.map((p) => POSITION_CODES[p as Position] ?? p).join(', ')} không thuộc phòng ban này`);
   const manager_id = b.manager_id ? Number(b.manager_id) : null;
-  if (manager_id && !get('SELECT 1 FROM staff WHERE id = ?', manager_id)) throw badRequest('Người quản lý không có trong danh sách nhân sự');
-  return { full_name, positions, note, user_id, department_id, manager_id };
+  if (manager_id && !get('SELECT 1 FROM users WHERE id = ?', manager_id)) throw badRequest('Người quản lý không hợp lệ');
+  return { positions, note, department_id, manager_id };
 }
 
 /** Người quản lý không được là chính mình hoặc người mình đang quản lý (trực tiếp hay gián tiếp) */
-function checkManager(staffId: number, managerId: number | null) {
+function checkManager(userId: number, managerId: number | null) {
   for (let m = managerId, guard = 0; m && guard < 50; guard++) {
-    if (m === staffId) throw badRequest('Người quản lý không được là chính nhân sự này hoặc người do nhân sự này quản lý');
-    m = get<{ manager_id: number | null }>('SELECT manager_id FROM staff WHERE id = ?', m)?.manager_id ?? null;
+    if (m === userId) throw badRequest('Người quản lý không được là chính người này hoặc người do người này quản lý');
+    m = get<{ manager_id: number | null }>('SELECT manager_id FROM users WHERE id = ?', m)?.manager_id ?? null;
   }
 }
 
-// Mọi người đã đăng nhập đều xem được (để chọn nhân sự cho dự án)
+// Mọi người đã đăng nhập đều xem được: tài khoản đã xếp phòng ban
 r.get('/', (_req, res) => {
-  res.json(all(`SELECT s.id, s.full_name, s.positions, s.note, s.user_id, u.username, s.department_id, s.manager_id,
-      (SELECT m.full_name FROM staff m WHERE m.id = s.manager_id) AS manager_name, CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END AS department_name
-    FROM staff s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN departments d ON d.id = s.department_id LEFT JOIN departments pd ON pd.id = d.parent_id
-    ORDER BY s.full_name`));
+  res.json(all(`SELECT u.id, u.full_name, u.positions, u.staff_note AS note, u.id AS user_id, u.username, u.department_id, u.manager_id,
+      (SELECT m.full_name FROM users m WHERE m.id = u.manager_id) AS manager_name, CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END AS department_name
+    FROM users u JOIN departments d ON d.id = u.department_id LEFT JOIN departments pd ON pd.id = d.parent_id
+    ORDER BY u.full_name`));
 });
 
+/** Xếp một tài khoản (chưa thuộc phòng ban nào) vào phòng ban */
 r.post('/', (req, res) => {
   requireUserPerm(req.user, 'staff.create');
+  const userId = Number(req.body?.user_id);
+  const u = get<{ id: number; full_name: string; department_id: number | null }>('SELECT id, full_name, department_id FROM users WHERE id = ?', userId);
+  if (!u) throw badRequest('Chọn tài khoản');
+  if (u.department_id) throw badRequest('Tài khoản này đã thuộc một phòng ban — sửa ở dòng của người đó');
   const v = clean(req.body || {});
-  if (get('SELECT 1 FROM staff WHERE full_name = ?', v.full_name)) throw badRequest('Đã có người này trong danh mục');
-  if (v.user_id && get('SELECT 1 FROM staff WHERE user_id = ?', v.user_id)) throw badRequest('Tài khoản này đã gắn với một nhân sự khác');
-  const { id } = run('INSERT INTO staff(full_name, positions, note, user_id, department_id, manager_id) VALUES (?,?,?,?,?,?)', v.full_name, v.positions, v.note, v.user_id, v.department_id, v.manager_id);
-  audit(req, 'staff_created', { target: v.full_name, detail: v.positions });
-  res.status(201).json(get('SELECT id, full_name, positions, note, user_id, department_id FROM staff WHERE id = ?', id));
+  checkManager(u.id, v.manager_id);
+  run('UPDATE users SET positions = ?, staff_note = ?, department_id = ?, manager_id = ? WHERE id = ?', v.positions, v.note, v.department_id, v.manager_id, u.id);
+  audit(req, 'staff_created', { target: u.full_name, detail: v.positions });
+  res.status(201).json({ id: u.id });
 });
 
-/** Đổi họ tên → cập nhật luôn tên đó trong các trường nhân sự của dự án (khách hàng gắn theo id nên tự đúng) */
 r.patch('/:id', (req, res) => {
   requireUserPerm(req.user, 'staff.edit');
-  const cur = get('SELECT * FROM staff WHERE id = ?', Number(req.params.id));
+  const cur = get('SELECT id, full_name, positions, staff_note AS note, department_id, manager_id FROM users WHERE id = ?', Number(req.params.id));
   if (!cur) throw notFound();
   const v = clean({ ...cur, ...req.body });
   checkManager(cur.id, v.manager_id);
-  if (v.full_name !== cur.full_name && get('SELECT 1 FROM staff WHERE full_name = ?', v.full_name)) throw badRequest('Đã có người này trong danh mục');
-  if (v.user_id && get('SELECT 1 FROM staff WHERE user_id = ? AND id <> ?', v.user_id, cur.id)) throw badRequest('Tài khoản này đã gắn với một nhân sự khác');
-  tx(() => {
-    run('UPDATE staff SET full_name = ?, positions = ?, note = ?, user_id = ?, department_id = ?, manager_id = ? WHERE id = ?', v.full_name, v.positions, v.note, v.user_id, v.department_id, v.manager_id, cur.id);
-    if (v.full_name !== cur.full_name) {
-      const targets = Object.values(PROJECT_FIELD).map((f) => ['projects', f]);
-      for (const [table, f] of targets) {
-        for (const p of all(`SELECT id, ${f} AS v FROM ${table} WHERE ${f} IS NOT NULL`)) {
-          const names = String(p.v).split(',').map((x) => x.trim());
-          if (names.includes(cur.full_name)) run(`UPDATE ${table} SET ${f} = ? WHERE id = ?`, names.map((x) => (x === cur.full_name ? v.full_name : x)).join(', '), p.id);
-        }
-      }
-    }
-  });
-  audit(req, 'staff_updated', { target: cur.full_name, detail: v.full_name !== cur.full_name ? `→ ${v.full_name}` : v.positions });
+  run('UPDATE users SET positions = ?, staff_note = ?, department_id = ?, manager_id = ? WHERE id = ?', v.positions, v.note, v.department_id, v.manager_id, cur.id);
+  audit(req, 'staff_updated', { target: cur.full_name, detail: v.positions });
   res.json({ ok: true });
 });
 
-/** Xóa khỏi danh mục: dự án đã ghi tên người này vẫn giữ nguyên tên */
+/** Bỏ khỏi phòng ban (tài khoản vẫn còn; khách hàng, dự án đã chọn người này giữ nguyên) */
 r.delete('/:id', (req, res) => {
   requireUserPerm(req.user, 'staff.delete');
-  const cur = get('SELECT * FROM staff WHERE id = ?', Number(req.params.id));
+  const cur = get<{ id: number; full_name: string }>('SELECT id, full_name FROM users WHERE id = ?', Number(req.params.id));
   if (!cur) throw notFound();
-  run('DELETE FROM staff WHERE id = ?', cur.id);
+  run("UPDATE users SET department_id = NULL, positions = '', manager_id = NULL WHERE id = ?", cur.id);
+  run('UPDATE users SET manager_id = NULL WHERE manager_id = ?', cur.id);
   audit(req, 'staff_deleted', { target: cur.full_name });
   res.json({ ok: true });
 });

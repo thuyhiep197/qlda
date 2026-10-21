@@ -15,14 +15,14 @@ const r = Router();
 /** Khách hàng theo :id — kiểm tra quyền và người dùng được xem khách hàng này */
 const loadCustomer = (req: Request, perm: Permission = 'customer.view') => loadVisible(req, perm) as { id: number; name: string };
 
-const STEP_SELECT = `SELECT s.*, u.full_name AS assignee_name, st.positions AS assignee_positions FROM journey_steps s
-  LEFT JOIN users u ON u.id = s.assignee_id LEFT JOIN staff st ON st.user_id = u.id`;
+const STEP_SELECT = `SELECT s.*, u.full_name AS assignee_name, u.positions AS assignee_positions FROM journey_steps s
+  LEFT JOIN users u ON u.id = s.assignee_id`;
 /** Mã vị trí (KD, AM, BA…) của người thực hiện thay cho danh sách vị trí thô */
 const withCode = (s: any) => { const { assignee_positions, ...rest } = s; return { ...rest, assignee_dept: primaryCode(assignee_positions) }; };
 /** Người phối hợp của các bước: [{ step_id, id, full_name, dept }] */
 const supportersOf = (where: string, param: number) => all<{ step_id: number; id: number; full_name: string; dept: string | null }>(
-  `SELECT ss.step_id, u.id, u.full_name, st.positions AS dept FROM journey_step_supporters ss JOIN users u ON u.id = ss.user_id
-   LEFT JOIN staff st ON st.user_id = u.id JOIN journey_steps s ON s.id = ss.step_id WHERE ${where} ORDER BY u.full_name`, param)
+  `SELECT ss.step_id, u.id, u.full_name, u.positions AS dept FROM journey_step_supporters ss JOIN users u ON u.id = ss.user_id
+   JOIN journey_steps s ON s.id = ss.step_id WHERE ${where} ORDER BY u.full_name`, param)
   .map((x) => ({ ...x, dept: primaryCode(x.dept) }));
 /** Hành trình của một dự án của khách hàng (mỗi dự án có quy trình I–IV riêng) */
 export const journeySteps = (salesProjectId: number) => {
