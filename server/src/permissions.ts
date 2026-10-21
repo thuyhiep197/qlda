@@ -15,6 +15,8 @@ export interface FeatureDef {
   actionHints?: Partial<Record<Action, string>>;
   /** Tên riêng của hành động ở chức năng này (hiện trong ô), VD delete → Lưu trữ */
   actionLabels?: Partial<Record<Action, string>>;
+  /** Ô phạm vi (Tất cả khách hàng / dự án): chỉ tích riêng, không theo ô tích cả cột / cả module / cả phân hệ */
+  scope?: boolean;
 }
 /** Module (nhóm chức năng) thuộc một phân hệ */
 export interface FeatureGroup { key: string; label: string; subsystem: string; features: FeatureDef[] }
@@ -32,7 +34,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'crm', label: 'Module Khách hàng', subsystem: 'customer', features: [
       { key: 'customer', label: 'Thông tin khách hàng', hint: 'Cơ quan/đơn vị, đầu mối, Sale, AM', actions: ['view', 'create', 'edit', 'delete'],
         actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ / mở lại khách hàng (ẩn khỏi danh sách)' } },
-      { key: 'customer_all', label: 'Phạm vi: Tất cả khách hàng', hint: 'Tích thì các quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án của khách hàng; không tích thì chỉ khách hàng, dự án mình phụ trách, thực hiện hoặc phối hợp', actions: ['view'] },
+      { key: 'customer_all', scope: true, label: 'Phạm vi: Tất cả khách hàng', hint: 'Tích thì các quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án của khách hàng; không tích thì chỉ khách hàng, dự án mình phụ trách, thực hiện hoặc phối hợp', actions: ['view'] },
     ],
   },
   {
@@ -71,7 +73,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'project', label: 'Module Thông tin dự án', subsystem: 'project', features: [
       { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình', actions: ['create', 'edit', 'delete'],
         actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ dự án' } },
-      { key: 'project_all', label: 'Phạm vi: Tất cả dự án', hint: 'Tích thì các quyền đang có áp dụng trên mọi dự án; không tích thì chỉ dự án mình là thành viên', actions: ['view'] },
+      { key: 'project_all', scope: true, label: 'Phạm vi: Tất cả dự án', hint: 'Tích thì các quyền đang có áp dụng trên mọi dự án; không tích thì chỉ dự án mình là thành viên', actions: ['view'] },
       { key: 'component', label: 'Mô-đun & BA phụ trách', hint: 'Ai vào được dự án cũng thấy mô-đun; các quyền dưới đây là quản lý mô-đun', actions: ['create', 'edit', 'delete'] },
     ],
   },

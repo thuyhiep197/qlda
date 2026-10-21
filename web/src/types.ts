@@ -81,6 +81,8 @@ export interface FeatureDef {
   key: string; label: string; hint?: string; actions: PermAction[]; actionHints?: Partial<Record<PermAction, string>>;
   /** Tên riêng của hành động ở chức năng này (hiện trong ô), VD Xóa → Lưu trữ */
   actionLabels?: Partial<Record<PermAction, string>>;
+  /** Ô phạm vi: chỉ tích riêng, không theo ô tích cả cột / module / phân hệ */
+  scope?: boolean;
 }
 /** Ma trận phân quyền: Phân hệ → Module (groups, mỗi module thuộc một phân hệ) → Chức năng → Hành động */
 export interface PermissionCatalog {

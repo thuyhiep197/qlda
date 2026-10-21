@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef } from 'react';
 import type { PermAction, PermissionCatalog } from '../types';
+import { bulkPerms } from '../perm-bulk';
 
 const ACTION_ORDER: PermAction[] = ['view', 'create', 'edit', 'delete', 'export', 'import'];
 
@@ -16,6 +17,7 @@ function TriCheck({ state, onChange, disabled, title }: {
 /**
  * Ma trận phân quyền: Phân hệ → Module → Chức năng × Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
  * Tick từng ô, cả hàng (một chức năng), cả cột / cả module, hoặc cả phân hệ.
+ * Ô phạm vi (Tất cả khách hàng / dự án) là quyền riêng: chỉ tích ở chính ô đó, ô tích cả cột / module / phân hệ bỏ qua nó.
  * Ô có nghĩa riêng ở chức năng đó (VD Xóa = Lưu trữ) ghi tên ngay cạnh ô tick.
  * mark(p): 'allow' | 'deny' khi quyền khác với quyền của nhóm người dùng (chế độ phân quyền riêng theo người).
  */
@@ -43,7 +45,7 @@ export function PermMatrix({ catalog, has, onSet, mark, readOnly }: {
         <tbody>
           {catalog.subsystems.map((s) => {
             const groups = catalog.groups.filter((g) => g.subsystem === s.key);
-            const all = groups.flatMap((g) => g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`)));
+            const all = groups.flatMap((g) => bulkPerms(g.features));
             return (
               <Fragment key={s.key}>
                 <tr className="perm-subsystem">
@@ -65,13 +67,13 @@ function GroupRows({ g, catalog, has, onSet, mark, readOnly, stateOf }: {
   g: PermissionCatalog['groups'][number]; catalog: PermissionCatalog; has: (perm: string) => boolean; onSet: (perms: string[], value: boolean) => void;
   mark?: (perm: string) => 'allow' | 'deny' | undefined; readOnly?: boolean; stateOf: (perms: string[]) => 'all' | 'some' | 'none';
 }) {
-  const groupPerms = g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`));
+  const groupPerms = bulkPerms(g.features);
   return (
     <>
       <tr className="group-row perm-group">
         <td>{g.label}</td>
         {ACTION_ORDER.map((a) => {
-          const col = g.features.filter((f) => f.actions.includes(a)).map((f) => `${f.key}.${a}`);
+          const col = bulkPerms(g.features, a);
           return <td key={a} className="center">{col.length > 0 &&
             <TriCheck state={stateOf(col)} disabled={readOnly} onChange={(v) => onSet(col, v)} title={`${catalog.actions[a]}: cả ${g.label}`} />}</td>;
         })}

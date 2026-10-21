@@ -38,3 +38,8 @@ test('the matrix has no cells without effect (removed screens and actions)', () 
   for (const p of ['dashboard.view', 'report.view', 'report.export', 'worklog.edit', 'component.view']) assert.ok(!ALL_PERMISSIONS.includes(p), p);
   for (const p of ['worklog.delete', 'component.create', 'plan.view', 'plan.export']) assert.ok(ALL_PERMISSIONS.includes(p), p);
 });
+
+test('scope cells (see all customers / projects) are flagged so bulk ticks skip them', () => {
+  const scoped = FEATURE_GROUPS.flatMap((g) => g.features).filter((f) => f.scope).map((f) => f.key);
+  assert.deepEqual(scoped.sort(), ['customer_all', 'project_all']);
+});
