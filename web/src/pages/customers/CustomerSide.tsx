@@ -12,14 +12,14 @@ import { toast, toastError } from '../../components/ui';
 import { refreshCustomer } from './JourneyPane';
 import { Talk } from './StepPanel';
 
-/** Khối thu gọn được trong cột phải */
-export function Block({ title, extra, children, open: initial = true }: { title: ReactNode; extra?: ReactNode; children: ReactNode; open?: boolean }) {
+/** Khối thu gọn được trong cột phải — mặc định thu gọn; bấm nút ở đầu khối (VD + đặt lịch) thì tự mở ra */
+export function Block({ title, extra, children, open: initial = false }: { title: ReactNode; extra?: ReactNode; children: ReactNode; open?: boolean }) {
   const [open, setOpen] = useState(initial);
   return (
     <section className="cw-block">
       <div className="cw-block-head">
         <button className="cw-block-toggle" onClick={() => setOpen(!open)}>{open ? <ChevronDown size={15} /> : <ChevronRight size={15} />} {title}</button>
-        <div className="spacer" />{extra}
+        <div className="spacer" />{extra && <div style={{ display: 'contents' }} onClick={() => setOpen(true)}>{extra}</div>}
       </div>
       {open && <div className="cw-block-body">{children}</div>}
     </section>
