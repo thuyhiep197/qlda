@@ -82,3 +82,11 @@ test('no permission in the Dự án module → no project at all (linked, member
   run("INSERT INTO user_permissions(user_id, permission, effect) VALUES (?, 'plan.view', 'allow')", nhung);
   assert.ok(projectPermissions(u, linked)?.has('plan.view'));
 });
+
+test('BA / Dev / Tester of a customer project take part in it (scope of customer projects)', async () => {
+  const { visibleSalesProjectsSql } = await import('./customer-access.ts');
+  const { all } = await import('./db.ts');
+  const seen = (id: number) => { const v = visibleSalesProjectsSql({ id, is_admin: 0 } as never); return all<{ id: number }>(`SELECT sp.id FROM sales_projects sp WHERE ${v.sql}`, ...v.params).map((x) => x.id); };
+  for (const u of [ba, dev, tester]) assert.ok(seen(u).includes(p1));
+  assert.ok(!seen(ba).includes(p2));
+});

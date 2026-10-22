@@ -36,8 +36,8 @@ export const isWrite = (perm: Permission) => !/\.(view|export)$/.test(perm);
 
 /** Người dùng là Kinh doanh phụ trách / AM hỗ trợ của khách hàng (bí danh bảng khách hàng: col) */
 const OWNS_CUSTOMER = (col: string) => `EXISTS (SELECT 1 FROM customer_owners co WHERE co.customer_id = ${col} AND co.user_id = ?)`;
-/** Người dùng liên quan tới dự án (bí danh bảng dự án của khách hàng: col): Sale / AM của dự án, thực hiện / phối hợp bước, thực hiện công việc */
-const IN_PROJECT = (col: string) => `(EXISTS (SELECT 1 FROM sales_project_owners o WHERE o.sales_project_id = ${col} AND o.role IN ('kd', 'am') AND o.user_id = ?)
+/** Người dùng tham gia dự án (bí danh bảng dự án của khách hàng: col): Sale / AM / BA / Dev / Tester của dự án, thực hiện / phối hợp bước, thực hiện công việc */
+const IN_PROJECT = (col: string) => `(EXISTS (SELECT 1 FROM sales_project_owners o WHERE o.sales_project_id = ${col} AND o.user_id = ?)
       OR EXISTS (SELECT 1 FROM journey_steps j WHERE j.sales_project_id = ${col} AND j.assignee_id = ?)
       OR EXISTS (SELECT 1 FROM journey_step_supporters ss JOIN journey_steps j ON j.id = ss.step_id WHERE j.sales_project_id = ${col} AND ss.user_id = ?)
       OR EXISTS (SELECT 1 FROM customer_tasks t WHERE t.sales_project_id = ${col} AND t.assignee_id = ?))`;
