@@ -99,3 +99,12 @@ test('general items of a customer belong to its Sale / AM and people who see all
   for (const id of [ba, dev, doer]) assert.ok(!ownsCustomer(u(id), cust));
   assert.throws(() => requireCustomerInfo(u(ba), cust));
 });
+
+test('who can be @mentioned: customer talk → Sale / AM of the customer; project talk → Sale / AM / BA / Dev / Tester of the project', async () => {
+  const { mentionableIds } = await import('./customer-access.ts');
+  run('UPDATE users SET is_active = 1 WHERE id = ?', sale);
+  assert.deepEqual(mentionableIds(cust, null), [am]);
+  assert.deepEqual(mentionableIds(cust, p1).sort((a, b) => a - b), [sale, ba, dev, tester].sort((a, b) => a - b));
+  // Người thực hiện / phối hợp bước, người xem tất cả: không được gợi ý
+  for (const id of [doer, helper, boss]) assert.ok(!mentionableIds(cust, p2).includes(id));
+});

@@ -55,7 +55,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerR
       {can('cfile.view') && <Block title={`Tài liệu (${sp.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} projectId={sp.id} />}>
         <FileList customerId={customer.id} files={sp.files} showWhere />
       </Block>}
-      {can('ctalk.view') && <Talk customerId={customer.id} activities={sp.activities} target={{ sales_project_id: sp.id }} empty="Chưa có trao đổi về dự án" canAdd={can('ctalk.create')} users={users ?? []} />}
+      {can('ctalk.view') && <Talk customerId={customer.id} activities={sp.activities} target={{ sales_project_id: sp.id }} empty="Chưa có trao đổi về dự án" canAdd={can('ctalk.create')} users={users ?? []} mentionIds={sp.mention_ids} />}
       {editing && <SalesProjectModal customer={customer} sp={sp} onClose={() => setEditing(false)} />}
     </>
   );

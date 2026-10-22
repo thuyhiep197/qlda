@@ -6,7 +6,7 @@ import { callAlert, callPingDue, cleanCall, cleanCallConfirm, cleanTask } from '
 import { branchIds, cleanJourneyRows, journeyProgress, MAX_DEPTH, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus, type TemplateRow } from '../journey.ts';
 import { notifyCustomer } from '../notify.ts';
 import { syncJourneys } from '../journey-sync.ts';
-import { customerMembers, loadCustomerRef, loadSalesProjectOf, projectOf, requireCustomerInfo, requireCustomerSubsystem, requireManage, requireMembers,
+import { customerMembers, loadCustomerRef, mentionableIds, loadSalesProjectOf, projectOf, requireCustomerInfo, requireCustomerSubsystem, requireManage, requireMembers,
   visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import type { Permission } from '../permissions.ts';
 
@@ -164,6 +164,8 @@ r.get('/:id/journey/:sid', (req, res) => {
   s.ping_options = PING_DAYS;
   s.sales_project_name = s.sales_project_id ? get<{ name: string }>('SELECT name FROM sales_projects WHERE id = ?', s.sales_project_id)?.name ?? null : null;
   s.member_ids = [...customerMembers(c.id, s.sales_project_id)];
+  // Người được nhắc (@) trong trao đổi của bước: người của dự án chứa bước
+  s.mention_ids = mentionableIds(c.id, s.sales_project_id);
   res.json(s);
 });
 

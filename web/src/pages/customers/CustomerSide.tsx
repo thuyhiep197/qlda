@@ -121,7 +121,7 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
       {can('cfile.view') && <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && c.can_general && <UploadButton customerId={c.id} />}>
         <FileList customerId={c.id} files={c.files} showWhere />
       </Block>}
-      {can('ctalk.view') && c.can_general && <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={can('ctalk.create')} users={users ?? []} />}
+      {can('ctalk.view') && c.can_general && <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={can('ctalk.create')} users={users ?? []} mentionIds={c.mention_ids} />}
       {editing && <CustomerModal customer={c} contacts={c.contacts} kdIds={c.kd_ids} amIds={c.am_ids} onClose={() => setEditing(false)} />}
     </>
   );

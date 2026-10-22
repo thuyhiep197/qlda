@@ -4,7 +4,7 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
-import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, ownsCustomer, projectOf, relatedCustomersSql, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
+import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, mentionableIds, ownsCustomer, projectOf, relatedCustomersSql, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
   visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import { checkPeople, namesSql, savePeople, userPositions } from '../people.ts';
 import { autoProjectStatuses } from '../phases.ts';
@@ -160,6 +160,8 @@ r.get('/:id', (req, res) => {
   c.member_ids = [...customerMembers(c.id, null)];
   // Việc, tài liệu, trao đổi chung của khách hàng: chỉ người tham gia mục chung mới xem và thao tác
   c.can_general = ownsCustomer(req.user, c.id);
+  // Người được nhắc (@) trong trao đổi chung: Sale / AM của khách hàng
+  c.mention_ids = mentionableIds(c.id, null);
   const shown = (x: { sales_project_id: number | null }) => (x.sales_project_id == null ? c.can_general : spIds.has(x.sales_project_id));
   const spIds = visibleProjectIds(req.user, c.id);
   syncJourneys([...spIds]);

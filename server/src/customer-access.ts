@@ -118,6 +118,13 @@ export function loadCustomerRef(req: Request, perm?: Permission) {
   return c;
 }
 
+/** Người được nhắc (@) trong Trao đổi: trao đổi của khách hàng → Sale / AM của khách hàng; của dự án (và các bước) → Sale / AM / BA / Dev / Tester của dự án */
+export function mentionableIds(customerId: number, salesProjectId: number | null): number[] {
+  return (salesProjectId
+    ? all<{ id: number }>('SELECT DISTINCT o.user_id AS id FROM sales_project_owners o JOIN users u ON u.id = o.user_id WHERE o.sales_project_id = ? AND u.is_active = 1', salesProjectId)
+    : all<{ id: number }>('SELECT DISTINCT co.user_id AS id FROM customer_owners co JOIN users u ON u.id = co.user_id WHERE co.customer_id = ? AND u.is_active = 1', customerId)).map((x) => x.id);
+}
+
 /** Người tham gia mục chung của khách hàng (việc, tài liệu, trao đổi chung): Sale / AM của khách hàng hoặc người được xem tất cả khách hàng */
 export function ownsCustomer(user: U, customerId: number) {
   return !!user.is_admin || seesAllCustomers(user) || !!get('SELECT 1 FROM customer_owners WHERE customer_id = ? AND user_id = ?', customerId, user.id);

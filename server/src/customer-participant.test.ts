@@ -155,7 +155,11 @@ test('notifications: module cell + project scope, not Thông tin khách hàng �
   assert.deepEqual(got(worker), [`step:${myStep}`, `tasks:${spIn}`]);
   assert.deepEqual(got(sale), [], 'sale has no Hành trình – Xem');
   assert.deepEqual(mentionedCustomerUsers('@worker xem', cust, 'info'), []);
+  // Chỉ người của dự án (Sale / AM / BA / Dev / Tester) được nhắc: người được giao việc chưa có tên ở dự án thì không
+  assert.deepEqual(mentionedCustomerUsers('@worker xem', cust, `info:${spIn}`), []);
+  run("INSERT INTO sales_project_owners(sales_project_id, user_id, role) VALUES (?, ?, 'dev')", spIn, worker);
   assert.deepEqual(mentionedCustomerUsers('@worker xem', cust, `info:${spIn}`), [worker]);
+  run("DELETE FROM sales_project_owners WHERE sales_project_id = ? AND user_id = ?", spIn, worker);
 
   const bell = (await call(journeyOnly, '/notifications')).body;
   assert.equal(bell.items.length, 1);

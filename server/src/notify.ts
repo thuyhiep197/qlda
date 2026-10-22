@@ -6,7 +6,7 @@
  *  - Không thông báo cho chính người thực hiện thao tác.
  */
 import { all, get, now, run } from './db.ts';
-import { canSeeCustomer, canSeeSalesProject, ownsCustomer, seesAllCustomers, visibleCustomersSql, visibleSalesProjectsSql } from './customer-access.ts';
+import { canSeeCustomer, canSeeSalesProject, mentionableIds, ownsCustomer, seesAllCustomers, visibleCustomersSql, visibleSalesProjectsSql } from './customer-access.ts';
 import { userPermissions, type Permission } from './permissions.ts';
 
 export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status' | 'flag' | 'ping';
@@ -143,9 +143,11 @@ export function notify(userIds: Iterable<number>, actorId: number, issueId: numb
 export function mentionedCustomerUsers(text: string | null | undefined, customerId: number, link: string | null = 'info'): number[] {
   if (!text) return [];
   const ids: number[] = [];
+  // Chỉ người được gợi ý nhắc ở trao đổi đó (Sale / AM của khách hàng; người của dự án)
+  const allowed = new Set(mentionableIds(customerId, noticeProjectId(link)));
   for (const username of new Set([...text.matchAll(MENTION_RE)].map((m) => m[2].toLowerCase()))) {
     const u = get<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE username = ? AND is_active = 1', username);
-    if (u && inNoticeScope(u, customerId, link)) ids.push(u.id);
+    if (u && allowed.has(u.id) && inNoticeScope(u, customerId, link)) ids.push(u.id);
   }
   return ids;
 }

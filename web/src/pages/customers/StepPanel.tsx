@@ -91,7 +91,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
         ]} />
       </Block>
       {/* Trao đổi, Tài liệu kết quả của bước: chỉ khi có quyền Xem chức năng đó */}
-      {can('ctalk.view') && <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={can('ctalk.create')} users={users ?? []} />}
+      {can('ctalk.view') && <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={can('ctalk.create')} users={users ?? []} mentionIds={s.mention_ids} />}
       {can('cfile.view') && <Block title={`Tài liệu kết quả (${s.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} stepId={s.id} />}>
         <FileList customerId={customer.id} files={s.files} />
       </Block>}
@@ -100,9 +100,11 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
 }
 
 /** Trao đổi (của khách hàng, của dự án, hoặc của một bước): thảo luận nội bộ (gõ @ để nhắc đồng nghiệp) hoặc ghi lại làm việc với khách hàng */
-export function Talk({ customerId, activities, target, empty, canAdd, users }: {
+export function Talk({ customerId, activities, target, empty, canAdd, users, mentionIds }: {
   customerId: number; activities: CustomerActivity[]; target: { step_id?: number; sales_project_id?: number }; empty: string; canAdd: boolean;
   users: NonNullable<ReturnType<typeof useUsersBasic>['data']>;
+  /** Người được gợi ý nhắc (@): Sale / AM của khách hàng (trao đổi chung) hoặc người của dự án */
+  mentionIds: number[];
 }) {
   const { data: me } = useMe();
   const can = useCan();
@@ -147,7 +149,7 @@ export function Talk({ customerId, activities, target, empty, canAdd, users }: {
           </div>
           {kind !== 'internal' && <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} aria-label="Ngày làm việc với khách hàng" />}
           {kind === 'internal'
-            ? <MentionTextarea value={content} onChange={setContent} members={users} rows={3} placeholder="Trao đổi nội bộ — gõ @ để nhắc đồng nghiệp" />
+            ? <MentionTextarea value={content} onChange={setContent} members={users.filter((u) => mentionIds.includes(u.id))} rows={3} placeholder="Trao đổi nội bộ — gõ @ để nhắc đồng nghiệp" />
             : <textarea rows={3} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Nội dung làm việc với khách hàng, kết quả…" />}
           <div className="row"><div className="spacer" /><button className="btn btn-primary btn-sm" disabled={busy || !content.trim()}>Gửi</button></div>
         </form>

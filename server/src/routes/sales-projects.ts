@@ -6,7 +6,7 @@ import { cleanSalesProject, customerCode, salesProjectCode } from '../customer.t
 import { journeyProgress, journeyStatus } from '../journey.ts';
 import { syncJourneys } from '../journey-sync.ts';
 import { autoProjectStatuses } from '../phases.ts';
-import { customerMembers, loadCustomer, loadCustomerRef, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
+import { customerMembers, loadCustomer, mentionableIds, loadCustomerRef, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
 import { checkPeople, namesSql, savePeople, type PeopleRole } from '../people.ts';
 import { callAlerts, callsOf, TASK_SELECT } from './customer-work.ts';
 
@@ -180,6 +180,8 @@ r.get('/:id/projects/:pid', (req, res) => {
   p.calls = !perms.has('ctalk.view') ? [] : callsOf(sp.id);
   // Người tham gia dự án — chỉ những người này được giao việc, lịch gọi, bước
   p.member_ids = [...customerMembers(c.id, sp.id)];
+  // Người được nhắc (@) trong trao đổi của dự án: Sale / AM / BA / Dev / Tester của dự án
+  p.mention_ids = mentionableIds(c.id, sp.id);
   // Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ trả về khi có quyền Kế hoạch – Xem
   p.production = null;
   if (sp.project_id && perms.has('plan.view')) {

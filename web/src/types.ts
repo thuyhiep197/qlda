@@ -451,6 +451,8 @@ export interface SalesProjectDetail extends SalesProject {
   calls: CustomerCall[];
   /** Người tham gia dự án — chỉ giao việc, lịch gọi, bước cho những người này */
   member_ids: number[];
+  /** Người được gợi ý nhắc (@) trong trao đổi */
+  mention_ids: number[];
   /** Dự án sản xuất đã gắn (phân hệ Dự án) */
   production: {
     id: number; key: string; name: string; project_status: string | null; status_auto: string; is_archived: number;
@@ -504,6 +506,8 @@ export interface StepDetail extends Omit<JourneyStep, 'files'> {
   sales_project_id: number | null;
   sales_project_name: string | null;
   member_ids: number[];
+  /** Người được gợi ý nhắc (@) trong trao đổi */
+  mention_ids: number[];
 }
 export interface JourneySection { id: number; title: string; total: number; done: number; doing: number; overdue: number }
 export interface JourneyData {
@@ -563,6 +567,8 @@ export interface CustomerDetail extends Customer {
   can_general: boolean;
   /** Người tham gia mục chung (Sale / AM của khách hàng, người xem tất cả) — chỉ giao việc chung cho những người này */
   member_ids: number[];
+  /** Người được gợi ý nhắc (@) trong trao đổi */
+  mention_ids: number[];
   /** Sale, AM (id nhân sự) */
   kd_ids: number[];
   am_ids: number[];
