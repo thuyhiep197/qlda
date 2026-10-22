@@ -1,4 +1,5 @@
 import { audit } from '../audit.ts';
+import { projectMentionIds } from '../notify.ts';
 import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
 import { addHistory } from '../issues.ts';
@@ -149,6 +150,14 @@ r.post('/', (req, res) => {
   res.status(201).json(get('SELECT * FROM projects WHERE id = ?', id));
 });
 
+/** Người được gợi ý nhắc (@) trong issue: thành viên dự án + người được xem tất cả dự án (projectMentionIds) */
+function mentionMembers(projectId: number) {
+  const ids = projectMentionIds(projectId);
+  if (!ids.length) return [];
+  return all<any>(`SELECT id, username, full_name, avatar FROM users WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY full_name`, ...ids)
+    .map(({ avatar, ...u }) => ({ ...u, avatar_url: avatarUrl(avatar) }));
+}
+
 r.get('/:key', (req, res) => {
   const { project, perms } = loadProject(req);
   const statuses = all('SELECT * FROM statuses WHERE project_id = ? ORDER BY position, id', project.id);
@@ -191,7 +200,7 @@ r.get('/:key', (req, res) => {
     for (const r of PROJECT_ROLES) if (r !== 'dev') info[`${r}_ids`] = [];
   }
   res.json({
-    ...info, customer_info: customerInfo ?? null, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
+    ...info, customer_info: customerInfo ?? null, statuses, members, mention_members: mentionMembers(project.id), transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
     labels: [...labels].sort(), permissions: [...perms],
   });
 });

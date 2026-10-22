@@ -267,7 +267,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             <h4>Mô tả</h4>
             {editDesc ? (
               <div className="stack">
-                <MentionTextarea rows={10} autoFocus value={desc} onChange={setDesc} members={project?.members ?? []} issueKey={issue.key}
+                <MentionTextarea rows={10} autoFocus value={desc} onChange={setDesc} members={project?.mention_members ?? project?.members ?? []} issueKey={issue.key}
                   placeholder="Định dạng văn bản: **đậm**, - danh sách, `mã`, [liên kết](url)" />
                 <div className="row gap-xs">
                   <button className="btn btn-primary" onClick={async () => { await save({ description: desc }); setEditDesc(false); }}>Lưu</button>
@@ -402,7 +402,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                   <form onSubmit={addComment} className="comment-form">
                     <Avatar name={me?.full_name} src={me?.avatar_url} size={30} />
                     <div className="grow stack">
-                      <MentionTextarea rows={comment ? 4 : 2} value={comment} onChange={setComment} members={project?.members ?? []} issueKey={issue.key}
+                      <MentionTextarea rows={comment ? 4 : 2} value={comment} onChange={setComment} members={project?.mention_members ?? project?.members ?? []} issueKey={issue.key}
                         placeholder="Viết bình luận… (Ctrl+Enter để gửi)"
                         onUploadingChange={setCommentUploading}
                         onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) addComment(e as any); }} />
@@ -423,7 +423,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
                       {editingComment?.id === c.id ? (
                         <div className="stack">
                           <MentionTextarea rows={4} value={editingComment.body} onChange={(v) => setEditingComment({ id: c.id, body: v })}
-                            members={project?.members ?? []} issueKey={issue.key} />
+                            members={project?.mention_members ?? project?.members ?? []} issueKey={issue.key} />
                           <div className="row gap-xs">
                             <button className="btn btn-primary btn-sm" onClick={saveComment}>Lưu</button>
                             <button className="btn btn-sm" onClick={() => setEditingComment(null)}>Hủy</button>
@@ -616,7 +616,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           {(issue.original_estimate != null || (issue.time_spent ?? 0) > 0) ? <TimeTracking issue={issue} canEdit={canEdit} showSpent={canSeeTime} canLog={can(perms, 'worklog.create')} onLog={() => setLogging(true)} save={save} />
             : can(perms, 'worklog.create') && <button className="btn btn-subtle btn-sm side-link" onClick={() => setLogging(true)}><Timer size={14} /> Ghi thời gian làm việc</button>}
 
-          <Watchers issue={issue} members={project?.members ?? []} canManage={canEdit} meId={me?.id} />
+          <Watchers issue={issue} members={project?.mention_members ?? project?.members ?? []} canManage={canEdit} meId={me?.id} />
 
           <div className="meta muted small">
             <div>Tạo: {fmtDateTime(issue.created_at)}</div>

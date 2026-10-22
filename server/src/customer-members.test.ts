@@ -91,11 +91,13 @@ test('BA / Dev / Tester of a customer project take part in it (scope of customer
   assert.ok(!seen(ba).includes(p2));
 });
 
-test('who can be @mentioned: customer talk → Sale / AM of the customer; project talk → Sale / AM / BA / Dev / Tester of the project', async () => {
+test('who can be @mentioned: customer talk → Sale / AM of the customer; project talk → Sale / AM / BA / Dev / Tester of the project; plus people who see all customers', async () => {
   const { mentionableIds } = await import('./customer-access.ts');
   run('UPDATE users SET is_active = 1 WHERE id = ?', sale);
-  assert.deepEqual(mentionableIds(cust, null), [am]);
-  assert.deepEqual(mentionableIds(cust, p1).sort((a, b) => a - b), [sale, ba, dev, tester].sort((a, b) => a - b));
-  // Người thực hiện / phối hợp bước, người xem tất cả: không được gợi ý
-  for (const id of [doer, helper, boss]) assert.ok(!mentionableIds(cust, p2).includes(id));
+  const sorted = (x: number[]) => [...x].sort((a, b) => a - b);
+  // boss: Ban Giám đốc — xem tất cả khách hàng, có quyền Xem trao đổi → luôn được gợi ý
+  assert.deepEqual(sorted(mentionableIds(cust, null)), sorted([am, boss]));
+  assert.deepEqual(sorted(mentionableIds(cust, p1)), sorted([sale, ba, dev, tester, boss]));
+  // Người thực hiện / phối hợp bước: không được gợi ý
+  for (const id of [doer, helper]) assert.ok(!mentionableIds(cust, p2).includes(id));
 });

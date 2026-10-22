@@ -200,6 +200,8 @@ export interface Project {
   workflow_strict: number;
   statuses: Status[];
   members: Member[];
+  /** Người được gợi ý nhắc (@) trong issue: thành viên + người được xem tất cả dự án */
+  mention_members?: UserBasic[];
   /** Luồng chuyển; issue_type = '' là luồng chung */
   transitions: { issue_type: string; from_status_id: number; to_status_id: number }[];
   /** Loại issue → trạng thái được dùng (loại không có trong đây dùng mọi trạng thái) */

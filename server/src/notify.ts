@@ -7,7 +7,7 @@
  */
 import { all, get, now, run } from './db.ts';
 import { canSeeCustomer, canSeeSalesProject, mentionableIds, visibleCustomersSql, visibleSalesProjectsSql } from './customer-access.ts';
-import { userPermissions, type Permission } from './permissions.ts';
+import { activeUsersWith, userPermissions, type Permission } from './permissions.ts';
 
 export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status' | 'flag' | 'ping';
 
@@ -86,17 +86,23 @@ const activeUser = (id: number) => get<{ id: number; is_admin: number }>('SELECT
 /** @tên_đăng_nhập đứng đầu dòng hoặc sau khoảng trắng/ngoặc (không bắt nhầm email a@b.com). */
 const MENTION_RE = /(^|[\s(>])@([a-z0-9][a-z0-9._-]*[a-z0-9_-]|[a-z0-9])/gi;
 
-/** Người được @nhắc trong nội dung, chỉ tính thành viên dự án đang hoạt động (và quản trị hệ thống). */
+/** Người được nhắc (@) trong issue của dự án sản xuất: thành viên dự án + người được xem tất cả dự án (có quyền Xem issue) */
+export function projectMentionIds(projectId: number): number[] {
+  return [...new Set([...all<{ user_id: number }>('SELECT pm.user_id FROM project_members pm JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ? AND u.is_active = 1', projectId).map((x) => x.user_id),
+    ...activeUsersWith(['project.view_all', 'issue.view'])])];
+}
+
+/** Người được @nhắc trong nội dung, chỉ tính thành viên dự án đang hoạt động, người xem tất cả dự án (và quản trị hệ thống). */
 export function mentionedUsers(text: string | null | undefined, projectId: number): number[] {
   if (!text) return [];
+  const allowed = new Set(projectMentionIds(projectId));
   const names = new Set<string>();
   for (const m of text.matchAll(MENTION_RE)) names.add(m[2].toLowerCase());
   const ids: number[] = [];
   for (const username of names) {
     const u = get<{ id: number }>(
-      `SELECT u.id FROM users u WHERE u.username = ? AND u.is_active = 1 AND (u.is_admin = 1 OR EXISTS
-         (SELECT 1 FROM project_members pm WHERE pm.project_id = ? AND pm.user_id = u.id))`, username, projectId);
-    if (u) ids.push(u.id);
+      `SELECT u.id FROM users u WHERE u.username = ? AND u.is_active = 1`, username);
+    if (u && allowed.has(u.id)) ids.push(u.id);
   }
   return ids;
 }

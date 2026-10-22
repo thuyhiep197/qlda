@@ -286,6 +286,12 @@ export function projectPermissions(user: AuthUser, projectId: number): Set<Permi
   return userPermissions(user, m.role_id);
 }
 
+/** Tài khoản đang hoạt động có đủ các quyền perms (theo nhóm + quyền riêng; quản trị hệ thống có mọi quyền) */
+export function activeUsersWith(perms: Permission[]): number[] {
+  return all<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE is_active = 1')
+    .filter((u) => { const own = userPermissions(u); return perms.every((p) => own.has(p)); }).map((u) => u.id);
+}
+
 /** Bắt buộc có quyền (không gắn với dự án), VD quản trị người dùng, tạo dự án. */
 export function requireUserPerm(user: AuthUser, perm: Permission) {
   if (!userPermissions(user).has(perm)) throw forbidden();

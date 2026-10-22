@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 import { all, get } from './db.ts';
-import { badRequest, forbidden, hasSubsystem, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from './permissions.ts';
+import { activeUsersWith, badRequest, forbidden, hasSubsystem, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from './permissions.ts';
 
 /**
  * Phạm vi dữ liệu phân hệ Khách hàng.
@@ -118,11 +118,14 @@ export function loadCustomerRef(req: Request, perm?: Permission) {
   return c;
 }
 
-/** Người được nhắc (@) trong Trao đổi: trao đổi của khách hàng → Sale / AM của khách hàng; của dự án (và các bước) → Sale / AM / BA / Dev / Tester của dự án */
+/** Người được nhắc (@) trong Trao đổi: trao đổi của khách hàng → Sale / AM của khách hàng; của dự án (và các bước) → Sale / AM / BA / Dev / Tester của dự án;
+ *  cùng người được xem tất cả khách hàng (có quyền Xem trao đổi) */
 export function mentionableIds(customerId: number, salesProjectId: number | null): number[] {
-  return (salesProjectId
+  // Cùng người được xem tất cả khách hàng (mọi khách hàng, mọi dự án của khách hàng) và xem được trao đổi
+  const viewAll = activeUsersWith(['customer.view_all', 'ctalk.view']);
+  return [...new Set([...(salesProjectId
     ? all<{ id: number }>('SELECT DISTINCT o.user_id AS id FROM sales_project_owners o JOIN users u ON u.id = o.user_id WHERE o.sales_project_id = ? AND u.is_active = 1', salesProjectId)
-    : all<{ id: number }>('SELECT DISTINCT co.user_id AS id FROM customer_owners co JOIN users u ON u.id = co.user_id WHERE co.customer_id = ? AND u.is_active = 1', customerId)).map((x) => x.id);
+    : all<{ id: number }>('SELECT DISTINCT co.user_id AS id FROM customer_owners co JOIN users u ON u.id = co.user_id WHERE co.customer_id = ? AND u.is_active = 1', customerId)).map((x) => x.id), ...viewAll])];
 }
 
 /** Mục chung của khách hàng (không thuộc dự án) nằm ở màn khách hàng: cần Thông tin khách hàng – Xem và khách hàng trong phạm vi */

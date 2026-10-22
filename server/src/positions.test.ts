@@ -21,7 +21,7 @@ test('positions are limited by department, sub-teams use their department set an
   assert.deepEqual(allowedPositions(['P.KD.SALE', 'P.KD', 'BGĐ']), { allowed: ['kd', 'am'], preset: 'kd' });
   assert.deepEqual(allowedPositions(['P.SP.TEST', 'P.SP', 'BGĐ']), { allowed: ['ba_pm', 'dev', 'tester'], preset: 'tester' });
   assert.deepEqual(allowedPositions(['P.HC.KT', 'P.HC', 'BGĐ']), { allowed: ['hc'], preset: 'hc' });
-  assert.deepEqual(allowedPositions(['BGĐ']), { allowed: ['bgd'], preset: 'bgd' });
+  assert.deepEqual(allowedPositions(['BGĐ']), { allowed: ['bgd', 'kd', 'am'], preset: 'bgd' }); // Ban Giám đốc chọn thêm được Sale, AM
   assert.equal(allowedPositions(['P.MOI', 'BGĐ']).allowed.length, 7, 'new department under the Board is not limited to BGĐ');
   assert.equal(allowedPositions(['KHAC']).allowed.length, 7);
 });

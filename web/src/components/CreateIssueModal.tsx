@@ -136,7 +136,7 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         </label>
         <label className="field span-2">
           <span>Mô tả <small className="muted">(hỗ trợ định dạng văn bản)</small></span>
-          <MentionTextarea rows={6} value={description} onChange={setDescription} members={project?.members ?? []} />
+          <MentionTextarea rows={6} value={description} onChange={setDescription} members={project?.mention_members ?? project?.members ?? []} />
         </label>
         <label className="field span-2">
           <span>Ghi chú <small className="muted">({note.length}/100 ký tự)</small></span>

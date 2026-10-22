@@ -15,9 +15,9 @@ export function positionCodes(positions: string | null | undefined): string[] {
 /** Mã hiện cạnh tên người (vị trí đầu tiên theo thứ tự chuẩn), không có → null */
 export const primaryCode = (positions: string | null | undefined) => positionCodes(positions)[0] ?? null;
 
-/** Vị trí được chọn theo phòng (mã phòng cấp phòng trong sơ đồ tổ chức); phòng do người dùng tự thêm, không có trong bảng → mọi vị trí */
+/** Vị trí được chọn theo phòng (mã phòng cấp phòng trong sơ đồ tổ chức); Ban Giám đốc chọn thêm được Sale, AM; phòng do người dùng tự thêm, không có trong bảng → mọi vị trí */
 export const DEPARTMENT_POSITIONS: Record<string, Position[]> = {
-  'BGĐ': ['bgd'], 'P.KD': ['kd', 'am'], 'P.DA': ['ba_pm', 'dev', 'tester'], 'P.SP': ['ba_pm', 'dev', 'tester'], 'P.HC': ['hc'],
+  'BGĐ': ['bgd', 'kd', 'am'], 'P.KD': ['kd', 'am'], 'P.DA': ['ba_pm', 'dev', 'tester'], 'P.SP': ['ba_pm', 'dev', 'tester'], 'P.HC': ['hc'],
 };
 /** Vị trí mặc định của nhóm con (tích sẵn khi thêm nhân sự vào nhóm) theo đuôi mã nhóm */
 const TEAM_POSITION: Record<string, Position> = { SALE: 'kd', AM: 'am', DEV: 'dev', BA: 'ba_pm', TEST: 'tester' };
@@ -31,6 +31,7 @@ export function allowedPositions(codes: string[]): { allowed: Position[]; preset
   const rule = codes.map((c, i) => (i > 0 && c.toUpperCase() === 'BGĐ' ? undefined : DEPARTMENT_POSITIONS[c.toUpperCase()])).find(Boolean);
   const allowed = rule ?? [...POSITIONS];
   const team = TEAM_POSITION[(codes[0] ?? '').toUpperCase().split('.').pop() ?? ''];
-  const preset = team && allowed.includes(team) ? team : allowed.length === 1 ? allowed[0] : null;
+  // Ban Giám đốc: tích sẵn vị trí Ban Giám đốc (Sale, AM chọn thêm khi cần)
+  const preset = team && allowed.includes(team) ? team : allowed.length === 1 || rule?.[0] === 'bgd' ? allowed[0] : null;
   return { allowed, preset };
 }
