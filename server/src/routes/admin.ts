@@ -50,14 +50,14 @@ function guardAdminAccount(user: Express.Request['user'], target: { is_admin: nu
   if (target.is_admin && !user.is_admin) throw forbidden('Chỉ quản trị hệ thống được sửa tài khoản Quản trị hệ thống');
 }
 
-/** Danh sách rút gọn cho mọi người dùng đã đăng nhập (dùng khi chọn người). */
+/** Danh sách rút gọn cho mọi người dùng đã đăng nhập (dùng khi chọn người, gợi ý nhắc tên) — không gồm tài khoản Quản trị hệ thống */
 r.get('/users/basic', (_req, res) => {
   const users = all(`SELECT u.id, u.username, u.full_name, u.avatar, u.default_role_id, r.name AS default_role_name,
       u.department_id, CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END AS department_name, d.name AS department_short,
       COALESCE(pd.position, d.position) * 100 + d.position AS department_order, u.positions
     FROM users u LEFT JOIN roles r ON r.id = u.default_role_id LEFT JOIN departments d ON d.id = u.department_id
       LEFT JOIN departments pd ON pd.id = d.parent_id
-    WHERE u.is_active = 1 ORDER BY u.full_name`);
+    WHERE u.is_active = 1 AND u.is_admin = 0 AND COALESCE(r.is_admin, 0) = 0 ORDER BY u.full_name`);
   // Vị trí của tài khoản (lọc người theo vai trò) và mã vị trí (KD, AM, BA, DEV, HC, BGĐ) hiện cạnh tên trong hành trình khách hàng
   res.json(users.map((u: any) => { const { avatar, ...user } = u; return { ...user, positions: (u.positions ?? '').split(',').filter(Boolean), position_codes: positionCodes(u.positions), department_code: primaryCode(u.positions), avatar_url: avatarUrl(avatar) }; }));
 });

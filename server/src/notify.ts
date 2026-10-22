@@ -88,7 +88,7 @@ const MENTION_RE = /(^|[\s(>])@([a-z0-9][a-z0-9._-]*[a-z0-9_-]|[a-z0-9])/gi;
 
 /** Người được nhắc (@) trong issue của dự án sản xuất: thành viên dự án + người được xem tất cả dự án (có quyền Xem issue) */
 export function projectMentionIds(projectId: number): number[] {
-  return [...new Set([...all<{ user_id: number }>('SELECT pm.user_id FROM project_members pm JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ? AND u.is_active = 1', projectId).map((x) => x.user_id),
+  return [...new Set([...all<{ user_id: number }>('SELECT pm.user_id FROM project_members pm JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ? AND u.is_active = 1 AND u.is_admin = 0', projectId).map((x) => x.user_id),
     ...activeUsersWith(['project.view_all', 'issue.view'])])];
 }
 

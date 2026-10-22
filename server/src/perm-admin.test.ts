@@ -172,3 +172,12 @@ test('notifications only reach / show to people with the view cell of the functi
   assert.equal(n.length, 1);
   assert.equal(n[0].text, '');
 });
+
+test('admin accounts are never offered when picking people or @mentioning', async () => {
+  const { activeUsersWith } = await import('./permissions.ts');
+  const basic = (await api(other, 'GET', '/users/basic')).body.map((u: any) => u.id);
+  assert.ok(!basic.includes(admin));
+  assert.ok(basic.includes(mgr));
+  assert.ok(!activeUsersWith(['plan.view']).includes(admin));
+  assert.ok(activeUsersWith(['plan.view']).includes(other));
+});

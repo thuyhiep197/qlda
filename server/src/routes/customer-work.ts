@@ -270,9 +270,11 @@ export function callAlerts(today = localDate()) {
 
 const vnDate = (d: string) => d.split('-').reverse().join('/');
 
-function addCall(req: Request, c: { id: number; name: string }, sp: { id: number; name: string }, v: ReturnType<typeof cleanCall>) {
+/** keep: người gọi giữ nguyên, không phải chọn mới (lịch kế tiếp cùng người gọi) — không xét lại danh sách người tham gia */
+function addCall(req: Request, c: { id: number; name: string }, sp: { id: number; name: string }, v: ReturnType<typeof cleanCall>, keep: number[] = []) {
   const assignee = activeUser(v.assignee_id ?? req.user.id)!;
-  requireMembers(c.id, sp.id, [assignee]);
+  // Không chọn người gọi → chính người đặt lịch
+  requireMembers(c.id, sp.id, [assignee], v.assignee_id ? keep : [...keep, req.user.id]);
   const { id } = run('INSERT INTO customer_calls(customer_id, sales_project_id, call_date, assignee_id, note, created_by) VALUES (?,?,?,?,?,?)',
     c.id, sp.id, v.call_date, assignee, v.note, req.user.id);
   // Người khác đặt lịch giao cho mình → báo ngay
@@ -318,7 +320,7 @@ r.post('/:id/calls/:kid/confirm', (req, res) => {
   const v = check(() => cleanCallConfirm(req.body || {}));
   const next = tx(() => {
     run('UPDATE customer_calls SET status = ?, result = ?, done_at = ?, done_by = ?, updated_at = ? WHERE id = ?', v.status, v.result, now(), req.user.id, now(), k.id);
-    return v.next ? addCall(req, c, sp, { ...v.next, assignee_id: v.next.assignee_id ?? k.assignee_id }) : null;
+    return v.next ? addCall(req, c, sp, { ...v.next, assignee_id: v.next.assignee_id ?? k.assignee_id }, [k.assignee_id]) : null;
   });
   res.json({ ok: true, next_id: next });
 });

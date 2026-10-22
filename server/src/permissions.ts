@@ -286,9 +286,9 @@ export function projectPermissions(user: AuthUser, projectId: number): Set<Permi
   return userPermissions(user, m.role_id);
 }
 
-/** Tài khoản đang hoạt động có đủ các quyền perms (theo nhóm + quyền riêng; quản trị hệ thống có mọi quyền) */
+/** Tài khoản đang hoạt động (không gồm Quản trị hệ thống) có đủ các quyền perms (theo nhóm + quyền riêng) — dùng cho gợi ý nhắc tên */
 export function activeUsersWith(perms: Permission[]): number[] {
-  return all<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE is_active = 1')
+  return all<{ id: number; is_admin: number }>('SELECT u.id, u.is_admin FROM users u LEFT JOIN roles r ON r.id = u.default_role_id WHERE u.is_active = 1 AND u.is_admin = 0 AND COALESCE(r.is_admin, 0) = 0')
     .filter((u) => { const own = userPermissions(u); return perms.every((p) => own.has(p)); }).map((u) => u.id);
 }
 

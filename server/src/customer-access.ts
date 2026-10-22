@@ -124,8 +124,8 @@ export function mentionableIds(customerId: number, salesProjectId: number | null
   // Cùng người được xem tất cả khách hàng (mọi khách hàng, mọi dự án của khách hàng) và xem được trao đổi
   const viewAll = activeUsersWith(['customer.view_all', 'ctalk.view']);
   return [...new Set([...(salesProjectId
-    ? all<{ id: number }>('SELECT DISTINCT o.user_id AS id FROM sales_project_owners o JOIN users u ON u.id = o.user_id WHERE o.sales_project_id = ? AND u.is_active = 1', salesProjectId)
-    : all<{ id: number }>('SELECT DISTINCT co.user_id AS id FROM customer_owners co JOIN users u ON u.id = co.user_id WHERE co.customer_id = ? AND u.is_active = 1', customerId)).map((x) => x.id), ...viewAll])];
+    ? all<{ id: number }>('SELECT DISTINCT o.user_id AS id FROM sales_project_owners o JOIN users u ON u.id = o.user_id WHERE o.sales_project_id = ? AND u.is_active = 1 AND u.is_admin = 0', salesProjectId)
+    : all<{ id: number }>('SELECT DISTINCT co.user_id AS id FROM customer_owners co JOIN users u ON u.id = co.user_id WHERE co.customer_id = ? AND u.is_active = 1 AND u.is_admin = 0', customerId)).map((x) => x.id), ...viewAll])];
 }
 
 /** Mục chung của khách hàng (không thuộc dự án) nằm ở màn khách hàng: cần Thông tin khách hàng – Xem và khách hàng trong phạm vi */
@@ -180,7 +180,8 @@ export function customerMembers(customerId: number, salesProjectId: number | nul
     add(all('SELECT ss.user_id FROM journey_step_supporters ss JOIN journey_steps j ON j.id = ss.step_id WHERE j.sales_project_id = ?', p));
   }
   const active = all<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE is_active = 1');
-  for (const u of active) if (seesAllCustomers(u) && userPermissions(u).has('customer.view')) ids.add(u.id);
+  // Người xem tất cả khách hàng (không gồm Quản trị hệ thống — không giao việc / gợi ý cho tài khoản quản trị)
+  for (const u of active) if (!u.is_admin && seesAllCustomers(u) && userPermissions(u).has('customer.view')) ids.add(u.id);
   const activeIds = new Set(active.map((u) => u.id));
   return new Set([...ids].filter((id) => activeIds.has(id)));
 }
