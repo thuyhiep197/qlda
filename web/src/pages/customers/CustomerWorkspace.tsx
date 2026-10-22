@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, MapPin, PhoneCall, Plus, Search, Star } from 'lucide-react';
 import { api } from '../../api';
 import { ManageContext, useCan } from './manage';
@@ -34,7 +34,10 @@ export default function CustomerWorkspace() {
   const [q, setQ] = useState('');
   const list = filterCustomers(customers || [], { q, status: '', province: '', mine: group === 'mine' });
 
+  const canInfo = useCan()('customer.view');
   if (isLoading) return <Spinner />;
+  // Không có Thông tin khách hàng – Xem: không mở màn khách hàng (chỉ mở dự án mình tham gia)
+  if (id && !pid && !canInfo) return <Navigate to="/customers" replace />;
   return (
     <div className="cw">
       <CustomerTree customers={customers || []} group={group} current={id ? Number(id) : null} currentProject={pid ? Number(pid) : null}
@@ -174,7 +177,9 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
   const can = useCan();
   const col = { journey: can('journey.view'), production: can('plan.view'), talk: can('ctalk.view') };
   const canInfo = can('customer.view'), canProjectInfo = can('sales_project.view');
-  const cols = 7 + Number(col.journey) + Number(col.production) + Number(col.talk);
+  // Sản phẩm, Tình trạng, Sale, AM: có Xem khách hàng hoặc Xem dự án của khách hàng; Đầu mối: chỉ Xem khách hàng
+  const info = canInfo || canProjectInfo;
+  const cols = 2 + 4 * Number(info) + Number(canInfo) + Number(col.journey) + Number(col.production) + Number(col.talk);
   let stt = 0;
   return (
     <section className="cw-main">
@@ -186,8 +191,8 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
         {!total && <p className="muted small">Bạn chỉ thấy khách hàng mình phụ trách hoặc có việc được giao.</p>}</Empty> : (
         <div className="cw-scroll table-wrap">
           <table className="table cw-table">
-            <thead><tr><th className="num">STT</th><th>Khách hàng / Dự án</th><th>Sản phẩm</th><th>Tình trạng</th>{col.journey && <th>Hành trình</th>}<th>Sale</th><th>AM</th>
-              {col.production && <th>Sản xuất</th>}<th>Đầu mối</th>{col.talk && <th>Làm việc gần nhất</th>}</tr></thead>
+            <thead><tr><th className="num">STT</th><th>Khách hàng / Dự án</th>{info && <><th>Sản phẩm</th><th>Tình trạng</th></>}{col.journey && <th>Hành trình</th>}{info && <><th>Sale</th><th>AM</th></>}
+              {col.production && <th>Sản xuất</th>}{canInfo && <th>Đầu mối</th>}{col.talk && <th>Làm việc gần nhất</th>}</tr></thead>
             {/* Gom theo tỉnh/thành phố (như cây bên trái): dòng tỉnh → khách hàng → dự án; STT đánh liên tục */}
             <tbody>{byProvince(list.map((c) => ({ customer: c }))).map(({ province, items }) => (
               <Fragment key={province}>
@@ -198,26 +203,26 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
                   <td className="num muted">{i + 1}</td>
                   <td>{canInfo ? <Link to={`/customers/${c.id}${g}`} onClick={(e) => e.stopPropagation()}><b>{c.name}</b></Link> : <b>{c.name}</b>}
                     {c.ward_name && <div className="muted small">{c.ward_name}</div>}</td>
-                  <td className="muted small">{c.sales_projects?.length ? `${c.sales_projects.length} dự án` : 'Chưa có dự án'}</td>
-                  <td>{c.status && <span className={CUSTOMER_STATUS_CLASS}>{c.status}</span>}</td>
+                  {info && <><td className="muted small">{c.sales_projects?.length ? `${c.sales_projects.length} dự án` : 'Chưa có dự án'}</td>
+                  <td>{canInfo && c.status && <span className={CUSTOMER_STATUS_CLASS}>{c.status}</span>}</td></>}
                   {col.journey && <td />}
-                  <td className="small">{c.kd_names}</td>
-                  <td className="small">{c.am_names}</td>
+                  {info && <><td className="small">{canInfo && c.kd_names}</td>
+                  <td className="small">{canInfo && c.am_names}</td></>}
                   {col.production && <td />}
-                  <td>{c.contact_name}{c.contact_phone && <div className="muted small">{c.contact_phone}</div>}</td>
+                  {canInfo && <td>{c.contact_name}{c.contact_phone && <div className="muted small">{c.contact_phone}</div>}</td>}
                   {col.talk && <td className="nowrap small">{c.last_activity_date ? fmtDate(c.last_activity_date) : <span className="muted">—</span>}</td>}
                 </tr>
                 {c.sales_projects?.map((p) => (
                   <tr key={`p${p.id}`} className="click-row cw-row-proj" onClick={() => navigate(`/customers/${c.id}/p/${p.id}${g}`)}>
                     <td />
                     <td><Link to={`/customers/${c.id}/p/${p.id}${g}`} onClick={(e) => e.stopPropagation()} className="row gap-xs"><FolderOpen size={13} className="muted" /> <span className="muted small">{p.code}</span> <CallName p={p} /></Link></td>
-                    <td className="small">{canProjectInfo && (p.product_name ?? <span className="muted">{p.product_type_name}</span>)}</td>
-                    <td>{canProjectInfo && <span className={salesStatusClass(p.status)}>{p.status ?? "Chưa áp dụng quy trình"}</span>}</td>
+                    {info && <><td className="small">{canProjectInfo && (p.product_name ?? <span className="muted">{p.product_type_name}</span>)}</td>
+                    <td>{canProjectInfo && <span className={salesStatusClass(p.status)}>{p.status ?? "Chưa áp dụng quy trình"}</span>}</td></>}
                     {col.journey && <td style={{ minWidth: 170 }}><JourneyCell p={p} /></td>}
-                    <td className="small">{p.kd_names}</td>
-                    <td className="small">{p.am_names}</td>
+                    {info && <><td className="small">{canProjectInfo && p.kd_names}</td>
+                    <td className="small">{canProjectInfo && p.am_names}</td></>}
                     {col.production && <td><ProductionChip p={p} /></td>}
-                    <td />{col.talk && <td />}
+                    {canInfo && <td />}{col.talk && <td />}
                   </tr>
                 ))}
               </Fragment>
