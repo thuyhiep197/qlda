@@ -11,12 +11,12 @@ import { PeoplePicker } from '../../components/PeoplePicker';
 import { ROLE_LABELS, type PeopleRole } from '../../people';
 import { ProductModal } from '../AdminProducts';
 import { CreateProjectModal } from '../Projects';
-import { Block, FileList, Props, Tasks, UploadButton } from './CustomerSide';
+import { Block, FileList, ProductionBlock, Props, Tasks, UploadButton } from './CustomerSide';
 import { Talk } from './StepPanel';
 import CallSchedule from './CallSchedule';
 
 /** Cột phải của màn dự án (khi chưa chọn bước): thông tin dự án, lịch gọi điện, công việc, tài liệu, trao đổi của dự án.
- *  Tiến độ dự án sản xuất xem ở khối Liên kết tiến độ sản xuất của màn khách hàng. */
+ *  Khối Liên kết tiến độ sản xuất: dự án sản xuất gắn với dự án này (cần quyền Kế hoạch – Xem). */
 export default function SalesProjectSide({ customer, sp }: { customer: CustomerRef; sp: SalesProjectDetail }) {
   const can = useCan();
   const { data: users } = useUsersBasic();
@@ -47,6 +47,8 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerR
           ['Ghi chú', sp.note && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.note}</span>],
         ]} />
       </Block>}
+      {/* Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ khi có quyền Kế hoạch – Xem; bấm mở Kế hoạch chi tiết */}
+      {can('plan.view') && <ProductionBlock production={sp.production && !sp.production.is_archived ? [sp.production] : []} />}
       {can('ctalk.view') && <CallSchedule customerId={customer.id} projectId={sp.id} calls={sp.calls} members={sp.member_ids} />}
       {/* Công việc, Tài liệu, Trao đổi: chỉ khi có quyền Xem chức năng đó */}
       {can('ctask.view') && <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} members={sp.member_ids} />}

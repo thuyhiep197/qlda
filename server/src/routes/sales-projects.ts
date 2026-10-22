@@ -71,13 +71,13 @@ export function salesProjectsOf(customerIds: number[] | 'all', opts: { user?: Au
 /** Không có quyền Dự án của khách hàng – Xem: chỉ giữ tên dự án, tên khách hàng (và trạng thái lưu trữ để lọc danh sách) */
 const NAME_ONLY = ['id', 'customer_id', 'customer_name', 'name', 'is_archived'];
 /** Dữ liệu của chức năng khác gắn vào dự án — vẫn trả về theo ô quyền của chức năng đó khi chỉ được xem tên dự án */
-const FUNCTION_EXTRAS = ['open_tasks', 'call_alert', 'journey_pct', 'journey_overdue'];
+const FUNCTION_EXTRAS = ['open_tasks', 'call_alert', 'journey_pct', 'journey_overdue', 'project_key', 'project_name'];
 
 /**
  * Dữ liệu của chức năng khác gắn vào dự án của khách hàng chỉ trả về khi người xem có quyền Xem chức năng đó:
  * số việc đang mở (Công việc), cảnh báo lịch gọi (Trao đổi), tiến độ / số bước quá hạn (Hành trình),
  * dự án sản xuất đã gắn (Kế hoạch, và vào được dự án đó). Tình trạng tự động vẫn là dữ liệu của dự án của khách hàng.
- * Thông tin của chính dự án (mã, sản phẩm, tình trạng, Sale/AM/BA/Dev/Tester, ghi chú, mô tả, dự án sản xuất đã gắn)
+ * Thông tin của chính dự án (mã, sản phẩm, tình trạng, Sale/AM/BA/Dev/Tester, ghi chú, mô tả)
  * chỉ khi có quyền Dự án của khách hàng – Xem; không có thì chỉ tên dự án, tên khách hàng.
  */
 export function forViewer(user: AuthUser) {
@@ -180,9 +180,9 @@ r.get('/:id/projects/:pid', (req, res) => {
   p.calls = !perms.has('ctalk.view') ? [] : callsOf(sp.id);
   // Người tham gia dự án — chỉ những người này được giao việc, lịch gọi, bước
   p.member_ids = [...customerMembers(c.id, sp.id)];
-  // Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ trả về khi có quyền Kế hoạch – Xem (và được xem thông tin dự án — dự án sản xuất đã gắn)
+  // Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ trả về khi có quyền Kế hoạch – Xem
   p.production = null;
-  if (sp.project_id && perms.has('plan.view') && perms.has('sales_project.view')) {
+  if (sp.project_id && perms.has('plan.view')) {
     const access = accessibleProjectIds(req.user);
     const pr: any = get(`SELECT p.id, p.key, p.name, p.project_status, p.is_archived,
         (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id AND i.type <> 'epic') AS total_issues,

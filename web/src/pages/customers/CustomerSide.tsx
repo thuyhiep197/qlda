@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Archive, ArchiveRestore, ChevronDown, ChevronRight, Download, FileText, Mail, Paperclip, Pencil, Phone, Trash2 } from 'lucide-react';
 import { api, refreshAll } from '../../api';
-import { hasPerm, useMe, useUsersBasic } from '../../hooks';
+import { useMe, useUsersBasic } from '../../hooks';
 import { useCan } from './manage';
 import type { CustomerDetail, CustomerFile, CustomerTask } from '../../types';
 import { CUSTOMER_STATUS_CLASS, overdueDays } from '../../customer-filter';
@@ -85,14 +85,12 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
   const { data: users } = useUsersBasic();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const { data: me } = useMe();
   const canEdit = can('customer.edit'), canArchive = can('customer.delete');
   // Khách hàng chỉ lưu trữ (không xóa): ẩn khỏi danh sách, mở lại được
   const archive = async (archived: boolean) => {
     if (archived && !confirm(`Lưu trữ khách hàng ${c.name}? Khách hàng (cùng các dự án) ẩn khỏi danh sách; xem lại bằng ô "Xem đã lưu trữ" và mở lại được.`)) return;
     try { await api.post(`/customers/${c.id}/archive`, { archived }); toast(archived ? 'Đã lưu trữ khách hàng' : 'Đã mở lại khách hàng'); await refreshAll(); if (archived) navigate('/customers'); } catch (e) { toastError(e); }
   };
-  const production = c.projects.filter((p) => !p.is_archived);
   return (
     <>
       <Block title="Thông tin khách hàng" extra={<>
@@ -118,25 +116,6 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
           </div>
         ))}
       </Block>
-      {/* Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ hiện khi có quyền Kế hoạch – Xem; bấm mở Kế hoạch chi tiết */}
-      {hasPerm(me, 'plan.view') && <Block title={`Liên kết tiến độ sản xuất (${production.length})`}>
-        {!production.length ? <p className="muted small">Chưa có dự án nào gắn với khách hàng này</p>
-          : production.map((p) => {
-            const st = p.project_status || p.status_auto;
-            const pct = p.total_issues ? Math.round((p.done_issues / p.total_issues) * 100) : 0;
-            const body = <>
-              <div className="row gap-sm" style={{ minWidth: 0 }}>
-                <span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span>
-                <b className="grow ellipsis">{p.name}</b>
-                {st && <span className={lozengeOf(PROJECT_STATUSES, st)}>{st}</span>}
-              </div>
-              <div className="muted small">{p.key}{p.ba ? ` · BA/PM: ${p.ba}` : ''}{p.total_issues ? ` · ${p.done_issues}/${p.total_issues} việc (${pct}%)` : ''}</div>
-            </>;
-            return p.accessible
-              ? <Link key={p.id} to={`/p/${p.key}/plan`} className="cw-project" data-tip="Mở Kế hoạch chi tiết">{body}</Link>
-              : <div key={p.id} className="cw-project disabled" data-tip="Dự án không thuộc khách hàng, dự án bạn phụ trách">{body}</div>;
-          })}
-      </Block>}
       {/* Công việc, Tài liệu, Trao đổi: chỉ khi có quyền Xem chức năng đó */}
       {can('ctask.view') && <Tasks customerId={c.id} tasks={c.tasks} showProject members={c.member_ids} />}
       {can('cfile.view') && <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && <UploadButton customerId={c.id} />}>
@@ -218,6 +197,30 @@ export function Tasks({ customerId, tasks, projectId, showProject, members }: {
         );
       })}
       {tasks.length > open.length && <a className="small" onClick={() => setShowDone(!showDone)}>{showDone ? 'Ẩn việc đã xong' : `Xem cả ${tasks.length - open.length} việc đã xong`}</a>}
+    </Block>
+  );
+}
+
+/** Liên kết tiến độ sản xuất của một dự án của khách hàng (dữ liệu phân hệ Dự án — người gọi kiểm tra quyền Kế hoạch – Xem); bấm mở Kế hoạch chi tiết */
+export function ProductionBlock({ production }: { production: { id: number; key: string; name: string; project_status: string | null; status_auto: string; total_issues: number; done_issues: number; accessible: boolean; ba?: string | null }[] }) {
+  return (
+    <Block title={`Liên kết tiến độ sản xuất (${production.length})`}>
+      {!production.length ? <p className="muted small">Dự án chưa gắn với dự án sản xuất nào</p>
+          : production.map((p) => {
+            const st = p.project_status || p.status_auto;
+            const pct = p.total_issues ? Math.round((p.done_issues / p.total_issues) * 100) : 0;
+            const body = <>
+              <div className="row gap-sm" style={{ minWidth: 0 }}>
+                <span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span>
+                <b className="grow ellipsis">{p.name}</b>
+                {st && <span className={lozengeOf(PROJECT_STATUSES, st)}>{st}</span>}
+              </div>
+              <div className="muted small">{p.key}{p.ba ? ` · BA/PM: ${p.ba}` : ''}{p.total_issues ? ` · ${p.done_issues}/${p.total_issues} việc (${pct}%)` : ''}</div>
+            </>;
+            return p.accessible
+              ? <Link key={p.id} to={`/p/${p.key}/plan`} className="cw-project" data-tip="Mở Kế hoạch chi tiết">{body}</Link>
+              : <div key={p.id} className="cw-project disabled" data-tip="Bạn không phải thành viên dự án sản xuất này">{body}</div>;
+          })}
     </Block>
   );
 }
