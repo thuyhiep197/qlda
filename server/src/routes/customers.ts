@@ -4,7 +4,7 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
-import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, mentionableIds, ownsCustomer, projectOf, relatedCustomersSql, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
+import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, mentionableIds, projectOf, relatedCustomersSql, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
   visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import { checkPeople, namesSql, savePeople, userPositions } from '../people.ts';
 import { autoProjectStatuses } from '../phases.ts';
@@ -156,13 +156,11 @@ r.get('/:id', (req, res) => {
   const perms = userPermissions(req.user);
   // Thêm / sửa / lưu trữ chỉ trên khách hàng mình liên quan (xem tất cả chỉ để xem)
   c.can_manage = managesCustomer(req.user, c.id);
-  // Người tham gia mục chung (Sale / AM của khách hàng, người xem tất cả) — chỉ những người này được giao việc chung của khách hàng
+  // Người tham gia (gộp mọi dự án) — chỉ những người này được giao việc chung của khách hàng
   c.member_ids = [...customerMembers(c.id, null)];
-  // Việc, tài liệu, trao đổi chung của khách hàng: chỉ người tham gia mục chung mới xem và thao tác
-  c.can_general = ownsCustomer(req.user, c.id);
   // Người được nhắc (@) trong trao đổi chung: Sale / AM của khách hàng
   c.mention_ids = mentionableIds(c.id, null);
-  const shown = (x: { sales_project_id: number | null }) => (x.sales_project_id == null ? c.can_general : spIds.has(x.sales_project_id));
+  const shown = (x: { sales_project_id: number | null }) => x.sales_project_id == null || spIds.has(x.sales_project_id);
   const spIds = visibleProjectIds(req.user, c.id);
   syncJourneys([...spIds]);
   const owners = ownersOf(c.id);
@@ -182,7 +180,7 @@ r.get('/:id', (req, res) => {
   // ?archived=1 kèm dự án đã lưu trữ
   c.sales_projects = salesProjectsOf([c.id], { user: req.user, archived: req.query.archived === '1' });
   // Trao đổi chung của khách hàng (không thuộc dự án / bước nào)
-  c.activities = !perms.has('ctalk.view') || !c.can_general ? [] : all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
+  c.activities = !perms.has('ctalk.view') ? [] : all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
     WHERE a.customer_id = ? AND a.sales_project_id IS NULL AND a.step_id IS NULL ORDER BY a.created_at, a.id`, c.id);
   // Dự án của khách hàng kèm tiến độ; công việc chỉ hiện ở dự án người xem là thành viên
   const access = accessibleProjectIds(req.user);

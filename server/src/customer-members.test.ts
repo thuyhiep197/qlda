@@ -38,10 +38,10 @@ test('project members: Sale/AM of customer and project, BA/PM, Dev, Tester, step
   const m2 = customerMembers(cust, p2);
   for (const id of [am, doer, helper, boss]) assert.ok(m2.has(id));
   for (const id of [sale, ba, dev, tester, other]) assert.ok(!m2.has(id));
-  // Việc chung của khách hàng: chỉ Sale / AM của khách hàng và người xem tất cả (không gộp người tham gia các dự án)
+  // Việc chung của khách hàng: gộp mọi dự án
   const all = customerMembers(cust, null);
-  for (const id of [am, boss]) assert.ok(all.has(id));
-  for (const id of [sale, ba, doer, helper, other]) assert.ok(!all.has(id));
+  for (const id of [sale, am, ba, doer, helper, boss]) assert.ok(all.has(id));
+  assert.ok(!all.has(other));
 });
 
 test('only project members can be newly assigned; keeping an existing assignee is allowed', () => {
@@ -89,15 +89,6 @@ test('BA / Dev / Tester of a customer project take part in it (scope of customer
   const seen = (id: number) => { const v = visibleSalesProjectsSql({ id, is_admin: 0 } as never); return all<{ id: number }>(`SELECT sp.id FROM sales_projects sp WHERE ${v.sql}`, ...v.params).map((x) => x.id); };
   for (const u of [ba, dev, tester]) assert.ok(seen(u).includes(p1));
   assert.ok(!seen(ba).includes(p2));
-});
-
-test('general items of a customer belong to its Sale / AM and people who see all customers only', async () => {
-  const { ownsCustomer, requireCustomerInfo } = await import('./customer-access.ts');
-  const u = (id: number) => ({ id, is_admin: 0 }) as never;
-  assert.ok(ownsCustomer(u(am), cust));
-  assert.ok(ownsCustomer(u(boss), cust)); // Ban Giám đốc: xem tất cả khách hàng
-  for (const id of [ba, dev, doer]) assert.ok(!ownsCustomer(u(id), cust));
-  assert.throws(() => requireCustomerInfo(u(ba), cust));
 });
 
 test('who can be @mentioned: customer talk → Sale / AM of the customer; project talk → Sale / AM / BA / Dev / Tester of the project', async () => {
