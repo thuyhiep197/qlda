@@ -559,7 +559,9 @@ export interface CustomerProject {
 export interface CustomerDetail extends Customer {
   /** Được thêm / sửa / lưu trữ trên khách hàng này (mình phụ trách, thực hiện hoặc phối hợp; xem tất cả chỉ để xem) */
   can_manage: boolean;
-  /** Người tham gia (gộp mọi dự án) — chỉ giao việc chung cho những người này */
+  /** Được xem, thêm việc / tài liệu / trao đổi chung của khách hàng: Sale / AM của khách hàng hoặc người xem tất cả */
+  can_general: boolean;
+  /** Người tham gia mục chung (Sale / AM của khách hàng, người xem tất cả) — chỉ giao việc chung cho những người này */
   member_ids: number[];
   /** Sale, AM (id nhân sự) */
   kd_ids: number[];

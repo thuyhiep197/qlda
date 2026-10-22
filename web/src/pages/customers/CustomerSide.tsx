@@ -116,12 +116,12 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
           </div>
         ))}
       </Block>
-      {/* Công việc, Tài liệu, Trao đổi: chỉ khi có quyền Xem chức năng đó */}
-      {can('ctask.view') && <Tasks customerId={c.id} tasks={c.tasks} showProject members={c.member_ids} />}
-      {can('cfile.view') && <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && <UploadButton customerId={c.id} />}>
+      {/* Công việc, Tài liệu, Trao đổi: chỉ khi có quyền Xem chức năng đó; mục chung của khách hàng chỉ Sale / AM của khách hàng và người xem tất cả (can_general) */}
+      {can('ctask.view') && <Tasks customerId={c.id} tasks={c.tasks} showProject members={c.member_ids} allowAdd={c.can_general} />}
+      {can('cfile.view') && <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && c.can_general && <UploadButton customerId={c.id} />}>
         <FileList customerId={c.id} files={c.files} showWhere />
       </Block>}
-      {can('ctalk.view') && <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={can('ctalk.create')} users={users ?? []} />}
+      {can('ctalk.view') && c.can_general && <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={can('ctalk.create')} users={users ?? []} />}
       {editing && <CustomerModal customer={c} contacts={c.contacts} kdIds={c.kd_ids} amIds={c.am_ids} onClose={() => setEditing(false)} />}
     </>
   );
@@ -132,15 +132,17 @@ const TASK_STATUS = { todo: 'Chưa bắt đầu', doing: 'Đang thực hiện', 
 /**
  * Công việc: của khách hàng (gộp cả việc chung và việc của các dự án, showProject) hoặc của một dự án (projectId).
  */
-export function Tasks({ customerId, tasks, projectId, showProject, members }: {
+export function Tasks({ customerId, tasks, projectId, showProject, members, allowAdd = true }: {
   customerId: number; tasks: CustomerTask[]; projectId?: number; showProject?: boolean;
+  /** Được thêm việc ở đây (việc chung của khách hàng: chỉ người tham gia mục chung) */
+  allowAdd?: boolean;
   /** Chỉ giao việc cho người tham gia dự án của khách hàng */
   members: number[];
 }) {
   const { data: me } = useMe();
   const can = useCan();
   const { data: users } = useUsersBasic();
-  const canAdd = can('ctask.create'), canEdit = can('ctask.edit'), canDeleteAll = can('ctask.delete');
+  const canAdd = can('ctask.create') && allowAdd, canEdit = can('ctask.edit'), canDeleteAll = can('ctask.delete');
   const [showDone, setShowDone] = useState(false);
   const [d, setD] = useState({ title: '', assignee_id: '', due_date: '' });
   const now = today();

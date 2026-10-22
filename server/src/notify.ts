@@ -6,7 +6,7 @@
  *  - Không thông báo cho chính người thực hiện thao tác.
  */
 import { all, get, now, run } from './db.ts';
-import { canSeeCustomer, canSeeSalesProject, visibleCustomersSql, visibleSalesProjectsSql } from './customer-access.ts';
+import { canSeeCustomer, canSeeSalesProject, ownsCustomer, seesAllCustomers, visibleCustomersSql, visibleSalesProjectsSql } from './customer-access.ts';
 import { userPermissions, type Permission } from './permissions.ts';
 
 export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status' | 'flag' | 'ping';
@@ -57,10 +57,10 @@ export function noticeProjectId(link: string | null): number | null {
   return get<{ sales_project_id: number | null }>('SELECT sales_project_id FROM journey_steps WHERE id = ?', Number(m[2]))?.sales_project_id ?? null;
 }
 
-/** Người dùng được xem phần thông báo trỏ tới: mục của dự án → dự án trong phạm vi; mục chung → được xem thông tin khách hàng */
+/** Người dùng được xem phần thông báo trỏ tới: mục của dự án → dự án trong phạm vi; mục chung → được xem thông tin khách hàng và là Sale / AM của khách hàng (hoặc xem tất cả) */
 function inNoticeScope(u: { id: number; is_admin: number }, customerId: number, link: string | null) {
   const spId = noticeProjectId(link);
-  return spId ? canSeeSalesProject(u, spId) : canSeeCustomer(u, customerId);
+  return spId ? canSeeSalesProject(u, spId) : canSeeCustomer(u, customerId) && ownsCustomer(u, customerId);
 }
 
 /** Biểu thức SQL (bí danh n = notifications) như noticeProjectId: id dự án chứa phần thông báo trỏ tới, NULL = mục chung */
@@ -69,14 +69,15 @@ export const NOTICE_PROJECT_SQL = `(CASE WHEN n.link LIKE 'step:%' THEN (SELECT 
 
 /**
  * Điều kiện SQL (bí danh n = notifications) phạm vi thông báo khách hàng của người dùng — xét lúc đọc vì quyền, phạm vi có thể đã đổi:
- * mục của dự án → dự án trong phạm vi; mục chung → Thông tin khách hàng – Xem và khách hàng trong phạm vi.
+ * mục của dự án → dự án trong phạm vi; mục chung → Thông tin khách hàng – Xem, khách hàng trong phạm vi và là Sale / AM của khách hàng (hoặc xem tất cả).
  * Điều kiện phạm vi chỉ dùng tham số id người dùng → thay trực tiếp vì là số nguyên của phiên đăng nhập.
  */
 export function customerNoticeScopeSql(user: { id: number; is_admin: number }, perms: Set<Permission>) {
   const inline = (v: { sql: string }) => v.sql.replaceAll('?', String(Number(user.id)));
   const sp = inline(visibleSalesProjectsSql(user));
   const c = inline(visibleCustomersSql(user));
-  const general = perms.has('customer.view') ? `EXISTS (SELECT 1 FROM customers c WHERE c.id = n.customer_id AND ${c})` : '0=1';
+  const owns = user.is_admin || seesAllCustomers(user) ? '1=1' : `EXISTS (SELECT 1 FROM customer_owners co WHERE co.customer_id = n.customer_id AND co.user_id = ${Number(user.id)})`;
+  const general = perms.has('customer.view') ? `(EXISTS (SELECT 1 FROM customers c WHERE c.id = n.customer_id AND ${c}) AND ${owns})` : '0=1';
   // Bước đã bị bỏ (không còn dự án) → xét như mục chung, khớp lúc gửi
   return `(CASE WHEN ${NOTICE_PROJECT_SQL} IS NOT NULL THEN EXISTS (SELECT 1 FROM sales_projects sp WHERE sp.id = ${NOTICE_PROJECT_SQL} AND ${sp}) ELSE ${general} END)`;
 }

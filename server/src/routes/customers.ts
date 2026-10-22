@@ -4,7 +4,7 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
-import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, projectOf, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
+import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, ownsCustomer, projectOf, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
   visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import { checkPeople, namesSql, savePeople, userPositions } from '../people.ts';
 import { autoProjectStatuses } from '../phases.ts';
@@ -151,16 +151,17 @@ function visibleProjectIds(user: AuthUser, customerId: number): Set<number> {
   const v = visibleSalesProjectsSql(user);
   return new Set(all<{ id: number }>(`SELECT sp.id FROM sales_projects sp WHERE sp.customer_id = ? AND ${v.sql}`, customerId, ...v.params).map((x) => x.id));
 }
-/** Mục chung của khách hàng (không thuộc dự án) hoặc thuộc dự án người dùng được xem */
-const inVisible = (ids: Set<number>) => (x: { sales_project_id: number | null }) => x.sales_project_id == null || ids.has(x.sales_project_id);
 
 r.get('/:id', (req, res) => {
   const c = loadCustomer(req);
   const perms = userPermissions(req.user);
   // Thêm / sửa / lưu trữ chỉ trên khách hàng mình liên quan (xem tất cả chỉ để xem)
   c.can_manage = managesCustomer(req.user, c.id);
-  // Người tham gia (gộp mọi dự án) — chỉ những người này được giao việc chung của khách hàng
+  // Người tham gia mục chung (Sale / AM của khách hàng, người xem tất cả) — chỉ những người này được giao việc chung của khách hàng
   c.member_ids = [...customerMembers(c.id, null)];
+  // Việc, tài liệu, trao đổi chung của khách hàng: chỉ người tham gia mục chung mới xem và thao tác
+  c.can_general = ownsCustomer(req.user, c.id);
+  const shown = (x: { sales_project_id: number | null }) => (x.sales_project_id == null ? c.can_general : spIds.has(x.sales_project_id));
   const spIds = visibleProjectIds(req.user, c.id);
   syncJourneys([...spIds]);
   const owners = ownersOf(c.id);
@@ -174,13 +175,13 @@ r.get('/:id', (req, res) => {
   c.files = !perms.has('cfile.view') ? [] : all<any>(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name, f.step_id, s.title AS step_title,
       f.sales_project_id, sp.name AS sales_project_name
     FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id LEFT JOIN journey_steps s ON s.id = f.step_id LEFT JOIN sales_projects sp ON sp.id = f.sales_project_id
-    WHERE f.customer_id = ? ORDER BY f.created_at DESC`, c.id).filter(inVisible(spIds));
-  c.tasks = !perms.has('ctask.view') ? [] : all<any>(`${TASK_SELECT} WHERE t.customer_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, c.id).filter(inVisible(spIds));
+    WHERE f.customer_id = ? ORDER BY f.created_at DESC`, c.id).filter(shown);
+  c.tasks = !perms.has('ctask.view') ? [] : all<any>(`${TASK_SELECT} WHERE t.customer_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, c.id).filter(shown);
   // Các dự án của khách hàng (cấp 2) trong phạm vi, kèm tình trạng, tiến độ hành trình (không có Dự án của khách hàng – Xem: chỉ tên);
   // ?archived=1 kèm dự án đã lưu trữ
   c.sales_projects = salesProjectsOf([c.id], { user: req.user, archived: req.query.archived === '1' });
   // Trao đổi chung của khách hàng (không thuộc dự án / bước nào)
-  c.activities = !perms.has('ctalk.view') ? [] : all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
+  c.activities = !perms.has('ctalk.view') || !c.can_general ? [] : all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
     WHERE a.customer_id = ? AND a.sales_project_id IS NULL AND a.step_id IS NULL ORDER BY a.created_at, a.id`, c.id);
   // Dự án của khách hàng kèm tiến độ; công việc chỉ hiện ở dự án người xem là thành viên
   const access = accessibleProjectIds(req.user);

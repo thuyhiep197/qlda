@@ -118,9 +118,15 @@ export function loadCustomerRef(req: Request, perm?: Permission) {
   return c;
 }
 
-/** Mục chung của khách hàng (không thuộc dự án) nằm ở màn khách hàng: cần Thông tin khách hàng – Xem và khách hàng trong phạm vi */
+/** Người tham gia mục chung của khách hàng (việc, tài liệu, trao đổi chung): Sale / AM của khách hàng hoặc người được xem tất cả khách hàng */
+export function ownsCustomer(user: U, customerId: number) {
+  return !!user.is_admin || seesAllCustomers(user) || !!get('SELECT 1 FROM customer_owners WHERE customer_id = ? AND user_id = ?', customerId, user.id);
+}
+
+/** Mục chung của khách hàng (không thuộc dự án) nằm ở màn khách hàng: cần Thông tin khách hàng – Xem, khách hàng trong phạm vi và là người tham gia (ownsCustomer) */
 export function requireCustomerInfo(user: U, customerId: number) {
   if (!canSeeCustomer(user, customerId)) throw forbidden('Mục chung của khách hàng cần quyền Thông tin khách hàng – Xem');
+  if (!ownsCustomer(user, customerId)) throw forbidden('Việc, tài liệu, trao đổi chung của khách hàng chỉ dành cho Sale / AM của khách hàng và người được xem tất cả khách hàng');
 }
 
 /** Hành động ghi trên một mục của khách hàng (việc, tài liệu, trao đổi): mục chung → liên quan khách hàng; mục của dự án → liên quan dự án */
@@ -162,7 +168,8 @@ export function customerMembers(customerId: number, salesProjectId: number | nul
   const ids = new Set<number>();
   const add = (rows: { user_id: number | null }[]) => { for (const r of rows) if (r.user_id) ids.add(r.user_id); };
   add(all('SELECT user_id FROM customer_owners WHERE customer_id = ?', customerId));
-  const projects = salesProjectId ? [salesProjectId] : all<{ id: number }>('SELECT id FROM sales_projects WHERE customer_id = ?', customerId).map((p) => p.id);
+  // Mục chung của khách hàng: chỉ Sale / AM của khách hàng (+ người xem tất cả); mục của dự án: thêm người tham gia dự án
+  const projects = salesProjectId ? [salesProjectId] : [];
   for (const p of projects) {
     // Sale, AM, BA/PM, Dev, Tester của dự án
     add(all('SELECT user_id FROM sales_project_owners WHERE sales_project_id = ?', p));
