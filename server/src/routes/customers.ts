@@ -4,7 +4,7 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
-import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, ownsCustomer, projectOf, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
+import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, ownsCustomer, projectOf, relatedCustomersSql, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
   visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import { checkPeople, namesSql, savePeople, userPositions } from '../people.ts';
 import { autoProjectStatuses } from '../phases.ts';
@@ -86,6 +86,8 @@ r.get('/', (req, res) => {
   syncJourneys();
   const archived = req.query.archived === '1';
   const vis = visibleCustomersSql(req.user);
+  // Khách hàng của tôi = khách hàng mình tham gia (Sale/AM khách hàng, người tham gia dự án, thực hiện / phối hợp bước, được giao việc) — không tính quyền Xem tất cả
+  const mine = relatedCustomersSql(req.user);
   const projectsByCustomer = new Map<number, any[]>();
   for (const sp of salesProjectsOf('all', { user: req.user, archived })) {
     if (!projectsByCustomer.has(sp.customer_id)) projectsByCustomer.set(sp.customer_id, []);
@@ -94,11 +96,10 @@ r.get('/', (req, res) => {
   if (!perms.has('customer.view')) {
     const ids = [...projectsByCustomer.keys()];
     if (!ids.length) return res.json([]);
-    // Mọi khách hàng ở đây đều là khách hàng mình tham gia → nằm trong "Khách hàng của tôi"
-    return res.json(all<{ id: number }>(`SELECT c.id, c.name, c.province_code, gp.name AS province_name, c.is_archived
+    return res.json(all<{ id: number }>(`SELECT c.id, c.name, c.province_code, gp.name AS province_name, c.is_archived, (${mine.sql}) AS is_mine
       FROM customers c LEFT JOIN geo_provinces gp ON gp.code = c.province_code
-      WHERE c.id IN (${ids.map(() => '?').join(',')}) ${archived ? '' : 'AND c.is_archived = 0'} ORDER BY c.name`, ...ids)
-      .map((c) => ({ ...c, is_mine: 1, sales_projects: projectsByCustomer.get(c.id) ?? [] })));
+      WHERE c.id IN (${ids.map(() => '?').join(',')}) ${archived ? '' : 'AND c.is_archived = 0'} ORDER BY c.name`, ...mine.params, ...ids)
+      .map((c) => ({ ...c, sales_projects: projectsByCustomer.get(c.id) ?? [] })));
   }
   const openTasks = new Map(all<{ customer_id: number; n: number }>("SELECT customer_id, COUNT(*) n FROM customer_tasks WHERE status <> 'done' GROUP BY customer_id")
     .map((x) => [x.customer_id, x.n]));
@@ -112,11 +113,9 @@ r.get('/', (req, res) => {
       ${canTalk ? '(SELECT MAX(activity_date) FROM customer_activities a WHERE a.customer_id = c.id)' : 'NULL'} AS last_activity_date,
       ${FIRST_CONTACT('full_name')} AS contact_name, ${FIRST_CONTACT('phone')} AS contact_phone, ${FIRST_CONTACT('email')} AS contact_email,
       ${OWNER_NAMES('kd')} AS kd_names, ${OWNER_NAMES('am')} AS am_names,
-      (EXISTS (SELECT 1 FROM customer_owners co WHERE co.customer_id = c.id AND co.user_id = ?)
-        OR EXISTS (SELECT 1 FROM sales_project_owners o JOIN sales_projects sp ON sp.id = o.sales_project_id
-          WHERE sp.customer_id = c.id AND o.user_id = ?)) AS is_mine
+      (${mine.sql}) AS is_mine
     FROM customers c LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code
-    WHERE ${vis.sql} ${archived ? '' : 'AND c.is_archived = 0'} ORDER BY c.name`, req.user.id, req.user.id, ...vis.params).map((c: any) => {
+    WHERE ${vis.sql} ${archived ? '' : 'AND c.is_archived = 0'} ORDER BY c.name`, ...mine.params, ...vis.params).map((c: any) => {
     const projects = projectsByCustomer.get(c.id) ?? [];
     return { ...c, sales_projects: projects, product_name: [...new Set(projects.map((p) => p.product_name).filter(Boolean))].join(', ') || null,
       ...(canTask ? { open_tasks: openTasks.get(c.id) ?? 0 } : {}) };

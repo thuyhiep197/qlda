@@ -42,8 +42,8 @@ const IN_PROJECT = (col: string) => `(EXISTS (SELECT 1 FROM sales_project_owners
       OR EXISTS (SELECT 1 FROM journey_step_supporters ss JOIN journey_steps j ON j.id = ss.step_id WHERE j.sales_project_id = ${col} AND ss.user_id = ?)
       OR EXISTS (SELECT 1 FROM customer_tasks t WHERE t.sales_project_id = ${col} AND t.assignee_id = ?))`;
 
-/** Điều kiện SQL: khách hàng (bí danh c) người dùng liên quan */
-function relatedCustomersSql(user: U) {
+/** Điều kiện SQL: khách hàng (bí danh c) người dùng liên quan (tham gia) — không xét Xem tất cả; dùng cho "Khách hàng của tôi" */
+export function relatedCustomersSql(user: U) {
   return {
     sql: `(${OWNS_CUSTOMER('c.id')}
       OR EXISTS (SELECT 1 FROM sales_projects vsp WHERE vsp.customer_id = c.id AND ${IN_PROJECT('vsp.id')})

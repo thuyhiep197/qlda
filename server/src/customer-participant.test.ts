@@ -184,3 +184,16 @@ test('global search: internal documents need Tài liệu nội bộ – Xem (own
   assert.deepEqual(await names(docReader), ['quy-che.pdf']);
   assert.deepEqual(await names(docAll), ['quy-che.pdf', 'quy-dinh.pdf']);
 });
+
+test('"Khách hàng của tôi" = customers I take part in, even with Xem tất cả khách hàng (with or without Thông tin khách hàng – Xem)', async () => {
+  const allNoInfo = user('allnoinfo', role('Xem tất cả, không xem thông tin', ['dashboard.view', 'sales_project.view', 'customer.view_all']));
+  const allInfo = user('allinfo', role('Xem tất cả + thông tin', ['dashboard.view', 'customer.view', 'customer.view_all']));
+  for (const u of [allNoInfo, allInfo]) {
+    const list = (await api(u, '/')).body;
+    assert.deepEqual(list.map((c: any) => c.id).sort(), [cust, other].sort());
+    assert.ok(list.every((c: any) => !c.is_mine), 'không tham gia khách hàng nào');
+  }
+  run("INSERT INTO sales_project_owners(sales_project_id, user_id, role) VALUES (?, ?, 'ba')", spOther, allNoInfo);
+  const mine = (await api(allNoInfo, '/')).body.filter((c: any) => c.is_mine).map((c: any) => c.id);
+  assert.deepEqual(mine, [other]);
+});
