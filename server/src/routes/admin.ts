@@ -30,6 +30,26 @@ function checkRole(v: unknown): number | null {
   return role.id;
 }
 
+/**
+ * Chống tự nâng quyền: người không phải quản trị hệ thống không đổi được nhóm của chính mình,
+ * không gán nhóm Quản trị hệ thống, và chỉ gán được nhóm có quyền nằm trong quyền thực tế của mình.
+ */
+function checkAssignableRole(user: Express.Request['user'], roleId: number, targetId?: number) {
+  if (user.is_admin) return;
+  if (targetId === user.id) throw forbidden('Không thể tự đổi nhóm người dùng của mình');
+  if (isAdminRole(roleId)) throw forbidden('Chỉ quản trị hệ thống được gán nhóm Quản trị hệ thống');
+  const role = get<{ permissions: string }>('SELECT permissions FROM roles WHERE id = ?', roleId);
+  let list: unknown = [];
+  try { list = JSON.parse(role?.permissions || '[]'); } catch { /* nhóm lỗi → coi như rỗng */ }
+  const mine = userPermissions(user);
+  if (cleanPermissionList(list).some((p) => !mine.has(p))) throw forbidden('Chỉ được gán nhóm có quyền nằm trong quyền của bạn');
+}
+
+/** Tài khoản Quản trị hệ thống: chỉ quản trị hệ thống được sửa thông tin, khóa / mở khóa, đặt lại mật khẩu */
+function guardAdminAccount(user: Express.Request['user'], target: { is_admin: number }) {
+  if (target.is_admin && !user.is_admin) throw forbidden('Chỉ quản trị hệ thống được sửa tài khoản Quản trị hệ thống');
+}
+
 /** Danh sách rút gọn cho mọi người dùng đã đăng nhập (dùng khi chọn người). */
 r.get('/users/basic', (_req, res) => {
   const users = all(`SELECT u.id, u.username, u.full_name, u.avatar, u.default_role_id, r.name AS default_role_name,
@@ -46,16 +66,6 @@ function memberships(userId: number) {
   return all(`SELECT pm.project_id, p.key AS project_key, p.name AS project_name, pm.role_id, r.name AS role_name
     FROM project_members pm JOIN projects p ON p.id = pm.project_id JOIN roles r ON r.id = pm.role_id
     WHERE pm.user_id = ? AND p.is_archived = 0 ORDER BY p.name`, userId);
-}
-
-/** Thay toàn bộ danh sách dự án người dùng được tham gia (vai trò lấy theo tài khoản). */
-function setProjects(userId: number, list: unknown) {
-  if (!Array.isArray(list)) throw badRequest('Danh sách dự án không hợp lệ');
-  const ids = [...new Set(list.map(Number))];
-  for (const id of ids) if (!get('SELECT 1 FROM projects WHERE id = ?', id)) throw badRequest('Dự án không hợp lệ');
-  const roleId = accountRoleId(userId);
-  run('DELETE FROM project_members WHERE user_id = ? AND project_id IN (SELECT id FROM projects WHERE is_archived = 0)', userId);
-  for (const id of ids) run('INSERT OR REPLACE INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', id, userId, roleId);
 }
 
 r.get('/users', need('user.view'), (_req, res) => {
@@ -83,16 +93,14 @@ r.post('/users', need('user.create'), (req, res) => {
   // Thuộc nhóm Quản trị hệ thống = quản trị hệ thống
   const isAdmin = isAdminRole(roleId);
   if (isAdmin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được tạo tài khoản quản trị');
-  // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự); bỏ trống = chưa xếp phòng
-  const place = cleanPlacement(b, false);
-  const id = tx(() => {
-    const { id } = run(
-      'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password, department_id, positions) VALUES (?,?,?,?,?,?,1,?,?)',
-      username, full_name, b.email || null, hashPassword(password), isAdmin ? 1 : 0, roleId, place.department_id, place.positions,
-    );
-    if (b.project_ids !== undefined) setProjects(id, b.project_ids);
-    return id;
-  });
+  checkAssignableRole(req.user, roleId);
+  // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự): cần quyền Nhân sự – Thêm; bỏ trống = chưa xếp phòng
+  if (b.department_id) requireUserPerm(req.user, 'staff.create');
+  const place = cleanPlacement(b.department_id ? b : {}, false);
+  const { id } = run(
+    'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password, department_id, positions) VALUES (?,?,?,?,?,?,1,?,?)',
+    username, full_name, b.email || null, hashPassword(password), isAdmin ? 1 : 0, roleId, place.department_id, place.positions,
+  );
   audit(req, 'user_created', { target: username, detail: { full_name, role: get('SELECT name FROM roles WHERE id = ?', roleId)?.name, is_admin: isAdmin } });
   res.status(201).json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
 });
@@ -102,10 +110,15 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   const u = get('SELECT * FROM users WHERE id = ?', id);
   if (!u) throw notFound();
   const b = req.body || {};
+  guardAdminAccount(req.user, u);
   // Quản trị hệ thống theo nhóm: vào / rời nhóm Quản trị hệ thống là cấp / gỡ quyền quản trị
   const roleId = b.default_role_id !== undefined ? checkRole(b.default_role_id) : u.default_role_id;
   const isAdmin = isAdminRole(roleId);
   if (isAdmin !== !!u.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được cấp hoặc gỡ quyền quản trị');
+  if (roleId && roleId !== u.default_role_id) checkAssignableRole(req.user, roleId, id);
+  // Phòng ban + vị trí: cần quyền Nhân sự – Sửa
+  const placing = b.department_id !== undefined || b.positions !== undefined;
+  if (placing) requireUserPerm(req.user, 'staff.edit');
   if (b.is_active === false && u.is_active) requireUserPerm(req.user, 'user.delete');
   if (id === req.user.id && (b.is_active === false || (u.is_admin && !isAdmin))) {
     throw badRequest('Không thể tự khóa hoặc tự rời nhóm Quản trị hệ thống');
@@ -125,11 +138,10 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
       id);
     run('UPDATE project_members SET role_id = ? WHERE user_id = ?', accountRoleId(id), id);
     // Phòng ban + vị trí (gửi kèm thì cập nhật; bỏ trống phòng ban = chưa xếp phòng)
-    if (b.department_id !== undefined || b.positions !== undefined) {
+    if (placing) {
       const place = cleanPlacement({ department_id: u.department_id, positions: u.positions, note: u.staff_note, ...b }, false);
       run('UPDATE users SET department_id = ?, positions = ?, manager_id = CASE WHEN ? IS NULL THEN NULL ELSE manager_id END WHERE id = ?', place.department_id, place.positions, place.department_id, id);
     }
-    if (b.project_ids !== undefined) setProjects(id, b.project_ids);
   });
   const after = get('SELECT * FROM users WHERE id = ?', id);
   const changes: Record<string, unknown> = {};
@@ -138,15 +150,15 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   if (after.default_role_id !== u.default_role_id) changes.nhom = `${get('SELECT name FROM roles WHERE id = ?', u.default_role_id)?.name ?? '—'} → ${get('SELECT name FROM roles WHERE id = ?', after.default_role_id)?.name ?? '—'}`;
   if (after.full_name !== u.full_name) changes.ho_ten = `${u.full_name} → ${after.full_name}`;
   if (after.email !== u.email) changes.email = `${u.email ?? '—'} → ${after.email ?? '—'}`;
-  if (b.project_ids !== undefined) changes.du_an = 'Cập nhật danh sách dự án';
   audit(req, 'user_updated', { target: u.username, detail: changes });
   res.json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
 });
 
 r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
   const id = Number(req.params.id);
-  if (!get('SELECT 1 FROM users WHERE id = ?', id)) throw notFound();
-  const target = get<{ username: string }>('SELECT username FROM users WHERE id = ?', id)!;
+  const target = get<{ username: string; is_admin: number }>('SELECT username, is_admin FROM users WHERE id = ?', id);
+  if (!target) throw notFound();
+  guardAdminAccount(req.user, target);
   const password = validatePassword(req.body?.password, target.username);
   run('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(password), id);
   audit(req, 'password_reset', { target: target.username });
@@ -158,7 +170,10 @@ r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
 // ---------------------------------------------------------------------------
 r.get('/permissions', (_req, res) => res.json({ actions: ACTIONS, subsystems: SUBSYSTEMS, groups: FEATURE_GROUPS }));
 
-r.get('/roles', (_req, res) => {
+r.get('/roles', (req, res) => {
+  // Danh sách nhóm: màn hình Người dùng (chọn nhóm) và Phân quyền
+  const p = userPermissions(req.user);
+  if (!p.has('role.view') && !p.has('user.view')) throw forbidden();
   // Số người = số tài khoản thuộc nhóm (không cộng lượt tham gia dự án — vai trò trong dự án theo nhóm của tài khoản)
   const rows = all(`SELECT r.*, (SELECT COUNT(*) FROM users u WHERE u.default_role_id = r.id) AS usage,
       (SELECT COUNT(*) FROM project_members pm WHERE pm.role_id = r.id) AS project_usage
@@ -171,12 +186,20 @@ function cleanPerms(v: unknown) {
   return JSON.stringify(cleanPermissionList(v));
 }
 
+/** Chống tự nâng quyền: người không phải quản trị hệ thống chỉ thêm vào nhóm được những quyền mình đang có */
+function checkGrantable(user: Express.Request['user'], perms: string, before: string[] = []) {
+  if (user.is_admin) return;
+  const mine = userPermissions(user);
+  if ((JSON.parse(perms) as string[]).some((p) => !before.includes(p) && !mine.has(p))) throw forbidden('Chỉ được cấp quyền nằm trong quyền của bạn');
+}
+
 r.post('/roles', need('role.create'), (req, res) => {
   const name = String(req.body?.name || '').trim();
   if (!name) throw badRequest('Tên nhóm không được để trống');
   if (get('SELECT 1 FROM roles WHERE name = ?', name)) throw badRequest('Tên nhóm đã tồn tại');
-  const { id } = run('INSERT INTO roles(name, description, permissions) VALUES (?,?,?)',
-    name, req.body?.description || null, cleanPerms(req.body?.permissions || []));
+  const perms = cleanPerms(req.body?.permissions || []);
+  checkGrantable(req.user, perms);
+  const { id } = run('INSERT INTO roles(name, description, permissions) VALUES (?,?,?)', name, req.body?.description || null, perms);
   audit(req, 'role_created', { target: name });
   res.status(201).json({ id });
 });
@@ -191,6 +214,7 @@ r.patch('/roles/:id', need('role.edit'), (req, res) => {
   const name = req.body?.name !== undefined ? String(req.body.name).trim() : role.name;
   if (!name) throw badRequest('Tên vai trò không được để trống');
   if (get('SELECT 1 FROM roles WHERE name = ? AND id <> ?', name, role.id)) throw badRequest('Tên vai trò đã tồn tại');
+  if (req.body?.permissions !== undefined) checkGrantable(req.user, cleanPerms(req.body.permissions), JSON.parse(role.permissions || '[]'));
   run('UPDATE roles SET name = ?, description = ?, permissions = ? WHERE id = ?',
     name,
     req.body?.description !== undefined ? req.body.description || null : role.description,
@@ -247,6 +271,13 @@ r.put('/users/:id/permissions', need('role.edit'), (req, res) => {
   const o = req.body?.overrides;
   if (!o || typeof o !== 'object') throw badRequest('Dữ liệu phân quyền không hợp lệ');
   const entries = Object.entries(o as Record<string, unknown>).filter(([p, e]) => isPermission(p) && e === 'allow');
+  // Chống tự nâng quyền: không tự cấp quyền riêng cho mình; chỉ cấp được quyền mình đang có
+  if (!req.user.is_admin) {
+    if (id === req.user.id) throw forbidden('Không thể tự cấp quyền riêng cho mình');
+    const mine = userPermissions(req.user);
+    const before = new Set(all<{ permission: string }>("SELECT permission FROM user_permissions WHERE user_id = ? AND effect = 'allow'", id).map((x) => x.permission));
+    if (entries.some(([p]) => !before.has(p) && !mine.has(p))) throw forbidden('Chỉ được cấp quyền nằm trong quyền của bạn');
+  }
   tx(() => {
     run('DELETE FROM user_permissions WHERE user_id = ?', id);
     for (const [p, e] of entries) run('INSERT INTO user_permissions(user_id, permission, effect) VALUES (?,?,?)', id, p, String(e));

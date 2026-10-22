@@ -17,7 +17,9 @@ export interface KanbanLane { key: string; title: string; epicKey?: string; item
  * Kéo thẻ sang cột khác để đổi trạng thái (chỉ cột hợp lệ theo quy trình của loại issue).
  */
 export function PlanKanban({ project, lanes }: { project: Project; lanes: KanbanLane[] }) {
-  const { open } = useIssueModal();
+  const { open: openModal } = useIssueModal();
+  // Mở chi tiết issue cần Issue – Xem
+  const open = (key: string) => { if (can(project.permissions, 'issue.view')) openModal(key); };
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [drag, setDrag] = useState<Issue | null>(null);
   const [over, setOver] = useState<string | null>(null);

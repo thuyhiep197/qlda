@@ -4,7 +4,7 @@ import { AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Paperclip, Plu
 import { api, queryClient } from '../../api';
 import { useDepartments, useMe } from '../../hooks';
 import { useCan } from './manage';
-import type { JourneyData, JourneyStep, SalesProject, StepStatus } from '../../types';
+import type { JourneyData, JourneyStep, SalesProjectDetail, StepStatus } from '../../types';
 import { filterSteps, overdueDays } from '../../customer-filter';
 import { fmtDate, today } from '../../util';
 import { Empty, Spinner, toastError } from '../../components/ui';
@@ -27,11 +27,13 @@ export const refreshCustomer = (customerId: number) => Promise.all([
 ]);
 
 /** Cột giữa: hành trình bán hàng của một dự án của khách hàng theo quy trình I–IV. Bấm một bước để xem Trao đổi và Tài liệu của bước ở cột phải. */
-export default function JourneyPane({ customerId, sp, selected, onSelect }: { customerId: number; sp: SalesProject; selected: number | null; onSelect: (id: number | null) => void }) {
+export default function JourneyPane({ customerId, sp, selected, onSelect }: { customerId: number; sp: SalesProjectDetail; selected: number | null; onSelect: (id: number | null) => void }) {
   const { data: me } = useMe();
   const can = useCan();
   const { data: departments } = useDepartments();
   const canEdit = can('journey.edit'), canAddStep = can('journey.create');
+  // Số trao đổi, tài liệu kết quả của bước: chỉ khi có quyền Xem chức năng đó
+  const canTalk = can('ctalk.view'), canFiles = can('cfile.view');
   const { data, isLoading } = useQuery<JourneyData>({ queryKey: ['journey', sp.id], queryFn: () => api.get(`/customers/${customerId}/projects/${sp.id}/journey`) });
   const [collapsed, setCollapsed] = useState<Set<number> | null>(null);
   const [f, setF] = useState({ status: '', unit: '', mine: false, q: '' });
@@ -74,7 +76,7 @@ export default function JourneyPane({ customerId, sp, selected, onSelect }: { cu
         {people.length ? people.map((p) => <PersonChip key={p.id} name={p.full_name} dept={p.dept} />)
           : planned ? <span className="unit-chip planned" data-tip="Phòng theo quy trình mẫu — chưa giao người">{planned}</span>
           : canEdit ? <span className="j-add">+ Giao</span> : null}
-        {open && <UserPickerPopover value={people.map((p) => p.id)} multi={field === 'supporters'} prefer={planned} onClose={() => setPicking(null)}
+        {open && <UserPickerPopover value={people.map((p) => p.id)} multi={field === 'supporters'} prefer={planned} only={sp.member_ids} onClose={() => setPicking(null)}
           onChange={(ids) => assign(s, field === 'assignee' ? { assignee_id: ids[0] ?? null } : { supporter_ids: ids })} />}
       </td>
     );
@@ -189,8 +191,8 @@ export default function JourneyPane({ customerId, sp, selected, onSelect }: { cu
                     {late > 0 && <span className="lozenge lozenge-red j-late-badge"><AlertTriangle size={11} /> Quá hạn {late} ngày</span>}</td>
                   <td className={`small nowrap ${late ? 'overdue strong' : 'muted'}`}>{s.due_date ? fmtDate(s.due_date) : ''}</td>
                   <td className="nowrap muted small">
-                    {s.talk_count > 0 && <span data-tip="Trao đổi"><MessageSquare size={12} /> {s.talk_count} </span>}
-                    {s.files.length > 0 && <span data-tip="Tài liệu kết quả"><Paperclip size={12} /> {s.files.length}</span>}
+                    {canTalk && s.talk_count > 0 && <span data-tip="Trao đổi"><MessageSquare size={12} /> {s.talk_count} </span>}
+                    {canFiles && s.files.length > 0 && <span data-tip="Tài liệu kết quả"><Paperclip size={12} /> {s.files.length}</span>}
                   </td>
                 </tr>
               );

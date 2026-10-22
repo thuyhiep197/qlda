@@ -144,7 +144,9 @@ const flatten = (rows: Row[]): Row[] => rows.flatMap((r) => [r, ...flatten(r.chi
 export default function Plan() {
   const project = useProjectCtx();
   const { data: me } = useMe();
-  const { open } = useIssueModal();
+  const { open: openModal } = useIssueModal();
+  // Mở chi tiết issue cần Issue – Xem
+  const open = (key: string) => { if (can(project.permissions, 'issue.view')) openModal(key); };
   const today = todayStr();
   const { data: issues, isLoading } = useQuery<Issue[]>({
     queryKey: ['issues', 'plan', project.key],

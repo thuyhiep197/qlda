@@ -7,7 +7,7 @@
  */
 import { all, get, tx } from './db.ts';
 import { createIssue, parseDuration } from './issues.ts';
-import { isStatusAllowed } from './workflow.ts';
+import { initialStatus, isStatusAllowed } from './workflow.ts';
 import { badRequest, forbidden, type AuthUser, type Permission } from './permissions.ts';
 
 export interface ImportRow {
@@ -80,7 +80,8 @@ function parseDate(v: string): string | null | undefined {
 }
 
 export function runImport(user: AuthUser, projectId: number, perms: Set<Permission>, input: unknown, commit: boolean) {
-  if (!perms.has('issue.import')) throw forbidden('Bạn không có quyền nhập issue từ file');
+  // Nhập từ file = tạo issue hàng loạt: cần cả quyền Import và Thêm issue
+  if (!perms.has('issue.import') || !perms.has('issue.create')) throw forbidden('Bạn không có quyền nhập issue từ file');
   if (!Array.isArray(input) || input.length === 0) throw badRequest('File không có dòng dữ liệu nào');
   if (input.length > MAX_IMPORT_ROWS) throw badRequest(`Mỗi lần nhập tối đa ${MAX_IMPORT_ROWS} dòng, file có ${input.length} dòng`);
   const rows = input as ImportRow[];
@@ -135,7 +136,7 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
       const inParen = res.assignee.match(/\(([^()]+)\)\s*$/)?.[1];
       const id = memberBy.get(fold(inParen ?? res.assignee)) ?? memberBy.get(fold(res.assignee));
       if (!id) res.warnings.push(`Không tìm thấy "${res.assignee}" trong thành viên dự án, để trống người thực hiện`);
-      else if (id !== user.id && !perms.has('issue.assign')) res.warnings.push('Bạn không có quyền giao việc cho người khác, để trống người thực hiện');
+      else if (!perms.has('issue.assign')) res.warnings.push('Bạn không có quyền giao việc, để trống người thực hiện');
       else data.assignee_id = id;
     }
 
@@ -156,7 +157,10 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
     if (str(r.status)) {
       const key = fold(r.status);
       const id = statusBy.get(key) ?? (STATUS_ALIASES[key] ? firstOf(STATUS_ALIASES[key]) : undefined);
-      if (id) {
+      if (id && !perms.has('issue.transition')) {
+        // Đặt trạng thái khác trạng thái đầu tiên cần quyền Chuyển trạng thái
+        if (id !== (type ? initialStatus(projectId, type) : null)) res.warnings.push('Bạn không có quyền chuyển trạng thái, dùng trạng thái đầu tiên');
+      } else if (id) {
         data.status_id = id;
         if (type && !isStatusAllowed(projectId, type, id)) {
           res.warnings.push(`Trạng thái "${str(r.status)}" không thuộc workflow của loại này, dùng trạng thái cùng nhóm`);
@@ -185,6 +189,7 @@ export function runImport(user: AuthUser, projectId: number, perms: Set<Permissi
       if (type === 'epic' || type === 'subtask') res.warnings.push(`${type === 'epic' ? 'Epic' : 'Sub-task'} không gán sprint trực tiếp, bỏ qua cột Sprint`);
       else if (!sp) res.warnings.push(`Không có sprint "${res.sprint}" trong dự án, đưa vào Backlog`);
       else if (sp.state === 'closed') res.warnings.push(`Sprint "${res.sprint}" đã đóng, đưa vào Backlog`);
+      else if (!perms.has('sprint.manage')) res.warnings.push('Bạn không có quyền đưa issue vào sprint, đưa vào Backlog');
       else data.sprint_id = sp.id;
     }
     return { res, data, ref: fold(r.ref) };

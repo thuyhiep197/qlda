@@ -1,9 +1,12 @@
 /** Bộ lọc tìm kiếm đã lưu (như "Saved filters" của Jira): của riêng mình hoặc chia sẻ cho thành viên dự án. */
 import { Router } from 'express';
 import { all, get, run } from '../db.ts';
-import { accessibleProjectIds, badRequest, forbidden, notFound } from '../permissions.ts';
+import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm } from '../permissions.ts';
 
 const r = Router();
+
+// Bộ lọc thuộc màn hình Danh sách & tìm kiếm issue: cần quyền Xem của chức năng này (thuộc phân hệ Dự án)
+r.use((req, _res, next) => { requireUserPerm(req.user, 'search.view'); next(); });
 
 r.get('/', (req, res) => {
   const ids = accessibleProjectIds(req.user);

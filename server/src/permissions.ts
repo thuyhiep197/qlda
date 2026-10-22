@@ -72,8 +72,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   // ---- Phân hệ Dự án ----
   {
     key: 'project', label: 'Module Thông tin dự án', subsystem: 'project', features: [
-      { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình; không tích Xem tất cả thì chỉ vào dự án mình là thành viên', actions: ['create', 'edit', 'delete', 'view_all'],
-        actionLabels: { delete: 'Lưu trữ' }, actionHints: { delete: 'Lưu trữ dự án', view_all: 'Vào mọi dự án (không cần là thành viên); các quyền đang có áp dụng trên tất cả' } },
+      { key: 'project', label: 'Dự án', hint: 'Thông tin, thành viên, trạng thái & quy trình; không tích Xem tất cả thì chỉ vào dự án mình là thành viên', actions: ['view', 'create', 'edit', 'delete', 'view_all'],
+        actionLabels: { delete: 'Lưu trữ' }, actionHints: { view: 'Xem tab Thông tin dự án', delete: 'Lưu trữ / khôi phục dự án', view_all: 'Vào mọi dự án (không cần là thành viên); các quyền đang có áp dụng trên tất cả' } },
     ],
   },
   {
@@ -137,6 +137,9 @@ export const PROJECT_MODULE_PERMISSIONS: Permission[] = FEATURE_GROUPS.filter((g
   .flatMap((g) => g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`)));
 /** Có ít nhất một ô quyền của phân hệ Dự án mới thấy phân hệ Dự án và vào được dự án (kể cả dự án mình là thành viên / liên kết với khách hàng) */
 export const hasProjectModule = (perms: Set<Permission>) => PROJECT_MODULE_PERMISSIONS.some((p) => perms.has(p));
+/** Màn hình dùng danh sách issue (Danh sách issue, Kế hoạch, Sprint đang chạy, Backlog): có một trong các ô Xem này mới lấy được danh sách */
+export const ISSUE_LIST_VIEWS: Permission[] = ['search.view', 'plan.view', 'sprint.view', 'backlog.view'];
+export const canListIssues = (perms: Set<Permission>) => ISSUE_LIST_VIEWS.some((p) => perms.has(p));
 
 /**
  * Mã quyền gộp dùng trong code từ trước (vẫn kiểm tra ở nhiều nơi) — suy ra từ quyền mới.

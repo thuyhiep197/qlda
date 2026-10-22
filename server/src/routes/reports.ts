@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { all, get, localDate } from '../db.ts';
-import { accessibleProjectIds, badRequest, notFound } from '../permissions.ts';
+import { accessibleProjectIds, badRequest, notFound, userPermissions } from '../permissions.ts';
 import { listIssues } from '../issues.ts';
 import { loadProject } from './projects.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -16,6 +16,11 @@ const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) 
 // ---------------------------------------------------------------------------
 r.get('/dashboard', (req, res) => {
   const user = req.user;
+  // Việc của tôi, chờ kiểm thử, hoạt động gần đây, số liệu: chỉ với quyền Issue – Xem (quyền theo tài khoản = quyền trong mọi dự án được vào)
+  if (!userPermissions(user).has('issue.view')) {
+    res.json({ stats: { assigned_open: 0, in_progress: 0, overdue: 0, done_week: 0, reported_open: 0 }, mine: [], activity: [], toTest: [] });
+    return;
+  }
   const ids = accessibleProjectIds(user);
   const scope = ids === 'all' ? '1=1' : ids.length ? `i.project_id IN (${ids.join(',')})` : '0=1';
   const today = localDate();
@@ -41,12 +46,7 @@ r.get('/dashboard', (req, res) => {
   // BA: việc của mô-đun mình phụ trách đang ở bước kiểm thử
   const toTest = listIssues(user, { ba: 'me', statusCategory: 'inprogress', sort: 'priority', limit: '100' })
     .filter((i: any) => /kiểm thử|kiem thu|test|qa/i.test(i.status_name));
-  const myModules = all(`SELECT c.id, c.name, c.side, p.key AS project_key,
-      (SELECT COUNT(*) FROM issues i WHERE i.component_id = c.id AND i.type NOT IN ('epic','subtask')) AS total,
-      (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.component_id = c.id AND i.type NOT IN ('epic','subtask') AND s.category = 'done') AS done,
-      (SELECT COUNT(*) FROM issues i JOIN statuses s ON s.id = i.status_id WHERE i.component_id = c.id AND i.type NOT IN ('epic','subtask') AND s.category = 'inprogress') AS inprogress
-    FROM components c JOIN projects p ON p.id = c.project_id WHERE c.lead_id = ? AND p.is_archived = 0 ORDER BY p.key, c.position`, user.id);
-  res.json({ stats, mine, activity: activity.map((a: any) => { const { user_avatar, ...item } = a; return { ...item, user_avatar_url: avatarUrl(user_avatar) }; }), toTest, myModules });
+  res.json({ stats, mine, activity: activity.map((a: any) => { const { user_avatar, ...item } = a; return { ...item, user_avatar_url: avatarUrl(user_avatar) }; }), toTest });
 });
 
 // ---------------------------------------------------------------------------
@@ -204,7 +204,7 @@ r.get('/projects/:key/dashboard', (req, res) => {
 });
 
 r.get('/projects/:key/velocity', (req, res) => {
-  const { project } = loadProject(req, 'plan.view');
+  const { project } = loadProject(req, 'sprint.view');
   const sprints = all(`SELECT id, name, start_date, end_date, completed_at, committed_points, completed_points,
       committed_issues, completed_issues
     FROM sprints WHERE project_id = ? AND state = 'closed' ORDER BY completed_at DESC LIMIT 10`, project.id).reverse();
@@ -216,7 +216,7 @@ r.get('/projects/:key/velocity', (req, res) => {
  * (trường sprint và status), tính tổng story point còn lại cuối mỗi ngày.
  */
 r.get('/projects/:key/burndown', (req, res) => {
-  const { project } = loadProject(req, 'plan.view');
+  const { project } = loadProject(req, 'sprint.view');
   const sprintId = Number(req.query.sprint);
   const sprint = get("SELECT * FROM sprints WHERE id = ? AND project_id = ? AND state <> 'future'", sprintId, project.id);
   if (!sprint) throw notFound('Không tìm thấy sprint');
@@ -314,7 +314,7 @@ r.get('/projects/:key/roadmap', (req, res) => {
  * Dựng lại từ lịch sử trường sprint; không tính sub-task.
  */
 r.get('/projects/:key/sprint-report', (req, res) => {
-  const { project } = loadProject(req, 'plan.view');
+  const { project } = loadProject(req, 'sprint.view');
   const sprint = get("SELECT * FROM sprints WHERE id = ? AND project_id = ? AND state <> 'future'", Number(req.query.sprint), project.id);
   if (!sprint) throw notFound('Không tìm thấy sprint');
   const sid = String(sprint.id);
@@ -359,7 +359,7 @@ r.get('/projects/:key/sprint-report', (req, res) => {
 
 /** Giờ công: các lần ghi giờ của dự án trong khoảng ngày (mặc định 30 ngày gần nhất). */
 r.get('/projects/:key/worklogs', (req, res) => {
-  const { project } = loadProject(req, 'plan.view');
+  const { project } = loadProject(req, 'worklog.view');
   const to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to)) ? String(req.query.to) : localDate();
   const from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from)) ? String(req.query.from) : addDays(to, -29);
   const rows = all(`SELECT w.id, w.work_date, w.minutes, w.comment, w.user_id, u.full_name AS user_name,

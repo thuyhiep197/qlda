@@ -7,8 +7,43 @@
  */
 import { all, get, now, run } from './db.ts';
 import { canSeeCustomer } from './customer-access.ts';
+import { userPermissions, type Permission } from './permissions.ts';
 
 export type NotificationType = 'mention' | 'assigned' | 'comment' | 'status' | 'flag' | 'ping';
+
+// ---------------------------------------------------------------------------
+// Thông báo chỉ đến / chỉ hiện với người có quyền Xem của chức năng sinh ra thông báo
+// ---------------------------------------------------------------------------
+/** Thông báo của khách hàng theo link (phần cần mở; "x:%" = bắt đầu bằng "x:") → các ô quyền Xem cần có */
+const CUSTOMER_NOTICE_PERMS: [string, Permission[]][] = [
+  ['step:%', ['journey.view', 'sales_project.view']], // bước hành trình (thuộc dự án của khách hàng)
+  ['call:%', ['ctalk.view']], // lịch gọi khách hàng = Trao đổi
+  ['tasks', ['ctask.view']], // công việc
+  ['info', ['ctalk.view']], // trao đổi chung của khách hàng
+];
+/** @nhắc trong Trao đổi (kể cả trao đổi của một bước) */
+const MENTION_PERMS: Permission[] = ['ctalk.view'];
+/** Thông báo issue: Issue – Xem; nội dung bình luận chỉ hiện khi có Bình luận – Xem */
+export const ISSUE_NOTICE_PERM = 'issue.view';
+export const COMMENT_NOTICE_PERM = 'comment.view';
+
+const linkMatches = (pattern: string, link: string | null) => (pattern.endsWith('%') ? !!link?.startsWith(pattern.slice(0, -1)) : link === pattern);
+
+/** Người có tập quyền perms được nhận / xem thông báo khách hàng (link, type) không */
+export function canSeeCustomerNotice(perms: Set<Permission>, link: string | null, type: string) {
+  const need = [...(CUSTOMER_NOTICE_PERMS.find(([p]) => linkMatches(p, link))?.[1] ?? []), ...(type === 'mention' ? MENTION_PERMS : [])];
+  return need.every((p) => perms.has(p));
+}
+
+/** Điều kiện SQL (bí danh n = notifications) cho thông báo khách hàng người có tập quyền perms được xem */
+export function customerNoticeSql(perms: Set<Permission>) {
+  const has = (ps: Permission[]) => ps.every((p) => perms.has(p));
+  const hidden = CUSTOMER_NOTICE_PERMS.filter(([, ps]) => !has(ps)).map(([p]) => (p.endsWith('%') ? `n.link LIKE '${p}'` : `n.link = '${p}'`));
+  if (!has(MENTION_PERMS)) hidden.push("n.type = 'mention'");
+  return hidden.length ? `NOT (${hidden.map((h) => `COALESCE(${h}, 0)`).join(' OR ')})` : '1=1';
+}
+
+const activeUser = (id: number) => get<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE id = ? AND is_active = 1', id);
 
 /** @tên_đăng_nhập đứng đầu dòng hoặc sau khoảng trắng/ngoặc (không bắt nhầm email a@b.com). */
 const MENTION_RE = /(^|[\s(>])@([a-z0-9][a-z0-9._-]*[a-z0-9_-]|[a-z0-9])/gi;
@@ -57,6 +92,9 @@ export function notify(userIds: Iterable<number>, actorId: number, issueId: numb
   const ts = now();
   for (const id of new Set(userIds)) {
     if (id === actorId || !wants(id, type)) continue;
+    // Không có quyền xem issue thì không nhận thông báo issue
+    const u = activeUser(id);
+    if (!u || !userPermissions(u).has(ISSUE_NOTICE_PERM)) continue;
     run('INSERT INTO notifications(user_id, actor_id, issue_id, type, text, created_at) VALUES (?,?,?,?,?,?)',
       id, actorId, issueId, type, snippet(text), ts);
   }
@@ -82,8 +120,9 @@ export function notifyCustomer(userIds: Iterable<number | null | undefined>, act
   const ts = now();
   for (const id of new Set(userIds)) {
     if (!id || id === actorId || !wants(id, type)) continue;
-    const u = get<{ id: number; is_admin: number }>('SELECT id, is_admin FROM users WHERE id = ? AND is_active = 1', id);
-    if (!u || !canSeeCustomer(u, customerId)) continue;
+    const u = activeUser(id);
+    // Được xem khách hàng và có quyền Xem của chức năng sinh ra thông báo (hành trình, lịch gọi / trao đổi, công việc)
+    if (!u || !canSeeCustomer(u, customerId) || !canSeeCustomerNotice(userPermissions(u), link, type)) continue;
     run('INSERT INTO notifications(user_id, actor_id, customer_id, link, type, text, created_at) VALUES (?,?,?,?,?,?,?)',
       id, actorId, customerId, link, type, snippet(text), ts);
   }

@@ -9,15 +9,17 @@ import { Building2, Info, Mail, Phone, Plus, UserRound, ListTree, ChartGantt, Li
 
 const LAST_PROJECT = 'qlda:last-project';
 
-/** Quyền Xem cần có để thấy từng tab. Kanban: bảng theo quyền xem issue. */
+/** Quyền Xem cần có để thấy từng tab. Thông tin: Dự án – Xem. */
 export const TAB_PERM: Record<string, string> = {
-  plan: 'plan.view', board: 'sprint.view', backlog: 'backlog.view', issues: 'search.view',
+  info: 'project.view', plan: 'plan.view', board: 'sprint.view', backlog: 'backlog.view', issues: 'search.view',
   roadmap: 'plan.view', releases: 'backlog.view',
 };
-/** Mở dự án → Kế hoạch chi tiết (không có quyền xem kế hoạch thì Thông tin). */
-export function firstTab(project: Project) {
-  return can(project.permissions, 'plan.view') ? 'plan' : 'info';
+/** Mở dự án → Kế hoạch chi tiết; không có quyền xem thì tab đầu tiên được phép (không tab nào → null). */
+const TAB_ORDER = ['plan', 'info', 'roadmap', 'board', 'issues', 'backlog'];
+export function firstTab(project: Project): string | null {
+  return TAB_ORDER.find((t) => (t !== 'backlog' || project.type === 'scrum') && can(project.permissions, TAB_PERM[t])) ?? null;
 }
+const NoTab = () => <div className="page-pad"><p className="muted">Bạn không có quyền xem màn hình nào của dự án này.</p></div>;
 
 export const useProjectCtx = () => useOutletContext<Project>();
 
@@ -45,12 +47,13 @@ export default function ProjectLayout() {
   const seg = location.pathname.split('/')[3];
   // Đường dẫn cũ: Cài đặt → Thông tin; Dashboard dự án đã bỏ → tab mặc định
   if (seg === 'settings') return <Navigate to={`/p/${project.key}/info`} replace />;
-  if (seg === 'dashboard') return <Navigate to={`/p/${project.key}/${firstTab(project)}`} replace />;
-  if (seg && TAB_PERM[seg] && !can(project.permissions, TAB_PERM[seg])) {
-    return <Navigate to={`/p/${project.key}/${firstTab(project)}`} replace />;
+  const first = firstTab(project);
+  if ((seg === 'dashboard' || (seg && TAB_PERM[seg] && !can(project.permissions, TAB_PERM[seg]))) && first) {
+    return <Navigate to={`/p/${project.key}/${first}`} replace />;
   }
   // Chỉ hiện tab người dùng có quyền Xem
-  const visibleTabs = tabs.filter(([p]) => p === 'info' || can(project.permissions, TAB_PERM[p] ?? ''));
+  const visibleTabs = tabs.filter(([p]) => can(project.permissions, TAB_PERM[p] ?? ''));
+  const blocked = !!seg && !!TAB_PERM[seg] && !can(project.permissions, TAB_PERM[seg]);
 
   return (
     <div className="project project-in-shell">
@@ -67,18 +70,19 @@ export default function ProjectLayout() {
       <nav className="tabs">
         {visibleTabs.map(([path, label, Icon]) => <NavLink key={path} to={`/p/${project.key}/${path}`}><Icon size={16} /> {label}</NavLink>)}
       </nav>
-      <Outlet context={project} />
-      {creating && <CreateIssueModal projectKey={project.key} onClose={() => setCreating(false)} onCreated={(issue) => openIssue(issue.key)} />}
+      {blocked || seg === 'dashboard' ? <NoTab /> : <Outlet context={project} />}
+      {creating && <CreateIssueModal projectKey={project.key} onClose={() => setCreating(false)} onCreated={(issue) => { if (can(project.permissions, 'issue.view')) openIssue(issue.key); }} />}
     </div>
   );
 }
 
-/** Khách hàng của dự án: tên (mở trang khách hàng nếu có quyền), đầu mối liên hệ đầu tiên, nhân viên phụ trách */
+/** Khách hàng của dự án: tên (mở trang khách hàng nếu có quyền); đầu mối liên hệ đầu tiên, nhân viên phụ trách chỉ với quyền Thông tin khách hàng – Xem */
 function ProjectCustomer({ project }: { project: Project }) {
   const { data: me } = useMe();
   const c = project.customer_info;
   if (!c) return project.customer ? <div className="project-customer"><span><Building2 size={14} /> <b>{project.customer}</b></span></div> : null;
-  const primary = c.contacts[0];
+  const full = hasPerm(me, 'customer.view');
+  const primary = full ? c.contacts[0] : undefined;
   return (
     <div className="project-customer">
       <span><Building2 size={14} /> Khách hàng: {hasPerm(me, 'customer.view') ? <Link to={`/customers/${c.id}`}><b>{c.name}</b></Link> : <b>{c.name}</b>}</span>
@@ -88,8 +92,8 @@ function ProjectCustomer({ project }: { project: Project }) {
         {primary.email && <> · <a href={`mailto:${primary.email}`}><Mail size={12} /> {primary.email}</a></>}
         {c.contacts.length > 1 && <span> (+{c.contacts.length - 1})</span>}
       </span>}
-      {c.kd_names && <span>Sale: <b>{c.kd_names}</b></span>}
-      {c.am_names && <span>AM: <b>{c.am_names}</b></span>}
+      {full && c.kd_names && <span>Sale: <b>{c.kd_names}</b></span>}
+      {full && c.am_names && <span>AM: <b>{c.am_names}</b></span>}
     </div>
   );
 }
@@ -106,5 +110,6 @@ export function Landing() {
 
 export function ProjectHome() {
   const project = useProjectCtx();
-  return <Navigate to={`/p/${project.key}/${firstTab(project)}`} replace />;
+  const first = firstTab(project);
+  return first ? <Navigate to={`/p/${project.key}/${first}`} replace /> : <NoTab />;
 }

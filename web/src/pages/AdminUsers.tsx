@@ -81,10 +81,11 @@ export default function AdminUsers() {
                 <td className="small nowrap">{u.last_login_at ? fmtDateTime(u.last_login_at) : <span className="muted">Chưa đăng nhập</span>}</td>
                 <td className="nowrap">{u.is_active ? <span className="lozenge lozenge-green">Hoạt động</span> : <span className="lozenge lozenge-red">Đã khóa</span>}</td>
                 <td className="num nowrap users-actions">
-                  {(hasPerm(me, 'role.view') || hasPerm(me, 'role.edit')) && <button className="icon-btn" aria-label="Phân quyền" data-tip="Phân quyền" onClick={() => setPermUser(u)}><ShieldCheck size={16} /></button>}
-                  {hasPerm(me, 'user.edit') && <button className="icon-btn" aria-label="Sửa" data-tip="Sửa" onClick={() => setEditing(u)}><Pencil size={16} /></button>}
-                  {hasPerm(me, 'user.edit') && <button className="icon-btn" aria-label="Đặt lại mật khẩu" data-tip="Đặt lại mật khẩu" onClick={() => setReset(u)}><KeyRound size={16} /></button>}
-                  {u.id !== me?.id && hasPerm(me, u.is_active ? 'user.delete' : 'user.edit') && (u.is_active
+                  {hasPerm(me, 'role.view') && <button className="icon-btn" aria-label="Phân quyền" data-tip="Phân quyền" onClick={() => setPermUser(u)}><ShieldCheck size={16} /></button>}
+                  {/* Tài khoản Quản trị hệ thống: chỉ quản trị hệ thống được sửa, đặt lại mật khẩu, khóa / mở khóa */}
+                  {hasPerm(me, 'user.edit') && (!u.is_admin || !!me?.is_admin) && <button className="icon-btn" aria-label="Sửa" data-tip="Sửa" onClick={() => setEditing(u)}><Pencil size={16} /></button>}
+                  {hasPerm(me, 'user.edit') && (!u.is_admin || !!me?.is_admin) && <button className="icon-btn" aria-label="Đặt lại mật khẩu" data-tip="Đặt lại mật khẩu" onClick={() => setReset(u)}><KeyRound size={16} /></button>}
+                  {u.id !== me?.id && hasPerm(me, u.is_active ? 'user.delete' : 'user.edit') && (!u.is_admin || !!me?.is_admin) && (u.is_active
                     ? <button className="icon-btn" aria-label="Khóa tài khoản" data-tip="Khóa tài khoản" onClick={() => toggleActive(u)}><Lock size={16} /></button>
                     : <button className="icon-btn" aria-label="Mở khóa tài khoản" data-tip="Mở khóa tài khoản" onClick={() => toggleActive(u)}><LockOpen size={16} /></button>)}
                 </td>
@@ -102,7 +103,15 @@ export default function AdminUsers() {
 }
 
 function UserModal({ user, onClose }: { user: User | null; onClose: () => void }) {
-  const { data: roles } = useRoles();
+  const { data: me } = useMe();
+  const { data: allRoles } = useRoles();
+  // Nhóm được gán: người không phải quản trị hệ thống không gán nhóm Quản trị hệ thống, chỉ gán nhóm có quyền nằm trong quyền của mình
+  // (vẫn hiện nhóm hiện tại của tài khoản); không tự đổi nhóm của chính mình
+  const roles = allRoles?.filter((r) => !!me?.is_admin || r.id === user?.default_role_id
+    || (!r.is_admin && r.permissions.every((p) => hasPerm(me, p))));
+  const ownRole = !me?.is_admin && user?.id === me?.id;
+  // Phòng ban + vị trí: cần quyền Nhân sự – Thêm (tạo tài khoản) / Nhân sự – Sửa (sửa tài khoản)
+  const canPlace = hasPerm(me, user ? 'staff.edit' : 'staff.create');
   const [username, setUsername] = useState(user?.username || '');
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -139,7 +148,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { full_name: fullName, email, default_role_id: Number(roleId), department_id: depId || null, positions: depId ? positions : [] };
+      const body = { full_name: fullName, email, default_role_id: Number(roleId), ...(canPlace ? { department_id: depId || null, positions: depId ? positions : [] } : {}) };
       if (user) {
         await api.patch(`/users/${user.id}`, body);
         toast('Đã lưu');
@@ -178,7 +187,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
           <label className="field"><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
 
           <label className="field"><span>Nhóm người dùng *</span>
-            <select value={roleId} onChange={(e) => pickRole(e.target.value)} required>
+            <select value={roleId} onChange={(e) => pickRole(e.target.value)} required disabled={ownRole} data-tip={ownRole ? 'Không tự đổi nhóm của chính mình' : undefined}>
               <option value="" disabled>— Chọn nhóm —</option>
               {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select></label>
@@ -190,7 +199,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
               : 'Quyền của nhóm được gán mặc định, áp dụng trên mọi dự án người dùng tham gia. Cấp thêm hoặc bỏ bớt quyền riêng bằng nút Phân quyền.'}
           </div>
         )}
-        <div className="form-grid">
+        {canPlace && <div className="form-grid">
           <label className="field"><span>Phòng ban <small className="muted">(sơ đồ Phòng ban & Nhân sự)</small></span>
             <select value={depId} onChange={(e) => pickDep(e.target.value)}>
               <option value="">— Chưa xếp phòng ban —</option>
@@ -203,7 +212,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
                   onChange={() => { setPlaceTouched(true); setPositions(positions.includes(p.key) ? positions.filter((x) => x !== p.key) : [...positions, p.key]); }} /> {p.label}</label>
               ))}
             </div></div>}
-        </div>
+        </div>}
         {!user && (
           <label className="field"><span>Mật khẩu tạm (≥ 10 ký tự, có chữ và số)</span>
             <div className="row gap-xs">

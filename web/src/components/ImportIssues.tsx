@@ -296,7 +296,8 @@ interface ImportResponse { committed: boolean; created: number; valid: number; e
 
 export function ImportButton({ project }: { project: Project }) {
   const [open, setOpen] = useState(false);
-  if (!can(project.permissions, 'issue.import')) return null;
+  // Nhập từ file = tạo issue hàng loạt: cần cả quyền Import và Thêm issue
+  if (!can(project.permissions, 'issue.import') || !can(project.permissions, 'issue.create')) return null;
   return (
     <>
       <button className="btn btn-sm" onClick={() => setOpen(true)} title="Nhập issue hàng loạt từ file Excel hoặc Excel (CSV) xuất từ Jira"><Upload size={14} /> Nhập từ Excel</button>
@@ -447,7 +448,7 @@ function ImportIssuesModal({ project, onClose }: { project: Project; onClose: ()
                       <td className="small">{r.assignee}</td>
                       <td className="small">{r.sprint}</td>
                       <td className="small">
-                        {r.key && <a onClick={() => { onClose(); open(r.key!); }}>{r.key}</a>}
+                        {r.key && (can(project.permissions, 'issue.view') ? <a onClick={() => { onClose(); open(r.key!); }}>{r.key}</a> : r.key)}
                         {r.errors.map((m, i) => <div key={i} className="bad"><CircleX size={13} /> {m}</div>)}
                         {r.warnings.map((m, i) => <div key={i} className="warn"><TriangleAlert size={13} /> {m}</div>)}
                         {!r.key && !r.errors.length && !r.warnings.length && <span className="ok"><CircleCheck size={13} /> Hợp lệ</span>}

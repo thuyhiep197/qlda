@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { all, get, run } from '../db.ts';
 import { audit } from '../audit.ts';
-import { badRequest, notFound, requireUserPerm } from '../permissions.ts';
+import { badRequest, forbidden, notFound, requireUserPerm, userPermissions } from '../permissions.ts';
 
 import { allowedPositions, POSITION_CODES, POSITIONS, type Position } from '../positions.ts';
 import { departmentCodes } from './departments.ts';
@@ -45,8 +45,10 @@ function checkManager(userId: number, managerId: number | null) {
   }
 }
 
-// Mọi người đã đăng nhập đều xem được: tài khoản đã xếp phòng ban
-r.get('/', (_req, res) => {
+// Tài khoản đã xếp phòng ban: màn hình Phòng ban & Nhân sự (xem, hoặc chọn người quản lý khi thêm / sửa nhân sự)
+r.get('/', (req, res) => {
+  const p = userPermissions(req.user);
+  if (!['staff.view', 'staff.create', 'staff.edit'].some((x) => p.has(x))) throw forbidden();
   res.json(all(`SELECT u.id, u.full_name, u.positions, u.staff_note AS note, u.id AS user_id, u.username, u.department_id, u.manager_id,
       (SELECT m.full_name FROM users m WHERE m.id = u.manager_id) AS manager_name, CASE WHEN pd.id IS NULL OR pd.parent_id IS NULL THEN d.name ELSE pd.name || ' › ' || d.name END AS department_name
     FROM users u JOIN departments d ON d.id = u.department_id LEFT JOIN departments pd ON pd.id = d.parent_id

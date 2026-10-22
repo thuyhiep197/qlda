@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, qs, refreshAll } from '../api';
-import { useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions, hasPerm } from '../hooks';
+import { can, useComponents, useIssueModal, useMe, useProject, useProjects, useSprints, useUsersBasic, useVersions, hasPerm } from '../hooks';
+import { canBulk } from '../bulk-actions';
 import type { Issue, SavedFilter } from '../types';
 import { CATEGORY_LABELS, fmtDate, fmtDuration, isOverdue, PRIORITIES, PRIORITY_LABELS, RELEASES_ENABLED, TYPE_LABELS, HEALTH_LABELS, issueHealth, type Health } from '../util';
 import { projectDevOptions } from '../people';
@@ -29,10 +30,15 @@ export default function IssueList() {
   const { data: versions } = useVersions(projectKey || undefined);
   const { data: components } = useComponents(projectKey || undefined);
   const showComponent = !!components?.length;
+  // Danh sách issue: quyền Danh sách & tìm kiếm issue – Xem; chọn nhiều khi có thao tác hàng loạt; mở chi tiết: Issue – Xem
+  const canList = hasPerm(me, 'search.view');
+  const perms = projectKey ? project?.permissions : me?.permissions;
+  const canSelect = canBulk(perms, project?.type !== 'kanban');
+  const canView = can(perms, 'issue.view');
   const { data: epics } = useQuery<Issue[]>({
     queryKey: ['issues', 'epics', projectKey],
     queryFn: () => api.get(`/issues${qs({ project: projectKey, type: 'epic', sort: 'rank' })}`),
-    enabled: !!projectKey,
+    enabled: !!projectKey && canList,
   });
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
@@ -50,6 +56,7 @@ export default function IssueList() {
   const { data: fetched, isLoading } = useQuery<Issue[]>({
     queryKey: ['issues', 'list', filter],
     queryFn: () => api.get(`/issues${qs({ ...filter, sort, limit: 1000 })}`),
+    enabled: canList,
   });
   // Đánh giá (trễ hạn, chậm tiến độ…) tính theo ngày hôm nay nên lọc ngay trên danh sách
   const issues = filter.health && fetched ? fetched.filter((i) => issueHealth(i) === filter.health) : fetched;
@@ -97,6 +104,8 @@ export default function IssueList() {
   const allChecked = !!issues?.length && issues.every((i) => selected.has(i.id));
   const showVersion = !!versions?.length;
   const showTime = !!issues?.some((i) => i.time_spent || i.original_estimate);
+
+  if (me && !canList) return <div className={routeKey ? 'page-pad' : 'page'}><Empty title="Bạn không có quyền xem danh sách issue" /></div>;
 
   return (
     <div className={routeKey ? 'page-pad' : 'page'}>
@@ -199,7 +208,7 @@ export default function IssueList() {
         {hasFilter && <button className="btn btn-subtle btn-sm" onClick={() => setParams(routeKey ? {} : filter.project ? { project: filter.project } : {})}>Xóa lọc</button>}
         <div className="spacer" />
         <span className="muted small">{issues?.length ?? 0} issue</span>
-        <HelpTip text="Tick ô đầu dòng (hoặc ô trên cùng để chọn tất cả theo bộ lọc) rồi bấm Giao cho… để giao việc, đổi trạng thái hàng loạt" />
+        {canSelect && <HelpTip text="Tick ô đầu dòng (hoặc ô trên cùng để chọn tất cả theo bộ lọc) rồi bấm Giao cho… để giao việc, đổi trạng thái hàng loạt" />}
         {routeKey && project && <ImportButton project={project} />}
         {hasPerm(me, 'search.export') && <button className="btn btn-sm" onClick={exportCsv} disabled={!issues?.length}><Download size={14} /> Xuất Excel (CSV)</button>}
       </div>
@@ -212,10 +221,10 @@ export default function IssueList() {
           <table className="table table-issues">
             <thead>
               <tr>
-                <th style={{ width: 28 }}>
+                {canSelect && <th style={{ width: 28 }}>
                   <input type="checkbox" checked={allChecked} data-tip={allChecked ? 'Bỏ chọn tất cả' : 'Chọn tất cả issue trong danh sách'}
                     onChange={() => setSelected(allChecked ? new Set() : new Set(issues.map((i) => i.id)))} />
-                </th>
+                </th>}
                 <th style={{ width: 28 }} />
                 <Th k="key">Mã</Th>
                 <th>Tiêu đề</th>
@@ -235,11 +244,11 @@ export default function IssueList() {
             </thead>
             <tbody>
               {issues.map((i) => (
-                <tr key={i.id} onClick={() => open(i.key)} className={`clickable ${selected.has(i.id) ? 'row-selected' : ''}`}>
-                  <td onClick={(e) => e.stopPropagation()}>
+                <tr key={i.id} onClick={() => { if (canView) open(i.key); }} className={`${canView ? 'clickable' : ''} ${selected.has(i.id) ? 'row-selected' : ''}`}>
+                  {canSelect && <td onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={selected.has(i.id)} aria-label={`Chọn ${i.key}`}
                       onChange={() => { const n = new Set(selected); n.has(i.id) ? n.delete(i.id) : n.add(i.id); setSelected(n); }} />
-                  </td>
+                  </td>}
                   <td><TypeIcon type={i.type} subtype={i.subtype} /></td>
                   <td className="nowrap"><span className={`issue-key ${i.status_category === 'done' ? 'done-text' : ''}`}>{i.key}</span> <FlagMark flagged={i.flagged} /></td>
                   <td><div className="row gap-xs"><span className="ellipsis">{i.summary}</span><EpicTag issue={i} /></div></td>

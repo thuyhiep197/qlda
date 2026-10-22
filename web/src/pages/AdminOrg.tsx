@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { FolderPlus, Pencil, Plus, Search, Trash2, UserRound } from 'lucide-react';
 import { api, refreshAll } from '../api';
 import { hasPerm, useDepartments, useMe, useStaff, useUsersBasic } from '../hooks';
@@ -17,6 +18,7 @@ const depPath = (deps: Department[], d: Department): string => {
 /**
  * Quản trị → Danh mục → Phòng ban & Nhân sự: sơ đồ tổ chức (Ban Giám đốc đứng đầu, dưới là các phòng),
  * mỗi phòng liệt kê tài khoản người dùng thuộc phòng với vị trí. Nhân sự = tài khoản (tạo tài khoản ở Người dùng).
+ * Sơ đồ phòng ban chỉ hiện khi có Phòng ban – Xem; nhân sự chỉ hiện khi có Nhân sự – Xem (chỉ có Nhân sự – Xem: danh sách nhân sự theo phòng ban).
  */
 export default function AdminOrg() {
   const { data: me } = useMe();
@@ -27,6 +29,8 @@ export default function AdminOrg() {
   const [editStaff, setEditStaff] = useState<Partial<StaffMember> | null>(null);
   const canDep = { create: hasPerm(me, 'department.create'), edit: hasPerm(me, 'department.edit'), del: hasPerm(me, 'department.delete') };
   const canStaff = { create: hasPerm(me, 'staff.create'), edit: hasPerm(me, 'staff.edit'), del: hasPerm(me, 'staff.delete') };
+  const seeDeps = hasPerm(me, 'department.view'), seeStaff = hasPerm(me, 'staff.view');
+  const { data: staffList } = useQuery<StaffMember[]>({ queryKey: ['staff'], queryFn: () => api.get('/staff'), enabled: !seeDeps && seeStaff });
   if (isLoading || !deps) return <div className="page"><Spinner /></div>;
 
   const match = (x: StaffMember) => !q.trim() || fold(`${x.full_name} ${x.username ?? ''} ${x.positions.split(',').map((p) => posLabel(p)?.label ?? '').join(' ')}`).includes(fold(q.trim()));
@@ -60,12 +64,12 @@ export default function AdminOrg() {
         <div className="org-card-head">
           <div className="grow" style={{ minWidth: 0 }}>
             <b className="ellipsis">{d.name}</b>
-            <div className="muted small">{d.code} · {kids.length ? `${total(d)} nhân sự · ${kids.length} ${level === 0 ? 'phòng' : 'nhóm'}` : `${own} nhân sự`}</div>
+            <div className="muted small">{d.code}{seeStaff ? ` · ${kids.length ? `${total(d)} nhân sự · ${kids.length} ${level === 0 ? 'phòng' : 'nhóm'}` : `${own} nhân sự`}` : kids.length ? ` · ${kids.length} ${level === 0 ? 'phòng' : 'nhóm'}` : ''}</div>
           </div>
           {canDep.create && level > 0 && <button className="icon-btn" aria-label={`Thêm nhóm vào ${d.name}`} data-tip="Thêm nhóm / bộ phận" onClick={() => setEditDep({ parent_id: d.id })}><FolderPlus size={14} /></button>}
           {actions(d, level > 1 ? 'nhóm' : 'phòng ban')}
         </div>
-        {(own > 0 || !kids.length) && <div className="org-staff">
+        {seeStaff && (own > 0 || !kids.length) && <div className="org-staff">
           {people(d)}
           {!own && <div className="muted small org-empty">Chưa có nhân sự</div>}
         </div>}
@@ -88,13 +92,19 @@ export default function AdminOrg() {
       <div className="page-head">
         <h1>Phòng ban & Nhân sự</h1>
         <div className="spacer" />
-        <div className="cw-search" style={{ width: 240 }}><Search size={14} /><input placeholder="Tìm nhân sự, vị trí…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        {seeStaff && <div className="cw-search" style={{ width: 240 }}><Search size={14} /><input placeholder="Tìm nhân sự, vị trí…" value={q} onChange={(e) => setQ(e.target.value)} /></div>}
         {canDep.create && <button className="btn" onClick={() => setEditDep({ parent_id: deps.find((d) => !d.parent_id)?.id ?? null })}>+ Thêm phòng ban</button>}
         {canStaff.create && <button className="btn btn-primary" onClick={() => setEditStaff({ positions: '' })}>+ Xếp người vào phòng</button>}
       </div>
       <p className="muted small">Nhân sự là tài khoản người dùng (tạo ở Quản trị → Người dùng). Mỗi người thuộc một phòng ban, có vị trí (BGĐ, KD, AM, BA/PM, Dev, Tester, HC). Vị trí quyết định người đó được chọn ở vai trò nào: Sale, AM của khách hàng; BA/PM, Dev, Tester, AM của dự án. Mã vị trí hiện cạnh tên trong hành trình khách hàng.</p>
-      <div className="org-tree">{children(null).map((d) => tree(d, 0))}</div>
-      {unassigned.length > 0 && (
+      {seeDeps ? <div className="org-tree">{children(null).map((d) => tree(d, 0))}</div>
+        : seeStaff && <div className="org-card"><div className="org-staff">
+          {(staffList ?? []).filter(match).map((x) => <div key={x.id}>
+            <StaffRow x={x} onEdit={canStaff.edit ? () => setEditStaff(x) : undefined} onDelete={canStaff.del ? () => removeStaff(x) : undefined} />
+            {x.department_name && <div className="muted small" style={{ paddingLeft: 22 }}>{x.department_name}</div>}
+          </div>)}
+        </div></div>}
+      {seeStaff && unassigned.length > 0 && (
         <div className="org-card org-unassigned">
           <div className="org-card-head"><b className="grow">Tài khoản chưa xếp phòng ban ({unassigned.length})</b></div>
           <div className="org-staff">{unassigned.filter((u) => !q.trim() || fold(`${u.full_name} ${u.username}`).includes(fold(q.trim()))).map((u) => (

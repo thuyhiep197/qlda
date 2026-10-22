@@ -22,6 +22,9 @@ export default function ProjectInfo({ onEdit }: { onEdit?: () => void }) {
   const summary = projects?.find((p) => p.key === project.key);
   const status = project.project_status || summary?.status_auto;
   const c = project.customer_info;
+  // Không có quyền Thông tin khách hàng – Xem: chỉ tên khách hàng; dự án của khách hàng cần thêm Dự án của khách hàng – Xem
+  const seeCustomer = hasPerm(me, 'customer.view');
+  const seeSalesProject = seeCustomer && hasPerm(me, 'sales_project.view');
   const canEdit = !!onEdit;
   const sprint = project.active_sprints[0];
 
@@ -48,21 +51,24 @@ export default function ProjectInfo({ onEdit }: { onEdit?: () => void }) {
         <div className="stack">
           <div className="card">
             <div className="card-head"><h3>Khách hàng</h3>
-              {c && hasPerm(me, 'customer.view') && <Link className="small" to={`/customers/${c.id}`}>Mở trang khách hàng →</Link>}</div>
+              {c && seeCustomer && <Link className="small" to={`/customers/${c.id}`}>Mở trang khách hàng →</Link>}</div>
             {!c ? <p className="muted small">{project.customer ? `${project.customer} (chưa có trong danh mục Khách hàng)` : 'Dự án chưa gắn với khách hàng.'}
               {canEdit && <> <a onClick={onEdit}>Gắn khách hàng</a>.</>}</p> : (
               <div className="stack-sm">
                 <Props rows={[
                   ['Cơ quan/đơn vị', <b>{c.name}</b>],
-                  ['Tình trạng', <span className={CUSTOMER_STATUS_CLASS}>{c.status}</span>],
-                  ['Địa chỉ', [c.ward_name, c.province_name].filter(Boolean).join(', ')],
-                  ['Sale', c.kd_names], ['AM', c.am_names],
-                  ['Dự án của khách hàng', c.sales_project
-                    ? (hasPerm(me, 'customer.view')
+                  ...(seeCustomer ? [
+                    ['Tình trạng', <span className={CUSTOMER_STATUS_CLASS}>{c.status}</span>],
+                    ['Địa chỉ', [c.ward_name, c.province_name].filter(Boolean).join(', ')],
+                    ['Sale', c.kd_names], ['AM', c.am_names],
+                  ] as [string, ReactNode][] : []),
+                  ...(seeSalesProject ? [
+                    ['Dự án của khách hàng', c.sales_project
                       ? <Link to={`/customers/${c.id}/p/${c.sales_project.id}`}>{c.sales_project.code} · {c.sales_project.name}</Link>
-                      : `${c.sales_project.code} · ${c.sales_project.name}`)
-                    : <span className="muted small">Chưa gắn{canEdit ? ' — chọn ở Sửa thông tin' : ''}</span>],
+                      : <span className="muted small">Chưa gắn{canEdit ? ' — chọn ở Sửa thông tin' : ''}</span>],
+                  ] as [string, ReactNode][] : []),
                 ]} />
+                {seeCustomer && <>
                 <div className="prop-label">Đầu mối liên hệ</div>
                 {!c.contacts.length ? <span className="muted small">Chưa có đầu mối</span> : c.contacts.map((ct) => (
                   <div key={ct.id}>
@@ -73,6 +79,7 @@ export default function ProjectInfo({ onEdit }: { onEdit?: () => void }) {
                     </div>
                   </div>
                 ))}
+                </>}
               </div>
             )}
           </div>

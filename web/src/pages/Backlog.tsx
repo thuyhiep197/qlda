@@ -11,6 +11,7 @@ import { CompleteSprintModal, SprintSeriesModal, StartSprintModal } from '../com
 import CreateIssueModal from '../components/CreateIssueModal';
 import { ImportButton } from '../components/ImportIssues';
 import { BulkBar, runBulk } from '../components/BulkBar';
+import { canBulk } from '../bulk-actions';
 import { useProjectCtx } from './ProjectLayout';
 import { withCreated } from '../issue-filter-defaults';
 import { CalendarRange, ChevronDown, ChevronRight, Plus, Target } from 'lucide-react';
@@ -62,6 +63,10 @@ export default function Backlog() {
   const canEditSprint = can(project.permissions, 'sprint.edit');
   const canDelSprint = can(project.permissions, 'sprint.delete');
   const canCreate = can(project.permissions, 'issue.create');
+  // Chọn nhiều: khi có ít nhất một thao tác hàng loạt; mở chi tiết issue: Issue – Xem
+  const canSelect = canBulk(project.permissions);
+  const canView = can(project.permissions, 'issue.view');
+  const openIssue = (key: string) => { if (canView) open(key); };
 
   if (isLoading || !sprints || !issues) return <Spinner />;
 
@@ -152,7 +157,7 @@ export default function Backlog() {
         {canNewSprint && <button className="btn btn-sm btn-primary" onClick={createSprint}><Plus size={14} strokeWidth={2.5} /> Tạo sprint</button>}
         {canNewSprint && sprints.length > 0 && <button className="btn btn-sm" onClick={() => setSeries(true)} data-tip="Tạo tiếp nhiều sprint theo độ dài và nhịp của các sprint đã có"><CalendarRange size={14} /> Tạo loạt sprint</button>}
         <ImportButton project={project} />
-        {canSprint && <HelpTip text="Giữ Ctrl (hoặc Shift để chọn liên tiếp) rồi bấm vào issue, hoặc tick ô đầu dòng, để chọn nhiều issue rồi kéo cả nhóm vào sprint" />}
+        {canSprint && canSelect && <HelpTip text="Giữ Ctrl (hoặc Shift để chọn liên tiếp) rồi bấm vào issue, hoặc tick ô đầu dòng, để chọn nhiều issue rồi kéo cả nhóm vào sprint" />}
       </FilterBar>
       {selected.size > 0 && <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />}
 
@@ -169,7 +174,7 @@ export default function Backlog() {
             onDrop={(e) => { e.preventDefault(); onDrop(c); }}>
             <div className="backlog-head">
               <button className="icon-btn" onClick={() => setCollapsed({ ...collapsed, [key]: !isCollapsed })}>{isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}</button>
-              {list.length > 0 && (
+              {list.length > 0 && canSelect && (
                 <input type="checkbox" checked={allSelected} data-tip={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả issue trong mục này'}
                   onChange={() => {
                     const n = new Set(selected);
@@ -221,16 +226,16 @@ export default function Backlog() {
                       onDragEnd={() => { setDrag(null); setDrop(null); }}
                       onDragOver={(e) => onDragOverRow(e, c, idx)}
                       onClickCapture={(e) => {
-                        if (e.ctrlKey || e.metaKey || e.shiftKey) { e.preventDefault(); e.stopPropagation(); toggle(i, list, e.shiftKey); }
+                        if (canSelect && (e.ctrlKey || e.metaKey || e.shiftKey)) { e.preventDefault(); e.stopPropagation(); toggle(i, list, e.shiftKey); }
                       }}>
                       {drop?.c === c && drop.index === idx && <div className="drop-line" />}
-                      <label className="row-check" onClick={(e) => e.stopPropagation()}>
+                      {canSelect && <label className="row-check" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={isSel} onChange={(e) => toggle(i, list, (e.nativeEvent as MouseEvent).shiftKey)} aria-label={`Chọn ${i.key}`} />
-                      </label>
-                      <IssueLine issue={i} onOpen={() => open(i.key)} />
+                      </label>}
+                      <IssueLine issue={i} onOpen={() => openIssue(i.key)} />
                     </div>
                     {(subsOf.get(i.id) || []).map((s) => (
-                      <div key={s.id} className="sub-line"><IssueLine issue={s} onOpen={() => open(s.key)} /></div>
+                      <div key={s.id} className="sub-line"><IssueLine issue={s} onOpen={() => openIssue(s.key)} /></div>
                     ))}
                     </Fragment>
                   );
@@ -238,7 +243,8 @@ export default function Backlog() {
                 {drop?.c === c && drop.index === list.length && list.length > 0 && <div className="drop-line" />}
               </div>
             )}
-            {!isCollapsed && canCreate && <QuickCreate projectKey={project.key} sprintId={sprint?.id ?? null} onCreated={onCreated} />}
+            {/* Tạo ngay trong sprint = đưa issue vào sprint → cần Sửa Backlog */}
+            {!isCollapsed && canCreate && (!sprint || canSprint) && <QuickCreate projectKey={project.key} sprintId={sprint?.id ?? null} canOpen={canView} onCreated={onCreated} />}
           </section>
         );
       })}
@@ -256,8 +262,8 @@ export default function Backlog() {
   );
 }
 
-export function QuickCreate({ projectKey, sprintId, statusId, compact, onCreated }: {
-  projectKey: string; sprintId?: number | null; statusId?: number; compact?: boolean; onCreated?: (issue: Issue) => void;
+export function QuickCreate({ projectKey, sprintId, statusId, compact, canOpen = true, onCreated }: {
+  projectKey: string; sprintId?: number | null; statusId?: number; compact?: boolean; canOpen?: boolean; onCreated?: (issue: Issue) => void;
 }) {
   const { open } = useIssueModal();
   const [active, setActive] = useState(false);
@@ -276,7 +282,7 @@ export function QuickCreate({ projectKey, sprintId, statusId, compact, onCreated
   };
   const modal = full && (
     <CreateIssueModal projectKey={projectKey} defaults={{ type, sprint_id: sprintId ?? null, status_id: statusId }}
-      onClose={() => setFull(false)} onCreated={(issue) => { onCreated?.(issue); open(issue.key); }} />
+      onClose={() => setFull(false)} onCreated={(issue) => { onCreated?.(issue); if (canOpen) open(issue.key); }} />
   );
   if (!active) {
     return <>

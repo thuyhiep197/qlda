@@ -90,10 +90,11 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
             : s.ping_days ? `Trước hạn ${s.ping_days} ngày` : 'Tắt'],
         ]} />
       </Block>
-      <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={can('ctalk.create')} users={users ?? []} />
-      <Block title={`Tài liệu kết quả (${s.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} stepId={s.id} />}>
+      {/* Trao đổi, Tài liệu kết quả của bước: chỉ khi có quyền Xem chức năng đó */}
+      {can('ctalk.view') && <Talk customerId={customer.id} activities={s.activities} target={{ step_id: s.id }} empty="Chưa có trao đổi về bước này" canAdd={can('ctalk.create')} users={users ?? []} />}
+      {can('cfile.view') && <Block title={`Tài liệu kết quả (${s.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} stepId={s.id} />}>
         <FileList customerId={customer.id} files={s.files} />
-      </Block>
+      </Block>}
     </>
   );
 }

@@ -36,5 +36,5 @@ test('default roles only use existing permission codes; Ban Giám đốc = Kinh 
 
 test('the matrix has no cells without effect (removed screens and actions)', () => {
   for (const p of ['dashboard.view', 'report.view', 'report.export', 'worklog.edit', 'component.view', 'component.create']) assert.ok(!ALL_PERMISSIONS.includes(p), p);
-  for (const p of ['worklog.delete', 'plan.view', 'plan.export']) assert.ok(ALL_PERMISSIONS.includes(p), p);
+  for (const p of ['worklog.delete', 'plan.view', 'plan.export', 'project.view']) assert.ok(ALL_PERMISSIONS.includes(p), p);
 });

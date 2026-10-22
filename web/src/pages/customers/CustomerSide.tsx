@@ -137,11 +137,12 @@ export default function CustomerSide({ c }: { c: CustomerDetail }) {
               : <div key={p.id} className="cw-project disabled" data-tip="Dự án không thuộc khách hàng, dự án bạn phụ trách">{body}</div>;
           })}
       </Block>}
-      <Tasks customerId={c.id} tasks={c.tasks} showProject members={c.member_ids} />
-      <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && <UploadButton customerId={c.id} />}>
+      {/* Công việc, Tài liệu, Trao đổi: chỉ khi có quyền Xem chức năng đó */}
+      {can('ctask.view') && <Tasks customerId={c.id} tasks={c.tasks} showProject members={c.member_ids} />}
+      {can('cfile.view') && <Block title={`Tài liệu (${c.files.length})`} extra={can('cfile.create') && <UploadButton customerId={c.id} />}>
         <FileList customerId={c.id} files={c.files} showWhere />
-      </Block>
-      <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={can('ctalk.create')} users={users ?? []} />
+      </Block>}
+      {can('ctalk.view') && <Talk customerId={c.id} activities={c.activities} target={{}} empty="Chưa có trao đổi chung về khách hàng" canAdd={can('ctalk.create')} users={users ?? []} />}
       {editing && <CustomerModal customer={c} contacts={c.contacts} kdIds={c.kd_ids} amIds={c.am_ids} onClose={() => setEditing(false)} />}
     </>
   );

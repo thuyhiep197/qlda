@@ -5,19 +5,20 @@ import path from 'node:path';
 import { upload, utf8Name } from '../upload.ts';
 import { all, get, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import {
-  addHistory, createIssue, deleteIssue, fetchIssue, getIssueRow, listIssues, rankBetween, updateIssue,
+  addHistory, createIssue, deleteIssue, fetchIssue, getIssueRow, listIssues, rankBetween, updateIssue, withoutTimeSpent,
   type IssueFilter,
 } from '../issues.ts';
 import { handleMentions, notify, unwatch, watch, watchers } from '../notify.ts';
 import { canTransition, typeStatuses } from '../workflow.ts';
-import { badRequest, canEditIssue, forbidden, notFound, requirePerm, requireProjectAccess, requireUserPerm } from '../permissions.ts';
+import { badRequest, canEditIssue, canListIssues, forbidden, notFound, requirePerm, requireProjectAccess, userPermissions } from '../permissions.ts';
 import { avatarUrl } from '../avatar.ts';
 
 const r = Router();
 
 
+/** Danh sách issue phục vụ các màn hình Danh sách issue, Kế hoạch, Sprint đang chạy, Backlog: cần ô Xem của một trong các màn hình đó */
 r.get('/', (req, res) => {
-  requireUserPerm(req.user, 'issue.view');
+  if (!canListIssues(userPermissions(req.user))) throw forbidden('Bạn không có quyền xem danh sách issue');
   res.json(listIssues(req.user, req.query as IssueFilter));
 });
 
@@ -33,7 +34,8 @@ r.get('/:key', (req, res) => {
   const row = getIssueRow(req.params.key);
   const perms = requireProjectAccess(req.user, row.project_id);
   if (!perms.has('issue.view')) throw forbidden('Bạn không có quyền xem issue');
-  const issue = fetchIssue('id', row.id);
+  // Giờ đã ghi chỉ trả về với quyền Ghi thời gian làm việc – Xem
+  const issue = perms.has('worklog.view') ? fetchIssue('id', row.id) : withoutTimeSpent(fetchIssue('id', row.id));
   const withAvatar = (rows: any[], field: string, output: string) => rows.map((item) => {
     const { [field]: avatar, ...rest } = item; return { ...rest, [output]: avatarUrl(avatar) };
   });
@@ -52,7 +54,9 @@ r.get('/:key', (req, res) => {
     SELECT l.id, l.type, 'in' AS direction, i.key, i.summary, i.type AS issue_type, s.name AS status_name, s.category AS status_category
       FROM issue_links l JOIN issues i ON i.id = l.source_id JOIN statuses s ON s.id = i.status_id WHERE l.target_id = ?`, row.id, row.id);
   const history = withAvatar(all(`SELECT h.*, u.full_name AS user_name, u.avatar AS user_avatar FROM issue_history h LEFT JOIN users u ON u.id = h.user_id
-    WHERE h.issue_id = ? ORDER BY h.created_at DESC, h.id DESC LIMIT 200`, row.id), 'user_avatar', 'user_avatar_url');
+    WHERE h.issue_id = ? ORDER BY h.created_at DESC, h.id DESC LIMIT 200`, row.id), 'user_avatar', 'user_avatar_url')
+    // Lịch sử ghi giờ / tệp đính kèm chỉ hiện với quyền Xem tương ứng
+    .filter((h) => (h.field !== 'worklog' || perms.has('worklog.view')) && (h.field !== 'attachment' || perms.has('attachment.view')));
   // Trạng thái có thể chuyển tới (theo workflow của loại issue và luồng chuyển), gồm cả trạng thái hiện tại
   const next_status_ids = typeStatuses(row.project_id, row.type)
     .filter((s) => canTransition(row.project_id, row.type, row.status_id, s.id)).map((s) => s.id);

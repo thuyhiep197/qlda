@@ -108,11 +108,18 @@ r.post('/files', docUpload.array('files'), (req, res) => {
     if (!files.length) throw badRequest('Chọn tệp để tải lên');
     const bad = files.map((f) => utf8Name(f.originalname)).filter((n) => !isAllowedDoc(n));
     if (bad.length) throw badRequest(`Chỉ nhận tệp ${DOC_EXTENSIONS.join(', ')} — không nhận: ${bad.join(', ')}`);
-    const created: number[] = [];
-    for (const f of files) {
+    // Trùng tên trong cùng thư mục: thay bản cũ (giữ một bản mới nhất) — chỉ người tải lên bản cũ hoặc có quyền Tài liệu nội bộ – Sửa.
+    // Kiểm tra hết trước khi ghi để không thay dở một phần
+    const plan = files.map((f) => {
       const filename = check(() => cleanDocName(utf8Name(f.originalname), 'tài liệu'));
-      // Trùng tên trong cùng thư mục: thay bản cũ (giữ một bản mới nhất)
-      const old = get<{ id: number; stored_name: string }>('SELECT id, stored_name FROM doc_files WHERE folder_id IS ? AND filename = ? COLLATE NOCASE', folder, filename);
+      const old = get<{ id: number; stored_name: string; uploader_id: number | null }>(
+        'SELECT id, stored_name, uploader_id FROM doc_files WHERE folder_id IS ? AND filename = ? COLLATE NOCASE', folder, filename);
+      return { f, filename, old };
+    });
+    const locked = plan.filter((x) => x.old && !canManage(req, x.old.uploader_id, 'edit')).map((x) => x.filename);
+    if (locked.length) throw forbidden(`Thư mục đã có tài liệu cùng tên do người khác tải lên: ${locked.join(', ')}. Hãy đổi tên tệp trước khi tải lên`);
+    const created: number[] = [];
+    for (const { f, filename, old } of plan) {
       if (old) {
         run('UPDATE doc_files SET stored_name = ?, mime = ?, size = ?, uploader_id = ?, created_at = ? WHERE id = ?', f.filename, f.mimetype, f.size, req.user.id, now(), old.id);
         fs.rm(path.join(UPLOAD_DIR, old.stored_name), { force: true }, () => {});

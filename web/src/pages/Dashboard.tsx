@@ -3,16 +3,15 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { hasPerm, hasProjectModule, useIssueModal, useMe, useProjects } from '../hooks';
 import CustomerDashboard from '../components/CustomerDashboard';
-import type { Issue, IssueType, Side } from '../types';
+import type { Issue, IssueType } from '../types';
 import { colorOf, FIELD_LABELS, timeAgo } from '../util';
-import { Avatar, Empty, SideBadge, Spinner, TypeIcon } from '../components/ui';
+import { Avatar, Empty, Spinner, TypeIcon } from '../components/ui';
 import { IssueLine } from '../components/IssueRow';
 
 interface DashboardData {
   stats: { assigned_open: number; in_progress: number; overdue: number; done_week: number; reported_open: number };
   mine: Issue[];
   toTest: Issue[];
-  myModules: { id: number; name: string; side: Side | null; project_key: string; total: number; done: number; inprogress: number }[];
   activity: { id: number; field: string; old_label: string; new_label: string; created_at: string; user_name: string; user_avatar_url?: string | null; key: string; summary: string; type: IssueType }[];
 }
 
@@ -22,6 +21,9 @@ export default function Dashboard() {
   const { open } = useIssueModal();
   const { data, isLoading } = useQuery<DashboardData>({ queryKey: ['dashboard'], queryFn: () => api.get('/reports/dashboard') });
 
+  // Việc của tôi, chờ kiểm thử, hoạt động, số liệu: Issue – Xem; mở chi tiết issue: Issue – Xem; Xem tất cả: Danh sách & tìm kiếm issue – Xem
+  const canIssues = hasPerm(me, 'issue.view');
+  const canList = hasPerm(me, 'search.view');
   const hour = new Date().getHours();
   const greet = hour < 11 ? 'Chào buổi sáng' : hour < 14 ? 'Chào buổi trưa' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
 
@@ -33,34 +35,20 @@ export default function Dashboard() {
       {hasProjectModule(me) && <h3>Công việc dự án</h3>}
       {!hasProjectModule(me) ? null : isLoading || !data ? <Spinner /> : (
         <>
+          {canIssues && <>
           <div className="stat-cards stat-cards-3">
             <div className="stat-card"><div className="stat-num">{data.stats.assigned_open ?? 0}</div><div>Việc được giao chưa xong</div></div>
             <div className="stat-card"><div className="stat-num">{data.stats.in_progress ?? 0}</div><div>Đang thực hiện</div></div>
             <div className={`stat-card ${data.stats.overdue ? 'stat-danger' : ''}`}><div className="stat-num">{data.stats.overdue ?? 0}</div><div>Quá hạn</div></div>
           </div>
 
-          {(data.toTest.length > 0 || data.myModules.length > 0) && (
-            <div className="dash-grid mb">
-              <div className="card">
-                <div className="card-head">
-                  <h3>Chờ tôi kiểm thử ({data.toTest.length})</h3>
-                  <Link to="/issues?ba=me&statusCategory=inprogress" className="small">Việc của mô-đun tôi phụ trách</Link>
-                </div>
-                {data.toTest.length === 0 ? <div className="muted small">Chưa có việc nào chuyển sang Kiểm thử</div> :
-                  <div className="issue-lines">{data.toTest.map((i) => <IssueLine key={i.id} issue={i} onOpen={() => open(i.key)} />)}</div>}
+          {data.toTest.length > 0 && (
+            <div className="card mb">
+              <div className="card-head">
+                <h3>Chờ tôi kiểm thử ({data.toTest.length})</h3>
+                {canList && <Link to="/issues?ba=me&statusCategory=inprogress" className="small">Xem tất cả</Link>}
               </div>
-              <div className="card">
-                <div className="card-head"><h3>Mô-đun tôi phụ trách</h3></div>
-                <div className="stack-sm">
-                  {data.myModules.map((m) => (
-                    <Link key={m.id} to={`/p/${m.project_key}/issues?component=${m.id}`} className="module-mini">
-                      <div className="row gap-xs"><b className="grow ellipsis">{m.name}</b><SideBadge side={m.side} /></div>
-                      <div className="progress"><div style={{ width: `${m.total ? (m.done / m.total) * 100 : 0}%` }} /><div className="progress-ip" style={{ width: `${m.total ? (m.inprogress / m.total) * 100 : 0}%` }} /></div>
-                      <div className="muted small">{m.done}/{m.total} xong · {m.inprogress} đang làm</div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
+              <div className="issue-lines">{data.toTest.map((i) => <IssueLine key={i.id} issue={i} onOpen={() => open(i.key)} />)}</div>
             </div>
           )}
 
@@ -68,7 +56,7 @@ export default function Dashboard() {
             <div className="card">
               <div className="card-head">
                 <h3>Việc của tôi</h3>
-                <Link to="/issues?assignee=me&statusCategory=todo,inprogress" className="small">Xem tất cả</Link>
+                {canList && <Link to="/issues?assignee=me&statusCategory=todo,inprogress" className="small">Xem tất cả</Link>}
               </div>
               {data.mine.length === 0 ? <Empty title="Không có việc nào đang chờ bạn" /> :
                 <div className="issue-lines">{data.mine.map((i) => <IssueLine key={i.id} issue={i} onOpen={() => open(i.key)} />)}</div>}
@@ -98,6 +86,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          </>}
 
           <h3 className="mt">Dự án của tôi</h3>
           <div className="project-cards">

@@ -4,6 +4,7 @@ import { can, useComponents, useMe, useProject, useSprints, useUsersBasic, useVe
 import type { Issue } from '../types';
 import { PRIORITIES, PRIORITY_LABELS, TYPE_LABELS } from '../util';
 import { projectDevOptions } from '../people';
+import { bulkActions } from '../bulk-actions';
 import { Avatar, toast } from './ui';
 import { Trash2, UserPlus } from 'lucide-react';
 
@@ -24,7 +25,7 @@ export async function runBulk(body: Record<string, unknown>, label: string) {
 /**
  * Thanh thao tác hàng loạt (như Bulk change của Jira) cho các issue đang chọn:
  * chuyển sprint, giao việc, đổi trạng thái/ưu tiên/phiên bản, thêm nhãn, xóa.
- * Đổi sprint/người/trạng thái/phiên bản chỉ hiện khi các issue cùng một dự án.
+ * Chỉ hiện khi các issue cùng một dự án; mỗi thao tác theo đúng ô quyền của nó (xem bulk-actions.ts).
  */
 export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => void }) {
   const keys = issues.map((i) => i.key);
@@ -48,6 +49,8 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
     try { const r = await runBulk({ keys, delete: true }, 'Đã xóa'); if (r.ok) onClear(); } finally { setBusy(false); }
   };
   const perms = project?.permissions;
+  // Chưa xác định được một dự án → không thao tác được gì (quyền theo dự án)
+  const a = project ? bulkActions(perms, project.type === 'scrum') : bulkActions(undefined);
   // Như Jira: chọn issue rồi đưa vào sprint có sẵn, Backlog, hoặc tạo sprint mới chứa luôn các issue này
   const toSprint = async (v: string) => {
     if (v !== 'new') return act({ sprint_id: v === 'backlog' ? null : Number(v) }, 'Đã chuyển sprint');
@@ -61,9 +64,9 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
   return (
     <div className="bulk-bar" role="toolbar" aria-label="Thao tác hàng loạt">
       <b>Đã chọn {keys.length} issue</b>
-      {project && <AssignPicker members={project.members} disabled={busy}
+      {project && a.assign && <AssignPicker members={project.members} disabled={busy}
         onPick={(id, name) => act({ assignee_id: id }, id ? `Đã giao cho ${name}` : 'Đã bỏ giao')} />}
-      {project?.type === 'scrum' && (
+      {a.sprint && (
         <select value="" disabled={busy} onChange={(e) => toSprint(e.target.value)}>
           <option value="" disabled>Chuyển vào sprint…</option>
           <option value="backlog">Backlog</option>
@@ -71,31 +74,31 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
           {can(perms, 'sprint.create') && <option value="new">+ Sprint mới</option>}
         </select>
       )}
-      {project && (
+      {project && a.status && (
         <select value="" disabled={busy} onChange={(e) => act({ status_id: Number(e.target.value) }, 'Đã đổi trạng thái')}>
           <option value="" disabled>Đổi trạng thái…</option>
           {project.statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       )}
-      {issues.some((i) => i.type !== 'epic') && (
+      {a.edit && issues.some((i) => i.type !== 'epic') && (
         <select value="" disabled={busy} onChange={(e) => act({ type_to: e.target.value }, 'Đã đổi loại')}
           data-tip="Story/Task/Bug đổi sang loại mới; việc con đổi loại việc con (vẫn thuộc việc cha); Epic giữ nguyên">
           <option value="" disabled>Đổi loại…</option>
           {(['story', 'task', 'bug'] as const).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
         </select>
       )}
-      <select value="" disabled={busy} onChange={(e) => act({ priority: e.target.value }, 'Đã đổi độ ưu tiên')}>
+      {a.edit && <select value="" disabled={busy} onChange={(e) => act({ priority: e.target.value }, 'Đã đổi độ ưu tiên')}>
         <option value="" disabled>Độ ưu tiên…</option>
         {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
-      </select>
-      {project && !!components?.length && (
+      </select>}
+      {a.edit && !!components?.length && (
         <select value="" disabled={busy} onChange={(e) => act({ component_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã chuyển mô-đun')}>
           <option value="" disabled>Mô-đun…</option>
           <option value="none">— Bỏ mô-đun —</option>
           {components.map((c) => <option key={c.id} value={c.id}>{c.name}{c.lead_name ? ` (BA: ${c.lead_name})` : ''}</option>)}
         </select>
       )}
-      {project && (
+      {project && a.edit && (
         <select value="" disabled={busy} onChange={(e) => act({ dev_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã đổi Dev phụ trách')}>
           <option value="" disabled>Dev phụ trách…</option>
           <option value="none">— Chưa có —</option>
@@ -103,26 +106,26 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
             .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
         </select>
       )}
-      {project && !!components?.length && (
+      {project && a.edit && !!components?.length && (
         <select value="" disabled={busy} onChange={(e) => act({ ba_id: e.target.value === 'module' ? null : Number(e.target.value) }, 'Đã đổi BA phụ trách')}>
           <option value="" disabled>BA phụ trách…</option>
           <option value="module">— Theo mô-đun —</option>
           {project.members.filter((m) => /BA/i.test(m.role_name || '')).map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
         </select>
       )}
-      {project && versions && versions.some((v) => v.status === 'unreleased') && (
+      {a.edit && versions && versions.some((v) => v.status === 'unreleased') && (
         <select value="" disabled={busy} onChange={(e) => act({ version_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã gán phiên bản')}>
           <option value="" disabled>Phiên bản…</option>
           <option value="none">— Bỏ phiên bản —</option>
           {versions.filter((v) => v.status === 'unreleased').map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
         </select>
       )}
-      <form className="row gap-xs" onSubmit={(e) => { e.preventDefault(); if (label.trim()) { act({ labels_add: [label.trim()] }, `Đã thêm nhãn "${label.trim()}"`); setLabel(''); } }}>
+      {a.edit && <form className="row gap-xs" onSubmit={(e) => { e.preventDefault(); if (label.trim()) { act({ labels_add: [label.trim()] }, `Đã thêm nhãn "${label.trim()}"`); setLabel(''); } }}>
         <input className="bulk-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="+ Thêm nhãn" disabled={busy} />
-      </form>
-      {(!project || can(perms, 'issue.delete')) && <button className="btn btn-sm btn-subtle danger" disabled={busy} onClick={del}><Trash2 size={14} /> Xóa</button>}
+      </form>}
+      {a.delete && <button className="btn btn-sm btn-subtle danger" disabled={busy} onClick={del}><Trash2 size={14} /> Xóa</button>}
       <div className="spacer" />
-      {!single && <span className="muted small">Chọn issue cùng một dự án để chuyển sprint, giao việc, đổi trạng thái</span>}
+      {!single && <span className="muted small">Chọn issue cùng một dự án để thao tác hàng loạt</span>}
       <button className="btn btn-sm" onClick={onClear}>Bỏ chọn</button>
     </div>
   );

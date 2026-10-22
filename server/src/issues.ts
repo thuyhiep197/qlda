@@ -6,7 +6,7 @@ import { handleMentions, notify, watch, watchers } from './notify.ts';
 import { checkPhase, guessPhase } from './phases.ts';
 import { canTransition, initialStatus, isStatusAllowed, mapStatusForType, projectStatuses, typeStatuses } from './workflow.ts';
 import {
-  accessibleProjectIds, badRequest, canEditIssue, forbidden, notFound,
+  accessibleProjectIds, badRequest, canEditIssue, forbidden, notFound, userPermissions,
   type AuthUser, type Permission,
 } from './permissions.ts';
 import { avatarUrl } from './avatar.ts';
@@ -85,6 +85,12 @@ export function serialize(row: any) {
   const { assignee_avatar, reporter_avatar, ...rest } = row;
   return { ...rest, assignee_avatar_url: avatarUrl(assignee_avatar), reporter_avatar_url: avatarUrl(reporter_avatar), labels: row.labels ? String(row.labels).split(',').filter(Boolean) : [],
     ...(row.type === 'epic' ? { phase_guess: guessPhase(row.summary) } : {}) };
+}
+
+/** Bỏ giờ đã ghi (time_spent) khỏi issue trả về cho người không có quyền xem giờ công */
+export function withoutTimeSpent<T extends Record<string, unknown>>(issue: T) {
+  const { time_spent: _t, ...rest } = issue;
+  return rest;
 }
 
 export function fetchIssue(where: 'id' | 'key', value: number | string) {
@@ -206,7 +212,10 @@ export function listIssues(user: AuthUser, f: IssueFilter) {
   const order = sorts[f.sort || 'rank'] || sorts.rank;
   const limit = Math.min(Number(f.limit) || 2000, 5000);
 
-  return all(`${ISSUE_SELECT} WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ${limit}`, ...params).map(serialize);
+  // Giờ đã ghi chỉ trả về cho người có quyền Ghi thời gian làm việc – Xem
+  const hideTime = !userPermissions(user).has('worklog.view');
+  return all(`${ISSUE_SELECT} WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ${limit}`, ...params).map(serialize)
+    .map((i) => (hideTime ? withoutTimeSpent(i) : i));
 }
 
 // ---------------------------------------------------------------------------
@@ -377,17 +386,24 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
     const parentId = checkParent(projectId, type, data.parent_id);
     let assigneeId: number | null = data.assignee_id ? Number(data.assignee_id) : null;
     if (assigneeId && !isMember(projectId, assigneeId)) throw badRequest('Người được giao không thuộc dự án');
-    if (assigneeId && assigneeId !== user.id && !perms.has('issue.assign')) throw forbidden('Bạn không có quyền giao việc cho người khác');
+    // Chọn người thực hiện (kể cả tự nhận việc) cần quyền Giao việc
+    if (assigneeId && !perms.has('issue.assign')) throw forbidden('Bạn không có quyền giao việc');
 
     // Trạng thái theo workflow của loại issue; nếu được chỉ định sẵn (VD tạo nhanh trên một cột board)
     // mà loại này không dùng trạng thái đó thì quy về trạng thái hợp lệ cùng nhóm
     const first = initialStatus(projectId, type);
     if (!first) throw badRequest('Dự án chưa cấu hình trạng thái');
     const statusId = data.status_id ? mapStatusForType(projectId, type, checkStatus(projectId, data.status_id).id) : first;
+    // Tạo ở trạng thái khác trạng thái đầu tiên = chuyển trạng thái → cần quyền Chuyển trạng thái
+    if (statusId !== first && !perms.has('issue.transition')) throw forbidden('Bạn không có quyền chuyển trạng thái');
 
     let sprintId: number | null = null;
     if (type === 'subtask' && parentId) sprintId = get('SELECT sprint_id FROM issues WHERE id = ?', parentId)?.sprint_id ?? null;
-    else if (type !== 'epic' && data.sprint_id) sprintId = checkSprint(projectId, data.sprint_id);
+    else if (type !== 'epic' && data.sprint_id) {
+      // Đưa issue vào sprint = sửa Backlog
+      if (!perms.has('sprint.manage')) throw forbidden('Bạn không có quyền đưa issue vào sprint');
+      sprintId = checkSprint(projectId, data.sprint_id);
+    }
     // Sub-task thuộc mô-đun của issue cha
     const componentId = type === 'subtask' && parentId
       ? get('SELECT component_id FROM issues WHERE id = ?', parentId)?.component_id ?? null
@@ -406,7 +422,7 @@ export function createIssue(user: AuthUser, projectId: number, perms: Set<Permis
       projectId, p.issue_seq, `${p.key}-${p.issue_seq}`, type, summary, data.description || null, checkIssueNote(data.note), statusId, priority,
       assigneeId, user.id, parentId, sprintId, checkPoints(data.story_points), checkLabels(data.labels),
       checkDate(data.start_date, 'Ngày bắt đầu'), checkDate(data.due_date, 'Hạn hoàn thành'),
-      data.rank !== undefined ? Number(data.rank) : nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
+      data.rank !== undefined && perms.has('sprint.manage') ? Number(data.rank) : nextRank(projectId), status.category === 'done' ? ts : null, ts, ts,
       checkVersion(projectId, data.version_id), estimate, estimate, componentId,
       type === 'subtask' ? checkSubtype(data.subtype) : null, checkDev(projectId, data.dev_id),
     );
@@ -521,8 +537,8 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
     if (has('assignee_id')) {
       const v = data.assignee_id ? Number(data.assignee_id) : null;
       if (v !== issue.assignee_id) {
-        const selfAssign = v === user.id && canEdit;
-        if (!perms.has('issue.assign') && !selfAssign) throw forbidden('Bạn không có quyền giao việc');
+        // Giao việc / tự nhận việc / bỏ giao đều cần quyền Giao việc
+        if (!perms.has('issue.assign')) throw forbidden('Bạn không có quyền giao việc');
         if (v && !isMember(issue.project_id, v)) throw badRequest('Người được giao không thuộc dự án');
         sets.assignee_id = v;
         history.push(['assignee', issue.assignee_id, v, userName(issue.assignee_id), userName(v)]);
@@ -544,7 +560,8 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       const v = data.__subtaskSprint !== undefined ? data.__subtaskSprint : checkSprint(issue.project_id, data.sprint_id);
       if (v !== issue.sprint_id) {
         if (data.__subtaskSprint === undefined) {
-          if (!perms.has('sprint.manage') && !canEdit) throw forbidden('Bạn không có quyền đổi sprint');
+          // Đổi sprint / đưa về Backlog = sửa Backlog (không suy từ quyền sửa issue)
+          if (!perms.has('sprint.manage')) throw forbidden('Bạn không có quyền đổi sprint');
           if (((sets.type as string | undefined) ?? issue.type) === 'epic') throw badRequest('Epic không thể đưa vào sprint');
           if (((sets.type as string | undefined) ?? issue.type) === 'subtask') throw badRequest('Sub-task luôn thuộc sprint của issue cha');
         }
@@ -636,7 +653,8 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
       applyStatus(checkStatus(issue.project_id, mapStatusForType(issue.project_id, effType, issue.status_id)));
     }
     if (has('rank')) {
-      if (!perms.has('sprint.manage') && !canEdit) throw forbidden('Bạn không có quyền sắp xếp');
+      // Sắp xếp thứ tự = sửa Backlog
+      if (!perms.has('sprint.manage')) throw forbidden('Bạn không có quyền sắp xếp');
       sets.rank = Number(data.rank);
     }
 

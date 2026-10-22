@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { all, get, run } from '../db.ts';
 import { audit } from '../audit.ts';
-import { badRequest, notFound, requireUserPerm } from '../permissions.ts';
+import { badRequest, notFound, requirePerm, requireUserPerm } from '../permissions.ts';
 import { cleanProduct, sameName } from '../customer.ts';
 
 /** Danh mục Loại sản phẩm & Sản phẩm — chọn cho khách hàng; mô tả sản phẩm tự điền vào khách hàng */
@@ -87,7 +87,8 @@ r.patch('/:id', (req, res) => {
   if (!p) throw notFound();
   const v = validProduct({ ...p, ...req.body }, p.id);
   if (p.project_id) {
-    // Sản phẩm của dự án: sửa tên / mô tả cũng là sửa dự án; không đổi được loại
+    // Sản phẩm của dự án: sửa tên / mô tả cũng là sửa dự án (cần quyền Dự án – Sửa trên dự án đó); không đổi được loại
+    requirePerm(req.user, p.project_id, 'project.edit');
     if (v.type_id !== p.type_id) throw badRequest('Không đổi được loại của sản phẩm Dự án');
     run('UPDATE projects SET name = ?, description = ? WHERE id = ?', v.name, v.description, p.project_id);
   } else if (get('SELECT 1 FROM product_types WHERE id = ? AND is_project = 1', v.type_id)) {

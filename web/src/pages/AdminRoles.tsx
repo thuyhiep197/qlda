@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, refreshAll } from '../api';
 import { Search } from 'lucide-react';
 import { hasPerm, useMe, useRoles } from '../hooks';
-import type { PermissionCatalog, User } from '../types';
+import type { PermissionCatalog, User, UserBasic } from '../types';
 import { HelpTip, Spinner, toast, toastError } from '../components/ui';
 import { PermMatrix } from '../components/PermMatrix';
 import { UserPermEditor } from '../components/UserPermEditor';
@@ -27,11 +27,14 @@ export default function AdminRoles() {
 /** Theo người dùng: danh sách người (bên trái), ma trận quyền nhóm (khóa) + quyền cấp thêm riêng (bên phải) */
 function UsersTab({ tabs }: { tabs: React.ReactNode }) {
   const { data: me } = useMe();
-  const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: () => api.get('/users'), enabled: hasPerm(me, 'user.view') });
+  // Có Người dùng – Xem: danh sách đầy đủ (kèm số quyền riêng); chỉ có Phân quyền – Xem: danh sách rút gọn tài khoản đang hoạt động
+  const full = hasPerm(me, 'user.view');
+  const { data: users } = useQuery<(UserBasic & Partial<Pick<User, 'is_active' | 'extra_permissions'>>)[]>({
+    queryKey: full ? ['users'] : ['users-basic'], queryFn: () => api.get(full ? '/users' : '/users/basic') });
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
-  const list = (users ?? []).filter((u) => u.is_active && (!q.trim() || fold(`${u.full_name} ${u.username} ${u.default_role_name ?? ''}`).includes(fold(q.trim()))));
+  const list = (users ?? []).filter((u) => u.is_active !== 0 && (!q.trim() || fold(`${u.full_name} ${u.username} ${u.default_role_name ?? ''}`).includes(fold(q.trim()))));
   const cur = list.find((u) => u.id === selected) ?? list[0];
   const pick = (id: number) => {
     if (dirty && !confirm('Người dùng hiện tại có thay đổi chưa lưu. Bỏ thay đổi?')) return;
@@ -44,7 +47,7 @@ function UsersTab({ tabs }: { tabs: React.ReactNode }) {
         <HelpTip text="Quyền thực tế của một người = quyền của nhóm người dùng + quyền cấp thêm riêng cho người đó. Quyền nhóm sửa ở tab Theo nhóm người dùng." />
       </div>
       {tabs}
-      {!hasPerm(me, 'user.view') ? <p className="muted">Cần quyền Người dùng – Xem để phân quyền theo người dùng.</p> : !users ? <Spinner /> : (
+      {!users ? <Spinner /> : (
         <div className="perm-layout">
           <aside className="perm-groups">
             <div className="cw-search mb-sm"><Search size={13} /><input placeholder="Tìm người, nhóm…" value={q} onChange={(e) => setQ(e.target.value)} /></div>

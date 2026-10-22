@@ -77,6 +77,12 @@ const SALES_ROLE = [...PROJECT_VIEW_ROLE, 'customer.view', 'customer.create', 'c
   'journey.view', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.view', 'ctask.create', 'ctask.edit',
   'cfile.view', 'cfile.create', 'cfile.export', 'ctalk.view', 'ctalk.create', 'product.view', 'geo.view', 'department.view', 'staff.view'];
 const BOARD_ROLE = [...SALES_ROLE, 'customer_all.view'];
+/** Các ô quyền của phân hệ Dự án lúc thêm ô Dự án – Xem (v30), dạng danh sách SQL — khớp PROJECT_MODULE_PERMISSIONS ở permissions.ts */
+const PROJECT_MODULE_CELLS = ['project.create', 'project.edit', 'project.delete', 'project.view_all', 'plan.view', 'plan.export',
+  'sprint.view', 'sprint.create', 'sprint.edit', 'sprint.delete', 'backlog.view', 'backlog.edit', 'search.view', 'search.export',
+  'issue.view', 'issue.create', 'issue.edit', 'issue.delete', 'issue.import', 'issue_own.edit', 'assign.edit', 'transition.edit',
+  'comment.view', 'comment.create', 'comment.edit', 'comment.delete', 'attachment.view', 'attachment.create', 'attachment.delete', 'attachment.export',
+  'worklog.view', 'worklog.create', 'worklog.delete'].map((p) => `'${p}'`).join(', ');
 /** Nhóm quản trị hệ thống (roles.is_admin = 1): thuộc nhóm này là toàn quyền; ma trận quyền của nhóm không dùng */
 export const ADMIN_ROLE_NAME = 'Quản trị hệ thống';
 /** Mỗi phiên bản: câu lệnh SQL, hoặc hàm (khi cần xử lý dữ liệu bằng code) — chạy trong cùng giao dịch */
@@ -763,6 +769,16 @@ const migrations: (string | (() => void))[] = [
   `DELETE FROM project_members;
    INSERT OR IGNORE INTO project_members(project_id, user_id, role_id)
      SELECT pp.project_id, u.id, u.default_role_id FROM project_people pp JOIN users u ON u.id = pp.user_id WHERE u.default_role_id IS NOT NULL;`,
+  // v30: thêm ô "Dự án – Xem" (project.view) = xem tab Thông tin dự án. Giữ nguyên năng lực hiện có: nhóm người dùng có ô nào của
+  // phân hệ Dự án được cấp project.view; người dùng có quyền riêng thuộc phân hệ Dự án mà nhóm của họ không có project.view cũng được cấp riêng.
+  `UPDATE roles SET permissions = json_insert(permissions, '$[#]', 'project.view')
+     WHERE NOT EXISTS (SELECT 1 FROM json_each(roles.permissions) WHERE value = 'project.view')
+       AND EXISTS (SELECT 1 FROM json_each(roles.permissions) WHERE value IN (${PROJECT_MODULE_CELLS}));
+   INSERT OR IGNORE INTO user_permissions(user_id, permission, effect)
+     SELECT DISTINCT up.user_id, 'project.view', 'allow' FROM user_permissions up
+     WHERE up.effect = 'allow' AND up.permission IN (${PROJECT_MODULE_CELLS})
+       AND NOT EXISTS (SELECT 1 FROM users u JOIN roles r ON r.id = u.default_role_id, json_each(r.permissions) j
+         WHERE u.id = up.user_id AND j.value = 'project.view');`,
 ];
 
 function migrateV26() {

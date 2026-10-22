@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express';
 import { all, get, localDate, now, run, tx } from '../db.ts';
 import { audit } from '../audit.ts';
-import { accessibleProjectIds, badRequest, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
+import { accessibleProjectIds, badRequest, forbidden, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
 import { cleanSalesProject, customerCode, salesProjectCode } from '../customer.ts';
 import { journeyProgress, journeyStatus } from '../journey.ts';
 import { syncJourneys } from '../journey-sync.ts';
@@ -57,14 +57,33 @@ export function salesProjectsOf(customerIds: number[] | 'all', opts: { user?: Au
     if (!steps.has(st.sales_project_id)) steps.set(st.sales_project_id, []);
     steps.get(st.sales_project_id)!.push(st);
   }
-  // Lịch gọi đã đến ngày mà chưa xác nhận → cảnh báo cho mọi người xem được dự án
+  // Lịch gọi đã đến ngày mà chưa xác nhận → cảnh báo cho mọi người xem được dự án (có quyền Trao đổi – Xem)
   const calls = callAlerts(today);
-  return rows.map((p: any) => {
+  const out = rows.map((p: any) => {
     const list = steps.get(p.id) ?? [];
     const j = journeyProgress(list, today);
     return { ...p, status: journeyStatus(list), journey_pct: j.total ? j.pct : null,
       journey_overdue: j.sections.reduce((n, s) => n + s.overdue, 0), call_alert: calls.get(p.id) ?? null };
   });
+  return opts.user ? out.map(forViewer(opts.user)) : out;
+}
+
+/**
+ * Dữ liệu của chức năng khác gắn vào dự án của khách hàng chỉ trả về khi người xem có quyền Xem chức năng đó:
+ * số việc đang mở (Công việc), cảnh báo lịch gọi (Trao đổi), tiến độ / số bước quá hạn (Hành trình),
+ * dự án sản xuất đã gắn (Kế hoạch, và vào được dự án đó). Tình trạng tự động vẫn là dữ liệu của dự án của khách hàng.
+ */
+export function forViewer(user: AuthUser) {
+  const perms = userPermissions(user);
+  const access = perms.has('plan.view') ? accessibleProjectIds(user) : [];
+  return <T extends Record<string, any>>(p: T): T => {
+    const v: Record<string, any> = { ...p };
+    if (!perms.has('ctask.view')) delete v.open_tasks;
+    if (!perms.has('ctalk.view')) v.call_alert = null;
+    if (!perms.has('journey.view')) { delete v.journey_pct; delete v.journey_overdue; }
+    if (!(v.project_id && (access === 'all' || access.includes(v.project_id)))) { v.project_key = null; v.project_name = null; }
+    return v as T;
+  };
 }
 
 function loadSalesProject(req: Request, perm: Permission = 'sales_project.view') {
@@ -97,8 +116,15 @@ function savePeopleOf(spId: number, v: Record<`${PeopleRole}_ids`, number[]>, be
   savePeople('sales_project_owners', 'sales_project_id', spId, Object.fromEntries(ROLES.map((r) => [r, v[`${r}_ids`]])));
 }
 
-/** Tên dự án của một khách hàng — để phía phân hệ Dự án chọn gắn dự án sản xuất (ai tạo / sửa dự án cũng xem được tên) */
+/** Người đang điền form Tạo / Sửa dự án (phân hệ Dự án): chọn khách hàng, dự án của khách hàng để gắn */
+export function requireProjectForm(user: AuthUser) {
+  const perms = userPermissions(user);
+  if (!perms.has('project.create') && !perms.has('project.edit')) throw forbidden();
+}
+
+/** Tên dự án của một khách hàng — để phía phân hệ Dự án chọn gắn dự án sản xuất (người có quyền Dự án – Thêm / Sửa) */
 r.get('/:id/project-names', (req, res) => {
+  requireProjectForm(req.user);
   res.json(all(`SELECT sp.id, sp.code, sp.name, sp.project_id, pr.key AS project_key FROM sales_projects sp LEFT JOIN projects pr ON pr.id = sp.project_id
     WHERE sp.customer_id = ? ORDER BY sp.code`, Number(req.params.id)));
 });
@@ -116,14 +142,14 @@ r.post('/:id/projects', (req, res) => {
     return id;
   });
   audit(req, 'customer_updated', { target: c.name, detail: `Thêm dự án ${v.name}` });
-  res.status(201).json(salesProjectsOf([c.id], { archived: true }).find((p: any) => p.id === id));
+  res.status(201).json(salesProjectsOf([c.id], { archived: true }).map(forViewer(req.user)).find((p: any) => p.id === id));
 });
 
 /** Chi tiết dự án: thông tin, Kinh doanh / AM, tình trạng, công việc, tài liệu, trao đổi, dự án sản xuất đã gắn */
 r.get('/:id/projects/:pid', (req, res) => {
   const { c, sp } = loadSalesProject(req);
   syncJourneys([sp.id]);
-  const p: any = salesProjectsOf([c.id], { archived: true }).find((x: any) => x.id === sp.id);
+  const p: any = salesProjectsOf([c.id], { archived: true }).map(forViewer(req.user)).find((x: any) => x.id === sp.id);
   p.can_manage = managesSalesProject(req.user, sp.id);
   const ids = ownerIds(sp.id);
   for (const r of ROLES) p[`${r}_ids`] = ids[r];

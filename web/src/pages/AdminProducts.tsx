@@ -21,6 +21,9 @@ export default function AdminProducts() {
   const [creatingProject, setCreatingProject] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<Partial<ProductType> | null>(null);
   const canCreate = hasPerm(me, 'product.create'), canEdit = hasPerm(me, 'product.edit'), canDelete = hasPerm(me, 'product.delete');
+  // Sản phẩm loại Dự án là dự án: thêm = tạo dự án (Dự án – Thêm), sửa tên / mô tả = sửa dự án (Dự án – Sửa)
+  const canCreateProject = hasPerm(me, 'project.create'), canEditProject = hasPerm(me, 'project.edit');
+  const projectFilter = !!types?.find((t) => String(t.id) === typeF)?.is_project;
   const list = (products || []).filter((p) => (!typeF || String(p.type_id) === typeF) && (!q || p.name.toLowerCase().includes(q.toLowerCase())));
 
   const remove = async (p: Product) => {
@@ -38,7 +41,7 @@ export default function AdminProducts() {
         <h1>Danh mục sản phẩm</h1>
         <div className="spacer" />
         {canCreate && <button className="btn" onClick={() => setEditingType({})}>+ Thêm loại sản phẩm</button>}
-        {canCreate && <button className="btn btn-primary" onClick={() => types?.find((t) => String(t.id) === typeF)?.is_project
+        {canCreate && (!projectFilter || canCreateProject) && <button className="btn btn-primary" onClick={() => projectFilter
           ? setCreatingProject('') : setEditing({ type_id: typeF || String(types?.find((t) => !t.is_project)?.id ?? ''), name: '', description: '' })}>+ Thêm sản phẩm</button>}
       </div>
       <p className="muted small">Loại <b>Dự án</b> là các dự án trong phân hệ Dự án: tạo dự án là tự có trong danh mục, sửa tên / mô tả ở đây cũng là sửa dự án. Khi chọn sản phẩm cho khách hàng, mô tả ở đây được tự điền vào ô "Mô tả sản phẩm" của khách hàng. Sửa mô tả ở đây không đổi mô tả đã ghi ở các khách hàng.</p>
@@ -77,7 +80,7 @@ export default function AdminProducts() {
                   <td className="num">{p.customer_count || ''}</td>
                   {(canEdit || canDelete) && (
                     <td className="num nowrap">
-                      {canEdit && <button className="icon-btn" aria-label={`Sửa ${p.name}`} data-tip="Sửa"
+                      {canEdit && (!p.project_id || canEditProject) && <button className="icon-btn" aria-label={`Sửa ${p.name}`} data-tip="Sửa"
                         onClick={() => setEditing({ id: p.id, type_id: String(p.type_id), name: p.name, description: p.description || '' })}><Pencil size={15} /></button>}
                       {canDelete && !p.project_id && <button className="icon-btn" aria-label={`Xóa ${p.name}`} data-tip="Xóa" onClick={() => remove(p)}><Trash2 size={15} /></button>}
                     </td>
@@ -88,14 +91,14 @@ export default function AdminProducts() {
           </table>
         </div>
       )}
-      {editing && <ProductModal draft={editing} types={types || []} onClose={() => setEditing(null)} onProject={(n) => setCreatingProject(n)} />}
+      {editing && <ProductModal draft={editing} types={types || []} onClose={() => setEditing(null)} onProject={canCreateProject ? (n) => setCreatingProject(n) : undefined} />}
       {creatingProject !== null && <CreateProjectModal initialName={creatingProject} onClose={() => setCreatingProject(null)} onCreated={() => undefined} />}
       {editingType && <TypeModal type={editingType} onClose={() => setEditingType(null)} />}
     </div>
   );
 }
 
-/** Thêm / sửa sản phẩm. Chọn loại Dự án khi thêm mới → chuyển sang form Tạo dự án (onProject) */
+/** Thêm / sửa sản phẩm. Chọn loại Dự án khi thêm mới → chuyển sang form Tạo dự án (onProject); không có onProject thì không chọn được loại Dự án khi thêm mới */
 export function ProductModal({ draft, types, onClose, onSaved, onProject }: {
   draft: Draft; types: ProductType[]; onClose: () => void; onSaved?: (id: number) => void; onProject?: (name: string) => void;
 }) {
@@ -124,7 +127,7 @@ export function ProductModal({ draft, types, onClose, onSaved, onProject }: {
         <label className="field"><span>Loại sản phẩm *</span>
           <select required value={d.type_id} onChange={(e) => setD({ ...d, type_id: e.target.value })}>
             <option value="">—</option>
-            {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {types.filter((t) => d.id || !t.is_project || onProject).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select></label>
         <label className="field"><span>Tên sản phẩm *</span>
           <input autoFocus required value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder="VD: Phần mềm quản lý văn bản" /></label>

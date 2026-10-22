@@ -6,13 +6,12 @@ import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
 import { customerMembers, loadCustomer, managesCustomer, projectOf, requireManage, seesAllCustomers, visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import { checkPeople, namesSql, savePeople, userPositions } from '../people.ts';
-import { listIssues } from '../issues.ts';
 import { autoProjectStatuses } from '../phases.ts';
 import { avatarUrl } from '../avatar.ts';
 import { upload, utf8Name } from '../upload.ts';
 import { cleanActivity, cleanContacts, cleanCustomer, sameName } from '../customer.ts';
 import { TASK_SELECT } from './customer-work.ts';
-import { assignCustomerCodes, salesProjectsOf } from './sales-projects.ts';
+import { assignCustomerCodes, requireProjectForm, salesProjectsOf } from './sales-projects.ts';
 import { syncJourneys } from '../journey-sync.ts';
 import { checkCustomerStatus } from './customer-statuses.ts';
 import { mentionedCustomerUsers, notifyCustomer } from '../notify.ts';
@@ -67,8 +66,9 @@ function saveContacts(customerId: number, list: ReturnType<typeof cleanContacts>
   }
 }
 
-// Tên khách hàng để chọn ở ô "Khách hàng" của dự án — mọi người đã đăng nhập đều xem được
-r.get('/names', (_req, res) => {
+// Tên khách hàng để chọn ở ô "Khách hàng" của form Tạo / Sửa dự án — người có quyền Dự án – Thêm / Sửa
+r.get('/names', (req, res) => {
+  requireProjectForm(req.user);
   res.json(all('SELECT id, name FROM customers ORDER BY name'));
 });
 
@@ -81,19 +81,21 @@ r.get('/', (req, res) => {
   const archived = req.query.archived === '1';
   const vis = visibleCustomersSql(req.user);
   const projectsByCustomer = new Map<number, any[]>();
-  const canProjects = userPermissions(req.user).has('sales_project.view');
-  for (const sp of canProjects ? salesProjectsOf('all', { user: req.user, archived }) : []) {
+  const perms = userPermissions(req.user);
+  for (const sp of perms.has('sales_project.view') ? salesProjectsOf('all', { user: req.user, archived }) : []) {
     if (!projectsByCustomer.has(sp.customer_id)) projectsByCustomer.set(sp.customer_id, []);
     projectsByCustomer.get(sp.customer_id)!.push(sp);
   }
   const openTasks = new Map(all<{ customer_id: number; n: number }>("SELECT customer_id, COUNT(*) n FROM customer_tasks WHERE status <> 'done' GROUP BY customer_id")
     .map((x) => [x.customer_id, x.n]));
+  // Số dự án sản xuất (Kế hoạch), ngày làm việc gần nhất (Trao đổi), số việc đang mở (Công việc): chỉ khi có quyền Xem chức năng đó
+  const canPlan = perms.has('plan.view'), canTalk = perms.has('ctalk.view'), canTask = perms.has('ctask.view');
   // Mỗi khách hàng kèm các dự án của khách hàng (cấp 2) người dùng được xem; sản phẩm = sản phẩm của các dự án (để tìm kiếm)
   res.json(all(`
     SELECT c.*, gp.name AS province_name, gw.name AS ward_name,
-      (SELECT COUNT(*) FROM projects pr WHERE pr.customer_id = c.id AND pr.is_archived = 0) AS project_count,
+      ${canPlan ? '(SELECT COUNT(*) FROM projects pr WHERE pr.customer_id = c.id AND pr.is_archived = 0)' : 'NULL'} AS project_count,
       (SELECT COUNT(*) FROM customer_contacts cc WHERE cc.customer_id = c.id) AS contact_count,
-      (SELECT MAX(activity_date) FROM customer_activities a WHERE a.customer_id = c.id) AS last_activity_date,
+      ${canTalk ? '(SELECT MAX(activity_date) FROM customer_activities a WHERE a.customer_id = c.id)' : 'NULL'} AS last_activity_date,
       ${FIRST_CONTACT('full_name')} AS contact_name, ${FIRST_CONTACT('phone')} AS contact_phone, ${FIRST_CONTACT('email')} AS contact_email,
       ${OWNER_NAMES('kd')} AS kd_names, ${OWNER_NAMES('am')} AS am_names,
       (EXISTS (SELECT 1 FROM customer_owners co WHERE co.customer_id = c.id AND co.user_id = ?)
@@ -103,7 +105,7 @@ r.get('/', (req, res) => {
     WHERE ${vis.sql} ${archived ? '' : 'AND c.is_archived = 0'} ORDER BY c.name`, req.user.id, req.user.id, ...vis.params).map((c: any) => {
     const projects = projectsByCustomer.get(c.id) ?? [];
     return { ...c, sales_projects: projects, product_name: [...new Set(projects.map((p) => p.product_name).filter(Boolean))].join(', ') || null,
-      open_tasks: openTasks.get(c.id) ?? 0 };
+      ...(canTask ? { open_tasks: openTasks.get(c.id) ?? 0 } : {}) };
   }));
 });
 
@@ -184,8 +186,8 @@ r.get('/:id', (req, res) => {
     const a = auto.get(p.id) ?? { status: 'Chưa bắt đầu', reason: 'Chưa có công việc nào' };
     return { ...p, status_auto: a.status, status_reason: a.reason, accessible: access === 'all' || access.includes(p.id) };
   });
-  c.issues = listIssues(req.user, { customer: String(c.id), statusCategory: 'todo,inprogress', excludeEpics: '1', sort: 'due', limit: '500' });
-  const ids = c.projects.filter((p: any) => p.accessible && !p.is_archived).map((p: any) => p.id);
+  // Hoạt động gần đây của issue (phân hệ Dự án): cần thêm quyền Issue – Xem
+  const ids = !perms.has('issue.view') ? [] : c.projects.filter((p: any) => p.accessible && !p.is_archived).map((p: any) => p.id);
   c.recent = ids.length ? all(`SELECT h.id, h.field, h.new_label, h.created_at, u.full_name AS user_name, u.avatar AS user_avatar, i.key, i.summary, i.type, pr.key AS project_key
     FROM issue_history h JOIN issues i ON i.id = h.issue_id JOIN projects pr ON pr.id = i.project_id LEFT JOIN users u ON u.id = h.user_id
     WHERE i.project_id IN (${ids.map(() => '?').join(',')}) AND h.field IN ('created','status','assignee')

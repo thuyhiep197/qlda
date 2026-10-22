@@ -1,16 +1,8 @@
 export interface AssigneeAccessInput {
-  assigneeId: number | null;
-  meId: number;
-  isMember: boolean;
   canAssign: boolean;
-  canEdit?: boolean;
 }
 
-export function assigneeAccess({ assigneeId, isMember, canAssign, canEdit = false }: AssigneeAccessInput) {
-  const selfOnly = !canAssign;
-  return {
-    editable: canAssign || (isMember && canEdit && assigneeId == null),
-    selfOnly,
-    allowUnassign: canAssign,
-  };
+/** Đổi người thực hiện (giao, tự nhận, bỏ giao) chỉ với quyền Giao việc — không suy từ quyền sửa issue hay là thành viên */
+export function assigneeAccess({ canAssign }: AssigneeAccessInput) {
+  return { editable: canAssign, allowUnassign: canAssign };
 }

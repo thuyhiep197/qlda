@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Paperclip, Plus, X } from 'lucide-react';
 import { api, refreshAll } from '../api';
-import { useCustomerStatuses, useProvinces, useWards } from '../hooks';
+import { hasPerm, useCustomerStatuses, useMe, useProvinces, useWards } from '../hooks';
 import { PeoplePicker } from '../components/PeoplePicker';
 import type { Customer, CustomerContact } from '../types';
 import { CUSTOMER_SOURCES, wardCodeOf } from '../customer-filter';
@@ -38,6 +38,9 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
   const [people, setPeople] = useState<ContactDraft[]>(contacts?.length
     ? contacts.map((c) => ({ id: c.id, full_name: c.full_name, phone: c.phone ?? '', email: c.email ?? '' })) : [blankContact()]);
   const [files, setFiles] = useState<File[]>([]);
+  // Chọn tài liệu kèm theo khi thêm mới: chỉ khi có quyền Tài liệu – Tải lên
+  const { data: me } = useMe();
+  const canUpload = hasPerm(me, 'cfile.create');
   const [busy, setBusy] = useState(false);
   const set = (k: keyof Draft) => (e: { target: { value: string } }) => setD({ ...d, [k]: e.target.value });
   const setPerson = (i: number, k: keyof Omit<ContactDraft, 'id'>, v: string) => setPeople(people.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
@@ -51,7 +54,7 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
       let id = customer?.id;
       if (id) await api.patch(`/customers/${id}`, body);
       else id = (await api.post<Customer>('/customers', body)).id;
-      if (files.length) {
+      if (files.length && canUpload) {
         const fd = new FormData();
         files.forEach((f) => fd.append('files', f));
         await api.post(`/customers/${id}/files`, fd);
@@ -116,7 +119,7 @@ export function CustomerModal({ customer, contacts, kdIds, amIds, onClose, onSav
           <div className="field"><span>AM <small className="muted">(Phòng Kinh doanh)</small></span>
             <PeoplePicker role="am" value={am} onChange={setAm} /></div>
         </div>
-        {!customer && (
+        {!customer && canUpload && (
           <div className="field"><span>Tài liệu</span>
             <label className="btn btn-subtle btn-sm" style={{ alignSelf: 'flex-start' }}><Paperclip size={14} /> Chọn tệp…
               <input type="file" multiple hidden onChange={(e) => setFiles([...files, ...Array.from(e.target.files || [])])} /></label>

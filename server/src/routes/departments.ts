@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { all, get, run } from '../db.ts';
 import { audit } from '../audit.ts';
-import { badRequest, notFound, requireUserPerm } from '../permissions.ts';
+import { badRequest, notFound, requireUserPerm, userPermissions } from '../permissions.ts';
 import { allowedPositions } from '../positions.ts';
 
 /** Mã phòng ban từ chính nó lên các cấp trên */
@@ -40,10 +40,10 @@ function checkNoCycle(id: number, parentId: number | null) {
   }
 }
 
-// Mọi người đã đăng nhập đều xem được: phòng ban kèm danh sách nhân sự
-r.get('/', (_req, res) => {
+// Mọi người đã đăng nhập đều xem được danh sách phòng ban (dùng để chọn); danh sách nhân sự của phòng chỉ khi có quyền Nhân sự – Xem
+r.get('/', (req, res) => {
   const deps = all(`SELECT d.id, d.code, d.name, d.parent_id, d.position FROM departments d ORDER BY d.position, d.name`);
-  const staff = all(`SELECT u.id, u.full_name, u.positions, u.staff_note AS note, u.id AS user_id, u.department_id, u.username, u.is_active,
+  const staff = !userPermissions(req.user).has('staff.view') ? [] : all(`SELECT u.id, u.full_name, u.positions, u.staff_note AS note, u.id AS user_id, u.department_id, u.username, u.is_active,
       u.manager_id, (SELECT m.full_name FROM users m WHERE m.id = u.manager_id) AS manager_name
     FROM users u WHERE u.department_id IS NOT NULL ORDER BY u.full_name`);
   // allowed_positions: vị trí được chọn khi thêm nhân sự vào phòng ban; preset: vị trí tích sẵn của nhóm

@@ -186,9 +186,9 @@ export interface Project {
   lead_id: number;
   customer_id: number | null;
   customer: string | null;
-  /** Thông tin khách hàng của dự án (thành viên dự án đều xem được) */
-  customer_info: (Pick<Customer, 'id' | 'code' | 'name' | 'status' | 'province_name' | 'ward_name' | 'source' | 'kd_names' | 'am_names'> & { contacts: CustomerContact[];
-    /** Dự án của khách hàng (phía Kinh doanh) đã chuyển sang sản xuất thành dự án này */
+  /** Khách hàng của dự án: không có quyền Thông tin khách hàng – Xem thì chỉ có id, tên (contacts rỗng, sales_project null) */
+  customer_info: (Pick<Customer, 'id' | 'name'> & Partial<Pick<Customer, 'code' | 'status' | 'province_name' | 'ward_name' | 'source' | 'kd_names' | 'am_names'>> & { contacts: CustomerContact[];
+    /** Dự án của khách hàng (phía Kinh doanh) đã chuyển sang sản xuất thành dự án này — cần thêm quyền Dự án của khách hàng – Xem */
     sales_project: { id: number; code: string; name: string; status: string | null; product_name: string | null; kd_names: string | null; am_names: string | null } | null }) | null;
   priority: string | null;
   project_status: string | null;
@@ -269,7 +269,8 @@ export interface Issue {
   flagged?: number;
   original_estimate: number | null;
   remaining_estimate: number | null;
-  time_spent: number;
+  /** Giờ đã ghi (phút) — chỉ có khi có quyền Ghi thời gian làm việc – Xem */
+  time_spent?: number;
 }
 
 export interface HistoryItem {

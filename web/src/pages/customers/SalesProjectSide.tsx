@@ -47,11 +47,12 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
         ]} />
       </Block>
       {can('ctalk.view') && <CallSchedule customerId={customer.id} projectId={sp.id} calls={sp.calls} members={sp.member_ids} />}
-      <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} members={sp.member_ids} />
-      <Block title={`Tài liệu (${sp.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} projectId={sp.id} />}>
+      {/* Công việc, Tài liệu, Trao đổi: chỉ khi có quyền Xem chức năng đó */}
+      {can('ctask.view') && <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} members={sp.member_ids} />}
+      {can('cfile.view') && <Block title={`Tài liệu (${sp.files.length})`} extra={can('cfile.create') && <UploadButton customerId={customer.id} projectId={sp.id} />}>
         <FileList customerId={customer.id} files={sp.files} showWhere />
-      </Block>
-      <Talk customerId={customer.id} activities={sp.activities} target={{ sales_project_id: sp.id }} empty="Chưa có trao đổi về dự án" canAdd={can('ctalk.create')} users={users ?? []} />
+      </Block>}
+      {can('ctalk.view') && <Talk customerId={customer.id} activities={sp.activities} target={{ sales_project_id: sp.id }} empty="Chưa có trao đổi về dự án" canAdd={can('ctalk.create')} users={users ?? []} />}
       {editing && <SalesProjectModal customer={customer} sp={sp} onClose={() => setEditing(false)} />}
     </>
   );

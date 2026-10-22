@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Building2, FileText, Route, Search } from 'lucide-react';
 import { api } from '../api';
-import { useIssueModal } from '../hooks';
+import { hasPerm, hasProjectModule, useIssueModal, useMe } from '../hooks';
 import type { IssueType, SubType, Category } from '../types';
 import { colorOf } from '../util';
 import { StatusBadge, TypeIcon } from './ui';
@@ -20,6 +20,10 @@ interface Results {
 export default function GlobalSearch() {
   const navigate = useNavigate();
   const { open: openIssue } = useIssueModal();
+  const { data: me } = useMe();
+  // Mở chi tiết issue: Issue – Xem; tìm trong danh sách issue: Danh sách & tìm kiếm issue – Xem (thuộc phân hệ Dự án)
+  const canOpenIssue = hasProjectModule(me) && hasPerm(me, 'issue.view');
+  const canSearchIssues = hasProjectModule(me) && hasPerm(me, 'search.view');
   const [q, setQ] = useState('');
   const [term, setTerm] = useState('');
   const [show, setShow] = useState(false);
@@ -42,11 +46,11 @@ export default function GlobalSearch() {
     node: <><Route size={15} className="muted" /><span className="grow ellipsis">{s.code ? `${s.code} ` : ''}{s.title}</span><span className="muted small ellipsis gs-meta">{s.customer_name}</span></> }));
   data?.projects.forEach((p) => items.push({ group: 'Dự án', key: `p${p.id}`, go: done(() => navigate(`/p/${p.key}?g=all`)),
     node: <><span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span><span className="grow ellipsis">{p.name}</span><span className="muted small ellipsis gs-meta">{p.customer ?? p.key}</span></> }));
-  data?.issues.forEach((i) => items.push({ group: 'Issue', key: `i${i.key}`, go: done(() => openIssue(i.key)),
+  data?.issues.forEach((i) => items.push({ group: 'Issue', key: `i${i.key}`, go: done(() => (canOpenIssue ? openIssue(i.key) : navigate(`/issues?q=${encodeURIComponent(i.key)}`))),
     node: <><TypeIcon type={i.type} subtype={i.subtype} size={15} /><span className="muted small nowrap">{i.key}</span><span className="grow ellipsis">{i.summary}</span><StatusBadge name={i.status_name} category={i.status_category} /></> }));
   data?.docs?.forEach((d) => items.push({ group: 'Tài liệu nội bộ', key: `d${d.id}`, go: done(() => navigate(`/docs?${d.folder_id ? `folder=${d.folder_id}&` : ''}file=${d.id}`)),
     node: <><FileText size={15} className="muted" /><span className="grow ellipsis">{d.filename}</span><span className="muted small ellipsis gs-meta">{d.folder_name ?? 'Thư mục gốc'}</span></> }));
-  if (term.length >= 2) items.push({ group: '', key: 'all-issues', go: done(() => navigate(`/issues?q=${encodeURIComponent(term)}`)),
+  if (term.length >= 2 && canSearchIssues) items.push({ group: '', key: 'all-issues', go: done(() => navigate(`/issues?q=${encodeURIComponent(term)}`)),
     node: <><Search size={15} className="muted" /><span className="grow">Tìm "{term}" trong tất cả issue…</span></> });
 
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -57,7 +61,7 @@ export default function GlobalSearch() {
       e.preventDefault();
       const v = q.trim();
       // Gõ đúng mã issue (VD QLTB-12) thì mở ngay issue đó
-      if (/^[A-Za-z][A-Za-z0-9]+-\d+$/.test(v)) { openIssue(v.toUpperCase()); setQ(''); setShow(false); return; }
+      if (canOpenIssue && /^[A-Za-z][A-Za-z0-9]+-\d+$/.test(v)) { openIssue(v.toUpperCase()); setQ(''); setShow(false); return; }
       items[active]?.go();
     }
   };
@@ -71,7 +75,7 @@ export default function GlobalSearch() {
       {show && q.trim().length >= 2 && (
         <div className="gs-pop" role="listbox">
           {isFetching && !data && <div className="muted small pad">Đang tìm…</div>}
-          {data && items.length <= 1 && <div className="muted small pad">Không tìm thấy kết quả cho "{term}"</div>}
+          {data && items.length <= (canSearchIssues ? 1 : 0) && <div className="muted small pad">Không tìm thấy kết quả cho "{term}"</div>}
           {items.map((it, i) => {
             const head = it.group && it.group !== lastGroup ? <div className="gs-group">{it.group}</div> : null;
             lastGroup = it.group || lastGroup;

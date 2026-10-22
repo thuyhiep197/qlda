@@ -10,6 +10,7 @@ import { FilterBar, useFilters } from '../components/FilterBar';
 import { EpicTag } from '../components/IssueRow';
 import { CompleteSprintModal } from '../components/SprintModals';
 import { BulkBar } from '../components/BulkBar';
+import { canBulk } from '../bulk-actions';
 import { QuickCreate } from './Backlog';
 import { useProjectCtx } from './ProjectLayout';
 import { CalendarDays, ChevronDown, ChevronRight, CornerDownRight, SquareCheck, Target } from 'lucide-react';
@@ -51,7 +52,11 @@ export default function Board() {
   }, []);
   const [completing, setCompleting] = useState<typeof actives[number] | null>(null);
 
+  // Kéo sang cột khác: Chuyển trạng thái; sắp xếp thứ tự (kể cả vị trí thả): Sửa Backlog; mở chi tiết: Issue – Xem
   const canTransition = can(project.permissions, 'issue.transition');
+  const canRank = can(project.permissions, 'sprint.manage');
+  const canView = can(project.permissions, 'issue.view');
+  const canSelect = canBulk(project.permissions, isScrum);
 
   if (isScrum && !actives.length) {
     return (
@@ -68,7 +73,7 @@ export default function Board() {
   const statuses = project.statuses;
   const visible = apply(issues);
 
-  const allowed = (issue: Issue, to: number) => canMove(project, issue.type, issue.status_id, to);
+  const allowed = (issue: Issue, to: number) => (to === issue.status_id ? canRank : canTransition && canMove(project, issue.type, issue.status_id, to));
 
   // Nhóm theo làn (swimlane)
   let lanes: { key: string; title: React.ReactNode; items: Issue[] }[];
@@ -110,14 +115,15 @@ export default function Board() {
     let idx = target.index;
     const oldIdx = cards.findIndex((i) => i.id === d.id);
     if (oldIdx >= 0 && oldIdx < idx) idx--;
-    if (d.status_id === status.id && oldIdx === idx) return;
+    if (d.status_id === status.id && (oldIdx === idx || !canRank)) return;
     const after = without[idx - 1], before = without[idx];
-    const newRank = after && before ? (after.rank + before.rank) / 2 : after ? after.rank + 1000 : before ? before.rank - 1000 : d.rank;
+    // Không có quyền Sửa Backlog: chỉ đổi trạng thái, giữ nguyên thứ tự
+    const newRank = !canRank ? d.rank : after && before ? (after.rank + before.rank) / 2 : after ? after.rank + 1000 : before ? before.rank - 1000 : d.rank;
     queryClient.setQueryData<Issue[]>(issuesKey, (old) => old?.map((i) => i.id === d.id
       ? { ...i, status_id: status.id, status_name: status.name, status_category: status.category, rank: newRank } : i)
       .sort((a, b) => a.rank - b.rank));
     try {
-      await api.post(`/issues/${d.key}/move`, { status_id: status.id, after_id: after?.id ?? null, before_id: before?.id ?? null });
+      await api.post(`/issues/${d.key}/move`, canRank ? { status_id: status.id, after_id: after?.id ?? null, before_id: before?.id ?? null } : { status_id: status.id });
     } catch (e) { toastError(e); }
     await refreshAll();
   };
@@ -154,7 +160,7 @@ export default function Board() {
       {selected.size > 0 ? <BulkBar issues={issues.filter((i) => selected.has(i.id))} onClear={() => setSelected(new Set())} />
         : null}
       <FilterBar project={project} filters={filters} setFilters={setFilters} epics={epics}>
-        <HelpTip text="Giữ Ctrl rồi bấm vào các thẻ để chọn nhiều, sau đó Giao cho… hoặc đổi trạng thái hàng loạt" />
+        {canSelect && <HelpTip text="Giữ Ctrl rồi bấm vào các thẻ để chọn nhiều, sau đó Giao cho… hoặc đổi trạng thái hàng loạt" />}
         <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>
           <option value="none">Không phân làn</option>
           <option value="assignee">Phân làn theo người thực hiện</option>
@@ -189,21 +195,22 @@ export default function Board() {
                   }}
                   onDrop={(e) => { e.preventDefault(); onDrop(lane.key, s, cards); }}>
                   {cards.map((i, idx) => (
-                    <div key={i.id} draggable={canTransition}
+                    <div key={i.id} draggable={canTransition || canRank}
                       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDrag(i); }}
                       onDragEnd={() => { setDrag(null); setDrop(null); }}
                       onDragOver={(e) => onDragOverCard(e, lane.key, s, idx)}>
                       {isTarget && drop!.index === idx && <div className="drop-line" />}
                       <Card issue={i} dragging={drag?.id === i.id} selected={selected.has(i.id)} onOpen={(e) => {
                         if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                          if (!canSelect) return;
                           const n = new Set(selected); n.has(i.id) ? n.delete(i.id) : n.add(i.id); setSelected(n);
-                        } else open(i.key);
+                        } else if (canView) open(i.key);
                       }} />
                     </div>
                   ))}
                   {isTarget && drop!.index === cards.length && cards.length > 0 && <div className="drop-line" />}
-                  {s.id === statuses[0].id && lane.key === lanes[0].key && can(project.permissions, 'issue.create') &&
-                    <QuickCreate projectKey={project.key} sprintId={sprint?.id ?? actives[0]?.id} statusId={s.id} compact />}
+                  {s.id === statuses[0].id && lane.key === lanes[0].key && can(project.permissions, 'issue.create') && (!isScrum || canRank) &&
+                    <QuickCreate projectKey={project.key} sprintId={sprint?.id ?? actives[0]?.id} statusId={s.id} canOpen={canView} compact />}
                 </div>
               );
             })}

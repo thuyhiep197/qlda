@@ -21,13 +21,16 @@ r.get('/', (req, res) => {
 
   if (perms.has('customer.view')) {
     const vis = visibleCustomersSql(req.user);
-    const spVis = visibleSalesProjectsSql(req.user);
     const rows = all<{ id: number; name: string; status: string; province: string | null; contacts: string | null }>(`
       SELECT c.id, c.name, c.status, gp.name AS province,
         (SELECT GROUP_CONCAT(cc.full_name || ' ' || COALESCE(cc.phone, '') || ' ' || COALESCE(cc.email, ''), ' ') FROM customer_contacts cc WHERE cc.customer_id = c.id) AS contacts
       FROM customers c LEFT JOIN geo_provinces gp ON gp.code = c.province_code WHERE c.is_archived = 0 AND ${vis.sql} ORDER BY c.name`, ...vis.params);
     out.customers = rows.filter((c) => fold(`${c.name} ${c.contacts ?? ''}`).includes(fq)).slice(0, LIMIT)
       .map(({ contacts: _c, ...c }) => c);
+  }
+  // Bước hành trình (thuộc dự án của khách hàng): cần Hành trình – Xem và Dự án của khách hàng – Xem
+  if (perms.has('customer.view') && perms.has('journey.view') && perms.has('sales_project.view')) {
+    const spVis = visibleSalesProjectsSql(req.user);
     const steps = all<{ id: number; title: string; code: string | null; status: string; customer_id: number; sales_project_id: number | null; customer_name: string }>(`
       SELECT j.id, j.title, j.code, j.status, j.customer_id, j.sales_project_id, c.name AS customer_name FROM journey_steps j JOIN sales_projects sp ON sp.id = j.sales_project_id
         JOIN customers c ON c.id = j.customer_id
@@ -39,7 +42,8 @@ r.get('/', (req, res) => {
   out.projects = all<{ id: number; key: string; name: string; customer: string | null }>('SELECT id, key, name, customer FROM projects WHERE is_archived = 0 ORDER BY name')
     .filter((p) => (ids === 'all' || ids.includes(p.id)) && fold(`${p.key} ${p.name} ${p.customer ?? ''}`).includes(fq)).slice(0, LIMIT);
 
-  if (perms.has('issue.view') || perms.has('search.view')) {
+  // Issue: cần Danh sách & tìm kiếm issue – Xem (trong các dự án được vào)
+  if (perms.has('search.view')) {
     out.issues = listIssues(req.user, { q, sort: 'updated', limit: String(LIMIT) })
       .map((i: any) => ({ key: i.key, summary: i.summary, type: i.type, subtype: i.subtype, status_name: i.status_name, status_category: i.status_category, project_key: i.project_key }));
   }

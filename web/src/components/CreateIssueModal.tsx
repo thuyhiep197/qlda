@@ -63,15 +63,19 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
     enabled: !!key && type !== 'epic',
   });
 
+  // Chọn người thực hiện: quyền Giao việc; chọn sprint: quyền Sửa Backlog
+  const canAssign = can(project?.permissions, 'issue.assign');
+  const canSprint = can(project?.permissions, 'sprint.manage');
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
       const issue = await api.post<Issue>('/issues', {
         project_key: key, type, summary, description, note, priority,
-        assignee_id: assignee || null,
+        assignee_id: canAssign ? assignee || null : null,
         parent_id: type === 'epic' ? null : parent || null,
-        sprint_id: type === 'epic' || type === 'subtask' ? null : sprint || null,
+        sprint_id: type === 'epic' || type === 'subtask' || !canSprint ? null : sprint || null,
         status_id: defaults?.status_id,
         story_points: points || null, labels, start_date: startDate || null, due_date: dueDate || null,
         original_estimate: type !== 'epic' && estimate.trim() ? estimate : null, version_id: type !== 'subtask' && version ? Number(version) : null,
@@ -147,20 +151,20 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
             </select>
           </label>
         )}
-        <label className="field">
+        {canAssign && <label className="field">
           <span>Người thực hiện</span>
           <select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
             <option value="">— Chưa giao —</option>
             {project?.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
           </select>
-        </label>
+        </label>}
         <label className="field">
           <span>Độ ưu tiên</span>
           <select value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
             {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
           </select>
         </label>
-        {project?.type === 'scrum' && type !== 'epic' && type !== 'subtask' && (
+        {project?.type === 'scrum' && canSprint && type !== 'epic' && type !== 'subtask' && (
           <label className="field">
             <span>Sprint</span>
             <select value={sprint} onChange={(e) => setSprint(e.target.value)}>
@@ -238,7 +242,7 @@ export function CreateEpicButton({ project, small = true }: { project: { key: st
         <Plus size={14} strokeWidth={2.5} /> Tạo Epic
       </button>
       {creating && <CreateIssueModal projectKey={project.key} defaults={{ type: 'epic' }}
-        onClose={() => setCreating(false)} onCreated={(issue) => open(issue.key)} />}
+        onClose={() => setCreating(false)} onCreated={(issue) => { if (can(project.permissions, 'issue.view')) open(issue.key); }} />}
     </>
   );
 }

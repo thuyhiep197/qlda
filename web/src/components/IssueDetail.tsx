@@ -86,6 +86,9 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
   const canEdit = issue.can_edit;
   const canAssign = can(perms, 'issue.assign');
   const canTransition = can(perms, 'issue.transition');
+  // Đổi sprint: quyền Sửa Backlog; giờ đã ghi: quyền Ghi thời gian làm việc – Xem
+  const canSprint = can(perms, 'sprint.manage');
+  const canSeeTime = can(perms, 'worklog.view');
   // Dev phụ trách chỉ chọn trong nhân sự Dev của dự án; giữ người đang chọn nếu đã bị gỡ khỏi dự án
   const devOptions = projectDevOptions(allUsers, project?.dev_ids ?? []);
   if (issue.dev_id && !devOptions.some((s) => s.id === issue.dev_id))
@@ -282,7 +285,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           {(() => {
             const canChild = issue.type !== 'subtask' && can(perms, 'issue.create') && !issue.children.length && !addingChild;
             const canLink = canEdit && !issue.links.length && !linkForm;
-            const canFile = can(perms, 'attachment.create') && !issue.attachments.length;
+            const canFile = can(perms, 'attachment.view') && can(perms, 'attachment.create') && !issue.attachments.length;
             if (!canChild && !canLink && !canFile) return null;
             return (
               <div className="quick-add">
@@ -389,7 +392,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           <section>
             <div className="tabs tabs-sm">
               {can(perms, 'comment.view') && <button className={tab === 'comments' ? 'active' : ''} onClick={() => setTab('comments')}>Bình luận ({issue.comments.length})</button>}
-              {can(perms, 'worklog.view') && <button className={tab === 'worklog' ? 'active' : ''} onClick={() => setTab('worklog')}>Nhật ký giờ ({fmtDuration(issue.time_spent) || '0h'})</button>}
+              {can(perms, 'worklog.view') && <button className={tab === 'worklog' ? 'active' : ''} onClick={() => setTab('worklog')}>Nhật ký giờ ({fmtDuration(issue.time_spent ?? 0) || '0h'})</button>}
               <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>Lịch sử thay đổi</button>
             </div>
             {tab === 'worklog' && can(perms, 'worklog.view') && <WorklogList issue={issue} meId={me?.id} isAdmin={can(perms, 'worklog.delete')} onLog={can(perms, 'worklog.create') ? () => setLogging(true) : undefined} />}
@@ -478,13 +481,14 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
           <div className="props">
             <div className="prop-label">Người thực hiện</div>
             <div>
-              <select value={issue.assignee_id ?? ''} disabled={!canAssign && !canEdit}
+              {/* Giao việc (kể cả tự nhận) chỉ với quyền Giao việc */}
+              <select value={issue.assignee_id ?? ''} disabled={!canAssign}
                 onChange={(e) => save({ assignee_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">— Chưa giao —</option>
-                {project?.members.filter((m) => canAssign || m.id === me?.id || m.id === issue.assignee_id)
+                {project?.members.filter((m) => canAssign || m.id === issue.assignee_id)
                   .map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
               </select>
-              {canEdit && issue.assignee_id !== me?.id && project?.members.some((m) => m.id === me?.id) &&
+              {canAssign && issue.assignee_id !== me?.id && project?.members.some((m) => m.id === me?.id) &&
                 <a className="small" onClick={() => save({ assignee_id: me!.id })}>Giao cho tôi</a>}
             </div>
 
@@ -569,7 +573,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             {project?.type === 'scrum' && issue.type !== 'epic' && <>
               <div className="prop-label">Sprint</div>
               {issue.type === 'subtask' ? <div>{issue.sprint_name || 'Backlog'}</div> : (
-                <select value={issue.sprint_id ?? ''} disabled={!canEdit && !can(perms, 'sprint.manage')}
+                <select value={issue.sprint_id ?? ''} disabled={!canSprint}
                   onChange={(e) => save({ sprint_id: e.target.value ? Number(e.target.value) : null })}>
                   <option value="">Backlog</option>
                   {issue.sprint_id && issue.sprint_state === 'closed' && <option value={issue.sprint_id}>{issue.sprint_name} (đã đóng)</option>}
@@ -609,7 +613,7 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             </div>
           </div>
 
-          {(issue.original_estimate != null || issue.time_spent > 0) ? <TimeTracking issue={issue} canEdit={canEdit} canLog={can(perms, 'worklog.create')} onLog={() => setLogging(true)} save={save} />
+          {(issue.original_estimate != null || (issue.time_spent ?? 0) > 0) ? <TimeTracking issue={issue} canEdit={canEdit} showSpent={canSeeTime} canLog={can(perms, 'worklog.create')} onLog={() => setLogging(true)} save={save} />
             : can(perms, 'worklog.create') && <button className="btn btn-subtle btn-sm side-link" onClick={() => setLogging(true)}><Timer size={14} /> Ghi thời gian làm việc</button>}
 
           <Watchers issue={issue} members={project?.members ?? []} canManage={canEdit} meId={me?.id} />
@@ -675,8 +679,8 @@ function Watchers({ issue, members, canManage, meId }: {
 }
 
 /** Theo dõi thời gian như Jira: ước lượng, đã làm, còn lại + thanh tiến độ. */
-function TimeTracking({ issue, canEdit, canLog, onLog, save }: {
-  issue: TIssueDetail; canEdit: boolean; canLog: boolean; onLog: () => void; save: (d: Record<string, unknown>) => Promise<void>;
+function TimeTracking({ issue, canEdit, showSpent, canLog, onLog, save }: {
+  issue: TIssueDetail; canEdit: boolean; showSpent: boolean; canLog: boolean; onLog: () => void; save: (d: Record<string, unknown>) => Promise<void>;
 }) {
   const spent = issue.time_spent || 0;
   const remaining = issue.remaining_estimate ?? 0;
@@ -688,15 +692,15 @@ function TimeTracking({ issue, canEdit, canLog, onLog, save }: {
         <span className="prop-label grow" data-tip="Thời gian ước lượng, đã làm và còn lại. 1d = 8 giờ, 1w = 5 ngày">Theo dõi thời gian</span>
         {canLog && <button className="btn btn-sm" onClick={onLog}><Timer size={14} /> Ghi thời gian</button>}
       </div>
-      <div className="tt-bar" data-tip={`Đã làm ${fmtDuration(spent) || '0h'} · Còn lại ${fmtDuration(remaining) || '0h'}`}>
+      {showSpent && <div className="tt-bar" data-tip={`Đã làm ${fmtDuration(spent) || '0h'} · Còn lại ${fmtDuration(remaining) || '0h'}`}>
         <div className={over ? 'tt-spent over' : 'tt-spent'} style={{ width: `${(spent / total) * 100}%` }} />
-      </div>
+      </div>}
       <div className="tt-grid">
         <span className="muted small">Ước lượng</span>
         <InlineText value={fmtDuration(issue.original_estimate)} disabled={!canEdit} placeholder="Chưa ước lượng"
           onSave={(v) => save({ original_estimate: v.trim() || null })} />
-        <span className="muted small">Đã làm</span>
-        <span>{fmtDuration(spent) || '0h'}</span>
+        {showSpent && <><span className="muted small">Đã làm</span>
+        <span>{fmtDuration(spent) || '0h'}</span></>}
         <span className="muted small">Còn lại</span>
         <InlineText value={issue.remaining_estimate != null ? fmtDuration(issue.remaining_estimate) : ''} disabled={!canEdit} placeholder="—"
           onSave={(v) => save({ remaining_estimate: v.trim() || null })} />

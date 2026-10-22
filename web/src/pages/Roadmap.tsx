@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
-import { useIssueModal } from '../hooks';
+import { can, useIssueModal } from '../hooks';
 import type { Category, IssueType } from '../types';
 import { colorOf, fmtDate, today } from '../util';
 import { Avatar, Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui';
@@ -36,7 +36,9 @@ function range(x: { start_date: string | null; due_date: string | null; sprint_s
 /** Lộ trình (Timeline) như Jira: Epic theo tháng, mở rộng để xem các issue con. */
 export default function Roadmap() {
   const project = useProjectCtx();
-  const { open } = useIssueModal();
+  const { open: openModal } = useIssueModal();
+  // Mở chi tiết issue cần Issue – Xem
+  const open = (key: string) => { if (can(project.permissions, 'issue.view')) openModal(key); };
   const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở hết các epic
   const { data: epics, isLoading } = useQuery<Epic[]>({
     queryKey: ['roadmap', project.key],

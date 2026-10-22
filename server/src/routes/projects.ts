@@ -5,7 +5,7 @@ import { addHistory } from '../issues.ts';
 import { runImport } from '../importer.ts';
 import { autoProjectStatuses, checkPhase } from '../phases.ts';
 import { mapStatusForType, projectStatuses, workflowConfig } from '../workflow.ts';
-import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission, requireUserPerm } from '../permissions.ts';
+import { accessibleProjectIds, accountRoleId, badRequest, forbidden, notFound, requireProjectAccess, type Permission, requireUserPerm, userPermissions } from '../permissions.ts';
 import { checkPeople, idList, namesSql, savePeople, syncProjectMembers, type PeopleRole } from '../people.ts';
 import { avatarUrl } from '../avatar.ts';
 import { sameName } from '../customer.ts';
@@ -44,6 +44,8 @@ function saveProjectPeople(projectId: number, b: any) {
   savePeople('project_people', 'project_id', projectId, people);
   syncProjectMembers(projectId);
 }
+/** Thông tin chỉ hiện ở tab Thông tin dự án (cần Dự án – Xem); tên khách hàng vẫn hiện ở đầu trang dự án */
+const PROJECT_INFO_ONLY = ['description', 'priority', 'project_status'];
 /** Cột lưu thông tin quản lý dự án (thêm customer_id = khách hàng trong danh mục Khách hàng) */
 const INFO_COLS = [...INFO_FIELDS, 'customer_id'];
 function infoValues(b: any, project?: any) {
@@ -82,7 +84,8 @@ const DEFAULT_STATUSES: [string, string][] = [
 // ---------------------------------------------------------------------------
 r.get('/', (req, res) => {
   const ids = accessibleProjectIds(req.user);
-  const showArchived = req.query.archived === '1' && req.user.is_admin;
+  // Dự án đã lưu trữ (trong phạm vi được vào): người có quyền Dự án – Lưu trữ xem lại để khôi phục
+  const showArchived = req.query.archived === '1' && userPermissions(req.user).has('project.delete');
   const rows = all(`
     SELECT p.*, u.full_name AS lead_name, ${PROJECT_ROLES.map((r) => `${namesSql('project_people', 'project_id', 'p.id', r)} AS ${r}_names`).join(', ')},
       (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS member_count,
@@ -162,22 +165,33 @@ r.get('/:key', (req, res) => {
   for (const row of all<{ labels: string }>('SELECT DISTINCT labels FROM issues WHERE project_id = ? AND labels IS NOT NULL', project.id)) {
     row.labels.split(',').forEach((l) => l && labels.add(l));
   }
+  // Khách hàng của dự án: không có quyền Thông tin khách hàng – Xem thì chỉ thấy tên; dự án của khách hàng cần thêm Dự án của khách hàng – Xem
+  const own = userPermissions(req.user);
   const owners = (role: 'kd' | 'am') => namesSql('customer_owners', 'customer_id', 'c.id', role);
-  const customerInfo = project.customer_id ? get(`SELECT c.id, c.code, c.name, c.status, c.source, ${owners('kd')} AS kd_names, ${owners('am')} AS am_names,
+  const customerInfo = !project.customer_id ? null
+    : !own.has('customer.view') ? get('SELECT c.id, c.name FROM customers c WHERE c.id = ?', project.customer_id)
+    : get(`SELECT c.id, c.code, c.name, c.status, c.source, ${owners('kd')} AS kd_names, ${owners('am')} AS am_names,
       gp.name AS province_name, gw.name AS ward_name FROM customers c
-    LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code WHERE c.id = ?`, project.customer_id) : null;
-  if (customerInfo) customerInfo.contacts = all('SELECT id, full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY position, id', customerInfo.id);
-  // Dự án của khách hàng (phía Kinh doanh) được gắn với dự án này
+    LEFT JOIN geo_provinces gp ON gp.code = c.province_code LEFT JOIN geo_wards gw ON gw.code = c.ward_code WHERE c.id = ?`, project.customer_id);
   if (customerInfo) {
-    const sp = salesProjectsOf([customerInfo.id], { archived: true }).find((x: any) => x.project_id === project.id);
+    const full = own.has('customer.view');
+    customerInfo.contacts = full ? all('SELECT id, full_name, phone, email FROM customer_contacts WHERE customer_id = ? ORDER BY position, id', customerInfo.id) : [];
+    // Dự án của khách hàng (phía Kinh doanh) được gắn với dự án này
+    const sp = full && own.has('sales_project.view') ? salesProjectsOf([customerInfo.id], { archived: true }).find((x: any) => x.project_id === project.id) : undefined;
     customerInfo.sales_project = sp ? { id: sp.id, code: sp.code, name: sp.name, status: sp.status, product_name: sp.product_name, kd_names: sp.kd_names, am_names: sp.am_names } : null;
   }
   // Người theo vai trò: id (để sửa) và họ tên (để hiện)
   const people = projectPeopleIds(project.id);
   const names = (ids: number[]) => ids.map((id) => get<{ full_name: string }>('SELECT full_name FROM users WHERE id = ?', id)?.full_name).filter(Boolean).join(', ') || null;
   const roleFields = Object.fromEntries(PROJECT_ROLES.flatMap((r) => [[`${r}_ids`, people[r]], [`${r}_names`, names(people[r])]]));
+  // Không có Dự án – Xem: bỏ các thông tin chỉ hiện ở tab Thông tin dự án (giữ Dev của dự án — danh sách chọn Dev phụ trách của issue)
+  const info: Record<string, unknown> = { ...project, ...roleFields };
+  if (!perms.has('project.view')) {
+    for (const f of [...PROJECT_INFO_ONLY, ...PROJECT_ROLES.map((r) => `${r}_names`)]) info[f] = null;
+    for (const r of PROJECT_ROLES) if (r !== 'dev') info[`${r}_ids`] = [];
+  }
   res.json({
-    ...project, ...roleFields, customer_info: customerInfo ?? null, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
+    ...info, customer_info: customerInfo ?? null, statuses, members, transitions, type_statuses, active_sprint: activeSprints[0] ?? null, active_sprints: activeSprints,
     labels: [...labels].sort(), permissions: [...perms],
   });
 });
@@ -200,10 +214,9 @@ r.patch('/:key', (req, res) => {
   res.json({ ok: true });
 });
 
+/** Lưu trữ / khôi phục dự án: quyền Dự án – Lưu trữ, trên dự án mình vào được */
 r.post('/:key/archive', (req, res) => {
-  requireUserPerm(req.user, 'project.delete');
-  const project = get('SELECT * FROM projects WHERE key = ?', String(req.params.key).toUpperCase());
-  if (!project) throw notFound();
+  const { project } = loadProject(req, 'project.delete');
   run('UPDATE projects SET is_archived = ? WHERE id = ?', req.body?.archived === false ? 0 : 1, project.id);
   audit(req, 'project_archived', { target: req.params.key, detail: req.body?.archived === false ? 'Mở lại' : 'Lưu trữ' });
   res.json({ ok: true });
@@ -347,8 +360,15 @@ r.put('/:key/type-statuses', (req, res) => {
 // ---------------------------------------------------------------------------
 // Sprint
 // ---------------------------------------------------------------------------
+/** Danh sách sprint (màn hình Sprint, Backlog và ô chọn Sprint của issue): cần Sprint – Xem, Backlog – Xem / Sửa hoặc Issue – Xem */
+function loadSprintViewer(req: Request) {
+  const loaded = loadProject(req);
+  if (!['sprint.view', 'backlog.view', 'sprint.manage', 'issue.view'].some((p) => loaded.perms.has(p))) throw forbidden('Bạn không có quyền xem sprint');
+  return loaded;
+}
+
 r.get('/:key/sprints', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadSprintViewer(req);
   const state = req.query.state ? String(req.query.state).split(',') : ['future', 'active', 'closed'];
   const rows = all(`
     SELECT sp.*,
@@ -374,7 +394,7 @@ r.post('/:key/sprints', (req, res) => {
 
 /** Ngày muộn nhất trong kế hoạch (hạn hoàn thành/ngày bắt đầu của issue) — mốc để tạo loạt sprint. */
 r.get('/:key/sprints/plan-end', (req, res) => {
-  const { project } = loadProject(req);
+  const { project } = loadSprintViewer(req);
   const row = get(`SELECT MAX(COALESCE(due_date, start_date)) AS d FROM issues WHERE project_id = ?`, project.id);
   res.json({ plan_end: row?.d ?? null });
 });

@@ -10,7 +10,7 @@ import { ProjectInfoFields, projectInfoOf } from '../components/ProjectInfoField
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import ProjectInfo from './ProjectInfo';
 
-/** Tab Thông tin của dự án: thông tin dự án (mọi thành viên xem; trưởng dự án hoặc người có quyền Sửa dự án sửa được),
+/** Tab Thông tin của dự án: thông tin dự án (quyền Dự án – Xem mới thấy tab; quyền Dự án – Sửa sửa được),
  *  và phần cài đặt Trạng thái & quy trình theo quyền (Mô-đun không còn quản lý ở đây). Thành viên dự án = người ở các vai trò (BA/PM, Dev, Tester, AM). */
 export default function ProjectSettings() {
   const project = useProjectCtx();

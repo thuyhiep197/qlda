@@ -155,8 +155,9 @@ r.post('/:key/clone', (req, res) => {
     const assigneeOk = src.assignee_id && get('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', src.project_id, src.assignee_id);
     return createIssue(req.user, src.project_id, perms, {
       type: src.type, summary: src.summary, description: src.description, note: src.note, priority: src.priority, dev_id: src.dev_id,
-      assignee_id: assigneeOk && (src.assignee_id === req.user.id || perms.has('issue.assign')) ? src.assignee_id : null,
-      parent_id: src.parent_id, sprint_id: sprint && sprint.state !== 'closed' ? src.sprint_id : null,
+      // Giữ người thực hiện cần quyền Giao việc; giữ sprint cần quyền Sửa Backlog — không có thì để trống
+      assignee_id: assigneeOk && perms.has('issue.assign') ? src.assignee_id : null,
+      parent_id: src.parent_id, sprint_id: sprint && sprint.state !== 'closed' && perms.has('sprint.manage') ? src.sprint_id : null,
       story_points: src.story_points, labels: src.labels ? src.labels.split(',') : [], start_date: src.start_date,
       due_date: src.due_date, version_id: src.version_id, component_id: src.component_id, subtype: src.subtype,
       original_estimate: src.original_estimate !== null ? src.original_estimate / 60 : null,

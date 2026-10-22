@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import type { CustomerTask, StepStatus } from '../types';
 import { CUSTOMER_STATUS_CLASS } from '../customer-filter';
-import { useCustomerStatuses } from '../hooks';
+import { hasPerm, useCustomerStatuses, useMe } from '../hooks';
 import { fmtDate } from '../util';
 
 interface Summary {
@@ -19,7 +19,11 @@ interface Summary {
 export default function CustomerDashboard() {
   const { data } = useQuery<Summary>({ queryKey: ['customer-summary'], queryFn: () => api.get('/customers/summary') });
   const { data: statuses } = useCustomerStatuses();
+  const { data: me } = useMe();
   if (!data) return null;
+  // Việc kinh doanh: quyền Công việc – Xem; bước hành trình: quyền Hành trình – Xem và Dự án của khách hàng – Xem (khớp server)
+  const canTasks = hasPerm(me, 'ctask.view'), canSteps = hasPerm(me, 'journey.view') && hasPerm(me, 'sales_project.view');
+  const late = [canTasks && `${data.overdue.tasks} việc kinh doanh`, canSteps && `${data.overdue.steps} bước hành trình`].filter(Boolean).join(' · ');
   // Tình trạng theo thứ tự danh mục: đang sử dụng, hoặc đã ngừng nhưng còn khách hàng
   const shown = (statuses ?? []).filter((s) => s.is_active || data.by_status.some((x) => x.status === s.name && x.n > 0));
   const count = (s: string) => data.by_status.find((x) => x.status === s)?.n ?? 0;
@@ -37,11 +41,11 @@ export default function CustomerDashboard() {
           ))}
         </div>
         {(data.overdue.tasks > 0 || data.overdue.steps > 0) && (
-          <p className="overdue small" style={{ margin: '8px 0 0' }}>Đang trễ hạn: {data.overdue.tasks} việc kinh doanh · {data.overdue.steps} bước hành trình</p>
+          <p className="overdue small" style={{ margin: '8px 0 0' }}>Đang trễ hạn: {late}</p>
         )}
       </div>
-      <div className="dash-grid">
-        <div className="card">
+      {(canTasks || canSteps) && <div className="dash-grid">
+        {canTasks && <div className="card">
           <div className="card-head"><h3>Việc kinh doanh của tôi ({data.my_tasks.length})</h3></div>
           {!data.my_tasks.length ? <div className="muted small">Không có việc kinh doanh nào đang chờ bạn</div> : (
             <div className="stack-sm">{data.my_tasks.map((t) => (
@@ -50,8 +54,8 @@ export default function CustomerDashboard() {
               </Link>
             ))}</div>
           )}
-        </div>
-        <div className="card">
+        </div>}
+        {canSteps && <div className="card">
           <div className="card-head"><h3>Bước hành trình tôi phụ trách ({data.my_steps.length})</h3></div>
           {!data.my_steps.length ? <div className="muted small">Không có bước nào đang chờ bạn</div> : (
             <div className="stack-sm">{data.my_steps.map((s) => (
@@ -60,8 +64,8 @@ export default function CustomerDashboard() {
               </Link>
             ))}</div>
           )}
-        </div>
-      </div>
+        </div>}
+      </div>}
     </div>
   );
 }

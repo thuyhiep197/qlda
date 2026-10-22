@@ -43,15 +43,18 @@ r.get('/summary', (req, res) => {
   const today = localDate();
   const vis = visibleCustomersSql(req.user);
   const byStatus = all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM customers c WHERE ${vis.sql} GROUP BY status`, ...vis.params);
-  const myTasks = all(`${TASK_SELECT.replace('SELECT t.*', 'SELECT t.*, c.name AS customer_name')} JOIN customers c ON c.id = t.customer_id
+  // Việc kinh doanh chỉ khi có quyền Công việc – Xem; bước hành trình chỉ khi có quyền Hành trình – Xem và Dự án của khách hàng – Xem
+  const perms = userPermissions(req.user);
+  const canTask = perms.has('ctask.view'), canStep = perms.has('journey.view') && perms.has('sales_project.view');
+  const myTasks = !canTask ? [] : all(`${TASK_SELECT.replace('SELECT t.*', 'SELECT t.*, c.name AS customer_name')} JOIN customers c ON c.id = t.customer_id
     WHERE t.assignee_id = ? AND t.status <> 'done' ORDER BY t.due_date IS NULL, t.due_date, t.id LIMIT 30`, req.user.id);
-  const mySteps = all(`SELECT s.id, s.customer_id, s.sales_project_id, s.code, s.title, s.status, s.due_date, c.name AS customer_name, sp.name AS sales_project_name
+  const mySteps = !canStep ? [] : all(`SELECT s.id, s.customer_id, s.sales_project_id, s.code, s.title, s.status, s.due_date, c.name AS customer_name, sp.name AS sales_project_name
     FROM journey_steps s JOIN customers c ON c.id = s.customer_id LEFT JOIN sales_projects sp ON sp.id = s.sales_project_id
     WHERE s.assignee_id = ? AND s.status <> 'done' AND s.depth > 0
     ORDER BY s.due_date IS NULL, s.due_date, s.position LIMIT 30`, req.user.id);
   const overdue = {
-    tasks: get<{ n: number }>(`SELECT COUNT(*) n FROM customer_tasks t2 JOIN customers c ON c.id = t2.customer_id WHERE t2.status <> 'done' AND t2.due_date < ? AND ${vis.sql}`, today, ...vis.params)!.n,
-    steps: get<{ n: number }>(`SELECT COUNT(*) n FROM journey_steps j2 JOIN customers c ON c.id = j2.customer_id WHERE j2.status <> 'done' AND j2.depth > 0 AND j2.due_date < ? AND ${vis.sql}`, today, ...vis.params)!.n,
+    tasks: !canTask ? 0 : get<{ n: number }>(`SELECT COUNT(*) n FROM customer_tasks t2 JOIN customers c ON c.id = t2.customer_id WHERE t2.status <> 'done' AND t2.due_date < ? AND ${vis.sql}`, today, ...vis.params)!.n,
+    steps: !canStep ? 0 : get<{ n: number }>(`SELECT COUNT(*) n FROM journey_steps j2 JOIN customers c ON c.id = j2.customer_id WHERE j2.status <> 'done' AND j2.depth > 0 AND j2.due_date < ? AND ${vis.sql}`, today, ...vis.params)!.n,
   };
   const total = byStatus.reduce((n, x) => n + x.n, 0);
   res.json({ total, by_status: byStatus, my_tasks: myTasks, my_steps: mySteps, overdue, today });
@@ -67,9 +70,9 @@ function applyRows(customerId: number, salesProjectId: number, rows: TemplateRow
   return rows.length;
 }
 
-/** Quy trình mẫu I–IV để xem trước, sửa rồi mới áp dụng cho một dự án */
+/** Quy trình mẫu I–IV để xem trước, sửa rồi mới áp dụng cho một dự án (quyền Hành trình – Áp dụng mẫu) */
 r.get('/journey-template', (req, res) => {
-  requireUserPerm(req.user, 'customer.view');
+  requireUserPerm(req.user, 'journey.create');
   res.json({ rows: loadTemplate() });
 });
 
@@ -81,10 +84,12 @@ r.get('/:id/projects/:pid/journey', (req, res) => {
   const sp = loadSalesProject(req, c.id, 'journey.view');
   syncJourneys([sp.id]);
   const steps = journeySteps(sp.id);
-  const talk = new Map(all<{ step_id: number; n: number }>(`SELECT a.step_id, COUNT(*) n FROM customer_activities a JOIN journey_steps s ON s.id = a.step_id
+  // Số trao đổi (Trao đổi – Xem), tài liệu kết quả (Tài liệu – Xem) của bước: chỉ khi có quyền Xem chức năng đó
+  const perms = userPermissions(req.user);
+  const talk = !perms.has('ctalk.view') ? new Map<number, number>() : new Map(all<{ step_id: number; n: number }>(`SELECT a.step_id, COUNT(*) n FROM customer_activities a JOIN journey_steps s ON s.id = a.step_id
     WHERE s.sales_project_id = ? GROUP BY a.step_id`, sp.id).map((x) => [x.step_id, x.n]));
   for (const st of steps) st.talk_count = talk.get(st.id) ?? 0;
-  const files = all<{ id: number; step_id: number; filename: string; size: number }>(
+  const files = !perms.has('cfile.view') ? [] : all<{ id: number; step_id: number; filename: string; size: number }>(
     'SELECT f.id, f.step_id, f.filename, f.size FROM customer_files f JOIN journey_steps s ON s.id = f.step_id WHERE s.sales_project_id = ? ORDER BY f.created_at', sp.id);
   for (const s of steps) s.files = files.filter((f) => f.step_id === s.id);
   res.json({ steps, progress: journeyProgress(steps, localDate()), ping_days: PING_DAYS });
@@ -131,9 +136,11 @@ r.get('/:id/journey/:sid', (req, res) => {
   let depth = s.depth;
   for (const b of before) if (b.depth < depth) { path.unshift({ id: b.id, code: b.code, title: b.title }); depth = b.depth; if (depth === 0) break; }
   s.path = path;
-  s.activities = all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
+  // Trao đổi, tài liệu kết quả của bước: chỉ khi có quyền Xem chức năng đó
+  const perms = userPermissions(req.user);
+  s.activities = !perms.has('ctalk.view') ? [] : all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
     WHERE a.step_id = ? ORDER BY a.created_at, a.id`, s.id);
-  s.files = all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name FROM customer_files f
+  s.files = !perms.has('cfile.view') ? [] : all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name FROM customer_files f
     LEFT JOIN users u ON u.id = f.uploader_id WHERE f.step_id = ? ORDER BY f.created_at DESC`, s.id);
   s.ping_options = PING_DAYS;
   s.sales_project_name = s.sales_project_id ? get<{ name: string }>('SELECT name FROM sales_projects WHERE id = ?', s.sales_project_id)?.name ?? null : null;
