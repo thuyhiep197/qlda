@@ -16,8 +16,10 @@ export interface Me {
   role_name?: string | null;
   /** Quyền thực tế của tài khoản ở mọi dự án (nhóm người dùng + quyền riêng) */
   permissions?: string[];
-  /** Có ô quyền nào của phân hệ Dự án (không có thì ẩn phân hệ Dự án) */
+  /** Có ô Xem nào của phân hệ Dự án (không có thì ẩn phân hệ Dự án) — giữ cho tương thích, dùng subsystems */
   project_module?: boolean;
+  /** Các phân hệ thấy được (dashboard, customer, project, docs, admin): có ô Xem / Xem tất cả của module nào trong phân hệ */
+  subsystems?: string[];
   created_at?: string;
   last_login_at?: string | null;
   preferences?: { theme?: 'light' | 'dark' | 'system'; notify?: Partial<Record<'mention' | 'assigned' | 'comment' | 'status', boolean>> };
@@ -415,12 +417,14 @@ export interface SalesProject {
   ba_names: string | null;
   dev_names: string | null;
   tester_names: string | null;
-  open_tasks: number;
+  /** Chỉ có khi được xem Công việc của khách hàng */
+  open_tasks?: number;
   /** Tình trạng tự động theo phần đang chạy của hành trình; null = chưa áp dụng quy trình */
   status: string | null;
   /** % bước đã hoàn thành (null = chưa áp dụng quy trình), số bước quá hạn */
-  journey_pct: number | null;
-  journey_overdue: number;
+  journey_pct?: number | null;
+  /** Có khi được xem Hành trình (thiếu thì coi như 0) */
+  journey_overdue?: number;
   /** Lịch gọi đã đến ngày mà chưa xác nhận: ngày sớm nhất, số ngày quá, số lịch */
   call_alert: CallAlert | null;
 }
@@ -567,8 +571,6 @@ export interface CustomerDetail extends Customer {
   sales_projects: SalesProject[];
   activities: CustomerActivity[];
   projects: CustomerProject[];
-  /** Công việc chưa xong của các dự án thuộc khách hàng (chỉ dự án người xem là thành viên) */
-  issues: Issue[];
   recent: { id: number; field: string; new_label: string; created_at: string; user_name: string; user_avatar_url?: string | null; key: string; summary: string; type: IssueType; project_key: string }[];
 }
 

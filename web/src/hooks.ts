@@ -13,8 +13,13 @@ export const useMe = () => useQuery<Me | null>({
 
 /** Tài khoản có quyền (theo nhóm người dùng + quyền riêng) — dùng ngoài phạm vi dự án (menu, quản trị). */
 export const hasPerm = (me: Me | null | undefined, p: string) => !!me && (!!me.is_admin || !!me.permissions?.includes(p));
-/** Thấy phân hệ Dự án: có ít nhất một ô quyền của phân hệ Dự án */
-export const hasProjectModule = (me: Me | null | undefined) => !!me && (!!me.is_admin || !!me.project_module);
+/** Phân hệ: dashboard, customer, project, docs, admin */
+export type SubsystemKey = 'dashboard' | 'customer' | 'project' | 'docs' | 'admin';
+/** Thấy phân hệ (menu, đường dẫn): có ít nhất một ô Xem / Xem tất cả của module nào trong phân hệ (máy chủ tính, trả về ở /auth/me) */
+export const hasSubsystem = (me: Me | null | undefined, key: SubsystemKey) =>
+  !!me && (!!me.is_admin || (me.subsystems ? me.subsystems.includes(key) : key === 'project' && !!me.project_module));
+/** Thấy phân hệ Dự án: có ít nhất một ô Xem của phân hệ Dự án */
+export const hasProjectModule = (me: Me | null | undefined) => hasSubsystem(me, 'project');
 
 export const useProjects = () => useQuery<ProjectSummary[]>({ queryKey: ['projects'], queryFn: () => api.get('/projects') });
 

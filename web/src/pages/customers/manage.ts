@@ -1,5 +1,9 @@
 import { createContext, useContext } from 'react';
 import { hasPerm, useMe } from '../../hooks';
+import type { CustomerDetail } from '../../types';
+
+/** Khách hàng chứa màn dự án / bước: chỉ id, tên (người không có Thông tin khách hàng – Xem không lấy được chi tiết khách hàng) */
+export type CustomerRef = Pick<CustomerDetail, 'id' | 'name'> & Partial<Pick<CustomerDetail, 'code' | 'kd_ids' | 'am_ids'>>;
 
 /**
  * Khách hàng / dự án đang mở có do mình quản lý không (phụ trách, thực hiện, phối hợp — server trả can_manage).

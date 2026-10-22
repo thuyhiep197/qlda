@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Lock, Mail, Phone, Plus, Trash2, Users, X } from 'lucide-react';
 import { api } from '../../api';
 import { useMe, useUsersBasic } from '../../hooks';
-import { useCan } from './manage';
-import type { ActivityKind, CustomerActivity, CustomerDetail, StepDetail, StepStatus } from '../../types';
+import { useCan, type CustomerRef } from './manage';
+import type { ActivityKind, CustomerActivity, StepDetail, StepStatus } from '../../types';
 import { fmtDate, timeAgo, today } from '../../util';
 import { overdueDays } from '../../customer-filter';
 import { Avatar, Markdown, Spinner, toast, toastError } from '../../components/ui';
@@ -22,7 +22,7 @@ const KIND: Partial<Record<ActivityKind, { label: string; icon: ReactNode }>> = 
 };
 
 /** Cột phải khi chọn một bước của hành trình (như một issue của kinh doanh): Phòng thực hiện, Phòng phối hợp, Trạng thái; Trao đổi và Tài liệu của bước */
-export default function StepPanel({ customer, stepId, onClose }: { customer: CustomerDetail; stepId: number; onClose: () => void }) {
+export default function StepPanel({ customer, stepId, onClose }: { customer: CustomerRef; stepId: number; onClose: () => void }) {
   const can = useCan();
   const { data: users } = useUsersBasic();
   const canEdit = can('journey.edit'), canAddStep = can('journey.create'), canDropStep = can('journey.delete');

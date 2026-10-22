@@ -25,7 +25,8 @@ function FileIcon({ name }: { name: string }) {
 
 /**
  * Phân hệ Tài liệu nội bộ: cột trái là cây thư mục, giữa là thư mục con + tài liệu của thư mục đang chọn.
- * Mọi người tra cứu, tạo thư mục, tải lên (Excel, PDF, Word, HTML, EXE), tải xuống.
+ * Theo ô quyền Tài liệu nội bộ: Xem (mọi thư mục, chỉ tệp mình tải lên), Xem tất cả (tệp của mọi người), Thêm (tạo thư mục, tải lên
+ * Excel, PDF, Word, HTML, EXE; sửa / xóa của mình), Sửa / Xóa (của người khác), Tải về.
  */
 export default function Docs() {
   const { data: me } = useMe();
@@ -50,7 +51,10 @@ export default function Docs() {
   for (let f = folders.find((x) => x.id === current); f; f = folders.find((x) => x.id === f!.parent_id)) path.unshift(f);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ['doc-folders'] }), queryClient.invalidateQueries({ queryKey: ['doc-files'] })]);
   const canEditAny = hasPerm(me, 'document.edit'), canDeleteAny = hasPerm(me, 'document.delete');
-  const mine = (owner: number | null) => owner === me?.id;
+  const canCreate = hasPerm(me, 'document.create'), canExport = hasPerm(me, 'document.export'), seeAll = hasPerm(me, 'document.view_all');
+  // Sửa / xóa của mình cần ô Thêm; của người khác cần ô Sửa / Xóa
+  const canEditOf = (owner: number | null) => (owner === me?.id ? canCreate : canEditAny);
+  const canDeleteOf = (owner: number | null) => (owner === me?.id ? canCreate : canDeleteAny);
 
   const newFolder = async () => {
     const name = prompt(`Tên thư mục mới${path.length ? ` trong "${path[path.length - 1].name}"` : ''}:`)?.trim();
@@ -87,7 +91,7 @@ export default function Docs() {
     if (!confirm(`Xóa tài liệu "${d.filename}"?`)) return;
     try { await api.del(`/docs/files/${d.id}`); toast('Đã xóa'); await refresh(); } catch (e) { toastError(e); }
   };
-  const onDrop = (e: DragEvent) => { e.preventDefault(); setDrag(false); if (!q.trim()) upload(e.dataTransfer.files); };
+  const onDrop = (e: DragEvent) => { e.preventDefault(); setDrag(false); if (!q.trim() && canCreate) upload(e.dataTransfer.files); };
 
   const tree = (id: number | null, depth: number): React.ReactNode => children(id).map((f) => {
     const kids = children(f.id);
@@ -117,7 +121,7 @@ export default function Docs() {
         {tree(null, 1)}
         {!folders.length && <div className="muted small cw-sub-empty">Chưa có thư mục</div>}
       </aside>
-      <section className={`cw-main doc-main ${drag ? 'drag' : ''}`} onDragOver={(e) => { e.preventDefault(); if (!q.trim()) setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
+      <section className={`cw-main doc-main ${drag ? 'drag' : ''}`} onDragOver={(e) => { e.preventDefault(); if (!q.trim() && canCreate) setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
         <div className="cw-toolbar">
           <div className="breadcrumb doc-crumb">
             <a onClick={() => open(null)}>Tài liệu nội bộ</a>
@@ -125,15 +129,20 @@ export default function Docs() {
           </div>
           <div className="spacer" />
           <div className="cw-search" style={{ width: 260 }}><Search size={14} /><input placeholder="Tìm tài liệu, thư mục trong toàn bộ…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-          <button className="btn" onClick={newFolder} disabled={!!q.trim()}><FolderPlus size={15} /> Thư mục mới</button>
-          <button className="btn btn-primary" onClick={() => input.current?.click()} disabled={busy || !!q.trim()}><Upload size={15} /> {busy ? 'Đang tải lên…' : 'Tải lên'}</button>
-          <input ref={input} type="file" multiple hidden accept={ACCEPT} onChange={(e) => { upload(e.target.files); e.target.value = ''; }} />
+          {canCreate && <>
+            <button className="btn" onClick={newFolder} disabled={!!q.trim()}><FolderPlus size={15} /> Thư mục mới</button>
+            <button className="btn btn-primary" onClick={() => input.current?.click()} disabled={busy || !!q.trim()}><Upload size={15} /> {busy ? 'Đang tải lên…' : 'Tải lên'}</button>
+            <input ref={input} type="file" multiple hidden accept={ACCEPT} onChange={(e) => { upload(e.target.files); e.target.value = ''; }} />
+          </>}
         </div>
-        <div className="muted small">{q.trim() ? `Kết quả tìm "${q.trim()}" trong toàn bộ tài liệu` : 'Kéo thả tệp vào đây để tải lên thư mục này.'} Nhận tệp Excel, PDF, Word, HTML, EXE.</div>
+        <div className="muted small">
+          {q.trim() ? `Kết quả tìm "${q.trim()}" trong toàn bộ tài liệu.` : canCreate ? 'Kéo thả tệp vào đây để tải lên thư mục này. Nhận tệp Excel, PDF, Word, HTML, EXE.' : ''}
+          {!seeAll && ' Chỉ hiện tài liệu bạn tải lên.'}
+        </div>
         <div className="cw-scroll">
           {loadingFiles ? <Spinner /> : !subfolders.length && !files?.length ? (
             <Empty title={q.trim() ? 'Không tìm thấy tài liệu phù hợp' : 'Thư mục trống'}>
-              {!q.trim() && <p className="muted small">Bấm "Tải lên" hoặc kéo thả tệp vào đây; "Thư mục mới" để chia nhỏ tài liệu.</p>}
+              {!q.trim() && canCreate && <p className="muted small">Bấm "Tải lên" hoặc kéo thả tệp vào đây; "Thư mục mới" để chia nhỏ tài liệu.</p>}
             </Empty>
           ) : (
             <table className="table doc-table">
@@ -147,22 +156,24 @@ export default function Docs() {
                     <td className="small">{f.created_by_name}</td>
                     <td className="small nowrap">{fmtDateTime(f.created_at)}</td>
                     <td className="nowrap" onClick={(e) => e.stopPropagation()}>
-                      {(mine(f.created_by) || canEditAny) && <button className="icon-btn" aria-label={`Đổi tên ${f.name}`} data-tip="Đổi tên" onClick={() => renameFolder(f)}><Pencil size={14} /></button>}
-                      {(mine(f.created_by) || canDeleteAny) && <button className="icon-btn" aria-label={`Xóa ${f.name}`} data-tip="Xóa thư mục rỗng" onClick={() => deleteFolder(f)}><Trash2 size={14} /></button>}
+                      {canEditOf(f.created_by) && <button className="icon-btn" aria-label={`Đổi tên ${f.name}`} data-tip="Đổi tên" onClick={() => renameFolder(f)}><Pencil size={14} /></button>}
+                      {canDeleteOf(f.created_by) && <button className="icon-btn" aria-label={`Xóa ${f.name}`} data-tip="Xóa thư mục rỗng" onClick={() => deleteFolder(f)}><Trash2 size={14} /></button>}
                     </td>
                   </tr>
                 ))}
                 {files?.map((d) => (
                   <tr key={d.id} className={highlight === d.id ? 'j-selected' : ''}>
-                    <td><a className="row gap-sm" href={`/api/docs/files/${d.id}/download`} data-tip="Tải xuống"><FileIcon name={d.filename} /> <span className="ellipsis">{d.filename}</span></a></td>
+                    <td>{canExport
+                      ? <a className="row gap-sm" href={`/api/docs/files/${d.id}/download`} data-tip="Tải xuống"><FileIcon name={d.filename} /> <span className="ellipsis">{d.filename}</span></a>
+                      : <span className="row gap-sm"><FileIcon name={d.filename} /> <span className="ellipsis">{d.filename}</span></span>}</td>
                     <td className="small muted">{q.trim() ? (d.folder_id ? <Link to={`/docs?folder=${d.folder_id}`}>{d.folder_name}</Link> : 'Gốc') : ''}</td>
                     <td className="num small">{fmtSize(d.size)}</td>
                     <td className="small">{d.uploader_name}</td>
                     <td className="small nowrap">{fmtDateTime(d.created_at)}</td>
                     <td className="nowrap">
-                      <a className="icon-btn" href={`/api/docs/files/${d.id}/download`} aria-label={`Tải xuống ${d.filename}`} data-tip="Tải xuống"><Download size={14} /></a>
-                      {(mine(d.uploader_id) || canEditAny) && <button className="icon-btn" aria-label={`Đổi tên ${d.filename}`} data-tip="Đổi tên" onClick={() => renameFile(d)}><Pencil size={14} /></button>}
-                      {(mine(d.uploader_id) || canDeleteAny) && <button className="icon-btn" aria-label={`Xóa ${d.filename}`} data-tip="Xóa" onClick={() => deleteFile(d)}><Trash2 size={14} /></button>}
+                      {canExport && <a className="icon-btn" href={`/api/docs/files/${d.id}/download`} aria-label={`Tải xuống ${d.filename}`} data-tip="Tải xuống"><Download size={14} /></a>}
+                      {canEditOf(d.uploader_id) && <button className="icon-btn" aria-label={`Đổi tên ${d.filename}`} data-tip="Đổi tên" onClick={() => renameFile(d)}><Pencil size={14} /></button>}
+                      {canDeleteOf(d.uploader_id) && <button className="icon-btn" aria-label={`Xóa ${d.filename}`} data-tip="Xóa" onClick={() => deleteFile(d)}><Trash2 size={14} /></button>}
                     </td>
                   </tr>
                 ))}

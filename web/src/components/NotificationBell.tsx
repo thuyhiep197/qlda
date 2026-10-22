@@ -23,8 +23,10 @@ interface Notification {
   /** Thông báo của khách hàng: link = module cần mở */
   customer_id: number | null;
   customer_name: string | null;
-  /** step:<id> = mở bước trong hành trình; tasks/info = trang khách hàng */
+  /** step:<id bước> = mở bước trong hành trình; call:/tasks:/info:<id dự án> = mở dự án; tasks/info = trang khách hàng */
   link: string | null;
+  /** Dự án của khách hàng chứa phần cần mở (null = mục chung của khách hàng) */
+  sales_project_id?: number | null;
 }
 
 const VERB: Record<Notification['type'], string> = {
@@ -75,9 +77,11 @@ export default function NotificationBell() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['notifications'] });
   const openItem = async (n: Notification) => {
     setShow(false);
-    // Lịch gọi điện (call:<id dự án của khách hàng>) → mở dự án; bước (step:<id>) → mở bước
-    if (n.customer_id && n.link?.startsWith('call:')) navigate(`/customers/${n.customer_id}/p/${n.link.slice(5)}`);
-    else if (n.customer_id) navigate(`/customers/${n.customer_id}${n.link?.startsWith('step:') ? `?step=${n.link.slice(5)}` : ''}`);
+    // Mục của dự án (bước, lịch gọi, việc, trao đổi) → mở màn dự án (bước: chọn sẵn bước) — không cần Thông tin khách hàng – Xem;
+    // mục chung → màn khách hàng
+    const step = n.link?.startsWith('step:') ? `?step=${n.link.slice(5)}` : '';
+    if (n.customer_id && n.sales_project_id) navigate(`/customers/${n.customer_id}/p/${n.sales_project_id}${step}`);
+    else if (n.customer_id) navigate(`/customers/${n.customer_id}${step}`);
     else if (n.issue_key) open(n.issue_key);
     if (!n.read_at) { await api.post(`/notifications/${n.id}/read`); refresh(); }
   };

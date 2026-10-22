@@ -22,6 +22,7 @@ export interface FeatureDef {
 export interface FeatureGroup { key: string; label: string; subsystem: string; features: FeatureDef[] }
 
 export const SUBSYSTEMS = [
+  { key: 'dashboard', label: 'Phân hệ Dashboard' },
   { key: 'customer', label: 'Phân hệ Khách hàng' },
   { key: 'project', label: 'Phân hệ Dự án' },
   { key: 'docs', label: 'Phân hệ Tài liệu nội bộ' },
@@ -29,6 +30,12 @@ export const SUBSYSTEMS = [
 ] as const;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
+  // ---- Phân hệ Dashboard ----
+  {
+    key: 'dashboard', label: 'Module Dashboard', subsystem: 'dashboard', features: [
+      { key: 'dashboard', label: 'Dashboard', hint: 'Trang tổng quan; các khối bên trong hiện theo quyền của phân hệ Khách hàng / Dự án', actions: ['view'] },
+    ],
+  },
   // ---- Phân hệ Khách hàng ----
   {
     key: 'crm', label: 'Module Khách hàng', subsystem: 'customer', features: [
@@ -66,7 +73,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     key: 'crm_talk', label: 'Module Trao đổi', subsystem: 'customer', features: [
       { key: 'ctalk', label: 'Trao đổi', hint: 'Làm việc với khách hàng và thảo luận nội bộ', actions: ['view', 'create', 'delete'],
-        actionHints: { delete: 'Xóa trao đổi của người khác (của mình luôn xóa được)' } },
+        actionHints: { view: 'Xem trao đổi, lịch gọi điện và cảnh báo lịch gọi', create: 'Thêm trao đổi; đặt, sửa, xác nhận lịch gọi',
+          delete: 'Xóa trao đổi / lịch gọi của người khác (của mình luôn xóa được)' } },
     ],
   },
   // ---- Phân hệ Dự án ----
@@ -106,8 +114,11 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   // ---- Phân hệ Tài liệu nội bộ ----
   {
     key: 'docs', label: 'Module Tài liệu', subsystem: 'docs', features: [
-      { key: 'document', label: 'Tài liệu nội bộ', hint: 'Mọi người đều tra cứu, tạo thư mục, tải lên, tải xuống và sửa / xóa của mình; các quyền dưới đây là sửa / xóa của người khác',
-        actions: ['edit', 'delete'], actionHints: { edit: 'Đổi tên, chuyển thư mục / tài liệu của người khác', delete: 'Xóa thư mục / tài liệu của người khác' } },
+      { key: 'document', label: 'Tài liệu nội bộ', hint: 'Thư mục nhiều cấp; không tích Xem tất cả thì chỉ thấy tệp mình tải lên. Sửa / xóa của mình theo ô Thêm, của người khác theo ô Sửa / Xóa',
+        actions: ['view', 'view_all', 'create', 'edit', 'delete', 'export'], actionLabels: { export: 'Tải về' },
+        actionHints: { view: 'Xem: thấy mọi thư mục, chỉ thấy tệp mình tải lên', view_all: 'Xem tệp của mọi người',
+          create: 'Tạo thư mục, tải lên; sửa / xóa tài liệu của mình', edit: 'Đổi tên, chuyển thư mục / tài liệu của người khác',
+          delete: 'Xóa thư mục / tài liệu của người khác', export: 'Tải về' } },
     ],
   },
   // ---- Phân hệ Quản trị ----
@@ -135,8 +146,15 @@ const VALID = new Set(ALL_PERMISSIONS);
 /** Mã quyền thuộc phân hệ Dự án */
 export const PROJECT_MODULE_PERMISSIONS: Permission[] = FEATURE_GROUPS.filter((g) => g.subsystem === 'project')
   .flatMap((g) => g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`)));
-/** Có ít nhất một ô quyền của phân hệ Dự án mới thấy phân hệ Dự án và vào được dự án (kể cả dự án mình là thành viên / liên kết với khách hàng) */
-export const hasProjectModule = (perms: Set<Permission>) => PROJECT_MODULE_PERMISSIONS.some((p) => perms.has(p));
+/** Ô Xem (view / view_all) của từng phân hệ: có ít nhất một ô Xem của module nào trong phân hệ mới thấy phân hệ (menu, đường dẫn, API) */
+export const SUBSYSTEM_VIEW_CELLS: Record<string, Permission[]> = Object.fromEntries(SUBSYSTEMS.map((s) => [s.key,
+  FEATURE_GROUPS.filter((g) => g.subsystem === s.key).flatMap((g) => g.features.flatMap((f) =>
+    f.actions.filter((a) => a === 'view' || a === 'view_all').map((a) => `${f.key}.${a}`)))]));
+export const hasSubsystem = (perms: Set<Permission>, key: string) => (SUBSYSTEM_VIEW_CELLS[key] ?? []).some((p) => perms.has(p));
+/** Các phân hệ tài khoản thấy được, theo thứ tự trong SUBSYSTEMS */
+export const visibleSubsystems = (perms: Set<Permission>): string[] => SUBSYSTEMS.map((s) => s.key).filter((k) => hasSubsystem(perms, k));
+/** Có ít nhất một ô Xem của phân hệ Dự án mới thấy phân hệ Dự án và vào được dự án (kể cả dự án mình là thành viên / liên kết với khách hàng) */
+export const hasProjectModule = (perms: Set<Permission>) => hasSubsystem(perms, 'project');
 /** Màn hình dùng danh sách issue (Danh sách issue, Kế hoạch, Sprint đang chạy, Backlog): có một trong các ô Xem này mới lấy được danh sách */
 export const ISSUE_LIST_VIEWS: Permission[] = ['search.view', 'plan.view', 'sprint.view', 'backlog.view'];
 export const canListIssues = (perms: Set<Permission>) => ISSUE_LIST_VIEWS.some((p) => perms.has(p));
@@ -171,14 +189,17 @@ const OLD_MAP: Record<string, string[]> = {
   'comment.create': ['comment.create'], 'comment.delete_any': ['comment.edit', 'comment.delete'],
   'attachment.create': ['attachment.create'], 'attachment.delete_any': ['attachment.delete'],
 };
+/** Ô quyền mọi nhóm mặc định đều có (khớp migration v30): Dashboard, Tài liệu nội bộ (xem, xem tất cả, thêm, tải về) */
+export const EVERYONE_PERMISSIONS: Permission[] = ['dashboard.view', 'document.view', 'document.view_all', 'document.create', 'document.export'];
+const EVERYONE = EVERYONE_PERMISSIONS;
 // Người trực tiếp làm việc thấy mọi màn hình; người chỉ theo dõi (Người xem, Phối hợp) chỉ thấy Dashboard & Kế hoạch
-const VIEW_WORKER = ['plan.view', 'plan.export', 'search.view', 'search.export',
+const VIEW_WORKER = ['project.view', 'plan.view', 'plan.export', 'search.view', 'search.export',
   'issue.view', 'comment.view', 'attachment.view', 'attachment.export', 'worklog.view', 'sprint.view', 'backlog.view'];
-const VIEW_FOLLOWER = ['plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export'];
+const VIEW_FOLLOWER = ['project.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export'];
 
 export function convertLegacyPermissions(old: string[]): Permission[] {
   const worker = old.some((p) => ['issue.create', 'issue.edit', 'issue.edit_own', 'issue.transition'].includes(p));
-  const out = new Set<Permission>(worker ? VIEW_WORKER : VIEW_FOLLOWER);
+  const out = new Set<Permission>([...(worker ? VIEW_WORKER : VIEW_FOLLOWER), ...EVERYONE]);
   for (const p of old) for (const n of OLD_MAP[p] ?? []) out.add(n);
   if (OLD_KEYS.every((k) => old.includes(k))) ALL_PERMISSIONS.forEach((p) => out.add(p)); // vai trò toàn quyền cũ (BA Lead)
   return ALL_PERMISSIONS.filter((p) => out.has(p));
@@ -199,9 +220,9 @@ export const cleanPermissionList = (v: unknown): Permission[] => (Array.isArray(
 export const isPermission = (p: string) => VALID.has(p);
 
 /** Xem tiến độ phân hệ Dự án (không sửa) */
-const PROJECT_VIEW: Permission[] = ['plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export'];
+const PROJECT_VIEW: Permission[] = ['project.view', 'plan.view', 'plan.export', 'issue.view', 'comment.view', 'attachment.view', 'attachment.export'];
 /** Nhóm Kinh doanh / AM: dùng phân hệ Khách hàng (khách hàng mình phụ trách, thực hiện, phối hợp); phân hệ Dự án chỉ xem tiến độ (khớp migration v22) */
-export const SALES_PERMISSIONS: Permission[] = [...PROJECT_VIEW,
+export const SALES_PERMISSIONS: Permission[] = [...EVERYONE_PERMISSIONS, ...PROJECT_VIEW,
   'customer.view', 'customer.create', 'customer.edit', 'sales_project.view', 'sales_project.create', 'sales_project.edit',
   'journey.view', 'journey.create', 'journey.edit', 'journey.delete', 'ctask.view', 'ctask.create', 'ctask.edit',
   'cfile.view', 'cfile.create', 'cfile.export', 'ctalk.view', 'ctalk.create', 'product.view', 'geo.view', 'department.view', 'staff.view'];

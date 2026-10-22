@@ -49,11 +49,10 @@ test('overview counts live projects, running ones, open and overdue work, last c
   const p = (o: object) => ({ is_archived: 0, project_status: null, status_auto: 'Xây dựng', ...o }) as any;
   const k = customerKpis({
     projects: [p({}), p({ status_auto: 'Chưa bắt đầu' }), p({ is_archived: 1 }), p({ status_auto: 'Chưa bắt đầu', project_status: 'Lập HSYC' })],
-    issues: [{ due_date: '2026-10-01' }, { due_date: '2026-10-16' }, { due_date: null }] as any,
     activities: [{ activity_date: '2026-09-01', kind: 'call' }, { activity_date: '2026-10-05', kind: 'meeting' }, { activity_date: '2026-10-10', kind: 'internal' }] as any,
     tasks: [{ status: 'todo', due_date: '2026-10-01' }, { status: 'doing', due_date: null }, { status: 'done', due_date: '2026-09-01' }] as any,
   }, '2026-10-16');
-  assert.deepEqual(k, { projects: 3, running: 2, openTasks: 2, overdueTasks: 1, openIssues: 3, overdue: 1, lastCare: '2026-10-05' });
+  assert.deepEqual(k, { projects: 3, running: 2, openTasks: 2, overdueTasks: 1, lastCare: '2026-10-05' });
 });
 
 test('journey steps filter by status, unit (performing or supporting), mine and keyword; no filter keeps the tree', () => {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { all, get, localDate } from '../db.ts';
-import { accessibleProjectIds, badRequest, notFound, userPermissions } from '../permissions.ts';
+import { accessibleProjectIds, badRequest, notFound, requireUserPerm, userPermissions } from '../permissions.ts';
 import { listIssues } from '../issues.ts';
 import { loadProject } from './projects.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -16,6 +16,8 @@ const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) 
 // ---------------------------------------------------------------------------
 r.get('/dashboard', (req, res) => {
   const user = req.user;
+  // Phân hệ Dashboard: cần Dashboard – Xem
+  requireUserPerm(user, 'dashboard.view');
   // Việc của tôi, chờ kiểm thử, hoạt động gần đây, số liệu: chỉ với quyền Issue – Xem (quyền theo tài khoản = quyền trong mọi dự án được vào)
   if (!userPermissions(user).has('issue.view')) {
     res.json({ stats: { assigned_open: 0, in_progress: 0, overdue: 0, done_week: 0, reported_open: 0 }, mine: [], activity: [], toTest: [] });

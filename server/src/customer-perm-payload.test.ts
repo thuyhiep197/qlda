@@ -21,7 +21,9 @@ const role = (name: string, perms: string[]) => run('INSERT INTO roles(name, per
 const user = (username: string, roleId: number | null, isAdmin = 0) =>
   run("INSERT INTO users(username, full_name, password_hash, default_role_id, is_admin) VALUES (?, ?, 'x', ?, ?)", username, username, roleId, isAdmin).id;
 
-const BASE = ['customer.view', 'customer.view_all', 'sales_project.view'];
+// Dashboard – Xem: khối Khách hàng của Dashboard (/summary) cần thêm ô này
+const BASE = ['dashboard.view', 'customer.view', 'customer.view_all', 'sales_project.view'];
+const noDashboard = user('nodash', role('Không Dashboard', ['customer.view', 'customer.view_all', 'journey.view', 'ctask.view']));
 const bare = user('bare', role('Chỉ xem khách hàng', BASE));
 const journeyOnly = user('journey', role('Xem hành trình', [...BASE, 'journey.view']));
 const projectCreator = user('creator', role('Tạo dự án', ['project.create']));
@@ -101,7 +103,8 @@ test('customer detail no longer carries production issues; sales project detail 
   assert.equal(fp.call_alert.count, 1);
 });
 
-test('dashboard summary: my tasks need Công việc – Xem, my steps need Hành trình – Xem + Dự án của khách hàng – Xem', async () => {
+test('dashboard summary needs Dashboard – Xem; my tasks need Công việc – Xem, my steps need Hành trình – Xem', async () => {
+  assert.equal((await api(noDashboard, '/summary')).status, 403);
   const s = (await api(bare, '/summary')).body;
   assert.deepEqual(s.my_tasks, []);
   assert.deepEqual(s.my_steps, []);

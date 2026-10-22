@@ -17,7 +17,8 @@ function TriCheck({ state, onChange, disabled, title }: {
 /**
  * Ma trận phân quyền: Phân hệ → Module → Chức năng × Hành động (Xem, Thêm, Sửa, Xóa, Tải, Import).
  * Tick từng ô, cả hàng (một chức năng), cả cột / cả module, hoặc cả phân hệ.
- * Xem = chỉ khách hàng / dự án mình tham gia; Xem tất cả (cột riêng) = mọi khách hàng / dự án.
+ * Xem = chỉ khách hàng / dự án mình tham gia (Tài liệu nội bộ: tệp mình tải lên); Xem tất cả (cột riêng) = của mọi người.
+ * Phân hệ chỉ hiện với người dùng khi có ít nhất một ô Xem / Xem tất cả của module nào trong phân hệ.
  * Ô có nghĩa riêng ở chức năng đó (VD Xóa = Lưu trữ) ghi tên ngay cạnh ô tick.
  * mark(p): 'allow' khi là quyền cấp thêm riêng cho người dùng (chế độ phân quyền theo người dùng).
  * locked(p): quyền theo nhóm (chế độ theo người dùng) — luôn tích, không bỏ được; ô tích hàng loạt bỏ qua ô khóa.

@@ -105,7 +105,8 @@ export function Landing() {
   let last: string | null = null;
   try { last = localStorage.getItem(LAST_PROJECT); } catch { /* bỏ qua */ }
   const target = projects.find((p) => p.key === last) ?? projects[0];
-  return <Navigate to={target ? `/p/${target.key}` : '/home'} replace />;
+  // Chưa vào được dự án nào: về danh sách dự án (không về Dashboard — có thể không có phân hệ Dashboard)
+  return <Navigate to={target ? `/p/${target.key}` : '/projects'} replace />;
 }
 
 export function ProjectHome() {

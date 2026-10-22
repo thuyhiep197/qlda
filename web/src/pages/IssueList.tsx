@@ -279,7 +279,9 @@ function SavedFilters({ projectKey, routeScoped, current, apply }: {
   projectKey?: string; routeScoped: boolean; current: Record<string, string>; apply: (query: string) => void;
 }) {
   const { data: me } = useMe();
-  const { data: filters } = useQuery<SavedFilter[]>({ queryKey: ['filters'], queryFn: () => api.get('/filters') });
+  // Bộ lọc đã lưu cần Danh sách & tìm kiếm issue – Xem (máy chủ chặn) → không có thì không gọi, không hiện
+  const canFilters = hasPerm(me, 'search.view');
+  const { data: filters } = useQuery<SavedFilter[]>({ queryKey: ['filters'], queryFn: () => api.get('/filters'), enabled: canFilters });
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -296,6 +298,7 @@ function SavedFilters({ projectKey, routeScoped, current, apply }: {
     if (!confirm(`Xóa bộ lọc "${f.name}"?`)) return;
     try { await api.del(`/filters/${f.id}`); await refreshAll(); } catch (e) { toastError(e); }
   };
+  if (!canFilters) return null;
   return (
     <div className="saved-filters" ref={box}>
       <button className="btn btn-sm" onClick={() => setOpen(!open)}><Star size={14} /> Bộ lọc đã lưu <ChevronDown size={14} /></button>

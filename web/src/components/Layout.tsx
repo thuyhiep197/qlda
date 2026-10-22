@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api, logout, queryClient } from '../api';
 import { applyTheme } from '../theme';
-import { hasPerm, hasProjectModule, useIssueModal, useMe } from '../hooks';
+import { hasPerm, hasSubsystem, useIssueModal, useMe } from '../hooks';
 import { Avatar } from './ui';
 import GlobalSearch from './GlobalSearch';
 import { CustomerModal } from '../pages/Customers';
@@ -10,7 +10,6 @@ import { CreateProjectModal } from '../pages/Projects';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
 import { Building2, FolderKanban, LayoutDashboard, LibraryBig, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, Settings, Sun, Wrench } from 'lucide-react';
-import { adminTabs } from '../pages/AdminLayout';
 import { clampWidth, COLLAPSE_BELOW, readCollapsed, readWidth, saveCollapsed, saveWidth } from '../sidebar-pref';
 
 export default function Layout() {
@@ -78,13 +77,13 @@ export default function Layout() {
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
-        {/* Phân hệ: Dashboard · Khách hàng · Dự án · Tài liệu nội bộ · Quản trị; thu gọn thì tên hiện khi rê chuột */}
+        {/* Phân hệ: Dashboard · Khách hàng · Dự án · Tài liệu nội bộ · Quản trị — mỗi mục chỉ hiện khi có ô Xem nào của phân hệ; thu gọn thì tên hiện khi rê chuột */}
         <nav className="nav nav-main">
-          <NavLink to="/home" data-tip={collapsed ? 'Dashboard' : undefined}><LayoutDashboard size={18} /> <span className="nav-label">Dashboard</span></NavLink>
-          {hasPerm(me, 'customer.view') && <NavLink to="/customers" data-tip={collapsed ? 'Khách hàng' : undefined}><Building2 size={18} /> <span className="nav-label">Khách hàng</span></NavLink>}
-          {hasProjectModule(me) && <NavLink to="/projects" data-tip={collapsed ? 'Dự án' : undefined} className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> <span className="nav-label">Dự án</span></NavLink>}
-          <NavLink to="/docs" data-tip={collapsed ? 'Tài liệu' : undefined}><LibraryBig size={18} /> <span className="nav-label">Tài liệu</span></NavLink>
-          {adminTabs(me).length > 0 && <NavLink to="/admin" data-tip={collapsed ? 'Quản trị' : undefined}><Wrench size={18} /> <span className="nav-label">Quản trị</span></NavLink>}
+          {hasSubsystem(me, 'dashboard') && <NavLink to="/home" data-tip={collapsed ? 'Dashboard' : undefined}><LayoutDashboard size={18} /> <span className="nav-label">Dashboard</span></NavLink>}
+          {hasSubsystem(me, 'customer') && <NavLink to="/customers" data-tip={collapsed ? 'Khách hàng' : undefined}><Building2 size={18} /> <span className="nav-label">Khách hàng</span></NavLink>}
+          {hasSubsystem(me, 'project') && <NavLink to="/projects" data-tip={collapsed ? 'Dự án' : undefined} className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> <span className="nav-label">Dự án</span></NavLink>}
+          {hasSubsystem(me, 'docs') && <NavLink to="/docs" data-tip={collapsed ? 'Tài liệu' : undefined}><LibraryBig size={18} /> <span className="nav-label">Tài liệu</span></NavLink>}
+          {hasSubsystem(me, 'admin') && <NavLink to="/admin" data-tip={collapsed ? 'Quản trị' : undefined}><Wrench size={18} /> <span className="nav-label">Quản trị</span></NavLink>}
         </nav>
         {/* Kéo mép phải để co giãn; kéo hẹp quá thì thu gọn chỉ còn biểu tượng */}
         <div className="side-resizer" role="separator" aria-orientation="vertical" aria-label="Kéo để co giãn thanh bên" onPointerDown={startResize} />
@@ -122,7 +121,8 @@ export default function Layout() {
 
       {creating && subsystem === 'customer' && <CustomerModal onClose={() => setCreating(false)} onSaved={(id) => navigate(`/customers/${id}?g=all`)} />}
       {creating && subsystem === 'project' && <CreateProjectModal onClose={() => setCreating(false)} />}
-      {current && <IssueDetailModal issueKey={current} />}
+      {/* ?issue=KEY (VD mở từ thông báo): chỉ khi có Issue – Xem */}
+      {current && hasPerm(me, 'issue.view') && <IssueDetailModal issueKey={current} />}
     </div>
   );
 }

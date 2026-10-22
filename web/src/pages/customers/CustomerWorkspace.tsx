@@ -5,6 +5,7 @@ import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutLi
 import { api } from '../../api';
 import { ManageContext, useCan } from './manage';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
+import type { CustomerRef } from './manage';
 import { byProvince, callAlertText, CUSTOMER_STATUS_CLASS, customerTree, filterCustomers, salesStatusClass, worstCallAlert } from '../../customer-filter';
 import { colorOf, fmtDate } from '../../util';
 import { useCustomers } from '../Customers';
@@ -38,7 +39,7 @@ export default function CustomerWorkspace() {
     <div className="cw">
       <CustomerTree customers={customers || []} group={group} current={id ? Number(id) : null} currentProject={pid ? Number(pid) : null}
         archived={archived} setArchived={setArchived} />
-      {id && pid ? <ProjectView id={id} pid={pid} archived={archived} /> : id ? <CustomerView id={id} archived={archived} />
+      {id && pid ? <ProjectView id={id} pid={pid} /> : id ? <CustomerView id={id} archived={archived} />
         : <CustomerTable list={list} total={group === 'mine' ? (customers || []).filter((c) => c.is_mine).length : customers?.length ?? 0}
           title={group === 'mine' ? 'Khách hàng của tôi' : 'Tất cả khách hàng'} q={q} setQ={setQ} />}
     </div>
@@ -54,8 +55,9 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState('');
   const can = useCan();
-  // Nút dự án (Dự án của khách hàng – Xem); cảnh báo lịch gọi (Trao đổi – Xem)
-  const canProjects = can('sales_project.view'), canTalk = can('ctalk.view');
+  // Dự án trong phạm vi (server đã lọc; không có Dự án của khách hàng – Xem thì chỉ tên); cảnh báo lịch gọi (Trao đổi – Xem);
+  // nút khách hàng chỉ mở màn khách hàng khi có Thông tin khách hàng – Xem (không có thì chỉ tên, không bấm được)
+  const canTalk = can('ctalk.view'), canInfo = can('customer.view');
   const groups: ['mine' | 'all', string, Customer[], React.ReactNode][] = [
     ['mine', 'Khách hàng của tôi', customers.filter((c) => c.is_mine), <Star size={16} />],
     ['all', 'Tất cả khách hàng', customers, <LayoutList size={16} />],
@@ -91,7 +93,7 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
                     <span className="cw-count">{inProvince.length}</span>
                   </div>
                   {pOpen && inProvince.map(({ customer: c, projects: found }) => {
-              const projects = canProjects ? found : [];
+              const projects = found;
               // Dự án của khách hàng: mở sẵn ở khách hàng đang xem, khi tìm kiếm; bấm mũi tên để mở / thu gọn
               const ck = `${key}:${c.id}`;
               const expanded = searching || (closed[ck] === undefined ? c.id === current && group === key : !closed[ck]);
@@ -103,20 +105,24 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
                     {projects.length ? <button className="cw-caret" aria-label={expanded ? 'Thu gọn dự án' : 'Xem dự án'}
                       onClick={() => setClosed({ ...closed, [ck]: expanded })}>{expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</button>
                       : <span className="cw-caret-space" />}
-                    <Link to={`/customers/${c.id}?g=${key}`} title={c.name} className="cw-sub-link">
-                      <span className="cw-dot tone-default" data-tip={c.status} />
-                      <span className="ellipsis grow">{c.name}</span>{!!c.is_archived && <Archive size={12} className="muted" data-tip="Đã lưu trữ" />}
-                      {callC && <PhoneCall size={12} className="call-flag" data-tip={`${callC.projects} dự án: ${callAlertText(callC)}`} />}
-                      {projects.length > 0 && <span className="cw-count">{projects.length}</span>}
-                    </Link>
+                    {(() => {
+                      const inner = <>
+                        <span className="cw-dot tone-default" data-tip={c.status} />
+                        <span className="ellipsis grow">{c.name}</span>{!!c.is_archived && <Archive size={12} className="muted" data-tip="Đã lưu trữ" />}
+                        {callC && <PhoneCall size={12} className="call-flag" data-tip={`${callC.projects} dự án: ${callAlertText(callC)}`} />}
+                        {projects.length > 0 && <span className="cw-count">{projects.length}</span>}
+                      </>;
+                      return canInfo ? <Link to={`/customers/${c.id}?g=${key}`} title={c.name} className="cw-sub-link">{inner}</Link>
+                        : <span title={c.name} className="cw-sub-link">{inner}</span>;
+                    })()}
                   </div>
                   {expanded && projects.map((p) => { const call = canTalk ? p.call_alert : null; return (
-                    <Link key={p.id} to={`/customers/${c.id}/p/${p.id}?g=${key}`} title={call ? undefined : `${p.code} ${p.name} — ${p.status ?? "Chưa áp dụng quy trình"}`}
+                    <Link key={p.id} to={`/customers/${c.id}/p/${p.id}?g=${key}`} title={call ? undefined : p.code ? `${p.code} ${p.name} — ${p.status ?? "Chưa áp dụng quy trình"}` : p.name}
                       data-tip={call ? `${p.name}: ${callAlertText(call)}` : undefined}
                       className={`cw-sub cw-proj ${here && p.id === currentProject ? 'active' : ''} ${call ? 'call-due' : ''}`}>
                       {call ? <PhoneCall size={13} className="call-flag" /> : <FolderOpen size={13} className="muted" />}
                       <span className="ellipsis grow">{p.name}</span>{!!p.is_archived && <Archive size={12} className="muted" data-tip="Đã lưu trữ" />}
-                      <span className={`cw-dot tone-${salesTone(p.status)}`} data-tip={p.status ?? "Chưa áp dụng quy trình"} />
+                      {p.code && <span className={`cw-dot tone-${salesTone(p.status)}`} data-tip={p.status ?? "Chưa áp dụng quy trình"} />}
                     </Link>
                   ); })}
                 </Fragment>
@@ -140,7 +146,7 @@ function JourneyCell({ p }: { p: SalesProject }) {
     <>
       <div className="cust-bar"><div style={{ width: `${p.journey_pct}%` }} /></div>
       <div className="small">{p.journey_pct}% bước hoàn thành
-        {p.journey_overdue > 0 && <span className="overdue"> · {p.journey_overdue} trễ</span>}</div>
+        {(p.journey_overdue ?? 0) > 0 && <span className="overdue"> · {p.journey_overdue} trễ</span>}</div>
     </>
   );
 }
@@ -167,6 +173,7 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
   // Cột theo quyền Xem: Hành trình, Sản xuất (Kế hoạch), Làm việc gần nhất (Trao đổi)
   const can = useCan();
   const col = { journey: can('journey.view'), production: can('plan.view'), talk: can('ctalk.view') };
+  const canInfo = can('customer.view'), canProjectInfo = can('sales_project.view');
   const cols = 7 + Number(col.journey) + Number(col.production) + Number(col.talk);
   let stt = 0;
   return (
@@ -187,12 +194,12 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
                 <tr className="cw-row-prov"><td colSpan={cols}><MapPin size={13} /> {province} <span className="muted small">· {items.length} khách hàng</span></td></tr>
                 {items.map(({ customer: c }) => { const i = stt++; return (
               <Fragment key={c.id}>
-                <tr className="click-row cw-row-cust" onClick={() => navigate(`/customers/${c.id}${g}`)}>
+                <tr className={`${canInfo ? 'click-row ' : ''}cw-row-cust`} onClick={canInfo ? () => navigate(`/customers/${c.id}${g}`) : undefined}>
                   <td className="num muted">{i + 1}</td>
-                  <td><Link to={`/customers/${c.id}${g}`} onClick={(e) => e.stopPropagation()}><b>{c.name}</b></Link>
+                  <td>{canInfo ? <Link to={`/customers/${c.id}${g}`} onClick={(e) => e.stopPropagation()}><b>{c.name}</b></Link> : <b>{c.name}</b>}
                     {c.ward_name && <div className="muted small">{c.ward_name}</div>}</td>
                   <td className="muted small">{c.sales_projects?.length ? `${c.sales_projects.length} dự án` : 'Chưa có dự án'}</td>
-                  <td><span className={CUSTOMER_STATUS_CLASS}>{c.status}</span></td>
+                  <td>{c.status && <span className={CUSTOMER_STATUS_CLASS}>{c.status}</span>}</td>
                   {col.journey && <td />}
                   <td className="small">{c.kd_names}</td>
                   <td className="small">{c.am_names}</td>
@@ -204,8 +211,8 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
                   <tr key={`p${p.id}`} className="click-row cw-row-proj" onClick={() => navigate(`/customers/${c.id}/p/${p.id}${g}`)}>
                     <td />
                     <td><Link to={`/customers/${c.id}/p/${p.id}${g}`} onClick={(e) => e.stopPropagation()} className="row gap-xs"><FolderOpen size={13} className="muted" /> <span className="muted small">{p.code}</span> <CallName p={p} /></Link></td>
-                    <td className="small">{p.product_name ?? <span className="muted">{p.product_type_name}</span>}</td>
-                    <td><span className={salesStatusClass(p.status)}>{p.status ?? "Chưa áp dụng quy trình"}</span></td>
+                    <td className="small">{canProjectInfo && (p.product_name ?? <span className="muted">{p.product_type_name}</span>)}</td>
+                    <td>{canProjectInfo && <span className={salesStatusClass(p.status)}>{p.status ?? "Chưa áp dụng quy trình"}</span>}</td>
                     {col.journey && <td style={{ minWidth: 170 }}><JourneyCell p={p} /></td>}
                     <td className="small">{p.kd_names}</td>
                     <td className="small">{p.am_names}</td>
@@ -265,7 +272,14 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
           </div>
           {canAddProject && <button className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> Thêm dự án</button>}
         </div>
-        {/* Dự án của khách hàng: chỉ khi có quyền Dự án của khách hàng – Xem */}
+        {/* Không có quyền Dự án của khách hàng – Xem: chỉ tên các dự án mình tham gia (mở màn dự án) */}
+        {!can('sales_project.view') && c.sales_projects.length > 0 && <>
+          <div className="cw-toolbar"><h3 className="cw-title" style={{ fontSize: 15 }}>Dự án của khách hàng ({c.sales_projects.length})</h3></div>
+          <div className="cw-scroll stack-sm">{c.sales_projects.map((p) => (
+            <Link key={p.id} to={`/customers/${c.id}/p/${p.id}${g}`} className="row gap-xs"><FolderOpen size={13} className="muted" /> <CallName p={p} /></Link>
+          ))}</div>
+        </>}
+        {/* Thông tin các dự án của khách hàng: chỉ khi có quyền Dự án của khách hàng – Xem */}
         {can('sales_project.view') && <>
         <div className="cw-toolbar"><h3 className="cw-title" style={{ fontSize: 15 }}>Dự án của khách hàng ({c.sales_projects.length})</h3></div>
         {!c.sales_projects.length ? (
@@ -303,9 +317,11 @@ function CustomerView({ id, archived }: { id: string; archived: boolean }) {
   );
 }
 
-/** Màn dự án của khách hàng: giữa là hành trình bán hàng, phải là thông tin dự án hoặc bước đang chọn */
-function ProjectView({ id, pid, archived }: { id: string; pid: string; archived: boolean }) {
-  const { data: c } = useCustomer(id, archived);
+/**
+ * Màn dự án của khách hàng: giữa là hành trình bán hàng, phải là thông tin dự án hoặc bước đang chọn.
+ * Không cần Thông tin khách hàng – Xem: tên khách hàng lấy từ dự án; thông tin dự án chỉ khi có Dự án của khách hàng – Xem.
+ */
+function ProjectView({ id, pid }: { id: string; pid: string }) {
   const { data: sp, isLoading, error } = useQuery<SalesProjectDetail>({ queryKey: ['sales-project', pid], queryFn: () => api.get(`/customers/${id}/projects/${pid}`) });
   const [params, setParams] = useSearchParams();
   const can = useCan();
@@ -313,22 +329,26 @@ function ProjectView({ id, pid, archived }: { id: string; pid: string; archived:
   const canJourney = can('journey.view');
   const step = canJourney ? Number(params.get('step')) || null : null;
   const selectStep = (sid: number | null) => setParams((p) => { const n = new URLSearchParams(p); if (sid) n.set('step', String(sid)); else n.delete('step'); return n; }, { replace: true });
-  if (isLoading || !c) return <section className="cw-main"><Spinner /></section>;
+  if (isLoading) return <section className="cw-main"><Spinner /></section>;
   if (!sp) return <section className="cw-main"><Empty title={error instanceof Error ? error.message : 'Không tìm thấy dự án'} /></section>;
   const g = params.get('g') ? `?g=${params.get('g')}` : '';
+  const c: CustomerRef = { id: sp.customer_id, name: sp.customer_name };
+  const info = can('sales_project.view');
   return (
     <ManageContext.Provider value={!!sp.can_manage}>
       <section className="cw-main">
         <div className="cw-head">
           <div className="grow" style={{ minWidth: 0 }}>
-            <div className="muted small ellipsis"><Link to={`/customers/${c.id}${g}`}>{c.name}</Link> › Dự án</div>
+            <div className="muted small ellipsis">{can('customer.view') ? <Link to={`/customers/${c.id}${g}`}>{c.name}</Link> : c.name} › Dự án</div>
             <h2 className="ellipsis">{sp.name}</h2>
             {!!sp.is_archived && <div className="cw-archived"><Archive size={15} /> Dự án đã lưu trữ — không hiện trong danh sách</div>}
             <div className="row gap-sm small muted" style={{ flexWrap: 'wrap' }}>
-              <span className="muted">{sp.code}</span> <span className={salesStatusClass(sp.status)}>{sp.status ?? "Chưa áp dụng quy trình"}</span>
-              {sp.product_name ?? sp.product_type_name}
-              {sp.kd_names && <span>· Sale: {sp.kd_names}</span>}{sp.am_names && <span>· AM: {sp.am_names}</span>}
-              {canJourney && sp.journey_overdue > 0 && <span className="overdue row gap-xs"><AlertTriangle size={12} /> {sp.journey_overdue} bước quá hạn</span>}
+              {info && <>
+                <span className="muted">{sp.code}</span> <span className={salesStatusClass(sp.status)}>{sp.status ?? "Chưa áp dụng quy trình"}</span>
+                {sp.product_name ?? sp.product_type_name}
+                {sp.kd_names && <span>· Sale: {sp.kd_names}</span>}{sp.am_names && <span>· AM: {sp.am_names}</span>}
+              </>}
+              {canJourney && (sp.journey_overdue ?? 0) > 0 && <span className="overdue row gap-xs"><AlertTriangle size={12} /> {sp.journey_overdue} bước quá hạn</span>}
               {can('ctalk.view') && sp.call_alert && <span className="overdue row gap-xs"><PhoneCall size={12} /> {callAlertText(sp.call_alert)}</span>}
             </div>
           </div>

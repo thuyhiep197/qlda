@@ -6,7 +6,7 @@ import path from 'node:path';
 import { get, now, run } from '../db.ts';
 import { COOKIE, DUMMY_HASH, hashPassword, issueToken, requireAuth, validatePassword, verifyPassword } from '../auth.ts';
 import { audit } from '../audit.ts';
-import { HttpError, hasProjectModule, userPermissions } from '../permissions.ts';
+import { HttpError, userPermissions, visibleSubsystems } from '../permissions.ts';
 import { AVATAR_DIR, MAX_AVATAR_BYTES, avatarExtension, avatarMime, avatarUrl, safeAvatarName } from '../avatar.ts';
 
 const r = Router();
@@ -71,9 +71,11 @@ r.get('/me', requireAuth, (req, res) => {
   let preferences = {};
   try { preferences = JSON.parse(extra.preferences || '{}'); } catch { /* giữ mặc định */ }
   const { role_permissions: _rp, avatar, ...info } = extra;
-  // Quyền thực tế của tài khoản (nhóm + quyền riêng) — giao diện dùng để ẩn/hiện chức năng; project_module = thấy phân hệ Dự án
+  // Quyền thực tế của tài khoản (nhóm + quyền riêng) — giao diện dùng để ẩn/hiện chức năng; subsystems = các phân hệ thấy được
+  // (có ô Xem của module nào trong phân hệ); project_module = thấy phân hệ Dự án (giữ cho bản giao diện cũ)
   const perms = userPermissions(req.user);
-  res.json({ ...req.user, ...info, avatar_url: avatarUrl(avatar), preferences, permissions: [...perms], project_module: hasProjectModule(perms) });
+  const subsystems = visibleSubsystems(perms);
+  res.json({ ...req.user, ...info, avatar_url: avatarUrl(avatar), preferences, permissions: [...perms], subsystems, project_module: subsystems.includes('project') });
 });
 
 r.get('/avatars/:filename', requireAuth, (req, res) => {

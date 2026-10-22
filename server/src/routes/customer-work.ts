@@ -6,14 +6,18 @@ import { callAlert, callPingDue, cleanCall, cleanCallConfirm, cleanTask } from '
 import { branchIds, cleanJourneyRows, journeyProgress, MAX_DEPTH, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus, type TemplateRow } from '../journey.ts';
 import { notifyCustomer } from '../notify.ts';
 import { syncJourneys } from '../journey-sync.ts';
-import { customerMembers, loadCustomer as loadVisible, loadSalesProjectOf, projectOf, requireManage, requireMembers, visibleCustomersSql } from '../customer-access.ts';
+import { customerMembers, loadCustomerRef, loadSalesProjectOf, projectOf, requireCustomerInfo, requireCustomerSubsystem, requireManage, requireMembers,
+  visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import type { Permission } from '../permissions.ts';
 
 /** Hành trình khách hàng (quy trình I–IV) và công việc kinh doanh của khách hàng */
 const r = Router();
 
-/** Khách hàng theo :id — kiểm tra quyền và người dùng được xem khách hàng này */
-const loadCustomer = (req: Request, perm: Permission = 'customer.view') => loadVisible(req, perm) as { id: number; name: string };
+/**
+ * Khách hàng theo :id chứa mục của dự án (hành trình, lịch gọi, công việc) — cần quyền perm (không truyền = một ô Xem của phân hệ);
+ * phạm vi xét ở dự án; việc chung của khách hàng thêm Thông tin khách hàng – Xem (requireCustomerInfo)
+ */
+const loadCustomer = (req: Request, perm?: Permission) => loadCustomerRef(req, perm);
 
 const STEP_SELECT = `SELECT s.*, u.full_name AS assignee_name, u.positions AS assignee_positions FROM journey_steps s
   LEFT JOIN users u ON u.id = s.assignee_id`;
@@ -37,24 +41,39 @@ const activeUser = (id: number | null) => {
   return id;
 };
 
-/** Số liệu cho Dashboard chung: khách hàng theo tình trạng, việc kinh doanh & bước hành trình của tôi, việc quá hạn */
+/**
+ * Số liệu cho Dashboard chung (cần Dashboard – Xem và một ô Xem của phân hệ Khách hàng), mỗi phần theo ô quyền của nó:
+ *  · khách hàng theo tình trạng: Thông tin khách hàng – Xem (khách hàng trong phạm vi);
+ *  · việc kinh doanh của tôi / quá hạn: Công việc – Xem (việc của dự án trong phạm vi; việc chung thêm Thông tin khách hàng – Xem);
+ *  · bước hành trình của tôi / quá hạn: Hành trình – Xem (dự án trong phạm vi) — chỉ tên bước, tên dự án, tên khách hàng.
+ */
 r.get('/summary', (req, res) => {
-  requireUserPerm(req.user, 'customer.view');
+  requireUserPerm(req.user, 'dashboard.view');
+  requireCustomerSubsystem(req.user);
   const today = localDate();
-  const vis = visibleCustomersSql(req.user);
-  const byStatus = all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM customers c WHERE ${vis.sql} GROUP BY status`, ...vis.params);
-  // Việc kinh doanh chỉ khi có quyền Công việc – Xem; bước hành trình chỉ khi có quyền Hành trình – Xem và Dự án của khách hàng – Xem
   const perms = userPermissions(req.user);
-  const canTask = perms.has('ctask.view'), canStep = perms.has('journey.view') && perms.has('sales_project.view');
+  const info = perms.has('customer.view');
+  const vis = visibleCustomersSql(req.user);
+  const spVis = visibleSalesProjectsSql(req.user);
+  const byStatus = !info ? [] : all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM customers c WHERE ${vis.sql} GROUP BY status`, ...vis.params);
+  const canTask = perms.has('ctask.view'), canStep = perms.has('journey.view');
+  // Việc trong phạm vi (bí danh t2): của dự án trong phạm vi; việc chung → khách hàng được xem thông tin
+  const taskScope = {
+    sql: `(EXISTS (SELECT 1 FROM sales_projects sp WHERE sp.id = t2.sales_project_id AND ${spVis.sql})${info
+      ? ` OR (t2.sales_project_id IS NULL AND EXISTS (SELECT 1 FROM customers c WHERE c.id = t2.customer_id AND ${vis.sql}))` : ''})`,
+    params: [...spVis.params, ...(info ? vis.params : [])],
+  };
   const myTasks = !canTask ? [] : all(`${TASK_SELECT.replace('SELECT t.*', 'SELECT t.*, c.name AS customer_name')} JOIN customers c ON c.id = t.customer_id
-    WHERE t.assignee_id = ? AND t.status <> 'done' ORDER BY t.due_date IS NULL, t.due_date, t.id LIMIT 30`, req.user.id);
+    WHERE t.assignee_id = ? AND t.status <> 'done' AND EXISTS (SELECT 1 FROM customer_tasks t2 WHERE t2.id = t.id AND ${taskScope.sql})
+    ORDER BY t.due_date IS NULL, t.due_date, t.id LIMIT 30`, req.user.id, ...taskScope.params);
   const mySteps = !canStep ? [] : all(`SELECT s.id, s.customer_id, s.sales_project_id, s.code, s.title, s.status, s.due_date, c.name AS customer_name, sp.name AS sales_project_name
-    FROM journey_steps s JOIN customers c ON c.id = s.customer_id LEFT JOIN sales_projects sp ON sp.id = s.sales_project_id
-    WHERE s.assignee_id = ? AND s.status <> 'done' AND s.depth > 0
-    ORDER BY s.due_date IS NULL, s.due_date, s.position LIMIT 30`, req.user.id);
+    FROM journey_steps s JOIN customers c ON c.id = s.customer_id JOIN sales_projects sp ON sp.id = s.sales_project_id
+    WHERE s.assignee_id = ? AND s.status <> 'done' AND s.depth > 0 AND ${spVis.sql}
+    ORDER BY s.due_date IS NULL, s.due_date, s.position LIMIT 30`, req.user.id, ...spVis.params);
   const overdue = {
-    tasks: !canTask ? 0 : get<{ n: number }>(`SELECT COUNT(*) n FROM customer_tasks t2 JOIN customers c ON c.id = t2.customer_id WHERE t2.status <> 'done' AND t2.due_date < ? AND ${vis.sql}`, today, ...vis.params)!.n,
-    steps: !canStep ? 0 : get<{ n: number }>(`SELECT COUNT(*) n FROM journey_steps j2 JOIN customers c ON c.id = j2.customer_id WHERE j2.status <> 'done' AND j2.depth > 0 AND j2.due_date < ? AND ${vis.sql}`, today, ...vis.params)!.n,
+    tasks: !canTask ? 0 : get<{ n: number }>(`SELECT COUNT(*) n FROM customer_tasks t2 WHERE t2.status <> 'done' AND t2.due_date < ? AND ${taskScope.sql}`, today, ...taskScope.params)!.n,
+    steps: !canStep ? 0 : get<{ n: number }>(`SELECT COUNT(*) n FROM journey_steps j2 JOIN sales_projects sp ON sp.id = j2.sales_project_id
+      WHERE j2.status <> 'done' AND j2.depth > 0 AND j2.due_date < ? AND ${spVis.sql}`, today, ...spVis.params)!.n,
   };
   const total = byStatus.reduce((n, x) => n + x.n, 0);
   res.json({ total, by_status: byStatus, my_tasks: myTasks, my_steps: mySteps, overdue, today });
@@ -340,21 +359,25 @@ r.post('/:id/tasks', (req, res) => {
   const c = loadCustomer(req, 'ctask.create');
   const v = check(() => cleanTask(req.body || {}));
   activeUser(v.assignee_id);
-  // Việc của một dự án của khách hàng (trống = việc chung của khách hàng)
+  // Việc của một dự án của khách hàng (trống = việc chung của khách hàng — cần Thông tin khách hàng – Xem)
   const spId = projectOf(req.user, c.id, req.body?.sales_project_id);
+  if (!spId) requireCustomerInfo(req.user, c.id);
   requireManage(req.user, c.id, spId);
   requireMembers(c.id, spId, [v.assignee_id]);
   const { id } = run(`INSERT INTO customer_tasks(customer_id, title, description, assignee_id, due_date, status, created_by, done_at, sales_project_id)
     VALUES (?,?,?,?,?,?,?,?,?)`, c.id, v.title, v.description, v.assignee_id, v.due_date, v.status, req.user.id, v.status === 'done' ? now() : null, spId);
-  if (v.assignee_id) notifyCustomer([v.assignee_id], req.user.id, c.id, 'assigned', 'tasks', `${c.name}: ${v.title}`);
+  if (v.assignee_id) notifyCustomer([v.assignee_id], req.user.id, c.id, 'assigned', taskLink(spId), `${c.name}: ${v.title}`);
   res.status(201).json(get(`${TASK_SELECT} WHERE t.id = ?`, id));
 });
 
-/** Công việc :tid của khách hàng — người dùng phải được xem dự án chứa việc (việc chung: được xem khách hàng là đủ) */
+/** Link thông báo công việc: việc của dự án → tasks:<id dự án>; việc chung của khách hàng → tasks */
+const taskLink = (spId: number | null) => (spId ? `tasks:${spId}` : 'tasks');
+
+/** Công việc :tid của khách hàng — dự án chứa việc trong phạm vi (việc chung: được xem thông tin khách hàng) */
 function loadTask(req: Request, customerId: number) {
   const t = get('SELECT * FROM customer_tasks WHERE id = ? AND customer_id = ?', Number(req.params.tid), customerId);
   if (!t) throw notFound('Không tìm thấy công việc');
-  projectOf(req.user, customerId, t.sales_project_id);
+  if (!projectOf(req.user, customerId, t.sales_project_id)) requireCustomerInfo(req.user, customerId);
   requireManage(req.user, customerId, t.sales_project_id);
   return t;
 }
@@ -368,7 +391,7 @@ r.patch('/:id/tasks/:tid', (req, res) => {
   const doneAt = v.status === 'done' ? t.done_at ?? now() : null;
   run('UPDATE customer_tasks SET title = ?, description = ?, assignee_id = ?, due_date = ?, status = ?, updated_at = ?, done_at = ? WHERE id = ?',
     v.title, v.description, v.assignee_id, v.due_date, v.status, now(), doneAt, t.id);
-  if (v.assignee_id && v.assignee_id !== t.assignee_id) notifyCustomer([v.assignee_id], req.user.id, c.id, 'assigned', 'tasks', `${c.name}: ${v.title}`);
+  if (v.assignee_id && v.assignee_id !== t.assignee_id) notifyCustomer([v.assignee_id], req.user.id, c.id, 'assigned', taskLink(t.sales_project_id), `${c.name}: ${v.title}`);
   res.json({ ok: true });
 });
 

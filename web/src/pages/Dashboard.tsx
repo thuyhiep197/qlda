@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { hasPerm, hasProjectModule, useIssueModal, useMe, useProjects } from '../hooks';
+import { hasPerm, hasProjectModule, hasSubsystem, useIssueModal, useMe, useProjects } from '../hooks';
 import CustomerDashboard from '../components/CustomerDashboard';
 import type { Issue, IssueType } from '../types';
 import { colorOf, FIELD_LABELS, timeAgo } from '../util';
@@ -30,7 +30,8 @@ export default function Dashboard() {
   return (
     <div className="page">
       <h1>{greet}, {me?.full_name}</h1>
-      {hasPerm(me, 'customer.view') && <CustomerDashboard />}
+      {/* Khối Khách hàng: thấy phân hệ Khách hàng (một ô Xem bất kỳ); từng thẻ bên trong theo ô quyền của nó */}
+      {hasSubsystem(me, 'customer') && <CustomerDashboard />}
       {/* Công việc dự án: chỉ khi thấy phân hệ Dự án */}
       {hasProjectModule(me) && <h3>Công việc dự án</h3>}
       {!hasProjectModule(me) ? null : isLoading || !data ? <Spinner /> : (

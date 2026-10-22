@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Archive, ArchiveRestore, Pencil } from 'lucide-react';
 import { api, queryClient, refreshAll } from '../../api';
 import { hasPerm, useMe, useProducts, useProductTypes, useUsersBasic } from '../../hooks';
-import { useCan } from './manage';
-import type { CustomerDetail, Product, SalesProjectDetail } from '../../types';
+import { useCan, type CustomerRef } from './manage';
+import type { Product, SalesProjectDetail } from '../../types';
 import { descriptionOf, salesStatusClass } from '../../customer-filter';
 import { Modal, toast, toastError } from '../../components/ui';
 import { PeoplePicker } from '../../components/PeoplePicker';
@@ -17,7 +17,7 @@ import CallSchedule from './CallSchedule';
 
 /** Cột phải của màn dự án (khi chưa chọn bước): thông tin dự án, lịch gọi điện, công việc, tài liệu, trao đổi của dự án.
  *  Tiến độ dự án sản xuất xem ở khối Liên kết tiến độ sản xuất của màn khách hàng. */
-export default function SalesProjectSide({ customer, sp }: { customer: CustomerDetail; sp: SalesProjectDetail }) {
+export default function SalesProjectSide({ customer, sp }: { customer: CustomerRef; sp: SalesProjectDetail }) {
   const can = useCan();
   const { data: users } = useUsersBasic();
   const navigate = useNavigate();
@@ -26,11 +26,12 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
   // Dự án chỉ lưu trữ (không xóa): ẩn khỏi danh sách, mở lại được
   const archive = async (archived: boolean) => {
     if (archived && !confirm(`Lưu trữ dự án ${sp.code} ${sp.name}? Dự án ẩn khỏi danh sách; xem lại bằng ô "Xem đã lưu trữ" và mở lại được.`)) return;
-    try { await api.post(`/customers/${customer.id}/projects/${sp.id}/archive`, { archived }); toast(archived ? 'Đã lưu trữ dự án' : 'Đã mở lại dự án'); await refreshAll(); if (archived) navigate(`/customers/${customer.id}`); } catch (e) { toastError(e); }
+    try { await api.post(`/customers/${customer.id}/projects/${sp.id}/archive`, { archived }); toast(archived ? 'Đã lưu trữ dự án' : 'Đã mở lại dự án'); await refreshAll(); if (archived) navigate(can('customer.view') ? `/customers/${customer.id}` : '/customers'); } catch (e) { toastError(e); }
   };
   return (
     <>
-      <Block title="Thông tin dự án" extra={<>
+      {/* Thông tin dự án: chỉ khi có quyền Dự án của khách hàng – Xem */}
+      {can('sales_project.view') && <Block title="Thông tin dự án" extra={<>
         {canEdit && <button className="icon-btn" aria-label="Sửa dự án" data-tip="Sửa dự án" onClick={() => setEditing(true)}><Pencil size={14} /></button>}
         {canArchive && (sp.is_archived
           ? <button className="icon-btn" aria-label="Mở lại dự án" data-tip="Mở lại dự án" onClick={() => archive(false)}><ArchiveRestore size={14} /></button>
@@ -45,7 +46,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
           ['Mô tả sản phẩm', sp.product_description && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.product_description}</span>],
           ['Ghi chú', sp.note && <span style={{ whiteSpace: 'pre-wrap' }}>{sp.note}</span>],
         ]} />
-      </Block>
+      </Block>}
       {can('ctalk.view') && <CallSchedule customerId={customer.id} projectId={sp.id} calls={sp.calls} members={sp.member_ids} />}
       {/* Công việc, Tài liệu, Trao đổi: chỉ khi có quyền Xem chức năng đó */}
       {can('ctask.view') && <Tasks customerId={customer.id} tasks={sp.tasks} projectId={sp.id} members={sp.member_ids} />}
@@ -62,7 +63,7 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerD
  * Thêm / sửa dự án của khách hàng — như form Tạo dự án của phân hệ Dự án; người theo vai trò chọn theo tài khoản;
  * mã dự án tự sinh (mã khách hàng + số); Sale, AM điền sẵn theo khách hàng; tình trạng tự động theo hành trình.
  */
-export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer: CustomerDetail; sp?: SalesProjectDetail; onClose: () => void; onSaved?: (id: number) => void }) {
+export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer: CustomerRef; sp?: SalesProjectDetail; onClose: () => void; onSaved?: (id: number) => void }) {
   const { data: types } = useProductTypes();
   const { data: products } = useProducts();
   const [d, setD] = useState({
@@ -71,7 +72,7 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
   });
   // Người theo vai trò (id tài khoản); dự án mới: Sale, AM điền sẵn theo khách hàng
   const [people, setPeople] = useState<Record<PeopleRole, number[]>>({
-    kd: sp?.kd_ids ?? customer.kd_ids, am: sp?.am_ids ?? customer.am_ids, ba: sp?.ba_ids ?? [], dev: sp?.dev_ids ?? [], tester: sp?.tester_ids ?? [],
+    kd: sp?.kd_ids ?? customer.kd_ids ?? [], am: sp?.am_ids ?? customer.am_ids ?? [], ba: sp?.ba_ids ?? [], dev: sp?.dev_ids ?? [], tester: sp?.tester_ids ?? [],
   });
   const person = (r: PeopleRole, hint?: string) => (
     <div className="field"><span>{ROLE_LABELS[r]}{hint && <small className="muted"> ({hint})</small>}</span>

@@ -1,24 +1,23 @@
 import { Router } from 'express';
 import { all, get, now, run } from '../db.ts';
 import { accessibleProjectIds, userPermissions } from '../permissions.ts';
-import { visibleCustomersSql } from '../customer-access.ts';
+import { hasCustomerSubsystem } from '../customer-access.ts';
 import { avatarUrl } from '../avatar.ts';
-import { COMMENT_NOTICE_PERM, customerNoticeSql, ISSUE_NOTICE_PERM } from '../notify.ts';
+import { COMMENT_NOTICE_PERM, customerNoticeScopeSql, customerNoticeSql, ISSUE_NOTICE_PERM, NOTICE_PROJECT_SQL } from '../notify.ts';
 
 const r = Router();
 
 /**
- * Chỉ hiện thông báo của những dự án người dùng còn quyền truy cập (và còn quyền Issue – Xem), và của khách hàng khi còn quyền xem khách hàng
- * và quyền Xem của chức năng sinh ra thông báo (hành trình, lịch gọi / trao đổi, công việc) — xét lúc đọc vì quyền có thể đã đổi.
+ * Chỉ hiện thông báo của những dự án người dùng còn quyền truy cập (và còn quyền Issue – Xem), và của khách hàng khi còn được xem phần chứa
+ * thông báo (dự án của khách hàng trong phạm vi; mục chung: thông tin khách hàng) và quyền Xem của chức năng sinh ra thông báo
+ * (hành trình, lịch gọi / trao đổi, công việc) — xét lúc đọc vì quyền có thể đã đổi.
  */
 function scope(user: Express.Request['user']) {
   const perms = userPermissions(user);
   const ids = accessibleProjectIds(user);
   const issues = !perms.has(ISSUE_NOTICE_PERM) ? '0=1' : ids === 'all' ? '1=1' : ids.length ? `i.project_id IN (${ids.join(',')})` : '0=1';
-  const v = visibleCustomersSql(user);
-  // Điều kiện xem khách hàng (bí danh c) chỉ dùng tham số id người dùng → thay trực tiếp vì là số nguyên của phiên đăng nhập
-  const customers = perms.has('customer.view')
-    ? `n.customer_id IS NOT NULL AND ${customerNoticeSql(perms)} AND EXISTS (SELECT 1 FROM customers c WHERE c.id = n.customer_id AND ${v.sql.replaceAll('?', String(Number(user.id)))})` : '0=1';
+  const customers = hasCustomerSubsystem(perms)
+    ? `n.customer_id IS NOT NULL AND ${customerNoticeSql(perms)} AND ${customerNoticeScopeSql(user, perms)}` : '0=1';
   return `((n.issue_id IS NOT NULL AND ${issues} AND p.is_archived = 0) OR (n.issue_id IS NULL AND ${customers}))`;
 }
 
@@ -33,7 +32,7 @@ r.get('/', (req, res) => {
   const items = all(`
     SELECT n.id, n.type, ${text} AS text, n.created_at, n.read_at, u.full_name AS actor_name, u.avatar AS actor_avatar,
       i.key AS issue_key, i.summary AS issue_summary, i.type AS issue_type, i.flagged AS issue_flagged,
-      n.customer_id, n.link, c.name AS customer_name
+      n.customer_id, n.link, c.name AS customer_name, ${NOTICE_PROJECT_SQL} AS sales_project_id
     FROM notifications n LEFT JOIN issues i ON i.id = n.issue_id LEFT JOIN projects p ON p.id = i.project_id
     LEFT JOIN customers c ON c.id = n.customer_id
     LEFT JOIN users u ON u.id = n.actor_id

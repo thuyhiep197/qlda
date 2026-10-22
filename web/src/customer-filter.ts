@@ -50,8 +50,8 @@ export function wardCodeOf(wards: { code: string; name: string }[] | undefined, 
 /** Chọn sản phẩm → mô tả lấy theo danh mục; sản phẩm chưa có mô tả thì để trống cho người dùng điền */
 export const descriptionOf = (product: Pick<Product, 'description'> | undefined) => product?.description ?? '';
 
-/** Chỉ số tổng quan của một khách hàng: dự án đang làm, việc kinh doanh đang mở / quá hạn, việc dự án quá hạn, lần làm việc với KH gần nhất */
-export function customerKpis(d: Pick<CustomerDetail, 'projects' | 'issues' | 'activities' | 'tasks'>, today: string) {
+/** Chỉ số tổng quan của một khách hàng: dự án đang làm, việc kinh doanh đang mở / quá hạn, lần làm việc với KH gần nhất */
+export function customerKpis(d: Pick<CustomerDetail, 'projects' | 'activities' | 'tasks'>, today: string) {
   const live = d.projects.filter((p) => !p.is_archived);
   const openTasks = d.tasks.filter((t) => t.status !== 'done');
   return {
@@ -59,8 +59,6 @@ export function customerKpis(d: Pick<CustomerDetail, 'projects' | 'issues' | 'ac
     running: live.filter((p) => (p.project_status || p.status_auto || 'Chưa bắt đầu') !== 'Chưa bắt đầu').length,
     openTasks: openTasks.length,
     overdueTasks: openTasks.filter((t) => t.due_date && t.due_date < today).length,
-    openIssues: d.issues.length,
-    overdue: d.issues.filter((i) => i.due_date && i.due_date < today).length,
     lastCare: d.activities.filter((a) => a.kind !== 'internal').reduce<string | null>((m, a) => (!m || a.activity_date > m ? a.activity_date : m), null),
   };
 }

@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { applyTheme } from './theme';
-import { hasPerm, hasProjectModule, useMe } from './hooks';
-import { Spinner, Toaster, TooltipLayer, UpdateBanner } from './components/ui';
+import { hasPerm, hasSubsystem, useMe } from './hooks';
+import { Empty, Spinner, Toaster, TooltipLayer, UpdateBanner } from './components/ui';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
@@ -31,6 +31,11 @@ import Profile from './pages/Profile';
 import Releases from './pages/Releases';
 import { RELEASES_ENABLED } from './util';
 
+/** Tài khoản không thấy phân hệ nào */
+function NoSubsystem() {
+  return <div className="page"><Empty title="Tài khoản chưa được cấp quyền phân hệ nào. Liên hệ quản trị hệ thống." /></div>;
+}
+
 export default function App() {
   const { data: me, isLoading } = useMe();
   // Giao diện sáng/tối theo cài đặt của tài khoản đang đăng nhập
@@ -44,13 +49,16 @@ export default function App() {
     <>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={hasProjectModule(me) ? <Landing /> : <Navigate to="/home" replace />} />
-          <Route path="home" element={<Dashboard />} />
+          {/* Trang đầu: phân hệ đầu tiên thấy được theo thứ tự Dashboard → Khách hàng → Dự án → Tài liệu → Quản trị */}
+          <Route index element={hasSubsystem(me, 'dashboard') ? <Navigate to="/home" replace /> : hasSubsystem(me, 'customer') ? <Navigate to="/customers" replace />
+            : hasSubsystem(me, 'project') ? <Landing /> : hasSubsystem(me, 'docs') ? <Navigate to="/docs" replace />
+            : hasSubsystem(me, 'admin') ? <Navigate to="/admin" replace /> : <NoSubsystem />} />
+          {hasSubsystem(me, 'dashboard') && <Route path="home" element={<Dashboard />} />}
           <Route element={<ProjectShell />}>
-          {/* Phân hệ Dự án: chỉ khi có ô quyền nào của phân hệ Dự án */}
-          {hasProjectModule(me) && <Route path="projects" element={<Projects />} />}
-          {hasProjectModule(me) && <Route path="issues" element={<IssueList />} />}
-          {hasProjectModule(me) && <Route path="p/:key" element={<ProjectLayout />}>
+          {/* Phân hệ Dự án: chỉ khi có ô Xem nào của phân hệ Dự án; danh sách issue chung cần thêm Danh sách & tìm kiếm issue – Xem */}
+          {hasSubsystem(me, 'project') && <Route path="projects" element={<Projects />} />}
+          {hasSubsystem(me, 'project') && hasPerm(me, 'search.view') && <Route path="issues" element={<IssueList />} />}
+          {hasSubsystem(me, 'project') && <Route path="p/:key" element={<ProjectLayout />}>
             <Route index element={<ProjectHome />} />
             <Route path="info" element={<ProjectSettings />} />
             <Route path="dashboard" element={null} />
@@ -63,10 +71,10 @@ export default function App() {
             <Route path="settings" element={null} />
           </Route>}
           </Route>
-          <Route path="docs" element={<Docs />} />
-          {hasProjectModule(me) && <Route path="browse/:issueKey" element={<IssuePage />} />}
+          {hasSubsystem(me, 'docs') && <Route path="docs" element={<Docs />} />}
+          {hasSubsystem(me, 'project') && <Route path="browse/:issueKey" element={<IssuePage />} />}
           <Route path="profile" element={<Profile />} />
-          <Route path="admin" element={<AdminLayout />}>
+          {hasSubsystem(me, 'admin') && <Route path="admin" element={<AdminLayout />}>
             <Route index element={null} />
             {hasPerm(me, 'user.view') && <Route path="users" element={<AdminUsers />} />}
             {hasPerm(me, 'role.view') && <Route path="roles" element={<AdminRoles />} />}
@@ -78,10 +86,11 @@ export default function App() {
             {hasPerm(me, 'geo.view') && <Route path="geo" element={<AdminGeo />} />}
             {hasPerm(me, 'product.view') && <Route path="products" element={<AdminProducts />} />}
             {hasPerm(me, 'cstatus.view') && <Route path="customer-statuses" element={<AdminCustomerStatuses />} />}
-          </Route>
-          {hasPerm(me, 'customer.view') && <Route path="customers" element={<CustomerWorkspace />} />}
-          {hasPerm(me, 'customer.view') && <Route path="customers/:id" element={<CustomerWorkspace />} />}
-          {hasPerm(me, 'customer.view') && <Route path="customers/:id/p/:pid" element={<CustomerWorkspace />} />}
+          </Route>}
+          {/* Phân hệ Khách hàng: có ô Xem nào của phân hệ (VD chỉ Hành trình – Xem vẫn vào được không gian khách hàng) */}
+          {hasSubsystem(me, 'customer') && <Route path="customers" element={<CustomerWorkspace />} />}
+          {hasSubsystem(me, 'customer') && <Route path="customers/:id" element={<CustomerWorkspace />} />}
+          {hasSubsystem(me, 'customer') && <Route path="customers/:id/p/:pid" element={<CustomerWorkspace />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

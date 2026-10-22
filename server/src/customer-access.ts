@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 import { all, get } from './db.ts';
-import { badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from './permissions.ts';
+import { badRequest, forbidden, hasSubsystem, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from './permissions.ts';
 
 /**
  * Phạm vi dữ liệu phân hệ Khách hàng.
@@ -13,8 +13,22 @@ import { badRequest, forbidden, notFound, requireUserPerm, userPermissions, type
  * "Xem tất cả" là phạm vi cao nhất: mọi quyền đang có (xem, thêm, sửa, lưu trữ, tải…) áp dụng trên mọi khách hàng, dự án;
  * chỉ có "Xem" thì các quyền chỉ áp dụng trên khách hàng, dự án mình liên quan.
  * Quản trị hệ thống: toàn quyền trên mọi khách hàng.
+ *
+ * Người chỉ tham gia (hành trình, công việc, tài liệu, trao đổi) không cần "Thông tin khách hàng – Xem":
+ *  · Dùng phân hệ khi có một ô Xem bất kỳ của phân hệ (CUSTOMER_VIEWS); phạm vi dự án như trên (Xem tất cả → mọi dự án).
+ *  · Không có "Thông tin khách hàng – Xem": cây / danh sách chỉ có tên khách hàng (và tỉnh) chứa dự án trong phạm vi;
+ *    không mở được màn khách hàng (thông tin, đầu mối, Sale/AM, việc / tài liệu / trao đổi chung của khách hàng).
+ *  · Màn dự án vào được khi dự án trong phạm vi; thông tin dự án cần "Dự án của khách hàng – Xem";
+ *    hành trình, công việc, tài liệu, trao đổi của dự án theo ô quyền riêng của từng chức năng.
  */
 type U = Pick<AuthUser, 'id' | 'is_admin'>;
+
+/** Có một ô Xem bất kỳ của phân hệ Khách hàng (SUBSYSTEM_VIEW_CELLS.customer) mới dùng được phân hệ */
+export const hasCustomerSubsystem = (perms: Set<Permission>) => hasSubsystem(perms, 'customer');
+/** Không có ô Xem nào của phân hệ Khách hàng → 403 */
+export function requireCustomerSubsystem(user: U) {
+  if (!hasCustomerSubsystem(userPermissions(user))) throw forbidden();
+}
 
 export const seesAllCustomers = (user: U) => userPermissions(user).has('customer.view_all');
 /** Hành động ghi (thêm, sửa, lưu trữ, xóa) — xem và tải về là hành động đọc */
@@ -63,6 +77,7 @@ export function managesSalesProject(user: U, salesProjectId: number) {
   return !!get(`SELECT 1 FROM sales_projects sp WHERE sp.id = ? AND ${v.sql}`, salesProjectId, ...v.params);
 }
 
+/** Được xem thông tin khách hàng (màn khách hàng): quyền Thông tin khách hàng – Xem và khách hàng trong phạm vi */
 export function canSeeCustomer(user: U, customerId: number) {
   const perms = userPermissions(user);
   if (!perms.has('customer.view')) return false;
@@ -71,23 +86,41 @@ export function canSeeCustomer(user: U, customerId: number) {
   return !!get(`SELECT 1 FROM customers c WHERE c.id = ? AND ${v.sql}`, customerId, ...v.params);
 }
 
+/** Dự án trong phạm vi: có một ô Xem của phân hệ Khách hàng và (Xem tất cả hoặc mình tham gia dự án) — không cần Thông tin khách hàng – Xem */
 export function canSeeSalesProject(user: U, salesProjectId: number) {
-  const perms = userPermissions(user);
-  if (!perms.has('customer.view') || !perms.has('sales_project.view')) return false;
+  if (!hasCustomerSubsystem(userPermissions(user))) return false;
   const v = visibleSalesProjectsSql(user);
   return !!get(`SELECT 1 FROM sales_projects sp WHERE sp.id = ? AND ${v.sql}`, salesProjectId, ...v.params);
 }
 
 const NOT_MANAGED = 'Khách hàng / dự án này không do bạn phụ trách, thực hiện hoặc phối hợp';
 
-/** Khách hàng theo :id trên đường dẫn: cần quyền perm, được xem khách hàng; hành động ghi thì phải liên quan tới khách hàng */
+/** Khách hàng theo :id trên đường dẫn (màn khách hàng): cần quyền perm, được xem thông tin khách hàng; hành động ghi thì phải liên quan tới khách hàng */
 export function loadCustomer(req: Request, perm: Permission = 'customer.view') {
   requireUserPerm(req.user, perm);
   const c = get('SELECT * FROM customers WHERE id = ?', Number(req.params.id));
   if (!c) throw notFound('Không tìm thấy khách hàng');
-  if (!canSeeCustomer(req.user, c.id)) throw forbidden('Bạn không phụ trách khách hàng này');
+  if (!canSeeCustomer(req.user, c.id)) throw forbidden('Bạn không được xem thông tin khách hàng này');
   if (isWrite(perm) && !managesCustomer(req.user, c.id)) throw forbidden(NOT_MANAGED);
   return c;
+}
+
+/**
+ * Khách hàng theo :id chỉ làm "vỏ" cho mục của một dự án (hành trình, lịch gọi, việc / tài liệu / trao đổi):
+ * cần quyền perm (không truyền = một ô Xem bất kỳ của phân hệ); phạm vi xét ở dự án (loadSalesProjectOf, projectOf)
+ * hoặc ở khách hàng với mục chung (requireCustomerInfo). Chỉ trả id, tên.
+ */
+export function loadCustomerRef(req: Request, perm?: Permission) {
+  if (perm) requireUserPerm(req.user, perm);
+  else requireCustomerSubsystem(req.user);
+  const c = get<{ id: number; name: string }>('SELECT id, name FROM customers WHERE id = ?', Number(req.params.id));
+  if (!c) throw notFound('Không tìm thấy khách hàng');
+  return c;
+}
+
+/** Mục chung của khách hàng (không thuộc dự án) nằm ở màn khách hàng: cần Thông tin khách hàng – Xem và khách hàng trong phạm vi */
+export function requireCustomerInfo(user: U, customerId: number) {
+  if (!canSeeCustomer(user, customerId)) throw forbidden('Mục chung của khách hàng cần quyền Thông tin khách hàng – Xem');
 }
 
 /** Hành động ghi trên một mục của khách hàng (việc, tài liệu, trao đổi): mục chung → liên quan khách hàng; mục của dự án → liên quan dự án */
@@ -95,18 +128,22 @@ export function requireManage(user: AuthUser, customerId: number, salesProjectId
   if (salesProjectId ? !managesSalesProject(user, salesProjectId) : !managesCustomer(user, customerId)) throw forbidden(NOT_MANAGED);
 }
 
-/** Dự án của khách hàng theo id (thuộc khách hàng customerId): cần quyền perm và được xem dự án; hành động ghi thì phải liên quan tới dự án */
-export function loadSalesProjectOf(user: AuthUser, customerId: number, id: unknown, perm: Permission = 'sales_project.view') {
-  requireUserPerm(user, perm);
+/**
+ * Dự án của khách hàng theo id (thuộc khách hàng customerId): cần quyền perm (không truyền = một ô Xem bất kỳ của phân hệ)
+ * và dự án trong phạm vi; hành động ghi thì phải liên quan tới dự án
+ */
+export function loadSalesProjectOf(user: AuthUser, customerId: number, id: unknown, perm?: Permission) {
+  if (perm) requireUserPerm(user, perm);
+  else requireCustomerSubsystem(user);
   const sp = get('SELECT * FROM sales_projects WHERE id = ? AND customer_id = ?', Number(id), customerId);
   if (!sp) throw notFound('Không tìm thấy dự án của khách hàng');
   if (!canSeeSalesProject(user, sp.id)) throw forbidden('Bạn không phụ trách, thực hiện hoặc phối hợp dự án này');
-  if (isWrite(perm) && !managesSalesProject(user, sp.id)) throw forbidden(NOT_MANAGED);
+  if (perm && isWrite(perm) && !managesSalesProject(user, sp.id)) throw forbidden(NOT_MANAGED);
   return sp;
 }
 
 
-/** Dự án của khách hàng được chọn (trống = chung của khách hàng); dự án phải thuộc khách hàng này và người dùng được xem */
+/** Dự án của khách hàng được chọn (trống = chung của khách hàng); dự án phải thuộc khách hàng này và trong phạm vi */
 export function projectOf(user: AuthUser, customerId: number, raw: unknown) {
   if (raw === undefined || raw === null || raw === '') return null;
   const sp = get<{ id: number }>('SELECT id FROM sales_projects WHERE id = ? AND customer_id = ?', Number(raw), customerId);

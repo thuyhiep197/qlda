@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Building2, FileText, Route, Search } from 'lucide-react';
 import { api } from '../api';
-import { hasPerm, hasProjectModule, useIssueModal, useMe } from '../hooks';
+import { hasPerm, hasProjectModule, hasSubsystem, useIssueModal, useMe } from '../hooks';
 import type { IssueType, SubType, Category } from '../types';
 import { colorOf } from '../util';
 import { StatusBadge, TypeIcon } from './ui';
@@ -48,7 +48,8 @@ export default function GlobalSearch() {
     node: <><span className="proj-dot sm" style={{ background: colorOf(p.key) }}>{p.key.slice(0, 2)}</span><span className="grow ellipsis">{p.name}</span><span className="muted small ellipsis gs-meta">{p.customer ?? p.key}</span></> }));
   data?.issues.forEach((i) => items.push({ group: 'Issue', key: `i${i.key}`, go: done(() => (canOpenIssue ? openIssue(i.key) : navigate(`/issues?q=${encodeURIComponent(i.key)}`))),
     node: <><TypeIcon type={i.type} subtype={i.subtype} size={15} /><span className="muted small nowrap">{i.key}</span><span className="grow ellipsis">{i.summary}</span><StatusBadge name={i.status_name} category={i.status_category} /></> }));
-  data?.docs?.forEach((d) => items.push({ group: 'Tài liệu nội bộ', key: `d${d.id}`, go: done(() => navigate(`/docs?${d.folder_id ? `folder=${d.folder_id}&` : ''}file=${d.id}`)),
+  // Tài liệu nội bộ: chỉ khi thấy phân hệ Tài liệu nội bộ (server cũng chỉ trả về khi có quyền)
+  if (hasSubsystem(me, 'docs')) data?.docs?.forEach((d) => items.push({ group: 'Tài liệu nội bộ', key: `d${d.id}`, go: done(() => navigate(`/docs?${d.folder_id ? `folder=${d.folder_id}&` : ''}file=${d.id}`)),
     node: <><FileText size={15} className="muted" /><span className="grow ellipsis">{d.filename}</span><span className="muted small ellipsis gs-meta">{d.folder_name ?? 'Thư mục gốc'}</span></> }));
   if (term.length >= 2 && canSearchIssues) items.push({ group: '', key: 'all-issues', go: done(() => navigate(`/issues?q=${encodeURIComponent(term)}`)),
     node: <><Search size={15} className="muted" /><span className="grow">Tìm "{term}" trong tất cả issue…</span></> });

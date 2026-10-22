@@ -27,7 +27,9 @@ export function UserPermEditor({ userId, onSaved, onDirty }: { userId: number; o
     for (const p of perms) if (value) n.add(p); else n.delete(p);
     setExtra(n); onDirty?.(true);
   };
-  const canEdit = hasPerm(me, 'role.edit') && !view.is_admin;
+  // Chống tự nâng quyền: người không phải quản trị hệ thống không tự cấp quyền riêng cho mình (máy chủ cũng chặn)
+  const self = !!me && me.id === userId && !me.is_admin;
+  const canEdit = hasPerm(me, 'role.edit') && !view.is_admin && !self;
   const save = async () => {
     try {
       await api.put(`/users/${userId}/permissions`, { overrides: Object.fromEntries(extraPerms(group, cur).map((p) => [p, 'allow'])) });
@@ -50,6 +52,7 @@ export function UserPermEditor({ userId, onSaved, onDirty }: { userId: number; o
         {canEdit && nExtra > 0 && <button className="btn btn-subtle btn-sm" onClick={() => onSet([...cur], false)}>Bỏ hết quyền riêng</button>}
         {canEdit && <button className="btn btn-primary" disabled={extra === null} onClick={save}>Lưu thay đổi</button>}
       </div>
+      {self && !view.is_admin && hasPerm(me, 'role.edit') && <div className="muted small">Bạn không tự cấp quyền riêng cho chính mình được — nhờ người quản trị khác cấp.</div>}
       {view.is_admin && <div className="form-error">Tài khoản Quản trị hệ thống luôn có toàn quyền; không cần phân quyền riêng.</div>}
       <PermMatrix catalog={catalog} has={has} onSet={onSet} locked={(p) => group.has(p)} mark={(p) => (!group.has(p) && cur.has(p) ? 'allow' : undefined)} readOnly={!canEdit} />
       <p className="muted small">Ô đã tích sẵn và khóa là quyền theo nhóm (sửa ở tab Theo nhóm người dùng). Tích thêm ô khác để cấp thêm quyền riêng cho người này. Quyền thực tế = quyền nhóm + quyền riêng.</p>

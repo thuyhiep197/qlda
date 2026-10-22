@@ -29,10 +29,10 @@ run("INSERT INTO sales_projects(customer_id, code, name, project_id) VALUES (?, 
 const [todo, doing] = ['Cần làm', 'Đang làm'].map((n, i) => run('INSERT INTO statuses(project_id, name, category, position) VALUES (?, ?, ?, ?)', pid, n, i ? 'inprogress' : 'todo', i).id);
 const sprint = run("INSERT INTO sprints(project_id, name) VALUES (?, 'Sprint 1')", pid).id;
 
-const WORK = ['plan.view', 'issue.view', 'issue.create', 'issue_own.edit', 'transition.edit'];
+const WORK = ['dashboard.view', 'plan.view', 'issue.view', 'issue.create', 'issue_own.edit', 'transition.edit'];
 const worker = user('worker', role('Làm việc', WORK));
 const assigner = user('assigner', role('Giao việc', [...WORK, 'assign.edit', 'backlog.edit']));
-const board = user('board', role('Chỉ xem kế hoạch', ['plan.view']));
+const board = user('board', role('Chỉ xem kế hoạch', ['plan.view', 'dashboard.view']));
 const issueOnly = user('issueonly', role('Chỉ xem issue', ['issue.view']));
 const crm = user('crm', role('Khách hàng không dự án KH', ['plan.view', 'project.view', 'customer.view']));
 const crmFull = user('crmfull', role('Khách hàng đủ', ['plan.view', 'project.view', 'customer.view', 'sales_project.view']));
@@ -139,6 +139,8 @@ test('sprint list, worklog and sprint reports, home dashboard follow their view 
   assert.deepEqual([dash.mine, dash.activity, dash.toTest], [[], [], []]);
   assert.ok(!('myModules' in dash));
   assert.ok((await api(worker, 'GET', '/reports/dashboard')).body.activity.length > 0);
+  // Phân hệ Dashboard cần Dashboard – Xem
+  assert.equal((await api(issueOnly, 'GET', '/reports/dashboard')).status, 403);
 });
 
 // Chạy sau cùng: bước v30 chạy lại trên mọi nhóm người dùng của CSDL thử
@@ -161,4 +163,14 @@ test('migration v30 grants Dự án – Xem to roles and user extras with any pr
   assert.ok(ALL_PERMISSIONS.includes('project.view'));
   // BA Lead (toàn quyền) có sẵn ô mới
   assert.ok(perms(get<{ id: number }>("SELECT id FROM roles WHERE name = 'BA Lead'")!.id).includes('project.view'));
+  // Mọi nhóm (trừ Quản trị hệ thống) có Dashboard – Xem và Tài liệu nội bộ Xem, Xem tất cả, Thêm, Tải về; Sửa / Xóa giữ nguyên
+  const NEW = ['dashboard.view', 'document.view', 'document.view_all', 'document.create', 'document.export'];
+  for (const r of all<{ id: number; is_admin: number }>('SELECT id, is_admin FROM roles')) {
+    for (const p of NEW) assert.equal(perms(r.id).filter((x) => x === p).length, r.is_admin ? 0 : 1, `role ${r.id}: ${p}`);
+  }
+  assert.ok(!perms(crmOnly).includes('document.edit') && !perms(crmOnly).includes('document.delete'));
+  // Chạy lại lần nữa không nhân đôi
+  run('PRAGMA user_version = 29');
+  migrate();
+  for (const p of NEW) assert.equal(perms(plain).filter((x) => x === p).length, 1);
 });

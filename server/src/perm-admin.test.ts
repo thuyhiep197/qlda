@@ -107,6 +107,9 @@ test('group list needs Phân quyền – Xem or Người dùng – Xem', async (
 });
 
 test('uploading a file with the name of someone else\'s file in the same folder is rejected (unless Tài liệu nội bộ – Sửa)', async () => {
+  // Tải lên cần Tài liệu nội bộ – Xem + Thêm
+  const DOC = ['document.view', 'document.create'];
+  const other = user('docother', role('Tài liệu A', DOC)), nobody = user('docnobody', role('Tài liệu B', DOC));
   const upload = (userId: number, name: string, content: string) => {
     const fd = new FormData();
     fd.append('files', new Blob([content], { type: 'application/pdf' }), name);

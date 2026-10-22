@@ -4,7 +4,8 @@ import path from 'node:path';
 import { all, get, localDate, now, run, tx, UPLOAD_DIR } from '../db.ts';
 import { audit } from '../audit.ts';
 import { accessibleProjectIds, badRequest, forbidden, notFound, requireUserPerm, userPermissions, type AuthUser, type Permission } from '../permissions.ts';
-import { customerMembers, loadCustomer, managesCustomer, projectOf, requireManage, seesAllCustomers, visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
+import { customerMembers, loadCustomer, loadCustomerRef, managesCustomer, projectOf, requireCustomerInfo, requireCustomerSubsystem, requireManage, seesAllCustomers,
+  visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
 import { checkPeople, namesSql, savePeople, userPositions } from '../people.ts';
 import { autoProjectStatuses } from '../phases.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -74,17 +75,30 @@ r.get('/names', (req, res) => {
 
 const FIRST_CONTACT = (col: string) => `(SELECT cc.${col} FROM customer_contacts cc WHERE cc.customer_id = c.id ORDER BY cc.position, cc.id LIMIT 1)`;
 
-/** Khách hàng (kèm dự án) người dùng được xem; ?archived=1: kèm khách hàng, dự án đã lưu trữ */
+/**
+ * Khách hàng (kèm dự án) người dùng được xem; ?archived=1: kèm khách hàng, dự án đã lưu trữ.
+ * Dùng được với một ô Xem bất kỳ của phân hệ; dự án = dự án trong phạm vi (không có Dự án của khách hàng – Xem thì chỉ tên).
+ * Không có Thông tin khách hàng – Xem: chỉ khách hàng chứa dự án trong phạm vi, mỗi khách hàng chỉ tên (và tỉnh để gom nhóm).
+ */
 r.get('/', (req, res) => {
-  requireUserPerm(req.user, 'customer.view');
+  const perms = userPermissions(req.user);
+  requireCustomerSubsystem(req.user);
   syncJourneys();
   const archived = req.query.archived === '1';
   const vis = visibleCustomersSql(req.user);
   const projectsByCustomer = new Map<number, any[]>();
-  const perms = userPermissions(req.user);
-  for (const sp of perms.has('sales_project.view') ? salesProjectsOf('all', { user: req.user, archived }) : []) {
+  for (const sp of salesProjectsOf('all', { user: req.user, archived })) {
     if (!projectsByCustomer.has(sp.customer_id)) projectsByCustomer.set(sp.customer_id, []);
     projectsByCustomer.get(sp.customer_id)!.push(sp);
+  }
+  if (!perms.has('customer.view')) {
+    const ids = [...projectsByCustomer.keys()];
+    if (!ids.length) return res.json([]);
+    // Mọi khách hàng ở đây đều là khách hàng mình tham gia → nằm trong "Khách hàng của tôi"
+    return res.json(all<{ id: number }>(`SELECT c.id, c.name, c.province_code, gp.name AS province_name, c.is_archived
+      FROM customers c LEFT JOIN geo_provinces gp ON gp.code = c.province_code
+      WHERE c.id IN (${ids.map(() => '?').join(',')}) ${archived ? '' : 'AND c.is_archived = 0'} ORDER BY c.name`, ...ids)
+      .map((c) => ({ ...c, is_mine: 1, sales_projects: projectsByCustomer.get(c.id) ?? [] })));
   }
   const openTasks = new Map(all<{ customer_id: number; n: number }>("SELECT customer_id, COUNT(*) n FROM customer_tasks WHERE status <> 'done' GROUP BY customer_id")
     .map((x) => [x.customer_id, x.n]));
@@ -132,9 +146,8 @@ r.post('/', (req, res) => {
   res.status(201).json(get('SELECT * FROM customers WHERE id = ?', id));
 });
 
-/** Dự án của khách hàng người dùng được xem (để lọc công việc, tài liệu, trao đổi): 'all' hoặc tập id */
+/** Dự án của khách hàng trong phạm vi của người dùng (để lọc công việc, tài liệu, trao đổi — mỗi chức năng theo ô quyền riêng) */
 function visibleProjectIds(user: AuthUser, customerId: number): Set<number> {
-  if (!userPermissions(user).has('sales_project.view')) return new Set();
   const v = visibleSalesProjectsSql(user);
   return new Set(all<{ id: number }>(`SELECT sp.id FROM sales_projects sp WHERE sp.customer_id = ? AND ${v.sql}`, customerId, ...v.params).map((x) => x.id));
 }
@@ -163,8 +176,9 @@ r.get('/:id', (req, res) => {
     FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id LEFT JOIN journey_steps s ON s.id = f.step_id LEFT JOIN sales_projects sp ON sp.id = f.sales_project_id
     WHERE f.customer_id = ? ORDER BY f.created_at DESC`, c.id).filter(inVisible(spIds));
   c.tasks = !perms.has('ctask.view') ? [] : all<any>(`${TASK_SELECT} WHERE t.customer_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, c.id).filter(inVisible(spIds));
-  // Các dự án của khách hàng (cấp 2) người dùng được xem, kèm tình trạng, tiến độ hành trình; ?archived=1 kèm dự án đã lưu trữ
-  c.sales_projects = perms.has('sales_project.view') ? salesProjectsOf([c.id], { user: req.user, archived: req.query.archived === '1' }) : [];
+  // Các dự án của khách hàng (cấp 2) trong phạm vi, kèm tình trạng, tiến độ hành trình (không có Dự án của khách hàng – Xem: chỉ tên);
+  // ?archived=1 kèm dự án đã lưu trữ
+  c.sales_projects = salesProjectsOf([c.id], { user: req.user, archived: req.query.archived === '1' });
   // Trao đổi chung của khách hàng (không thuộc dự án / bước nào)
   c.activities = !perms.has('ctalk.view') ? [] : all(`SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id
     WHERE a.customer_id = ? AND a.sales_project_id IS NULL AND a.step_id IS NULL ORDER BY a.created_at, a.id`, c.id);
@@ -230,7 +244,7 @@ r.post('/:id/archive', (req, res) => {
 // ---------------------------------------------------------------------------
 // Tài liệu: của khách hàng (chung), của một dự án (?project=), kết quả của một bước (?step=)
 // ---------------------------------------------------------------------------
-/** Bước hành trình thuộc khách hàng, người dùng được xem dự án chứa bước */
+/** Bước hành trình thuộc khách hàng, dự án chứa bước trong phạm vi */
 function stepOf(req: Request, customerId: number, raw: unknown) {
   const step = get<{ id: number; title: string; sales_project_id: number }>('SELECT id, title, sales_project_id FROM journey_steps WHERE id = ? AND customer_id = ?', Number(raw), customerId);
   if (!step) throw badRequest('Không tìm thấy bước trong hành trình');
@@ -241,9 +255,11 @@ function stepOf(req: Request, customerId: number, raw: unknown) {
 r.post('/:id/files', upload.array('files'), (req, res) => {
   const files = (req.files as Express.Multer.File[]) || [];
   try {
-    const c = loadCustomer(req, 'cfile.create');
+    // Tài liệu của dự án / bước: dự án trong phạm vi; tài liệu chung: thêm Thông tin khách hàng – Xem
+    const c = loadCustomerRef(req, 'cfile.create');
     const step = req.query.step ? stepOf(req, c.id, req.query.step) : null;
     const spId = step ? step.sales_project_id : projectOf(req.user, c.id, req.query.project);
+    if (!spId) requireCustomerInfo(req.user, c.id);
     requireManage(req.user, c.id, spId);
     for (const f of files) {
       run('INSERT INTO customer_files(customer_id, uploader_id, filename, stored_name, mime, size, created_at, step_id, sales_project_id) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -256,11 +272,12 @@ r.post('/:id/files', upload.array('files'), (req, res) => {
   }
 });
 
-function loadFile(req: Request, perm: Permission) {
-  const c = loadCustomer(req, perm);
+/** Tài liệu :fid — cần quyền perm (không truyền = một ô Xem của phân hệ); của dự án: dự án trong phạm vi; chung: được xem thông tin khách hàng */
+function loadFile(req: Request, perm?: Permission) {
+  const c = loadCustomerRef(req, perm);
   const f = get('SELECT * FROM customer_files WHERE id = ? AND customer_id = ?', Number(req.params.fid), c.id);
   if (!f) throw notFound('Không tìm thấy tài liệu');
-  projectOf(req.user, c.id, f.sales_project_id);
+  if (!projectOf(req.user, c.id, f.sales_project_id)) requireCustomerInfo(req.user, c.id);
   return f;
 }
 
@@ -276,7 +293,7 @@ r.get('/:id/files/:fid', (req, res) => {
 
 /** Xóa tài liệu: người tải lên tự xóa được (có quyền Tải lên); tài liệu của người khác cần quyền Xóa tài liệu */
 r.delete('/:id/files/:fid', (req, res) => {
-  const f = loadFile(req, 'customer.view');
+  const f = loadFile(req);
   requireManage(req.user, Number(req.params.id), f.sales_project_id);
   const perms = userPermissions(req.user);
   if (!(perms.has('cfile.create') && f.uploader_id === req.user.id) && !perms.has('cfile.delete')) throw forbidden('Bạn chỉ xóa được tài liệu do mình tải lên');
@@ -289,23 +306,26 @@ r.delete('/:id/files/:fid', (req, res) => {
 // Trao đổi: làm việc với khách hàng (gọi điện, gặp mặt, email) và thảo luận nội bộ — chung, của dự án, của bước
 // ---------------------------------------------------------------------------
 r.post('/:id/activities', (req, res) => {
-  const c = loadCustomer(req, 'ctalk.create');
+  const c = loadCustomerRef(req, 'ctalk.create');
   const v = check(() => cleanActivity(req.body || {}, localDate()));
   const step = req.body?.step_id ? stepOf(req, c.id, req.body.step_id) : null;
   const spId = step ? step.sales_project_id : projectOf(req.user, c.id, req.body?.sales_project_id);
+  if (!spId) requireCustomerInfo(req.user, c.id);
   requireManage(req.user, c.id, spId);
   const { id } = run('INSERT INTO customer_activities(customer_id, user_id, kind, activity_date, content, step_id, sales_project_id) VALUES (?,?,?,?,?,?,?)',
     c.id, req.user.id, v.kind, v.activity_date, v.content, step?.id ?? null, spId);
-  notifyCustomer(mentionedCustomerUsers(v.content, c.id), req.user.id, c.id, 'mention', step ? `step:${step.id}` : 'info', v.content);
+  // Link: bước → step:<id>; dự án → info:<id dự án>; chung → info (người nhận phải được xem đúng phần đó)
+  const link = step ? `step:${step.id}` : spId ? `info:${spId}` : 'info';
+  notifyCustomer(mentionedCustomerUsers(v.content, c.id, link), req.user.id, c.id, 'mention', link, v.content);
   res.status(201).json(get('SELECT a.*, u.full_name AS user_name FROM customer_activities a LEFT JOIN users u ON u.id = a.user_id WHERE a.id = ?', id));
 });
 
 /** Xóa trao đổi: người ghi tự xóa được (có quyền Thêm trao đổi); của người khác cần quyền Xóa trao đổi */
 r.delete('/:id/activities/:aid', (req, res) => {
-  const c = loadCustomer(req);
+  const c = loadCustomerRef(req);
   const a = get('SELECT * FROM customer_activities WHERE id = ? AND customer_id = ?', Number(req.params.aid), c.id);
   if (!a) throw notFound('Không tìm thấy trao đổi');
-  projectOf(req.user, c.id, a.sales_project_id);
+  if (!projectOf(req.user, c.id, a.sales_project_id)) requireCustomerInfo(req.user, c.id);
   requireManage(req.user, c.id, a.sales_project_id);
   const perms = userPermissions(req.user);
   if (!(perms.has('ctalk.create') && a.user_id === req.user.id) && !perms.has('ctalk.delete')) throw forbidden('Bạn chỉ xóa được trao đổi do mình ghi');

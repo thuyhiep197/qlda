@@ -28,8 +28,8 @@ r.get('/', (req, res) => {
     out.customers = rows.filter((c) => fold(`${c.name} ${c.contacts ?? ''}`).includes(fq)).slice(0, LIMIT)
       .map(({ contacts: _c, ...c }) => c);
   }
-  // Bước hành trình (thuộc dự án của khách hàng): cần Hành trình – Xem và Dự án của khách hàng – Xem
-  if (perms.has('customer.view') && perms.has('journey.view') && perms.has('sales_project.view')) {
+  // Bước hành trình (thuộc dự án của khách hàng): cần Hành trình – Xem, dự án trong phạm vi (không cần Thông tin khách hàng – Xem; chỉ tên khách hàng)
+  if (perms.has('journey.view')) {
     const spVis = visibleSalesProjectsSql(req.user);
     const steps = all<{ id: number; title: string; code: string | null; status: string; customer_id: number; sales_project_id: number | null; customer_name: string }>(`
       SELECT j.id, j.title, j.code, j.status, j.customer_id, j.sales_project_id, c.name AS customer_name FROM journey_steps j JOIN sales_projects sp ON sp.id = j.sales_project_id
@@ -47,10 +47,14 @@ r.get('/', (req, res) => {
     out.issues = listIssues(req.user, { q, sort: 'updated', limit: String(LIMIT) })
       .map((i: any) => ({ key: i.key, summary: i.summary, type: i.type, subtype: i.subtype, status_name: i.status_name, status_category: i.status_category, project_key: i.project_key }));
   }
-  // Tài liệu nội bộ: mọi người đều tra cứu được
-  out.docs = all<{ id: number; filename: string; folder_id: number | null; folder_name: string | null }>(
-    'SELECT d.id, d.filename, d.folder_id, f.name AS folder_name FROM doc_files d LEFT JOIN doc_folders f ON f.id = d.folder_id ORDER BY d.filename')
-    .filter((d) => fold(d.filename).includes(fq)).slice(0, LIMIT);
+  // Tài liệu nội bộ: cần Tài liệu nội bộ – Xem (chỉ tài liệu mình tải lên) hoặc Xem tất cả (mọi tài liệu)
+  if (perms.has('document.view') || perms.has('document.view_all')) {
+    const mine = !perms.has('document.view_all');
+    out.docs = all<{ id: number; filename: string; folder_id: number | null; folder_name: string | null }>(
+      `SELECT d.id, d.filename, d.folder_id, f.name AS folder_name FROM doc_files d LEFT JOIN doc_folders f ON f.id = d.folder_id
+       ${mine ? 'WHERE d.uploader_id = ?' : ''} ORDER BY d.filename`, ...(mine ? [req.user.id] : []))
+      .filter((d) => fold(d.filename).includes(fq)).slice(0, LIMIT);
+  }
   res.json(out);
 });
 

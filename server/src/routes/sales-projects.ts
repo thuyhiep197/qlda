@@ -6,7 +6,7 @@ import { cleanSalesProject, customerCode, salesProjectCode } from '../customer.t
 import { journeyProgress, journeyStatus } from '../journey.ts';
 import { syncJourneys } from '../journey-sync.ts';
 import { autoProjectStatuses } from '../phases.ts';
-import { customerMembers, loadCustomer, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
+import { customerMembers, loadCustomer, loadCustomerRef, loadSalesProjectOf, managesSalesProject, visibleSalesProjectsSql } from '../customer-access.ts';
 import { checkPeople, namesSql, savePeople, type PeopleRole } from '../people.ts';
 import { callAlerts, callsOf, TASK_SELECT } from './customer-work.ts';
 
@@ -68,13 +68,21 @@ export function salesProjectsOf(customerIds: number[] | 'all', opts: { user?: Au
   return opts.user ? out.map(forViewer(opts.user)) : out;
 }
 
+/** Không có quyền Dự án của khách hàng – Xem: chỉ giữ tên dự án, tên khách hàng (và trạng thái lưu trữ để lọc danh sách) */
+const NAME_ONLY = ['id', 'customer_id', 'customer_name', 'name', 'is_archived'];
+/** Dữ liệu của chức năng khác gắn vào dự án — vẫn trả về theo ô quyền của chức năng đó khi chỉ được xem tên dự án */
+const FUNCTION_EXTRAS = ['open_tasks', 'call_alert', 'journey_pct', 'journey_overdue'];
+
 /**
  * Dữ liệu của chức năng khác gắn vào dự án của khách hàng chỉ trả về khi người xem có quyền Xem chức năng đó:
  * số việc đang mở (Công việc), cảnh báo lịch gọi (Trao đổi), tiến độ / số bước quá hạn (Hành trình),
  * dự án sản xuất đã gắn (Kế hoạch, và vào được dự án đó). Tình trạng tự động vẫn là dữ liệu của dự án của khách hàng.
+ * Thông tin của chính dự án (mã, sản phẩm, tình trạng, Sale/AM/BA/Dev/Tester, ghi chú, mô tả, dự án sản xuất đã gắn)
+ * chỉ khi có quyền Dự án của khách hàng – Xem; không có thì chỉ tên dự án, tên khách hàng.
  */
 export function forViewer(user: AuthUser) {
   const perms = userPermissions(user);
+  const info = perms.has('sales_project.view');
   const access = perms.has('plan.view') ? accessibleProjectIds(user) : [];
   return <T extends Record<string, any>>(p: T): T => {
     const v: Record<string, any> = { ...p };
@@ -82,12 +90,14 @@ export function forViewer(user: AuthUser) {
     if (!perms.has('ctalk.view')) v.call_alert = null;
     if (!perms.has('journey.view')) { delete v.journey_pct; delete v.journey_overdue; }
     if (!(v.project_id && (access === 'all' || access.includes(v.project_id)))) { v.project_key = null; v.project_name = null; }
+    if (!info) return Object.fromEntries(Object.entries(v).filter(([k]) => NAME_ONLY.includes(k) || FUNCTION_EXTRAS.includes(k))) as T;
     return v as T;
   };
 }
 
-function loadSalesProject(req: Request, perm: Permission = 'sales_project.view') {
-  const c = loadCustomer(req);
+/** Dự án :pid của khách hàng :id — cần quyền perm (không truyền = một ô Xem bất kỳ của phân hệ) và dự án trong phạm vi; không cần Thông tin khách hàng – Xem */
+function loadSalesProject(req: Request, perm?: Permission) {
+  const c = loadCustomerRef(req, perm);
   const sp = loadSalesProjectOf(req.user, c.id, req.params.pid, perm);
   return { c, sp };
 }
@@ -145,15 +155,21 @@ r.post('/:id/projects', (req, res) => {
   res.status(201).json(salesProjectsOf([c.id], { archived: true }).map(forViewer(req.user)).find((p: any) => p.id === id));
 });
 
-/** Chi tiết dự án: thông tin, Kinh doanh / AM, tình trạng, công việc, tài liệu, trao đổi, dự án sản xuất đã gắn */
+/**
+ * Chi tiết dự án: thông tin, Kinh doanh / AM, tình trạng, công việc, tài liệu, trao đổi, dự án sản xuất đã gắn.
+ * Vào được với một ô Xem bất kỳ của phân hệ khi dự án trong phạm vi; thông tin dự án chỉ khi có Dự án của khách hàng – Xem,
+ * công việc / tài liệu / trao đổi / lịch gọi theo ô Xem của từng chức năng.
+ */
 r.get('/:id/projects/:pid', (req, res) => {
   const { c, sp } = loadSalesProject(req);
   syncJourneys([sp.id]);
   const p: any = salesProjectsOf([c.id], { archived: true }).map(forViewer(req.user)).find((x: any) => x.id === sp.id);
   p.can_manage = managesSalesProject(req.user, sp.id);
-  const ids = ownerIds(sp.id);
-  for (const r of ROLES) p[`${r}_ids`] = ids[r];
   const perms = userPermissions(req.user);
+  if (perms.has('sales_project.view')) {
+    const ids = ownerIds(sp.id);
+    for (const r of ROLES) p[`${r}_ids`] = ids[r];
+  }
   p.tasks = !perms.has('ctask.view') ? [] : all(`${TASK_SELECT} WHERE t.sales_project_id = ? ORDER BY t.status = 'done', t.due_date IS NULL, t.due_date, t.id`, sp.id);
   p.files = !perms.has('cfile.view') ? [] : all(`SELECT f.id, f.filename, f.mime, f.size, f.created_at, f.uploader_id, u.full_name AS uploader_name, f.step_id, s.title AS step_title
     FROM customer_files f LEFT JOIN users u ON u.id = f.uploader_id LEFT JOIN journey_steps s ON s.id = f.step_id
@@ -164,9 +180,9 @@ r.get('/:id/projects/:pid', (req, res) => {
   p.calls = !perms.has('ctalk.view') ? [] : callsOf(sp.id);
   // Người tham gia dự án — chỉ những người này được giao việc, lịch gọi, bước
   p.member_ids = [...customerMembers(c.id, sp.id)];
-  // Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ trả về khi có quyền Kế hoạch – Xem
+  // Liên kết tiến độ sản xuất = dữ liệu phân hệ Dự án: chỉ trả về khi có quyền Kế hoạch – Xem (và được xem thông tin dự án — dự án sản xuất đã gắn)
   p.production = null;
-  if (sp.project_id && perms.has('plan.view')) {
+  if (sp.project_id && perms.has('plan.view') && perms.has('sales_project.view')) {
     const access = accessibleProjectIds(req.user);
     const pr: any = get(`SELECT p.id, p.key, p.name, p.project_status, p.is_archived,
         (SELECT COUNT(*) FROM issues i WHERE i.project_id = p.id AND i.type <> 'epic') AS total_issues,
