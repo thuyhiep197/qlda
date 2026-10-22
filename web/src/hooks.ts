@@ -13,6 +13,8 @@ export const useMe = () => useQuery<Me | null>({
 
 /** Tài khoản có quyền (theo nhóm người dùng + quyền riêng) — dùng ngoài phạm vi dự án (menu, quản trị). */
 export const hasPerm = (me: Me | null | undefined, p: string) => !!me && (!!me.is_admin || !!me.permissions?.includes(p));
+/** Thấy phân hệ Dự án: có ít nhất một ô quyền của phân hệ Dự án */
+export const hasProjectModule = (me: Me | null | undefined) => !!me && (!!me.is_admin || !!me.project_module);
 
 export const useProjects = () => useQuery<ProjectSummary[]>({ queryKey: ['projects'], queryFn: () => api.get('/projects') });
 

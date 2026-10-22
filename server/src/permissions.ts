@@ -132,6 +132,11 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
 export type Permission = string;
 export const ALL_PERMISSIONS: Permission[] = FEATURE_GROUPS.flatMap((g) => g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`)));
 const VALID = new Set(ALL_PERMISSIONS);
+/** Mã quyền thuộc phân hệ Dự án */
+export const PROJECT_MODULE_PERMISSIONS: Permission[] = FEATURE_GROUPS.filter((g) => g.subsystem === 'project')
+  .flatMap((g) => g.features.flatMap((f) => f.actions.map((a) => `${f.key}.${a}`)));
+/** Có ít nhất một ô quyền của phân hệ Dự án mới thấy phân hệ Dự án và vào được dự án (kể cả dự án mình là thành viên / liên kết với khách hàng) */
+export const hasProjectModule = (perms: Set<Permission>) => PROJECT_MODULE_PERMISSIONS.some((p) => perms.has(p));
 
 /**
  * Mã quyền gộp dùng trong code từ trước (vẫn kiểm tra ở nhiều nơi) — suy ra từ quyền mới.
@@ -244,10 +249,11 @@ export function userPermissions(user: Pick<AuthUser, 'id' | 'is_admin'>, fallbac
   return withDerived(set);
 }
 
-/** Tập quyền của user trong dự án; null nếu không vào được: không là thành viên, không có Dự án – Xem tất cả,
+/** Tập quyền của user trong dự án; null nếu không vào được: không có ô quyền nào của phân hệ Dự án, hoặc không là thành viên, không có Dự án – Xem tất cả,
  *  và dự án không liên kết với khách hàng / dự án của khách hàng mình phụ trách hoặc được xem. */
 export function projectPermissions(user: AuthUser, projectId: number): Set<Permission> | null {
   if (user.is_admin) return userPermissions(user);
+  if (!hasProjectModule(userPermissions(user))) return null;
   // Quyền theo tài khoản (nhóm + quyền riêng); thành viên dự án chỉ quyết định có được vào dự án hay không
   const m = get<{ role_id: number }>('SELECT role_id FROM project_members WHERE project_id = ? AND user_id = ?', projectId, user.id);
   // Phạm vi Tất cả dự án: vào mọi dự án, áp dụng quyền của tài khoản
@@ -286,7 +292,9 @@ export function accountRoleId(userId: number): number {
 }
 
 export function accessibleProjectIds(user: AuthUser): number[] | 'all' {
-  if (user.is_admin || userPermissions(user).has('project.view_all')) return 'all';
+  const perms = userPermissions(user);
+  if (user.is_admin || perms.has('project.view_all')) return 'all';
+  if (!hasProjectModule(perms)) return [];
   const member = all<{ project_id: number }>('SELECT project_id FROM project_members WHERE user_id = ?', user.id).map((r) => r.project_id);
   return [...new Set([...member, ...linkedProjectIds(user)])];
 }

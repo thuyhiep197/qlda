@@ -16,6 +16,8 @@ export interface Me {
   role_name?: string | null;
   /** Quyền thực tế của tài khoản ở mọi dự án (nhóm người dùng + quyền riêng) */
   permissions?: string[];
+  /** Có ô quyền nào của phân hệ Dự án (không có thì ẩn phân hệ Dự án) */
+  project_module?: boolean;
   created_at?: string;
   last_login_at?: string | null;
   preferences?: { theme?: 'light' | 'dark' | 'system'; notify?: Partial<Record<'mention' | 'assigned' | 'comment' | 'status', boolean>> };

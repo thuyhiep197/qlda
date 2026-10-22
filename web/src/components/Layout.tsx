@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api, logout, queryClient } from '../api';
 import { applyTheme } from '../theme';
-import { hasPerm, useIssueModal, useMe } from '../hooks';
+import { hasPerm, hasProjectModule, useIssueModal, useMe } from '../hooks';
 import { Avatar } from './ui';
 import GlobalSearch from './GlobalSearch';
 import { CustomerModal } from '../pages/Customers';
@@ -82,7 +82,7 @@ export default function Layout() {
         <nav className="nav nav-main">
           <NavLink to="/home" data-tip={collapsed ? 'Dashboard' : undefined}><LayoutDashboard size={18} /> <span className="nav-label">Dashboard</span></NavLink>
           {hasPerm(me, 'customer.view') && <NavLink to="/customers" data-tip={collapsed ? 'Khách hàng' : undefined}><Building2 size={18} /> <span className="nav-label">Khách hàng</span></NavLink>}
-          <NavLink to="/projects" data-tip={collapsed ? 'Dự án' : undefined} className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> <span className="nav-label">Dự án</span></NavLink>
+          {hasProjectModule(me) && <NavLink to="/projects" data-tip={collapsed ? 'Dự án' : undefined} className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> <span className="nav-label">Dự án</span></NavLink>}
           <NavLink to="/docs" data-tip={collapsed ? 'Tài liệu' : undefined}><LibraryBig size={18} /> <span className="nav-label">Tài liệu</span></NavLink>
           {adminTabs(me).length > 0 && <NavLink to="/admin" data-tip={collapsed ? 'Quản trị' : undefined}><Wrench size={18} /> <span className="nav-label">Quản trị</span></NavLink>}
         </nav>

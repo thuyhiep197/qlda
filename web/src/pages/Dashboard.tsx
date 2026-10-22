@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { hasPerm, useIssueModal, useMe, useProjects } from '../hooks';
+import { hasPerm, hasProjectModule, useIssueModal, useMe, useProjects } from '../hooks';
 import CustomerDashboard from '../components/CustomerDashboard';
 import type { Issue, IssueType, Side } from '../types';
 import { colorOf, FIELD_LABELS, timeAgo } from '../util';
@@ -29,8 +29,9 @@ export default function Dashboard() {
     <div className="page">
       <h1>{greet}, {me?.full_name}</h1>
       {hasPerm(me, 'customer.view') && <CustomerDashboard />}
-      <h3>Công việc dự án</h3>
-      {isLoading || !data ? <Spinner /> : (
+      {/* Công việc dự án: chỉ khi thấy phân hệ Dự án */}
+      {hasProjectModule(me) && <h3>Công việc dự án</h3>}
+      {!hasProjectModule(me) ? null : isLoading || !data ? <Spinner /> : (
         <>
           <div className="stat-cards stat-cards-3">
             <div className="stat-card"><div className="stat-num">{data.stats.assigned_open ?? 0}</div><div>Việc được giao chưa xong</div></div>

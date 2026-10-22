@@ -67,3 +67,18 @@ test('production projects linked to my customer / customer project are open to m
   const ids = accessibleProjectIds(u(am));
   assert.ok(ids !== 'all' && ids.includes(linked));
 });
+
+test('no permission in the Dự án module → no project at all (linked, member or not)', async () => {
+  const { projectPermissions, accessibleProjectIds } = await import('./permissions.ts');
+  // Nhóm chỉ có quyền phân hệ Khách hàng (+ Xem tất cả khách hàng) — như AM không được tích ô nào ở phân hệ Dự án
+  const crmOnly = run("INSERT INTO roles(name, permissions) VALUES ('Chỉ khách hàng', ?)", JSON.stringify(['customer.view', 'customer.view_all', 'sales_project.view'])).id;
+  const nhung = user('nhung_am', 'Chỉ khách hàng');
+  const linked = get<{ id: number }>("SELECT id FROM projects WHERE key = 'LK'")!.id;
+  run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?, ?, ?)', linked, nhung, crmOnly);
+  const u = { id: nhung, is_admin: 0, username: '', full_name: '', email: null, must_change_password: 0 };
+  assert.equal(projectPermissions(u, linked), null);
+  assert.deepEqual(accessibleProjectIds(u), []);
+  // Tích một ô của phân hệ Dự án (Kế hoạch – Xem) → vào lại được
+  run("INSERT INTO user_permissions(user_id, permission, effect) VALUES (?, 'plan.view', 'allow')", nhung);
+  assert.ok(projectPermissions(u, linked)?.has('plan.view'));
+});

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { get, now, run } from '../db.ts';
 import { COOKIE, DUMMY_HASH, hashPassword, issueToken, requireAuth, validatePassword, verifyPassword } from '../auth.ts';
 import { audit } from '../audit.ts';
-import { HttpError, userPermissions } from '../permissions.ts';
+import { HttpError, hasProjectModule, userPermissions } from '../permissions.ts';
 import { AVATAR_DIR, MAX_AVATAR_BYTES, avatarExtension, avatarMime, avatarUrl, safeAvatarName } from '../avatar.ts';
 
 const r = Router();
@@ -71,8 +71,9 @@ r.get('/me', requireAuth, (req, res) => {
   let preferences = {};
   try { preferences = JSON.parse(extra.preferences || '{}'); } catch { /* giữ mặc định */ }
   const { role_permissions: _rp, avatar, ...info } = extra;
-  // Quyền thực tế của tài khoản (nhóm + quyền riêng) — giao diện dùng để ẩn/hiện chức năng
-  res.json({ ...req.user, ...info, avatar_url: avatarUrl(avatar), preferences, permissions: [...userPermissions(req.user)] });
+  // Quyền thực tế của tài khoản (nhóm + quyền riêng) — giao diện dùng để ẩn/hiện chức năng; project_module = thấy phân hệ Dự án
+  const perms = userPermissions(req.user);
+  res.json({ ...req.user, ...info, avatar_url: avatarUrl(avatar), preferences, permissions: [...perms], project_module: hasProjectModule(perms) });
 });
 
 r.get('/avatars/:filename', requireAuth, (req, res) => {

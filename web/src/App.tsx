@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { applyTheme } from './theme';
-import { hasPerm, useMe } from './hooks';
+import { hasPerm, hasProjectModule, useMe } from './hooks';
 import { Spinner, Toaster, TooltipLayer, UpdateBanner } from './components/ui';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -44,12 +44,13 @@ export default function App() {
     <>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<Landing />} />
+          <Route index element={hasProjectModule(me) ? <Landing /> : <Navigate to="/home" replace />} />
           <Route path="home" element={<Dashboard />} />
           <Route element={<ProjectShell />}>
-          <Route path="projects" element={<Projects />} />
-          <Route path="issues" element={<IssueList />} />
-          <Route path="p/:key" element={<ProjectLayout />}>
+          {/* Phân hệ Dự án: chỉ khi có ô quyền nào của phân hệ Dự án */}
+          {hasProjectModule(me) && <Route path="projects" element={<Projects />} />}
+          {hasProjectModule(me) && <Route path="issues" element={<IssueList />} />}
+          {hasProjectModule(me) && <Route path="p/:key" element={<ProjectLayout />}>
             <Route index element={<ProjectHome />} />
             <Route path="info" element={<ProjectSettings />} />
             <Route path="dashboard" element={null} />
@@ -60,10 +61,10 @@ export default function App() {
             <Route path="roadmap" element={<Roadmap />} />
             {RELEASES_ENABLED && <Route path="releases" element={<Releases />} />}
             <Route path="settings" element={null} />
-          </Route>
+          </Route>}
           </Route>
           <Route path="docs" element={<Docs />} />
-          <Route path="browse/:issueKey" element={<IssuePage />} />
+          {hasProjectModule(me) && <Route path="browse/:issueKey" element={<IssuePage />} />}
           <Route path="profile" element={<Profile />} />
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={null} />
