@@ -127,7 +127,7 @@ export function Talk({ customerId, activities, target, empty, canAdd, users, men
     try { await api.del(`/customers/${customerId}/activities/${id}`); await refreshCustomer(customerId); } catch (e) { toastError(e); }
   };
   return (
-    <Block title={`Trao đổi (${activities.length})`}>
+    <Block title={`Trao đổi (${activities.length})`} open /* Trao đổi mặc định mở (các khối khác thu gọn) */>
       <div className="cw-talk">
         {!activities.length && <p className="muted small">{empty}</p>}
         {activities.map((a) => (
