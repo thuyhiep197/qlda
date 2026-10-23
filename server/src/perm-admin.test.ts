@@ -27,6 +27,11 @@ const adminGroup = get<{ id: number }>('SELECT id FROM roles WHERE is_admin = 1'
 const admin = user('admin', adminGroup, 1);
 const userMgr = role('Quản lý tài khoản', ['user.view', 'user.create', 'user.edit']);
 const mgr = user('mgr', userMgr);
+const accountManagerRole = role('Quản lý tài khoản qua quyền riêng', []);
+const accountManager = user('accountmanager', accountManagerRole);
+for (const permission of ['user.view', 'user.create', 'user.edit', 'user.delete', 'role.view', 'role.create', 'role.edit', 'role.delete']) {
+  run("INSERT INTO user_permissions(user_id, permission, effect) VALUES (?, ?, 'allow')", accountManager, permission);
+}
 const viewer = role('Chỉ xem dự án', ['plan.view']);
 const other = user('other', viewer);
 const nobody = user('nobody', role('Không quyền', []));
@@ -71,6 +76,49 @@ test('a non-admin cannot raise their own group or assign a group with more permi
   assert.equal((await create('sub1', sub)).status, 201);
   // Quản trị hệ thống: gán nhóm nào cũng được
   assert.equal((await api(admin, 'PATCH', `/users/${other}`, { default_role_id: roleId('BA Lead') })).status, 200);
+});
+
+test('all effective user and role management permissions allow full account administration', async () => {
+  const crossModule = role('Quyền khách hàng', ['customer.view', 'customer.edit']);
+  const target = user('accounttarget', viewer);
+  assert.equal((await api(accountManager, 'GET', '/roles')).status, 200);
+
+  const created = await api(accountManager, 'POST', '/users', {
+    username: 'accountcreated', full_name: 'Account Created', password: 'Matkhau2026x', default_role_id: crossModule,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.default_role_id, crossModule);
+
+  assert.equal((await api(accountManager, 'PATCH', `/users/${target}`, { default_role_id: crossModule })).status, 200);
+  assert.equal((await api(accountManager, 'PUT', `/users/${target}/permissions`, {
+    overrides: { 'customer.view_all': 'allow' },
+  })).status, 200);
+
+  const createdRole = await api(accountManager, 'POST', '/roles', {
+    name: 'Nhóm nhiều phân hệ', permissions: ['customer.view', 'issue.create'],
+  });
+  assert.equal(createdRole.status, 201);
+  assert.equal((await api(accountManager, 'PATCH', `/roles/${createdRole.body.id}`, {
+    permissions: ['customer.view', 'issue.create', 'document.export'],
+  })).status, 200);
+
+  // Quyền theo người dùng không cho phép tự đổi nhóm, tự cấp quyền riêng, hay sửa nhóm của mình để tự nâng quyền.
+  assert.equal((await api(accountManager, 'PATCH', `/users/${accountManager}`, { default_role_id: crossModule })).status, 403);
+  assert.equal((await api(accountManager, 'PUT', `/users/${accountManager}/permissions`, {
+    overrides: { 'customer.view': 'allow' },
+  })).status, 403);
+  assert.equal((await api(accountManager, 'PATCH', `/roles/${accountManagerRole}`, {
+    permissions: ['customer.view'],
+  })).status, 403);
+
+  // Nhóm và tài khoản Quản trị hệ thống tiếp tục dành riêng cho quản trị hệ thống.
+  assert.equal((await api(accountManager, 'POST', '/users', {
+    username: 'accountadmin', full_name: 'Account Admin', password: 'Matkhau2026x', default_role_id: adminGroup,
+  })).status, 403);
+  assert.equal((await api(accountManager, 'PATCH', `/users/${target}`, { default_role_id: adminGroup })).status, 403);
+  assert.equal((await api(accountManager, 'PUT', `/users/${admin}/permissions`, {
+    overrides: { 'customer.view': 'allow' },
+  })).status, 403);
 });
 
 test('group permissions and per-user extra permissions: only grant what you have, never to yourself', async () => {

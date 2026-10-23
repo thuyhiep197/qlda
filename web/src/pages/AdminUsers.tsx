@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { KeyRound, Lock, LockOpen, Pencil, ShieldCheck } from 'lucide-react';
 import { api, refreshAll } from '../api';
-import { hasPerm, useDepartments, useMe, useRoles } from '../hooks';
+import { canManageAccountPermissions, hasPerm, useDepartments, useMe, useRoles } from '../hooks';
 import { suggestPlacement } from '../people';
 import { STAFF_POSITION_LABELS } from '../util';
 import type { User } from '../types';
@@ -105,9 +105,9 @@ export default function AdminUsers() {
 function UserModal({ user, onClose }: { user: User | null; onClose: () => void }) {
   const { data: me } = useMe();
   const { data: allRoles } = useRoles();
-  // Nhóm được gán: người không phải quản trị hệ thống không gán nhóm Quản trị hệ thống, chỉ gán nhóm có quyền nằm trong quyền của mình
-  // (vẫn hiện nhóm hiện tại của tài khoản); không tự đổi nhóm của chính mình
-  const roles = allRoles?.filter((r) => !!me?.is_admin || r.id === user?.default_role_id
+  // Người có đủ quyền quản lý tài khoản được gán mọi nhóm thường; người khác chỉ gán nhóm nằm trong quyền của mình.
+  // Nhóm Quản trị hệ thống và việc tự đổi nhóm vẫn dành riêng cho quản trị hệ thống.
+  const roles = allRoles?.filter((r) => !!me?.is_admin || (!r.is_admin && canManageAccountPermissions(me)) || r.id === user?.default_role_id
     || (!r.is_admin && r.permissions.every((p) => hasPerm(me, p))));
   const ownRole = !me?.is_admin && user?.id === me?.id;
   // Phòng ban + vị trí: cần quyền Nhân sự – Thêm (tạo tài khoản) / Nhân sự – Sửa (sửa tài khoản)

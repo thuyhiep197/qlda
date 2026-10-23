@@ -273,6 +273,21 @@ export function userPermissions(user: Pick<AuthUser, 'id' | 'is_admin'>, fallbac
   return withDerived(set);
 }
 
+/**
+ * Kiểm tra quyền hiệu lực (quyền nhóm + quyền cấp riêng) trên toàn bộ hai chức năng
+ * Người dùng và Nhóm người dùng & phân quyền. Nhóm Quản trị hệ thống vẫn dành riêng
+ * cho tài khoản quản trị hệ thống.
+ */
+const ACCOUNT_MANAGEMENT_PERMISSIONS: Permission[] = [
+  'user.view', 'user.create', 'user.edit', 'user.delete',
+  'role.view', 'role.create', 'role.edit', 'role.delete',
+];
+export function canManageAccountPermissions(user: Pick<AuthUser, 'id' | 'is_admin'>): boolean {
+  if (user.is_admin) return true;
+  const permissions = userPermissions(user);
+  return ACCOUNT_MANAGEMENT_PERMISSIONS.every((permission) => permissions.has(permission));
+}
+
 /** Tập quyền của user trong dự án; null nếu không vào được: không có ô quyền nào của phân hệ Dự án, hoặc không là thành viên, không có Dự án – Xem tất cả,
  *  và dự án không liên kết với khách hàng / dự án của khách hàng mình phụ trách hoặc được xem. */
 export function projectPermissions(user: AuthUser, projectId: number): Set<Permission> | null {

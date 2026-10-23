@@ -13,6 +13,13 @@ export const useMe = () => useQuery<Me | null>({
 
 /** Tài khoản có quyền (theo nhóm người dùng + quyền riêng) — dùng ngoài phạm vi dự án (menu, quản trị). */
 export const hasPerm = (me: Me | null | undefined, p: string) => !!me && (!!me.is_admin || !!me.permissions?.includes(p));
+/** Đủ quyền trên toàn bộ chức năng Người dùng và Nhóm người dùng & phân quyền. */
+const ACCOUNT_MANAGEMENT_PERMISSIONS = [
+  'user.view', 'user.create', 'user.edit', 'user.delete',
+  'role.view', 'role.create', 'role.edit', 'role.delete',
+];
+export const canManageAccountPermissions = (me: Me | null | undefined) =>
+  !!me && (!!me.is_admin || ACCOUNT_MANAGEMENT_PERMISSIONS.every((permission) => hasPerm(me, permission)));
 /** Phân hệ: dashboard, customer, project, docs, admin */
 export type SubsystemKey = 'dashboard' | 'customer' | 'project' | 'docs' | 'admin';
 /** Thấy phân hệ (menu, đường dẫn): có ít nhất một ô Xem / Xem tất cả của module nào trong phân hệ (máy chủ tính, trả về ở /auth/me) */

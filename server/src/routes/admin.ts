@@ -5,7 +5,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { hashPassword, validatePassword } from '../auth.ts';
 import { audit, listAudit } from '../audit.ts';
 import {
-  accountRoleId, ACTIONS, isAdminRole, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound, SUBSYSTEMS,
+  accountRoleId, ACTIONS, canManageAccountPermissions, isAdminRole, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound, SUBSYSTEMS,
   requireUserPerm, userPermissions,
 } from '../permissions.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -31,13 +31,15 @@ function checkRole(v: unknown): number | null {
 }
 
 /**
- * Chống tự nâng quyền: người không phải quản trị hệ thống không đổi được nhóm của chính mình,
- * không gán nhóm Quản trị hệ thống, và chỉ gán được nhóm có quyền nằm trong quyền thực tế của mình.
+ * Người không phải quản trị hệ thống không đổi được nhóm của chính mình và không gán nhóm Quản trị hệ thống.
+ * Tài khoản được phân đủ quyền quản lý người dùng và nhóm được gán mọi nhóm thường;
+ * quyền nhóm và quyền cấp riêng đều được tính. Nhóm Quản trị hệ thống vẫn dành riêng cho quản trị hệ thống.
  */
 function checkAssignableRole(user: Express.Request['user'], roleId: number, targetId?: number) {
   if (user.is_admin) return;
   if (targetId === user.id) throw forbidden('Không thể tự đổi nhóm người dùng của mình');
   if (isAdminRole(roleId)) throw forbidden('Chỉ quản trị hệ thống được gán nhóm Quản trị hệ thống');
+  if (canManageAccountPermissions(user)) return;
   const role = get<{ permissions: string }>('SELECT permissions FROM roles WHERE id = ?', roleId);
   let list: unknown = [];
   try { list = JSON.parse(role?.permissions || '[]'); } catch { /* nhóm lỗi → coi như rỗng */ }
@@ -186,9 +188,9 @@ function cleanPerms(v: unknown) {
   return JSON.stringify(cleanPermissionList(v));
 }
 
-/** Chống tự nâng quyền: người không phải quản trị hệ thống chỉ thêm vào nhóm được những quyền mình đang có */
+/** Tài khoản được phân đủ quyền quản lý tài khoản có thể cấp quyền cho người khác theo đúng quyền đã được cấp. */
 function checkGrantable(user: Express.Request['user'], perms: string, before: string[] = []) {
-  if (user.is_admin) return;
+  if (canManageAccountPermissions(user)) return;
   const mine = userPermissions(user);
   if ((JSON.parse(perms) as string[]).some((p) => !before.includes(p) && !mine.has(p))) throw forbidden('Chỉ được cấp quyền nằm trong quyền của bạn');
 }
@@ -214,7 +216,17 @@ r.patch('/roles/:id', need('role.edit'), (req, res) => {
   const name = req.body?.name !== undefined ? String(req.body.name).trim() : role.name;
   if (!name) throw badRequest('Tên vai trò không được để trống');
   if (get('SELECT 1 FROM roles WHERE name = ? AND id <> ?', name, role.id)) throw badRequest('Tên vai trò đã tồn tại');
-  if (req.body?.permissions !== undefined) checkGrantable(req.user, cleanPerms(req.body.permissions), JSON.parse(role.permissions || '[]'));
+  if (req.body?.permissions !== undefined) {
+    const permissions = cleanPerms(req.body.permissions);
+    checkGrantable(req.user, permissions, JSON.parse(role.permissions || '[]'));
+    // Không cho người quản lý tài khoản tự nâng quyền qua nhóm đang gán cho chính mình.
+    if (!req.user.is_admin && role.id === accountRoleId(req.user.id)) {
+      const mine = userPermissions(req.user);
+      if ((JSON.parse(permissions) as string[]).some((permission) => !mine.has(permission))) {
+        throw forbidden('Không thể tự nâng quyền qua nhóm người dùng của mình');
+      }
+    }
+  }
   run('UPDATE roles SET name = ?, description = ?, permissions = ? WHERE id = ?',
     name,
     req.body?.description !== undefined ? req.body.description || null : role.description,
@@ -267,13 +279,15 @@ r.get('/users/:id/permissions', (req, res) => {
 /** Quyền cấp thêm riêng cho người dùng: { overrides: { issue.import: 'allow', ... } } — quyền thực tế = quyền nhóm + các quyền này (không chặn bớt quyền nhóm). */
 r.put('/users/:id/permissions', need('role.edit'), (req, res) => {
   const id = Number(req.params.id);
-  if (!get('SELECT 1 FROM users WHERE id = ?', id)) throw notFound();
+  const target = get<{ is_admin: number }>('SELECT is_admin FROM users WHERE id = ?', id);
+  if (!target) throw notFound();
+  if (target.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được phân quyền tài khoản Quản trị hệ thống');
   const o = req.body?.overrides;
   if (!o || typeof o !== 'object') throw badRequest('Dữ liệu phân quyền không hợp lệ');
   const entries = Object.entries(o as Record<string, unknown>).filter(([p, e]) => isPermission(p) && e === 'allow');
-  // Chống tự nâng quyền: không tự cấp quyền riêng cho mình; chỉ cấp được quyền mình đang có
-  if (!req.user.is_admin) {
-    if (id === req.user.id) throw forbidden('Không thể tự cấp quyền riêng cho mình');
+  // Không ai ngoài quản trị hệ thống được tự cấp quyền riêng cho mình.
+  if (!req.user.is_admin && id === req.user.id) throw forbidden('Không thể tự cấp quyền riêng cho mình');
+  if (!req.user.is_admin && !canManageAccountPermissions(req.user)) {
     const mine = userPermissions(req.user);
     const before = new Set(all<{ permission: string }>("SELECT permission FROM user_permissions WHERE user_id = ? AND effect = 'allow'", id).map((x) => x.permission));
     if (entries.some(([p]) => !before.has(p) && !mine.has(p))) throw forbidden('Chỉ được cấp quyền nằm trong quyền của bạn');
