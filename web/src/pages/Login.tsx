@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { api, errMsg, queryClient } from '../api';
+import { PasswordInput } from '../components/fields';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -37,7 +38,7 @@ export default function Login() {
         </label>
         <label className="field">
           <span>Mật khẩu</span>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+          <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
         </label>
         {error && <div className="form-error">{error}</div>}
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>

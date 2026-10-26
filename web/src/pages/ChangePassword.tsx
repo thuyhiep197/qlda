@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { api, errMsg, logout, queryClient } from '../api';
+import { PasswordInput } from '../components/fields';
 import { toast } from '../components/ui';
 
 export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
@@ -30,11 +31,11 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
   return (
     <form onSubmit={submit} className="stack">
       <label className="field"><span>Mật khẩu hiện tại</span>
-        <input type="password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" required /></label>
+        <PasswordInput value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" required /></label>
       <label className="field"><span>Mật khẩu mới (≥ 10 ký tự, có chữ và số, không chứa tên đăng nhập)</span>
-        <input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={10} required /></label>
+        <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={10} required /></label>
       <label className="field"><span>Nhập lại mật khẩu mới</span>
-        <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required /></label>
+        <PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required /></label>
       {error && <div className="form-error">{error}</div>}
       <div><button className="btn btn-primary" disabled={busy}>Đổi mật khẩu</button></div>
     </form>

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { CalendarDays, X } from 'lucide-react';
+import { useEffect, useRef, useState, type InputHTMLAttributes, type KeyboardEvent } from 'react';
+import { CalendarDays, Eye, EyeOff, X } from 'lucide-react';
 
 /** Ô nhập nhãn: gõ rồi Enter hoặc dấu phẩy để thêm. */
 export function LabelsInput({ value, onChange, suggestions = [] }: {
@@ -111,6 +111,22 @@ export function DateInput({ value, onChange, min, max, disabled, required, class
       <button type="button" className="date-btn" tabIndex={-1} disabled={disabled} onClick={openPicker} aria-label="Chọn ngày"><CalendarDays size={16} /></button>
       <input ref={picker} type="date" className="date-native" tabIndex={-1} aria-hidden value={value || ''} min={min} max={max}
         onChange={(e) => { if (e.target.value) onChange(e.target.value); }} />
+    </span>
+  );
+}
+
+/** Ô nhập mật khẩu có nút con mắt để hiện/ẩn mật khẩu đang gõ. */
+export function PasswordInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const [shown, setShown] = useState(false);
+  const tip = shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu';
+  return (
+    <span className="password-input">
+      <input {...props} type={shown ? 'text' : 'password'} />
+      {/* mousedown giữ con trỏ trong ô nhập khi bấm nút */}
+      <button type="button" className="password-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setShown((v) => !v)}
+        aria-label={tip} aria-pressed={shown} data-tip={tip}>
+        {shown ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
     </span>
   );
 }
