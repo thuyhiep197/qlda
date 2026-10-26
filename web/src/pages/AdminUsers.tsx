@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { Fragment, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { KeyRound, Lock, LockOpen, Pencil, ShieldCheck } from 'lucide-react';
 import { api, refreshAll } from '../api';
 import { canManageAccountPermissions, hasPerm, useDepartments, useMe, useRoles } from '../hooks';
 import { suggestPlacement } from '../people';
+import { groupByRole } from '../user-groups';
 import { STAFF_POSITION_LABELS } from '../util';
 import type { User } from '../types';
 import { UserPermEditor } from '../components/UserPermEditor';
@@ -16,6 +17,8 @@ const genPassword = () => {
   return Array.from(arr, (n) => chars[n % chars.length]).join('') + '@1';
 };
 
+const BY_ROLE_KEY = 'qlda:users-by-role';
+
 export default function AdminUsers() {
   const { data: me } = useMe();
   const { data: users, isLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: () => api.get('/users') });
@@ -25,6 +28,9 @@ export default function AdminUsers() {
   const [permUser, setPermUser] = useState<User | null>(null);
   const [filter, setFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  // Xếp theo nhóm người dùng, mỗi nhóm cách nhau một dòng trắng — nhớ trên từng máy
+  const [byRole, setByRoleState] = useState(() => { try { return localStorage.getItem(BY_ROLE_KEY) === '1'; } catch { return false; } });
+  const setByRole = (v: boolean) => { setByRoleState(v); try { localStorage.setItem(BY_ROLE_KEY, v ? '1' : '0'); } catch { /* bỏ qua */ } };
 
   const logoutAll = async () => {
     if (!confirm('Thu hồi phiên đăng nhập của TẤT CẢ mọi người (trừ bạn)? Mọi người phải đăng nhập lại. Dùng khi nghi tài khoản bị chiếm.')) return;
@@ -40,6 +46,7 @@ export default function AdminUsers() {
     (!filter || `${u.full_name} ${u.username} ${u.email || ''}`.toLowerCase().includes(filter.toLowerCase())) &&
     (!roleFilter || (roleFilter === 'none' ? !u.default_role_id : String(u.default_role_id) === roleFilter)));
   const missingRole = users?.filter((u) => !u.default_role_id).length ?? 0;
+  const groups = !list ? [] : byRole ? groupByRole(list, roles ?? []) : [list];
 
   return (
     <div className="page">
@@ -61,6 +68,9 @@ export default function AdminUsers() {
           {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           <option value="none">Chưa có nhóm</option>
         </select>
+        <label className="check small" data-tip="Xếp tài khoản theo nhóm người dùng, mỗi nhóm cách nhau một dòng trắng">
+          <input type="checkbox" className="switch" checked={byRole} onChange={(e) => setByRole(e.target.checked)} /> Xếp theo nhóm
+        </label>
         <span className="muted small">{list?.length ?? 0} tài khoản</span>
       </div>
       {isLoading ? <Spinner /> : (
@@ -69,7 +79,9 @@ export default function AdminUsers() {
         <table className="table users-table">
           <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Phòng ban</th><th>Nhóm người dùng</th><th>Email</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th className="num">Thao tác</th></tr></thead>
           <tbody>
-            {list?.map((u) => (
+            {groups.map((group, gi) => <Fragment key={group[0].default_role_id ?? 'none'}>
+            {gi > 0 && <tr className="group-gap" aria-hidden><td colSpan={8} /></tr>}
+            {group.map((u) => (
               <tr key={u.id} className={u.is_active ? '' : 'inactive'}>
                 <td className="nowrap"><div className="row gap-sm"><Avatar name={u.full_name} src={u.avatar_url} size={24} /> {u.full_name}</div></td>
                 <td className="nowrap">@{u.username}</td>
@@ -91,6 +103,7 @@ export default function AdminUsers() {
                 </td>
               </tr>
             ))}
+            </Fragment>)}
           </tbody>
         </table>
         </div>
