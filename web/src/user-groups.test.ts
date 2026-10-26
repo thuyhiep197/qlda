@@ -17,3 +17,11 @@ test('accounts without a role come last, after roles missing from the catalog', 
 test('no accounts, no groups', () => {
   assert.deepEqual(groupByRole([], roles), []);
 });
+
+test('top groups: system admin, Ban Giám đốc, Techlead, BA Lead; other groups keep the catalog order', () => {
+  const catalog = [{ id: 1, name: 'Dev' }, { id: 5, name: 'BA Lead' }, { id: 2, name: ' Ban Giám Đốc ' }, { id: 3, name: 'Kinh doanh' },
+    { id: 6, name: 'Tech Lead' }, { id: 4, name: 'Quản trị hệ thống', is_admin: 1 }];
+  const users = [{ id: 10, default_role_id: 1 }, { id: 11, default_role_id: 3 }, { id: 12, default_role_id: 2 }, { id: 13, default_role_id: 4 },
+    { id: 14, default_role_id: 5 }, { id: 15, default_role_id: 6 }];
+  assert.deepEqual(groupByRole(users, catalog).map((g) => g.map((u) => u.id)), [[13], [12], [15], [14], [10], [11]]);
+});
