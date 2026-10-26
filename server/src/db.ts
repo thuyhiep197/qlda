@@ -786,6 +786,8 @@ const migrations: (string | (() => void))[] = [
        AND NOT EXISTS (SELECT 1 FROM users u JOIN roles r ON r.id = u.default_role_id, json_each(r.permissions) j
          WHERE u.id = up.user_id AND j.value = 'project.view');
    ${grantAllRoles(['dashboard.view', 'document.view', 'document.view_all', 'document.create', 'document.export'])}`,
+  // v31: số lần sai mật khẩu liên tiếp — đủ 5 lần thì khóa hẳn tài khoản (quản trị mở khóa), không tự mở sau một thời gian
+  `ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 function migrateV26() {

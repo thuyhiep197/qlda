@@ -10,6 +10,7 @@ const ACTIONS: Record<string, { label: string; danger?: boolean }> = {
   login: { label: 'Đăng nhập' },
   login_failed: { label: 'Đăng nhập thất bại', danger: true },
   login_blocked: { label: 'Bị chặn do sai mật khẩu nhiều lần', danger: true },
+  account_locked: { label: 'Khóa tài khoản do sai mật khẩu nhiều lần', danger: true },
   password_changed: { label: 'Tự đổi mật khẩu' },
   password_reset: { label: 'Đặt lại mật khẩu cho người khác', danger: true },
   logout_others: { label: 'Đăng xuất các thiết bị khác' },

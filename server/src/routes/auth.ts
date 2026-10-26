@@ -13,10 +13,11 @@ const r = Router();
 const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_AVATAR_BYTES, files: 1 } });
 
 // Chống dò mật khẩu (BẬT mặc định; chỉ tắt khi đặt LOGIN_LOCKOUT=off trong .env):
-// trong 15 phút, tối đa 5 lần sai cho mỗi tài khoản và 30 lần sai cho mỗi địa chỉ IP
+// sai mật khẩu 5 lần liên tiếp → khóa hẳn tài khoản, quản trị viên mở khóa; mỗi địa chỉ IP tối đa 30 lần sai trong 15 phút
 const LOCKOUT = process.env.LOGIN_LOCKOUT !== 'off';
 const WINDOW = 15 * 60_000;
-const LIMITS = { user: 5, ip: 30 };
+export const MAX_FAILED_LOGINS = 5;
+const IP_LIMIT = 30;
 const failures = new Map<string, { count: number; until: number }>();
 
 const blocked = (key: string, limit: number) => {
@@ -35,25 +36,31 @@ setInterval(() => {
 r.post('/login', (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
-  const userKey = `u:${username}`, ipKey = `ip:${req.ip}`;
-  if (LOCKOUT && (blocked(userKey, LIMITS.user) || blocked(ipKey, LIMITS.ip))) {
+  const ipKey = `ip:${req.ip}`;
+  if (LOCKOUT && blocked(ipKey, IP_LIMIT)) {
     audit(req, 'login_blocked', { userId: null, username, detail: 'Bị chặn do sai mật khẩu quá nhiều lần' });
     throw new HttpError(429, 'Đăng nhập sai quá nhiều lần, vui lòng thử lại sau 15 phút');
   }
   const user = get('SELECT * FROM users WHERE username = ?', username);
   const okPw = verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !okPw) {
-    fail(userKey);
     fail(ipKey);
     audit(req, 'login_failed', { userId: user?.id ?? null, username, detail: user ? 'Sai mật khẩu' : 'Tên đăng nhập không tồn tại' });
+    if (LOCKOUT && user?.is_active) {
+      const { n } = get<{ n: number }>('UPDATE users SET failed_logins = failed_logins + 1 WHERE id = ? RETURNING failed_logins AS n', user.id)!;
+      if (n >= MAX_FAILED_LOGINS) {
+        run('UPDATE users SET is_active = 0, token_version = token_version + 1 WHERE id = ?', user.id);
+        audit(req, 'account_locked', { userId: user.id, username, target: username, detail: `Sai mật khẩu ${MAX_FAILED_LOGINS} lần liên tiếp` });
+        throw new HttpError(403, `Tài khoản đã bị khóa do nhập sai mật khẩu ${MAX_FAILED_LOGINS} lần, vui lòng liên hệ quản trị viên để mở khóa`);
+      }
+    }
     throw new HttpError(401, 'Sai tên đăng nhập hoặc mật khẩu');
   }
   if (!user.is_active) {
     audit(req, 'login_failed', { userId: user.id, username, detail: 'Tài khoản đã bị khóa' });
     throw new HttpError(403, 'Tài khoản đã bị khóa, vui lòng liên hệ quản trị viên');
   }
-  failures.delete(userKey);
-  run('UPDATE users SET last_login_at = ? WHERE id = ?', now(), user.id);
+  run('UPDATE users SET last_login_at = ?, failed_logins = 0 WHERE id = ?', now(), user.id);
   issueToken(res, user.id);
   audit(req, 'login', { userId: user.id, username: user.username, detail: user.is_admin ? 'Quản trị hệ thống' : null });
   res.json({ ok: true });

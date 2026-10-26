@@ -139,6 +139,8 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
       roleId,
       id);
     run('UPDATE project_members SET role_id = ? WHERE user_id = ?', accountRoleId(id), id);
+    // Mở khóa → đếm lại số lần sai mật khẩu từ đầu
+    if (b.is_active === true && !u.is_active) run('UPDATE users SET failed_logins = 0 WHERE id = ?', id);
     // Phòng ban + vị trí (gửi kèm thì cập nhật; bỏ trống phòng ban = chưa xếp phòng)
     if (placing) {
       const place = cleanPlacement({ department_id: u.department_id, positions: u.positions, note: u.staff_note, ...b }, false);
