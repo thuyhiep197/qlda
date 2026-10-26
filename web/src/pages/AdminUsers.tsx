@@ -80,7 +80,9 @@ export default function AdminUsers() {
           <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Phòng ban</th><th>Nhóm người dùng</th><th>Email</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th className="num">Thao tác</th></tr></thead>
           <tbody>
             {groups.map((group, gi) => <Fragment key={group[0].default_role_id ?? 'none'}>
-            {gi > 0 && <tr className="group-gap" aria-hidden><td colSpan={8} /></tr>}
+            {byRole && <tr className={`group-gap ${gi > 0 ? 'spaced' : ''}`}>
+              <td colSpan={8}>{group[0].default_role_name ?? 'Chưa có nhóm'} <span className="muted">· {group.length}</span></td>
+            </tr>}
             {group.map((u) => (
               <tr key={u.id} className={u.is_active ? '' : 'inactive'}>
                 <td className="nowrap"><div className="row gap-sm"><Avatar name={u.full_name} src={u.avatar_url} size={24} /> {u.full_name}</div></td>

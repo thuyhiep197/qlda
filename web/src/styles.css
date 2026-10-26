@@ -1158,7 +1158,9 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 /* Bảng Người dùng: cột co theo nội dung, dự án tham gia xếp ngang và xuống dòng, thao tác là biểu tượng */
 .users-table td { padding: 6px 6px; }
 .users-table th { padding: 8px 6px; }
-.users-table tbody tr.group-gap td, .users-table tbody tr.group-gap:hover td { height: 20px; padding: 0; border: none; background: var(--surface); }
+/* Dòng tên nhóm khi xếp theo nhóm; từ nhóm thứ hai có khoảng trắng phía trên để tách nhóm */
+.users-table tbody tr.group-gap td, .users-table tbody tr.group-gap:hover td { padding: 6px 6px 4px; font-size: 12px; font-weight: 700; color: var(--text); background: var(--surface); }
+.users-table tbody tr.group-gap.spaced td { padding-top: 22px; }
 .users-table .membership-chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 280px; }
 .users-table .membership-chips .label-chip { margin-right: 0; }
 .users-actions { width: 1%; }
