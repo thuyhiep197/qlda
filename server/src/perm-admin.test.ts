@@ -10,6 +10,7 @@ process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qlda-perm-admin-')
 const { migrate, run, get, all } = await import('./db.ts');
 const { seedRoles, HttpError } = await import('./permissions.ts');
 const { notifyCustomer } = await import('./notify.ts');
+const { verifyPassword } = await import('./auth.ts');
 migrate();
 seedRoles();
 const express = (await import('express')).default;
@@ -138,6 +139,15 @@ test('only an admin edits, locks or resets the password of an admin account', as
   assert.equal((await api(mgr, 'POST', `/users/${nobody}/reset-password`, { password: 'Matkhau2026x' })).status, 200);
   const second = user('admin3', adminGroup, 1);
   assert.equal((await api(admin, 'POST', `/users/${second}/reset-password`, { password: 'Matkhau2026x' })).status, 200);
+});
+
+test('reset password always sets the default temporary password qlda@868686 and forces a change', async () => {
+  const r = await api(mgr, 'POST', `/users/${nobody}/reset-password`);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.password, 'qlda@868686');
+  const u = get<{ password_hash: string; must_change_password: number }>('SELECT password_hash, must_change_password FROM users WHERE id = ?', nobody)!;
+  assert.ok(verifyPassword('qlda@868686', u.password_hash));
+  assert.equal(u.must_change_password, 1);
 });
 
 test('department and positions on the user form need Nhân sự – Thêm / Sửa; project_ids is ignored', async () => {

@@ -242,30 +242,25 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
 }
 
 function ResetModal({ user, onClose }: { user: User; onClose: () => void }) {
-  const [password, setPassword] = useState(genPassword);
-  const [done, setDone] = useState(false);
+  const [password, setPassword] = useState<string | null>(null);
   const submit = async () => {
-    try { await api.post(`/users/${user.id}/reset-password`, { password }); setDone(true); } catch (e) { toastError(e); }
+    try { setPassword((await api.post<{ password: string }>(`/users/${user.id}/reset-password`)).password); } catch (e) { toastError(e); }
   };
   return (
     <Modal title={`Đặt lại mật khẩu: ${user.full_name}`} onClose={onClose} footer={<>
       <div className="spacer" />
-      {done ? <button className="btn btn-primary" onClick={onClose}>Xong</button> : <>
+      {password ? <button className="btn btn-primary" onClick={onClose}>Xong</button> : <>
         <button className="btn" onClick={onClose}>Hủy</button>
         <button className="btn btn-primary" onClick={submit}>Đặt lại</button>
       </>}
     </>}>
-      {done ? (
+      {password ? (
         <>
           <p>Mật khẩu mới của <b>@{user.username}</b>. Người dùng sẽ phải đổi mật khẩu khi đăng nhập:</p>
           <pre className="credentials">{password}</pre>
         </>
       ) : (
-        <label className="field"><span>Mật khẩu tạm mới</span>
-          <div className="row gap-xs">
-            <input className="grow" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} />
-            <button type="button" className="btn" onClick={() => setPassword(genPassword())}>Tạo ngẫu nhiên</button>
-          </div></label>
+        <p>Mật khẩu của <b>@{user.username}</b> sẽ được đặt về mật khẩu tạm mặc định <b>qlda@868686</b>. Người dùng sẽ phải đổi mật khẩu khi đăng nhập.</p>
       )}
     </Modal>
   );

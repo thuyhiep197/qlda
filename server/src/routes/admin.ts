@@ -158,15 +158,17 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   res.json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
 });
 
+/** Mật khẩu tạm khi admin đặt lại: cố định; người dùng bắt buộc đổi khi đăng nhập. */
+export const RESET_PASSWORD = 'qlda@868686';
+
 r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
   const id = Number(req.params.id);
   const target = get<{ username: string; is_admin: number }>('SELECT username, is_admin FROM users WHERE id = ?', id);
   if (!target) throw notFound();
   guardAdminAccount(req.user, target);
-  const password = validatePassword(req.body?.password, target.username);
-  run('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(password), id);
+  run('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(RESET_PASSWORD), id);
   audit(req, 'password_reset', { target: target.username });
-  res.json({ ok: true });
+  res.json({ ok: true, password: RESET_PASSWORD });
 });
 
 // ---------------------------------------------------------------------------
