@@ -11,7 +11,7 @@ import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
 import { planAssigneeMembers } from '../issue-filter-defaults';
-import { filterTreeKeepingMatchingRoots } from '../plan-filter';
+import { filterPlanTree, filterTreeKeepingMatchingRoots } from '../plan-filter';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -230,18 +230,8 @@ export default function Plan() {
     && (!owner || r.owner === owner)
     && (!status || r.issue.status_name === status)
     && (!q || `${r.issue.key} ${r.issue.summary}`.toLowerCase().includes(q.toLowerCase()));
-  const visibleTree = (rows: Row[]): Row[] => rows.flatMap((r) => {
-    if (type && r.level === 1 && r.issue.type !== type) {
-      // Đầu việc khác loại nhưng có việc con đúng loại → chỉ hiện các việc con đó
-      const subs = visibleTree(r.children.filter((c) => c.issue.subtype === type));
-      return subs.length ? [{ ...r, children: subs }] : [];
-    }
-    const kids = visibleTree(r.children);
-    if (kids.length) return [{ ...r, children: kids }];
-    // Giai đoạn chỉ còn hiện khi có việc bên trong khớp (trừ khi chỉ lọc theo người phụ trách/đánh giá… của chính giai đoạn)
-    if (r.level === 0 && type) return [];
-    return rowFilter && match(r) ? [{ ...r, children: [] }] : !rowFilter && r.level > 0 ? [{ ...r, children: [] }] : [];
-  });
+  // Lọc Đánh giá/Trạng thái (VD bấm ô Hoàn thành) không giữ việc cha không khớp, tránh hiện việc chưa xong
+  const visibleTree = (rows: Row[]) => filterPlanTree(rows, { type, rowFilter, strict: !!(health || status), match });
   const assigneeScope = effectiveAssignee
     ? filterTreeKeepingMatchingRoots(tree, (r) => effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee)
     : tree;
