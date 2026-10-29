@@ -12,6 +12,7 @@ import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueMod
 import { InlineAssignee } from '../components/InlineAssignee';
 import { planAssigneeMembers } from '../issue-filter-defaults';
 import { filterPlanTree, filterTreeKeepingMatchingRoots } from '../plan-filter';
+import { SearchSelect } from '../components/SearchSelect';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
 type Health = 'late' | 'behind' | 'on_track' | 'not_started' | 'done' | 'done_late' | 'no_plan';
@@ -344,15 +345,15 @@ export default function Plan() {
       <div className="filter-bar">
         <input className="filter-search" placeholder="Tìm công việc…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MoreFilters count={[assignee, owner, epic, type, status, health].filter(Boolean).length}>
-          <select value={effectiveAssignee} onChange={(e) => setAssignee(e.target.value)} className={effectiveAssignee ? 'filter-on' : ''}>
+          <SearchSelect value={effectiveAssignee} onChange={(e) => setAssignee(e.target.value)} className={effectiveAssignee ? 'filter-on' : ''}>
             <option value="">Người thực hiện</option>
             <option value="-">— Chưa giao —</option>
             {assignees.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-          </select>
-          <select value={owner} onChange={(e) => setOwner(e.target.value)} className={owner ? 'filter-on' : ''}>
+          </SearchSelect>
+          <SearchSelect value={owner} onChange={(e) => setOwner(e.target.value)} className={owner ? 'filter-on' : ''}>
             <option value="">Người phụ trách</option>
             {owners.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          </SearchSelect>
           <select value={epic} onChange={(e) => setEpic(e.target.value)} className={epic ? 'filter-on' : ''}>
             <option value="">Giai đoạn (Epic)</option>
             {tree.map((e) => <option key={e.issue.id} value={e.issue.id}>{e.issue.summary}</option>)}

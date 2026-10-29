@@ -9,6 +9,7 @@ import { callAlert } from '../../customer-filter';
 import { toast, toastError } from '../../components/ui';
 import { refreshCustomer } from './JourneyPane';
 import { Block } from './CustomerSide';
+import { SearchSelect } from '../../components/SearchSelect';
 
 const refresh = (customerId: number) => Promise.all([refreshCustomer(customerId), queryClient.invalidateQueries({ queryKey: ['customers'] })]);
 
@@ -19,9 +20,9 @@ function CallFields({ d, setD, members }: { d: CallDraft; setD: (d: CallDraft) =
     <>
       <div className="row gap-sm">
         <input type="date" required value={d.call_date} onChange={(e) => setD({ ...d, call_date: e.target.value })} aria-label="Ngày gọi" />
-        <select className="grow" value={d.assignee_id} onChange={(e) => setD({ ...d, assignee_id: e.target.value })} aria-label="Người gọi">
+        <SearchSelect className="grow" value={d.assignee_id} onChange={(e) => setD({ ...d, assignee_id: e.target.value })} aria-label="Người gọi">
           {users?.filter((u) => members.includes(u.id) || String(u.id) === d.assignee_id).map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-        </select>
+        </SearchSelect>
       </div>
       <input placeholder="Ghi chú: gọi để làm gì…" value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} aria-label="Ghi chú lịch gọi" />
     </>

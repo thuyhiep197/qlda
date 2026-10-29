@@ -7,6 +7,7 @@ import { projectDevOptions } from '../people';
 import { bulkActions } from '../bulk-actions';
 import { Avatar, toast } from './ui';
 import { Trash2, UserPlus } from 'lucide-react';
+import { SearchSelect } from './SearchSelect';
 
 interface BulkResult { ok: number; failed: number; results: { key: string; ok: boolean; error?: string }[] }
 
@@ -99,19 +100,19 @@ export function BulkBar({ issues, onClear }: { issues: Issue[]; onClear: () => v
         </select>
       )}
       {project && a.edit && (
-        <select value="" disabled={busy} onChange={(e) => act({ dev_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã đổi Dev phụ trách')}>
+        <SearchSelect value="" disabled={busy} onChange={(e) => act({ dev_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã đổi Dev phụ trách')}>
           <option value="" disabled>Dev phụ trách…</option>
           <option value="none">— Chưa có —</option>
           {projectDevOptions(users, project.dev_ids)
             .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-        </select>
+        </SearchSelect>
       )}
       {project && a.edit && !!components?.length && (
-        <select value="" disabled={busy} onChange={(e) => act({ ba_id: e.target.value === 'module' ? null : Number(e.target.value) }, 'Đã đổi BA phụ trách')}>
+        <SearchSelect value="" disabled={busy} onChange={(e) => act({ ba_id: e.target.value === 'module' ? null : Number(e.target.value) }, 'Đã đổi BA phụ trách')}>
           <option value="" disabled>BA phụ trách…</option>
           <option value="module">— Theo mô-đun —</option>
           {project.members.filter((m) => /BA/i.test(m.role_name || '')).map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-        </select>
+        </SearchSelect>
       )}
       {a.edit && versions && versions.some((v) => v.status === 'unreleased') && (
         <select value="" disabled={busy} onChange={(e) => act({ version_id: e.target.value === 'none' ? null : Number(e.target.value) }, 'Đã gán phiên bản')}>

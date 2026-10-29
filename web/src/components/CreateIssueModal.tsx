@@ -17,6 +17,7 @@ const TYPE_HINTS: Record<IssueType, string> = {
 };
 import { LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
+import { SearchSelect } from './SearchSelect';
 
 interface Props {
   projectKey?: string;
@@ -153,10 +154,10 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         )}
         {canAssign && <label className="field">
           <span>Người thực hiện</span>
-          <select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
+          <SearchSelect value={assignee} onChange={(e) => setAssignee(e.target.value)}>
             <option value="">— Chưa giao —</option>
             {project?.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-          </select>
+          </SearchSelect>
         </label>}
         <label className="field">
           <span>Độ ưu tiên</span>
@@ -197,11 +198,11 @@ export default function CreateIssueModal({ projectKey, defaults, onClose, onCrea
         {type !== 'epic' && (
           <label className="field">
             <span>Dev phụ trách</span>
-            <select value={dev} onChange={(e) => setDev(e.target.value)}>
+            <SearchSelect value={dev} onChange={(e) => setDev(e.target.value)}>
               <option value="">— Chưa có —</option>
               {projectDevOptions(users, project?.dev_ids ?? (key ? [] : undefined))
                 .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-            </select>
+            </SearchSelect>
           </label>
         )}
         {type !== 'subtask' && (versions?.some((v) => v.status === 'unreleased') ?? false) && (

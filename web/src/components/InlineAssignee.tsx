@@ -4,6 +4,7 @@ import { can, useProject } from '../hooks';
 import type { Issue, Project } from '../types';
 import { assigneeAccess } from '../assignee-options';
 import { Avatar, toast, toastError } from './ui';
+import { SearchSelect } from './SearchSelect';
 
 export function InlineAssignee({ issue, project: supplied }: { issue: Issue; project?: Project }) {
   const { data: loaded } = useProject(supplied ? undefined : issue.project_key);
@@ -27,10 +28,10 @@ export function InlineAssignee({ issue, project: supplied }: { issue: Issue; pro
   return (
     <div className="inline-assignee row gap-xs" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
       <Avatar name={issue.assignee_name} src={issue.assignee_avatar_url} size={22} />
-      <select value={issue.assignee_id ?? ''} disabled={busy} aria-label={`Người thực hiện ${issue.key}`} onChange={(e) => change(e.target.value)}>
+      <SearchSelect value={issue.assignee_id ?? ''} disabled={busy} aria-label={`Người thực hiện ${issue.key}`} onChange={(e) => change(e.target.value)}>
         {access.allowUnassign && <option value="">Chưa giao</option>}
         {project!.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-      </select>
+      </SearchSelect>
     </div>
   );
 }

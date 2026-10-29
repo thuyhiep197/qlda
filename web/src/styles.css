@@ -1182,3 +1182,8 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .cw-left > .cw-group > .cw-sub.cw-proj { padding-left: 86px; }
 .cw-table tr.cw-row-prov td { background: var(--sunken); font-weight: 600; padding-top: 6px; padding-bottom: 6px; }
 .cw-table tr.cw-row-prov .lucide { color: var(--muted); vertical-align: -2px; }
+/* Ô chọn người có tìm kiếm (SearchSelect): bảng nổi cố định theo vị trí ô chọn */
+.search-select-pop { position: fixed; z-index: 1000; }
+.search-select-pop .picker-item.active { background: var(--hover); }
+.search-select-pop .picker-item.on { background: var(--primary-soft); }
+.search-select-pop .picker-item:disabled { color: var(--muted); cursor: default; }

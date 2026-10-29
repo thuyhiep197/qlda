@@ -4,6 +4,7 @@ import { HEALTH_LABELS, issueHealth, TYPE_LABELS, type Health } from '../util';
 import { Avatar, MoreFilters } from './ui';
 import { useComponents } from '../hooks';
 import { defaultAssignees } from '../issue-filter-defaults';
+import { SearchSelect } from './SearchSelect';
 
 export interface Filters {
   q: string;
@@ -66,17 +67,17 @@ export function FilterBar({ project, filters, setFilters, epics, defaultAssignee
         <button className={filters.assignees.includes('none') ? 'on' : ''} onClick={() => toggle('none')} title="Chưa giao"><Avatar size={28} /></button>
       </div>
       <MoreFilters count={[filters.assignees.length ? 'x' : '', filters.owner, filters.epic, filters.component, filters.type, filters.status, filters.health, filters.label].filter(Boolean).length}>
-        <select value={filters.assignees.length === 1 ? String(filters.assignees[0]) : ''} className={filters.assignees.length ? 'filter-on' : ''}
+        <SearchSelect value={filters.assignees.length === 1 ? String(filters.assignees[0]) : ''} className={filters.assignees.length ? 'filter-on' : ''}
           onChange={(e) => setFilters({ ...filters, assignees: e.target.value ? [e.target.value === 'none' ? 'none' : Number(e.target.value)] : [] })}>
           <option value="">Người thực hiện</option>
           <option value="none">— Chưa giao —</option>
           {project.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-        </select>
-        <select value={filters.owner} className={filters.owner ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, owner: e.target.value })}>
+        </SearchSelect>
+        <SearchSelect value={filters.owner} className={filters.owner ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, owner: e.target.value })}>
           <option value="">Người phụ trách (BA)</option>
           <option value="none">— Chưa có —</option>
           {project.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-        </select>
+        </SearchSelect>
         {epics && (
           <select value={filters.epic} className={filters.epic ? 'filter-on' : ''} onChange={(e) => setFilters({ ...filters, epic: e.target.value })}>
             <option value="">Giai đoạn (Epic)</option>

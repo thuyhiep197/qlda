@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { useUsersBasic } from '../hooks';
 import { candidates, personLabel, ROLE_LABELS, type PeopleRole } from '../people';
+import { SearchSelect } from './SearchSelect';
 
 /** Chọn nhiều tài khoản cho một vai trò (Sale, AM, BA/PM, Dev, Tester) — hiện "Họ tên (Phòng ban)"; người đã chọn từ trước vẫn giữ dù nay khác vị trí */
 export function PeoplePicker({ role, value, onChange }: { role: PeopleRole; value: number[]; onChange: (v: number[]) => void }) {
@@ -12,10 +13,10 @@ export function PeoplePicker({ role, value, onChange }: { role: PeopleRole; valu
         <span key={id} className="chip">{label(id)}
           <button type="button" aria-label={`Bỏ ${label(id)}`} onClick={() => onChange(value.filter((x) => x !== id))}><X size={12} /></button></span>
       ))}
-      <select value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label={`Thêm ${ROLE_LABELS[role]}`}>
+      <SearchSelect value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label={`Thêm ${ROLE_LABELS[role]}`}>
         <option value="">+ Thêm…</option>
         {candidates(users ?? [], role, value).map((u) => <option key={u.id} value={u.id}>{personLabel(u)}</option>)}
-      </select>
+      </SearchSelect>
     </div>
   );
 }

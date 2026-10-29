@@ -11,6 +11,7 @@ import { Avatar, Markdown, Modal, PriorityIcon, SideBadge, Spinner, StatusBadge,
 import { InlineText, LabelsInput, DateInput } from './fields';
 import { MentionTextarea } from './MentionTextarea';
 import { ArrowRightLeft, Copy, Eye, EyeOff, Flag, Link as LinkIcon, Paperclip, Plus, Timer, Trash2, X } from 'lucide-react';
+import { SearchSelect } from './SearchSelect';
 
 export default function IssueDetailModal({ issueKey }: { issueKey: string }) {
   const { close } = useIssueModal();
@@ -482,12 +483,12 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
             <div className="prop-label">Người thực hiện</div>
             <div>
               {/* Giao việc (kể cả tự nhận) chỉ với quyền Giao việc */}
-              <select value={issue.assignee_id ?? ''} disabled={!canAssign}
+              <SearchSelect value={issue.assignee_id ?? ''} disabled={!canAssign}
                 onChange={(e) => save({ assignee_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">— Chưa giao —</option>
                 {project?.members.filter((m) => canAssign || m.id === issue.assignee_id)
                   .map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-              </select>
+              </SearchSelect>
               {canAssign && issue.assignee_id !== me?.id && project?.members.some((m) => m.id === me?.id) &&
                 <a className="small" onClick={() => save({ assignee_id: me!.id })}>Giao cho tôi</a>}
             </div>
@@ -564,10 +565,10 @@ export function IssueDetailView({ issueKey, onClose }: { issueKey: string; onClo
 
             {issue.type !== 'epic' && <>
               <div className="prop-label">Dev phụ trách</div>
-              <select value={issue.dev_id ?? ''} disabled={!canEdit} onChange={(e) => save({ dev_id: e.target.value ? Number(e.target.value) : null })}>
+              <SearchSelect value={issue.dev_id ?? ''} disabled={!canEdit} onChange={(e) => save({ dev_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">— Chưa có —</option>
                 {devOptions.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-              </select>
+              </SearchSelect>
             </>}
 
             {project?.type === 'scrum' && issue.type !== 'epic' && <>
@@ -668,12 +669,15 @@ function Watchers({ issue, members, canManage, meId }: {
         {!issue.watchers.length && <span className="muted small">Chưa có ai theo dõi</span>}
       </div>
       {canManage && candidates.length > 0 && (adding ? (
-        <select autoFocus defaultValue="" onBlur={() => setAdding(false)}
-          onChange={(e) => { if (e.target.value) call(() => api.post(`/issues/${issue.key}/watchers`, { user_id: Number(e.target.value) })); setAdding(false); }}>
-          <option value="" disabled>— Chọn thành viên —</option>
-          {candidates.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-        </select>
-      ) : <a className="small" onClick={() => setAdding(true)}>+ Thêm người theo dõi</a>)}
+        <span className="row gap-sm">
+          <SearchSelect autoFocus value=""
+            onChange={(e) => { if (e.target.value) call(() => api.post(`/issues/${issue.key}/watchers`, { user_id: Number(e.target.value) })); setAdding(false); }}>
+            <option value="" disabled>— Chọn thành viên —</option>
+            {candidates.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+          </SearchSelect>
+          <a className="small" onClick={() => setAdding(false)}>Hủy</a>
+        </span>
+      ) :<a className="small" onClick={() => setAdding(true)}>+ Thêm người theo dõi</a>)}
     </div>
   );
 }

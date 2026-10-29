@@ -11,6 +11,7 @@ import { CustomerModal } from '../Customers';
 import { toast, toastError } from '../../components/ui';
 import { refreshCustomer } from './JourneyPane';
 import { Talk } from './StepPanel';
+import { SearchSelect } from '../../components/SearchSelect';
 
 /** Khối thu gọn được trong cột phải — mặc định thu gọn; bấm nút ở đầu khối (VD + đặt lịch) thì tự mở ra */
 export function Block({ title, extra, children, open: initial = false }: { title: ReactNode; extra?: ReactNode; children: ReactNode; open?: boolean }) {
@@ -170,10 +171,10 @@ export function Tasks({ customerId, tasks, projectId, showProject, members }: {
           <input required placeholder={projectId ? '+ Thêm việc của dự án, VD: Gửi báo giá…' : '+ Thêm việc chung của khách hàng…'} value={d.title}
             onChange={(e) => setD({ ...d, title: e.target.value })} aria-label="Tên công việc" />
           {d.title && <div className="row gap-sm">
-            <select className="grow" value={d.assignee_id} onChange={(e) => setD({ ...d, assignee_id: e.target.value })} aria-label="Người thực hiện">
+            <SearchSelect className="grow" value={d.assignee_id} onChange={(e) => setD({ ...d, assignee_id: e.target.value })} aria-label="Người thực hiện">
               <option value="">Người thực hiện…</option>
               {users?.filter((u) => members.includes(u.id)).map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-            </select>
+            </SearchSelect>
             <input type="date" value={d.due_date} onChange={(e) => setD({ ...d, due_date: e.target.value })} aria-label="Hạn" />
             <button className="btn btn-primary btn-sm">Thêm</button>
           </div>}

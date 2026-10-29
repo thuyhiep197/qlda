@@ -14,6 +14,7 @@ import { BulkBar } from '../components/BulkBar';
 import { ChevronDown, Download, Star, X } from 'lucide-react';
 import { issueListAssignee } from '../issue-filter-defaults';
 import { InlineAssignee } from '../components/InlineAssignee';
+import { SearchSelect } from '../components/SearchSelect';
 
 const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'component', 'ba', 'dev', 'parent', 'label', 'health', 'q', 'sort'] as const;
 
@@ -126,12 +127,12 @@ export default function IssueList() {
             {projects?.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
           </select>
         )}
-        <select value={assigneeFilter.control} onChange={(e) => set('assignee', e.target.value)}>
+        <SearchSelect value={assigneeFilter.control} onChange={(e) => set('assignee', e.target.value)}>
           <option value="all">Mọi người thực hiện</option>
           <option value="me">Tôi</option>
           <option value="none">Chưa giao</option>
           {(project?.members ?? users ?? []).map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-        </select>
+        </SearchSelect>
         <select value={catParam ?? (filter.statusCategory ? 'todo,inprogress' : 'all')} onChange={(e) => set('statusCategory', e.target.value === 'todo,inprogress' ? '' : e.target.value)}
           className={catParam && catParam !== 'todo,inprogress' ? 'filter-on' : ''}>
           <option value="todo,inprogress">Chưa hoàn thành</option>
@@ -182,18 +183,18 @@ export default function IssueList() {
             </select>
           )}
           {showComponent && (
-            <select value={filter.ba || ''} onChange={(e) => set('ba', e.target.value)}>
+            <SearchSelect value={filter.ba || ''} onChange={(e) => set('ba', e.target.value)}>
               <option value="">Mọi BA phụ trách</option>
               <option value="me">BA phụ trách: tôi</option>
               {[...new Map(components!.filter((c) => c.lead_id).map((c) => [c.lead_id, c.lead_name])).entries()].map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
-            </select>
+            </SearchSelect>
           )}
-          <select value={filter.dev || ''} onChange={(e) => set('dev', e.target.value)}>
+          <SearchSelect value={filter.dev || ''} onChange={(e) => set('dev', e.target.value)}>
             <option value="">Mọi Dev phụ trách</option>
             <option value="none">Chưa có Dev phụ trách</option>
             {projectDevOptions(users, projectKey ? (project?.dev_ids ?? []) : undefined)
               .map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-          </select>
+          </SearchSelect>
           <select value={filter.health || ''} onChange={(e) => set('health', e.target.value)}>
             <option value="">Đánh giá</option>
             {(Object.keys(HEALTH_LABELS) as Health[]).map((h) => <option key={h} value={h}>{HEALTH_LABELS[h]}</option>)}
