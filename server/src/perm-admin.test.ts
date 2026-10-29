@@ -22,6 +22,8 @@ const notificationRoutes = (await import('./routes/notifications.ts')).default;
 const role = (name: string, perms: string[]) => run('INSERT INTO roles(name, permissions) VALUES (?, ?)', name, JSON.stringify(perms)).id;
 const user = (username: string, roleId: number | null, isAdmin = 0) =>
   run("INSERT INTO users(username, full_name, password_hash, default_role_id, is_admin) VALUES (?, ?, 'x', ?, ?)", username, username, roleId, isAdmin).id;
+// Phòng Dev (P.DA.DEV): tài khoản mới phải có phòng ban + vị trí
+const place = () => ({ department_id: get<{ id: number }>("SELECT id FROM departments WHERE code = 'P.DA.DEV'")!.id, positions: ['dev'] });
 const roleId = (name: string) => get<{ id: number }>('SELECT id FROM roles WHERE name = ?', name)!.id;
 
 const adminGroup = get<{ id: number }>('SELECT id FROM roles WHERE is_admin = 1')!.id;
@@ -71,7 +73,7 @@ test('a non-admin cannot raise their own group or assign a group with more permi
   assert.equal((await api(mgr, 'PATCH', `/users/${other}`, { default_role_id: sub })).status, 200);
   // Sửa thông tin của chính mình (không đổi nhóm) vẫn được
   assert.equal((await api(mgr, 'PATCH', `/users/${mgr}`, { full_name: 'Quản lý', default_role_id: userMgr })).status, 200);
-  const create = (username: string, group: number) => api(mgr, 'POST', '/users', { username, full_name: username, password: 'Matkhau2026x', default_role_id: group });
+  const create = (username: string, group: number) => api(mgr, 'POST', '/users', { username, full_name: username, password: 'Matkhau2026x', default_role_id: group, ...place() });
   assert.equal((await create('lead2', roleId('BA Lead'))).status, 403);
   assert.equal((await create('admin2', adminGroup)).status, 403);
   assert.equal((await create('sub1', sub)).status, 201);
@@ -85,7 +87,7 @@ test('all effective user and role management permissions allow full account admi
   assert.equal((await api(accountManager, 'GET', '/roles')).status, 200);
 
   const created = await api(accountManager, 'POST', '/users', {
-    username: 'accountcreated', full_name: 'Account Created', password: 'Matkhau2026x', default_role_id: crossModule,
+    username: 'accountcreated', full_name: 'Account Created', password: 'Matkhau2026x', default_role_id: crossModule, ...place(),
   });
   assert.equal(created.status, 201);
   assert.equal(created.body.default_role_id, crossModule);
@@ -114,7 +116,7 @@ test('all effective user and role management permissions allow full account admi
 
   // Nhóm và tài khoản Quản trị hệ thống tiếp tục dành riêng cho quản trị hệ thống.
   assert.equal((await api(accountManager, 'POST', '/users', {
-    username: 'accountadmin', full_name: 'Account Admin', password: 'Matkhau2026x', default_role_id: adminGroup,
+    username: 'accountadmin', full_name: 'Account Admin', password: 'Matkhau2026x', default_role_id: adminGroup, ...place(),
   })).status, 403);
   assert.equal((await api(accountManager, 'PATCH', `/users/${target}`, { default_role_id: adminGroup })).status, 403);
   assert.equal((await api(accountManager, 'PUT', `/users/${admin}/permissions`, {
@@ -150,10 +152,21 @@ test('reset password always sets the default temporary password qlda@868686 and 
   assert.equal(u.must_change_password, 1);
 });
 
-test('department and positions on the user form need Nhân sự – Thêm / Sửa; project_ids is ignored', async () => {
+test('creating an account requires a department + position (part of Tài khoản – Thêm); changing it later needs Nhân sự – Sửa; project_ids is ignored', async () => {
   const dep = get<{ id: number }>('SELECT id FROM departments ORDER BY id LIMIT 1')!.id;
   assert.equal((await api(mgr, 'PATCH', `/users/${nobody}`, { department_id: dep, positions: ['kd'] })).status, 403);
-  assert.equal((await api(mgr, 'POST', '/users', { username: 'dep1', full_name: 'Dep 1', password: 'Matkhau2026x', default_role_id: viewer, department_id: dep, positions: ['kd'] })).status, 403);
+  const body = { full_name: 'Dep 1', password: 'Matkhau2026x', default_role_id: role('Nhóm trống', []) };
+  const noDep = await api(mgr, 'POST', '/users', { ...body, username: 'dep0' });
+  assert.equal(noDep.status, 400);
+  assert.match(noDep.body.error, /phòng ban/);
+  assert.equal((await api(mgr, 'POST', '/users', { ...body, username: 'dep0', department_id: place().department_id })).status, 400);
+  const created = await api(mgr, 'POST', '/users', { ...body, username: 'dep1', ...place() });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.department_id, place().department_id);
+  assert.deepEqual(created.body.positions, ['dev']);
+  // Tài khoản Quản trị hệ thống không nằm trong sơ đồ nên không bắt buộc phòng ban
+  const adm = await api(admin, 'POST', '/users', { ...body, username: 'sysadmin9', default_role_id: adminGroup });
+  assert.equal(adm.status, 201, adm.body.error);
   assert.equal((await api(admin, 'PATCH', `/users/${nobody}`, { project_ids: [proj] })).status, 200);
   assert.ok(!get('SELECT 1 FROM project_members WHERE user_id = ?', nobody));
 });

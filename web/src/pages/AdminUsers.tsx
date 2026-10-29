@@ -125,8 +125,8 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const roles = allRoles?.filter((r) => !!me?.is_admin || (!r.is_admin && canManageAccountPermissions(me)) || r.id === user?.default_role_id
     || (!r.is_admin && r.permissions.every((p) => hasPerm(me, p))));
   const ownRole = !me?.is_admin && user?.id === me?.id;
-  // Phòng ban + vị trí: cần quyền Nhân sự – Thêm (tạo tài khoản) / Nhân sự – Sửa (sửa tài khoản)
-  const canPlace = hasPerm(me, user ? 'staff.edit' : 'staff.create');
+  // Phòng ban + vị trí: bắt buộc khi tạo tài khoản (nằm trong Tài khoản – Thêm); sửa lại sau cần Nhân sự – Sửa
+  const canPlace = !user || hasPerm(me, 'staff.edit');
   const [username, setUsername] = useState(user?.username || '');
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -159,9 +159,12 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const [password, setPassword] = useState(() => (user ? '' : genPassword()));
   const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
   const role = roles?.find((r) => String(r.id) === roleId);
+  // Tài khoản Quản trị hệ thống không nằm trong sơ đồ Phòng ban & Nhân sự nên không bắt buộc
+  const needPlace = !user && !role?.is_admin;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (canPlace && depId && !positions.length) { toastError(new Error('Chọn ít nhất một vị trí')); return; }
     try {
       const body = { full_name: fullName, email, default_role_id: Number(roleId), ...(canPlace ? { department_id: depId || null, positions: depId ? positions : [] } : {}) };
       if (user) {
@@ -215,9 +218,9 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
           </div>
         )}
         {canPlace && <div className="form-grid">
-          <label className="field"><span>Phòng ban <small className="muted">(sơ đồ Phòng ban & Nhân sự)</small></span>
-            <select value={depId} onChange={(e) => pickDep(e.target.value)}>
-              <option value="">— Chưa xếp phòng ban —</option>
+          <label className="field"><span>Phòng ban{needPlace ? ' *' : ''} <small className="muted">(sơ đồ Phòng ban & Nhân sự)</small></span>
+            <select value={depId} onChange={(e) => pickDep(e.target.value)} required={needPlace}>
+              <option value="" disabled={needPlace}>{needPlace ? '— Chọn phòng ban —' : '— Chưa xếp phòng ban —'}</option>
               {deps?.map((d) => <option key={d.id} value={d.id}>{depName(d.id)}</option>)}
             </select></label>
           {depId && <div className="field"><span>Vị trí * <small className="muted">(chọn một hoặc nhiều)</small></span>

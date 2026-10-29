@@ -96,9 +96,10 @@ r.post('/users', need('user.create'), (req, res) => {
   const isAdmin = isAdminRole(roleId);
   if (isAdmin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được tạo tài khoản quản trị');
   checkAssignableRole(req.user, roleId);
-  // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự): cần quyền Nhân sự – Thêm; bỏ trống = chưa xếp phòng
-  if (b.department_id) requireUserPerm(req.user, 'staff.create');
-  const place = cleanPlacement(b.department_id ? b : {}, false);
+  // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự): bắt buộc khi tạo, là một phần của Tài khoản – Thêm;
+  // tài khoản Quản trị hệ thống không nằm trong sơ đồ nên được bỏ trống
+  if (!isAdmin && !b.department_id) throw badRequest('Vui lòng chọn phòng ban cho tài khoản');
+  const place = cleanPlacement(isAdmin && !b.department_id ? {} : b, !isAdmin);
   const { id } = run(
     'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password, department_id, positions) VALUES (?,?,?,?,?,?,1,?,?)',
     username, full_name, b.email || null, hashPassword(password), isAdmin ? 1 : 0, roleId, place.department_id, place.positions,
