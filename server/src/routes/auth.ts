@@ -4,7 +4,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { get, now, run } from '../db.ts';
-import { COOKIE, DUMMY_HASH, hashPassword, issueToken, requireAuth, validatePassword, verifyPassword } from '../auth.ts';
+import { COOKIE, DUMMY_HASH, hashPassword, issueToken, requireAuth, requireSession, validatePassword, verifyPassword } from '../auth.ts';
+import { createApiKey, listApiKeys, revealApiKey, revokeAllApiKeys, revokeApiKey } from '../api-keys.ts';
 import { audit } from '../audit.ts';
 import { HttpError, userPermissions, visibleSubsystems } from '../permissions.ts';
 import { AVATAR_DIR, MAX_AVATAR_BYTES, avatarExtension, avatarMime, avatarUrl, safeAvatarName } from '../avatar.ts';
@@ -136,14 +137,14 @@ r.put('/preferences', requireAuth, (req, res) => {
 });
 
 /** Đăng xuất khỏi mọi thiết bị khác (thu hồi mọi phiên cũ, giữ phiên hiện tại). */
-r.post('/logout-others', requireAuth, (req, res) => {
+r.post('/logout-others', requireAuth, requireSession, (req, res) => {
   run('UPDATE users SET token_version = token_version + 1 WHERE id = ?', req.user.id);
   audit(req, 'logout_others');
   issueToken(res, req.user.id);
   res.json({ ok: true });
 });
 
-r.post('/change-password', requireAuth, (req, res) => {
+r.post('/change-password', requireAuth, requireSession, (req, res) => {
   const user = get('SELECT * FROM users WHERE id = ?', req.user.id);
   if (!verifyPassword(String(req.body?.current_password || ''), user.password_hash)) {
     throw new HttpError(400, 'Mật khẩu hiện tại không đúng');
@@ -151,6 +152,8 @@ r.post('/change-password', requireAuth, (req, res) => {
   const next = validatePassword(req.body?.new_password, req.user.username);
   if (next === req.body?.current_password) throw new HttpError(400, 'Mật khẩu mới phải khác mật khẩu hiện tại');
   run('UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1 WHERE id = ?', hashPassword(next), req.user.id);
+  // Lộ mật khẩu thì key tạo bằng mật khẩu đó cũng không còn an toàn
+  revokeAllApiKeys(req.user.id);
   audit(req, 'password_changed');
   issueToken(res, req.user.id);
   res.json({ ok: true });
@@ -165,6 +168,31 @@ r.patch('/profile', requireAuth, (req, res) => {
   if (phone && !/^[0-9+().\s-]{8,20}$/.test(phone)) throw new HttpError(400, 'Số điện thoại không hợp lệ');
   run('UPDATE users SET full_name = ?, email = ?, phone = ?, job_title = ? WHERE id = ?',
     full_name.slice(0, 100), email || null, phone || null, String(req.body?.job_title || '').trim().slice(0, 100) || null, req.user.id);
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// API key cá nhân (MCP / script) — chỉ quản lý được khi đăng nhập trên web
+// ---------------------------------------------------------------------------
+r.get('/api-keys', requireAuth, requireSession, (req, res) => {
+  res.json(listApiKeys(req.user.id));
+});
+
+r.post('/api-keys', requireAuth, requireSession, (req, res) => {
+  const created = createApiKey(req.user.id, req.body?.name, req.body?.expires_days);
+  audit(req, 'api_key_created', { target: created.name, detail: created.expires_at ? `Hết hạn ${created.expires_at.slice(0, 10)}` : 'Không hết hạn' });
+  res.status(201).json(created);
+});
+
+r.get('/api-keys/:id/reveal', requireAuth, requireSession, (req, res) => {
+  const k = revealApiKey(req.user.id, Number(req.params.id));
+  audit(req, 'api_key_viewed', { target: k.name });
+  res.json(k);
+});
+
+r.delete('/api-keys/:id', requireAuth, requireSession, (req, res) => {
+  const k = revokeApiKey(req.user.id, Number(req.params.id));
+  audit(req, 'api_key_revoked', { target: k.name });
   res.json({ ok: true });
 });
 

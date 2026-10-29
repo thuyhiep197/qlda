@@ -151,7 +151,7 @@ test('migration v30 grants Dự án – Xem to roles and user extras with any pr
   run("INSERT INTO user_permissions(user_id, permission, effect) VALUES (?, 'plan.view', 'allow')", extra);
   const sales = user('sales', crmOnly);
   // Chạy lại bước v30 trên dữ liệu đang ở v29 (gỡ cột của các bước sau để chạy lại được)
-  const toV29 = () => { run('ALTER TABLE users DROP COLUMN failed_logins'); run('PRAGMA user_version = 29'); };
+  const toV29 = () => { run('ALTER TABLE users DROP COLUMN failed_logins'); run('DROP TABLE api_keys'); run('PRAGMA user_version = 29'); };
   toV29();
   migrate();
   const perms = (id: number) => JSON.parse(get<{ permissions: string }>('SELECT permissions FROM roles WHERE id = ?', id)!.permissions) as string[];

@@ -1,0 +1,22 @@
+{
+  "name": "qlda-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server cho QLDA: cho Claude / trợ lý AI thao tác dự án, issue, sprint, báo cáo… qua API của QLDA",
+  "bin": { "qlda-mcp": "bin/qlda-mcp.mjs" },
+  "scripts": {
+    "start": "node --import tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "inspect": "npx @modelcontextprotocol/inspector node --import tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "tsx": "^4.20.6",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -4,7 +4,8 @@ import { api, errMsg, queryClient } from '../api';
 import { useMe } from '../hooks';
 import type { Me } from '../types';
 import { applyTheme, type ThemePref } from '../theme';
-import { fmtDateTime } from '../util';
+import { useQuery } from '@tanstack/react-query';
+import { fmtDate, fmtDateTime } from '../util';
 import { Avatar, toast, toastError } from '../components/ui';
 import { ChangePasswordForm } from './ChangePassword';
 import { Bell, Lock, Palette, UserRound, type LucideIcon } from 'lucide-react';
@@ -206,6 +207,81 @@ function SecurityTab({ me }: { me: Me }) {
         </p>
         <div><button className="btn" disabled={busy} onClick={logoutOthers}>Đăng xuất khỏi mọi thiết bị khác</button></div>
       </div>
+      <ApiKeysCard />
+    </div>
+  );
+}
+
+interface ApiKey { id: number; name: string; prefix: string; created_at: string; expires_at: string | null; last_used_at: string | null; last_used_ip: string | null }
+
+/** API key cá nhân cho trợ lý AI (MCP) / script: gọi API với quyền của chính mình, không cần mật khẩu. */
+function ApiKeysCard() {
+  const { data: keys = [], refetch } = useQuery<ApiKey[]>({ queryKey: ['api-keys'], queryFn: () => api.get('/auth/api-keys') });
+  const [name, setName] = useState('');
+  const [days, setDays] = useState('90');
+  // Key đang hiện nguyên văn (vừa tạo hoặc bấm Xem), theo id
+  const [shown, setShown] = useState<Record<number, string>>({});
+  const [busy, setBusy] = useState(false);
+  const create = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const k = await api.post<{ id: number; key: string }>('/auth/api-keys', { name, expires_days: Number(days) });
+      setShown((s) => ({ ...s, [k.id]: k.key })); setName(''); await refetch();
+    } catch (err) { toastError(err); } finally { setBusy(false); }
+  };
+  const reveal = async (k: ApiKey) => {
+    if (shown[k.id]) { setShown(({ [k.id]: _, ...s }) => s); return; }
+    try { const r = await api.get<{ key: string }>(`/auth/api-keys/${k.id}/reveal`); setShown((s) => ({ ...s, [k.id]: r.key })); } catch (err) { toastError(err); }
+  };
+  const copy = async (k: ApiKey) => {
+    try {
+      const key = shown[k.id] ?? (await api.get<{ key: string }>(`/auth/api-keys/${k.id}/reveal`)).key;
+      await navigator.clipboard?.writeText(key); toast('Đã sao chép API key');
+    } catch (err) { toastError(err); }
+  };
+  const revoke = async (k: ApiKey) => {
+    if (!confirm(`Thu hồi API key "${k.name}"? Công cụ đang dùng key này sẽ không truy cập được nữa.`)) return;
+    try { await api.del(`/auth/api-keys/${k.id}`); toast('Đã thu hồi API key'); await refetch(); } catch (err) { toastError(err); }
+  };
+  return (
+    <div className="card stack">
+      <h3>API key</h3>
+      <p className="muted small">
+        Dùng cho trợ lý AI (Claude qua MCP) hoặc script gọi QLDA thay bạn, với đúng quyền của tài khoản này. Không chia sẻ key cho người khác.
+        Đổi mật khẩu sẽ thu hồi mọi API key.
+      </p>
+      <form className="row" style={{ gap: 8 }} onSubmit={create}>
+        <input placeholder="Tên key, VD: Claude trên máy làm việc" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} required style={{ flex: 1 }} />
+        <select value={days} onChange={(e) => setDays(e.target.value)} aria-label="Thời hạn">
+          <option value="30">30 ngày</option>
+          <option value="90">90 ngày</option>
+          <option value="365">1 năm</option>
+          <option value="0">Không hết hạn</option>
+        </select>
+        <button className="btn" disabled={busy}>Tạo API key</button>
+      </form>
+      {keys.length > 0 && (
+        <table className="table">
+          <thead><tr><th>Tên</th><th>Key</th><th>Tạo lúc</th><th>Hết hạn</th><th>Dùng gần nhất</th><th /></tr></thead>
+          <tbody>
+            {keys.map((k) => (
+              <tr key={k.id}>
+                <td>{k.name}</td>
+                <td><code style={{ wordBreak: 'break-all' }}>{shown[k.id] ?? `${k.prefix}…`}</code></td>
+                <td>{fmtDateTime(k.created_at)}</td>
+                <td>{k.expires_at ? fmtDate(k.expires_at) : 'Không'}</td>
+                <td>{k.last_used_at ? `${fmtDateTime(k.last_used_at)}${k.last_used_ip ? ` · ${k.last_used_ip}` : ''}` : 'Chưa dùng'}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button className="btn btn-sm" onClick={() => reveal(k)}>{shown[k.id] ? 'Ẩn' : 'Xem'}</button>{' '}
+                  <button className="btn btn-sm" onClick={() => copy(k)}>Sao chép</button>{' '}
+                  <button className="btn btn-sm" onClick={() => revoke(k)}>Thu hồi</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

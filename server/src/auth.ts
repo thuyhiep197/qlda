@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import type { NextFunction, Request, Response } from 'express';
 import { get, getSetting, run, setSetting } from './db.ts';
 import { HttpError, type AuthUser } from './permissions.ts';
+import { isApiKey, userIdFromApiKey } from './api-keys.ts';
 
 export const COOKIE = 'qlda_token';
 const TOKEN_DAYS = 7;
@@ -62,30 +63,49 @@ declare global {
   namespace Express {
     interface Request {
       user: AuthUser;
+      /** Có khi request xác thực bằng API key thay cho cookie đăng nhập */
+      apiKeyId?: number;
     }
   }
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  const token = req.cookies?.[COOKIE];
-  if (!token) throw new HttpError(401, 'Chưa đăng nhập');
-  let uid: number, tv: number;
-  try {
-    ({ uid, tv = 0 } = jwt.verify(token, secret()) as { uid: number; tv?: number });
-  } catch {
-    throw new HttpError(401, 'Phiên đăng nhập đã hết hạn');
+  // API key cá nhân (MCP / script): Authorization: Bearer qlda_…
+  const bearer = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization ?? '')?.[1];
+  let uid: number, tv: number | null = null;
+  if (bearer) {
+    if (!isApiKey(bearer)) throw new HttpError(401, 'API key không hợp lệ');
+    const k = userIdFromApiKey(bearer, req.ip);
+    if (!k) throw new HttpError(401, 'API key không hợp lệ, đã hết hạn hoặc đã bị thu hồi');
+    uid = k.userId;
+    req.apiKeyId = k.keyId;
+  } else {
+    const token = req.cookies?.[COOKIE];
+    if (!token) throw new HttpError(401, 'Chưa đăng nhập');
+    try {
+      const p = jwt.verify(token, secret()) as { uid: number; tv?: number };
+      uid = p.uid; tv = p.tv ?? 0;
+    } catch {
+      throw new HttpError(401, 'Phiên đăng nhập đã hết hạn');
+    }
   }
   const user = get<AuthUser & { is_active: number; token_version: number }>(
     'SELECT id, username, full_name, email, is_admin, is_active, must_change_password, token_version FROM users WHERE id = ?', uid,
   );
   if (!user || !user.is_active) throw new HttpError(401, 'Tài khoản không tồn tại hoặc đã bị khóa');
-  if (user.token_version !== tv) throw new HttpError(401, 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại');
+  if (tv !== null && user.token_version !== tv) throw new HttpError(401, 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại');
   delete (user as { token_version?: number }).token_version;
   req.user = user;
   // Tài khoản mới tạo / vừa được đặt lại mật khẩu: chỉ được dùng các API tài khoản cho tới khi đổi mật khẩu
   if (user.must_change_password && !req.originalUrl.startsWith('/api/auth/')) {
     throw new HttpError(403, 'Bạn cần đổi mật khẩu trước khi tiếp tục');
   }
+  next();
+}
+
+/** Thao tác tài khoản nhạy cảm (đổi mật khẩu, quản lý API key, phiên đăng nhập): chỉ với phiên đăng nhập trên web, không qua API key. */
+export function requireSession(req: Request, _res: Response, next: NextFunction) {
+  if (req.apiKeyId) throw new HttpError(403, 'Thao tác này chỉ thực hiện được khi đăng nhập trên web, không dùng API key');
   next();
 }
 

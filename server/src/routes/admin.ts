@@ -1,6 +1,7 @@
 import { positionCodes, primaryCode } from '../positions.ts';
 import { Router } from 'express';
-import { all, get, run, tx } from '../db.ts';
+import { all, get, now, run, tx } from '../db.ts';
+import { revokeAllApiKeys } from '../api-keys.ts';
 import type { NextFunction, Request, Response } from 'express';
 import { hashPassword, validatePassword } from '../auth.ts';
 import { audit, listAudit } from '../audit.ts';
@@ -168,6 +169,7 @@ r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
   if (!target) throw notFound();
   guardAdminAccount(req.user, target);
   run('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(RESET_PASSWORD), id);
+  revokeAllApiKeys(id);
   audit(req, 'password_reset', { target: target.username });
   res.json({ ok: true, password: RESET_PASSWORD });
 });
@@ -317,6 +319,8 @@ r.get('/audit', need('user.view'), (req, res) => {
 r.post('/users/logout-all', (req, res) => {
   if (!req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được thực hiện');
   const n = run('UPDATE users SET token_version = token_version + 1 WHERE id <> ?', req.user.id).changes;
+  // API key của mọi người (trừ người bấm) cũng thu hồi
+  run('UPDATE api_keys SET revoked_at = ? WHERE user_id <> ? AND revoked_at IS NULL', now(), req.user.id);
   audit(req, 'logout_all', { detail: `Thu hồi phiên của ${n} tài khoản` });
   res.json({ ok: true, count: n });
 });

@@ -788,6 +788,21 @@ const migrations: (string | (() => void))[] = [
    ${grantAllRoles(['dashboard.view', 'document.view', 'document.view_all', 'document.create', 'document.export'])}`,
   // v31: số lần sai mật khẩu liên tiếp — đủ 5 lần thì khóa hẳn tài khoản (quản trị mở khóa), không tự mở sau một thời gian
   `ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0;`,
+  // v32: API key cá nhân — công cụ / trợ lý AI (MCP) gọi API thay người dùng, không cần mật khẩu.
+  // Xác thực theo SHA-256 của key; key_enc = key mã hóa AES-GCM để chủ key xem lại
+  `CREATE TABLE api_keys (
+     id INTEGER PRIMARY KEY,
+     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     prefix TEXT NOT NULL,
+     key_hash TEXT NOT NULL UNIQUE,
+     key_enc TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     expires_at TEXT,
+     last_used_at TEXT,
+     last_used_ip TEXT,
+     revoked_at TEXT);
+   CREATE INDEX idx_api_keys_user ON api_keys(user_id);`,
 ];
 
 function migrateV26() {
