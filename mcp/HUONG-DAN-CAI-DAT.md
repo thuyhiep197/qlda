@@ -35,7 +35,7 @@ npm install
 
 ## Bước 3. Tạo API key trên QLDA
 
-1. Đăng nhập QLDA trên trình duyệt: **https://qlda.tencongty.vn** *(thay bằng địa chỉ QLDA của công ty)*.
+1. Đăng nhập QLDA trên trình duyệt: **https://qlda.x2h.com.vn**.
 2. Bấm vào tên mình ở góc phải, chọn **Hồ sơ**, rồi chọn tab **Bảo mật**.
 3. Ở mục **API key**:
    - đặt tên cho key, ví dụ `Claude máy công ty`,
@@ -50,7 +50,7 @@ Key có dạng `qlda_xxxxxxxx…`. Muốn lấy lại thì quay lại đây, b�
 
 ## Bước 4. Gắn vào Claude
 
-Bên dưới, thay `C:/Tools/qlda-mcp` bằng thư mục ở bước 2, thay `qlda_xxx` bằng key ở bước 3, thay địa chỉ QLDA nếu khác.
+Bên dưới, thay `C:/Tools/qlda-mcp` bằng thư mục ở bước 2, thay `qlda_xxx` bằng key ở bước 3.
 Đường dẫn dùng dấu `/` (vẫn đúng trên Windows).
 
 ### Cách A: Claude Code (dòng lệnh)
@@ -58,7 +58,7 @@ Bên dưới, thay `C:/Tools/qlda-mcp` bằng thư mục ở bước 2, thay `ql
 Chạy một lệnh trong PowerShell:
 
 ```
-claude mcp add qlda -s user -e QLDA_URL=https://qlda.tencongty.vn -e QLDA_API_KEY=qlda_xxx -- node C:/Tools/qlda-mcp/bin/qlda-mcp.mjs
+claude mcp add qlda -s user -e QLDA_URL=https://qlda.x2h.com.vn -e QLDA_API_KEY=qlda_xxx -- node C:/Tools/qlda-mcp/bin/qlda-mcp.mjs
 ```
 
 ### Cách B: Claude Desktop (ứng dụng)
@@ -73,7 +73,7 @@ claude mcp add qlda -s user -e QLDA_URL=https://qlda.tencongty.vn -e QLDA_API_KE
       "command": "node",
       "args": ["C:/Tools/qlda-mcp/bin/qlda-mcp.mjs"],
       "env": {
-        "QLDA_URL": "https://qlda.tencongty.vn",
+        "QLDA_URL": "https://qlda.x2h.com.vn",
         "QLDA_API_KEY": "qlda_xxx"
       }
     }
