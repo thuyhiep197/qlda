@@ -46,16 +46,33 @@ function SearchPopover({ options, top, left, width, value, onPick, onClose }: {
   const box = useRef<HTMLDivElement>(null);
   const list = filterOptions(options, q);
   const pickable = list.filter((o) => !o.disabled);
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
-    const onDown = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) onClose(); };
+    box.current?.querySelector('input')?.focus({ preventScroll: true });
+    const onDown = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) close.current(); };
     // Cuộn trang / đổi cỡ cửa sổ thì đóng (bảng nổi đặt theo vị trí ô chọn)
-    const onMove = (e: Event) => { if (!box.current?.contains(e.target as Node)) onClose(); };
-    document.addEventListener('mousedown', onDown);
-    window.addEventListener('scroll', onMove, true);
-    window.addEventListener('resize', onClose);
-    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('scroll', onMove, true); window.removeEventListener('resize', onClose); };
-  });
-  useEffect(() => { box.current?.querySelector('.picker-item.active')?.scrollIntoView({ block: 'nearest' }); }, [active]);
+    const onMove = (e: Event) => { if (!box.current?.contains(e.target as Node)) close.current(); };
+    const onResize = () => close.current();
+    // Gắn sau cú bấm vừa mở bảng: nếu gắn ngay, chính cú bấm đó lan tới document và đóng bảng lại
+    const t = setTimeout(() => {
+      document.addEventListener('mousedown', onDown);
+      window.addEventListener('scroll', onMove, true);
+      window.addEventListener('resize', onResize);
+    });
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('mousedown', onDown); window.removeEventListener('scroll', onMove, true); window.removeEventListener('resize', onResize);
+    };
+  }, []);
+  // Giữ dòng đang chọn trong khung (chỉ cuộn danh sách, không cuộn trang)
+  useEffect(() => {
+    const el = box.current?.querySelector<HTMLElement>('.picker-item.active');
+    const listEl = box.current?.querySelector<HTMLElement>('.picker-list');
+    if (!el || !listEl) return;
+    if (el.offsetTop < listEl.scrollTop) listEl.scrollTop = el.offsetTop;
+    else if (el.offsetTop + el.offsetHeight > listEl.scrollTop + listEl.clientHeight) listEl.scrollTop = el.offsetTop + el.offsetHeight - listEl.clientHeight;
+  }, [active]);
   const keys = (e: KeyboardEvent) => {
     if (e.key === 'Escape') { e.preventDefault(); onClose(); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, pickable.length - 1)); }
@@ -69,7 +86,7 @@ function SearchPopover({ options, top, left, width, value, onPick, onClose }: {
   return (
     <div className="picker-pop search-select-pop" ref={box} style={style}>
       <div className="cw-search"><Search size={13} />
-        <input autoFocus placeholder="Tìm…" value={q} onKeyDown={keys} onChange={(e) => { setQ(e.target.value); setActive(0); }} /></div>
+        <input placeholder="Tìm…" value={q} onKeyDown={keys} onChange={(e) => { setQ(e.target.value); setActive(0); }} /></div>
       <div className="picker-list">
         {list.map((o, i) => {
           const head = o.group !== lastGroup && o.group ? <div className="picker-group">{o.group}</div> : null;

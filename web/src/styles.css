@@ -1187,3 +1187,4 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .search-select-pop .picker-item.active { background: var(--hover); }
 .search-select-pop .picker-item.on { background: var(--primary-soft); }
 .search-select-pop .picker-item:disabled { color: var(--muted); cursor: default; }
+.search-select-pop .picker-list { position: relative; }
