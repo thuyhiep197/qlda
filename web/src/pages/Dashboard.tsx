@@ -29,7 +29,7 @@ export default function Dashboard() {
   const greet = hour < 11 ? 'Chào buổi sáng' : hour < 14 ? 'Chào buổi trưa' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
 
   return (
-    <div className="page">
+    <div className="page dash-page">
       <h1>{greet}, {me?.full_name} <HelpButton /></h1>
       {/* Khối Khách hàng: thấy phân hệ Khách hàng (một ô Xem bất kỳ); từng thẻ bên trong theo ô quyền của nó */}
       {hasSubsystem(me, 'customer') && <CustomerDashboard />}

@@ -1172,6 +1172,7 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 @media (max-width: 1100px) { .cw.cw-admin { grid-template-columns: minmax(0, 1fr); } }
 /* Danh mục Tình trạng khách hàng: kéo thả dòng để sắp xếp */
 .narrow-page { max-width: 860px; }
+.dash-page { max-width: none; }
 .status-catalog tr[draggable="true"] { cursor: grab; }
 .status-catalog tr.dragging td { background: var(--primary-soft); }
 .status-catalog .drag-handle { width: 32px; }
@@ -1190,14 +1191,12 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .search-select-pop .picker-list { position: relative; }
 
 /* ---------- Hướng dẫn sử dụng ---------- */
-/* Mục Hướng dẫn sử dụng cuối thanh bên */
-.side-help { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--side-hover); }
-.side-help-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 10px; white-space: nowrap; overflow: hidden; border: none; border-radius: 4px; background: transparent; color: var(--side-fg); font: inherit; font-weight: 500; cursor: pointer; text-align: left; }
-.side-help-btn:hover, .side-help-btn.open { background: var(--side-hover); color: #fff; }
-.side-help-icon { position: relative; display: inline-flex; color: var(--side-muted); }
-.side-help-btn:hover .side-help-icon, .side-help-btn.open .side-help-icon { color: #fff; }
-.help-dot { position: absolute; top: -3px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--side-bg); }
-@media (min-width: 801px) { .side-collapsed .side-help-btn { justify-content: center; padding-left: 0; padding-right: 0; } }
+/* Nút Hướng dẫn sử dụng trên thanh trên cùng (màn hẹp chỉ còn biểu tượng) */
+.help-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.help-btn:hover, .help-btn.open { background: var(--hover); border-color: var(--primary); color: var(--primary); }
+.help-btn-icon { position: relative; display: inline-flex; color: var(--primary); }
+.help-dot { position: absolute; top: -3px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
+@media (max-width: 900px) { .help-btn-label { display: none; } .help-btn { padding: 0 8px; } }
 .help-menu { min-width: 260px; }
 .help-menu button { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .help-menu button .muted { flex-basis: 100%; padding-left: 26px; margin-top: -2px; }
