@@ -803,6 +803,18 @@ const migrations: (string | (() => void))[] = [
      last_used_ip TEXT,
      revoked_at TEXT);
    CREATE INDEX idx_api_keys_user ON api_keys(user_id);`,
+  // v33: Hướng dẫn sử dụng — bài Quản trị hệ thống sửa ngay trên tool (ghi đè bài có sẵn cùng mã) hoặc thêm mới (is_custom = 1).
+  // Bài có sẵn nằm trong mã nguồn (web/src/help/content); xóa dòng ở đây = khôi phục bản gốc.
+  `CREATE TABLE help_articles (
+     id TEXT PRIMARY KEY,
+     title TEXT NOT NULL,
+     section TEXT NOT NULL DEFAULT 'general',
+     module TEXT,
+     body TEXT NOT NULL,
+     is_custom INTEGER NOT NULL DEFAULT 0,
+     updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+     updated_at TEXT NOT NULL DEFAULT ${TS}
+   );`,
 ];
 
 function migrateV26() {

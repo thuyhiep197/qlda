@@ -9,7 +9,10 @@ import { CustomerModal } from '../pages/Customers';
 import { CreateProjectModal } from '../pages/Projects';
 import IssueDetailModal from './IssueDetail';
 import NotificationBell from './NotificationBell';
-import { Building2, FolderKanban, LayoutDashboard, LibraryBig, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, Settings, Sun, Wrench } from 'lucide-react';
+import HelpMenu from '../help/HelpMenu';
+import HelpDrawer from '../help/HelpDrawer';
+import Tour from '../help/Tour';
+import { Building2, FolderKanban, LayoutDashboard, LibraryBig, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldCheck, Sun, Wrench } from 'lucide-react';
 import { clampWidth, COLLAPSE_BELOW, readCollapsed, readWidth, saveCollapsed, saveWidth } from '../sidebar-pref';
 
 export default function Layout() {
@@ -79,11 +82,11 @@ export default function Layout() {
         </div>
         {/* Phân hệ: Dashboard · Khách hàng · Dự án · Tài liệu nội bộ · Quản trị — mỗi mục chỉ hiện khi có ô Xem nào của phân hệ; thu gọn thì tên hiện khi rê chuột */}
         <nav className="nav nav-main">
-          {hasSubsystem(me, 'dashboard') && <NavLink to="/home" data-tip={collapsed ? 'Dashboard' : undefined}><LayoutDashboard size={18} /> <span className="nav-label">Dashboard</span></NavLink>}
-          {hasSubsystem(me, 'customer') && <NavLink to="/customers" data-tip={collapsed ? 'Khách hàng' : undefined}><Building2 size={18} /> <span className="nav-label">Khách hàng</span></NavLink>}
-          {hasSubsystem(me, 'project') && <NavLink to="/projects" data-tip={collapsed ? 'Dự án' : undefined} className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> <span className="nav-label">Dự án</span></NavLink>}
-          {hasSubsystem(me, 'docs') && <NavLink to="/docs" data-tip={collapsed ? 'Tài liệu' : undefined}><LibraryBig size={18} /> <span className="nav-label">Tài liệu</span></NavLink>}
-          {hasSubsystem(me, 'admin') && <NavLink to="/admin" data-tip={collapsed ? 'Quản trị' : undefined}><Wrench size={18} /> <span className="nav-label">Quản trị</span></NavLink>}
+          {hasSubsystem(me, 'dashboard') && <NavLink to="/home" data-tour="nav-dashboard" data-tip={collapsed ? 'Dashboard' : undefined}><LayoutDashboard size={18} /> <span className="nav-label">Dashboard</span></NavLink>}
+          {hasSubsystem(me, 'customer') && <NavLink to="/customers" data-tour="nav-customer" data-tip={collapsed ? 'Khách hàng' : undefined}><Building2 size={18} /> <span className="nav-label">Khách hàng</span></NavLink>}
+          {hasSubsystem(me, 'project') && <NavLink to="/projects" data-tour="nav-project" data-tip={collapsed ? 'Dự án' : undefined} className={() => (subsystem === 'project' ? 'active' : '')}><FolderKanban size={18} /> <span className="nav-label">Dự án</span></NavLink>}
+          {hasSubsystem(me, 'docs') && <NavLink to="/docs" data-tour="nav-docs" data-tip={collapsed ? 'Tài liệu' : undefined}><LibraryBig size={18} /> <span className="nav-label">Tài liệu</span></NavLink>}
+          {hasSubsystem(me, 'admin') && <NavLink to="/admin" data-tour="nav-admin" data-tip={collapsed ? 'Quản trị' : undefined}><Wrench size={18} /> <span className="nav-label">Quản trị</span></NavLink>}
         </nav>
         {/* Kéo mép phải để co giãn; kéo hẹp quá thì thu gọn chỉ còn biểu tượng */}
         <div className="side-resizer" role="separator" aria-orientation="vertical" aria-label="Kéo để co giãn thanh bên" onPointerDown={startResize} />
@@ -92,11 +95,12 @@ export default function Layout() {
       <div className="main">
         <header className="topbar">
           <button className="icon-btn menu-btn" aria-label="Mở menu" onClick={() => setNavOpen(true)}><Menu size={20} /></button>
-          <GlobalSearch />
+          <div data-tour="search" className="tour-search"><GlobalSearch /></div>
           {createBtn && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> {createBtn}</button>}
           <div className="spacer" />
-          <NotificationBell />
-          <div className="user-menu">
+          <HelpMenu />
+          <div data-tour="bell"><NotificationBell /></div>
+          <div className="user-menu" data-tour="user">
             <button className="user-btn" onClick={() => setMenu(!menu)}>
               <Avatar name={me?.full_name} src={me?.avatar_url} size={30} />
               <span className="hide-sm">{me?.full_name}</span>
@@ -108,6 +112,7 @@ export default function Layout() {
                   <div className="muted small">@{me?.username}{me?.is_admin ? ' · Quản trị hệ thống' : ''}</div>
                 </div>
                 <button onClick={() => { setMenu(false); navigate('/profile'); }}><Settings size={16} /> Cài đặt tài khoản</button>
+                <button onClick={() => { setMenu(false); navigate('/help/quyen-cua-toi'); }}><ShieldCheck size={16} /> Quyền của tôi</button>
                 <button onClick={toggleTheme}>{isDark ? <><Sun size={16} /> Chuyển giao diện sáng</> : <><Moon size={16} /> Chuyển giao diện tối</>}</button>
                 <button onClick={logout}><LogOut size={16} /> Đăng xuất</button>
               </div>
@@ -123,6 +128,8 @@ export default function Layout() {
       {creating && subsystem === 'project' && <CreateProjectModal onClose={() => setCreating(false)} />}
       {/* ?issue=KEY (VD mở từ thông báo): chỉ khi có Issue – Xem */}
       {current && hasPerm(me, 'issue.view') && <IssueDetailModal issueKey={current} />}
+      <HelpDrawer />
+      <Tour />
     </div>
   );
 }

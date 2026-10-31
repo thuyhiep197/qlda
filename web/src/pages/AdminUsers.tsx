@@ -10,6 +10,7 @@ import type { User } from '../types';
 import { UserPermEditor } from '../components/UserPermEditor';
 import { fmtDateTime } from '../util';
 import { Avatar, Modal, Spinner, toast, toastError } from '../components/ui';
+import { HelpButton } from '../help/HelpMenu';
 
 const genPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -51,7 +52,7 @@ export default function AdminUsers() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Người dùng</h1>
+        <h1>Người dùng <HelpButton /></h1>
         <div className="spacer" />
         {!!me?.is_admin && <button className="btn btn-danger" onClick={logoutAll} data-tip="Khẩn cấp: buộc mọi người (trừ bạn) đăng nhập lại ngay">Đăng xuất tất cả mọi người</button>}
         {hasPerm(me, 'user.create') && <button className="btn btn-primary" onClick={() => setEditing('new')}>+ Tạo tài khoản</button>}
@@ -214,7 +215,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
           <div className="muted small">
             <b>{role.name}</b>: {role.description || ''}. {role.is_admin
               ? 'Tài khoản thuộc nhóm này là Quản trị hệ thống, luôn có toàn quyền.'
-              : 'Quyền của nhóm được gán mặc định, áp dụng trên mọi dự án người dùng tham gia. Cấp thêm hoặc bỏ bớt quyền riêng bằng nút Phân quyền.'}
+              : 'Quyền của nhóm được gán mặc định, áp dụng trên mọi dự án người dùng tham gia. Cấp thêm quyền riêng bằng nút Phân quyền.'}
           </div>
         )}
         {canPlace && <div className="form-grid">

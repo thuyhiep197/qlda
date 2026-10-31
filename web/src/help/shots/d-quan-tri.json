@@ -1,0 +1,22 @@
+[
+  { "file": "qt-nguoi-dung.webp", "path": "/admin/users", "wait": ".users-table tbody tr",
+    "marks": [{ "n": 1, "sel": ".page .filter-bar" }, { "n": 2, "sel": ".page-head .btn-danger" }, { "n": 3, "sel": ".page-head .btn-primary" },
+      { "n": 4, "sel": ".users-table thead th:nth-child(7)" }, { "n": 5, "sel": ".users-table tbody tr:nth-child(2) .users-actions" }] },
+  { "file": "qt-tao-tai-khoan.webp", "path": "/admin/users", "wait": ".users-table tbody tr", "clicks": [".page-head .btn-primary"], "waitAfter": ".modal #user-form", "clip": ".modal" },
+  { "file": "qt-phan-quyen.webp", "path": "/admin/roles", "wait": ".perm-matrix", "clicks": [".perm-groups button:nth-child(3)"],
+    "marks": [{ "n": 1, "sel": ".tabs-sm" }, { "n": 2, "sel": ".perm-groups" }, { "n": 3, "sel": ".perm-main > .row" },
+      { "n": 4, "sel": ".perm-matrix thead" }, { "n": 5, "sel": ".perm-matrix tr.perm-subsystem" }] },
+  { "file": "qt-phan-quyen-nguoi-dung.webp", "path": "/admin/roles", "wait": ".perm-matrix", "clicks": [".tabs-sm button:nth-child(2)", ".perm-groups button:nth-child(2)"], "waitAfter": ".perm-legend",
+    "marks": [{ "n": 1, "sel": ".perm-groups" }, { "n": 2, "sel": ".perm-legend" }, { "n": 3, "sel": ".perm-main .btn-primary" }] },
+  { "file": "qt-phong-ban.webp", "path": "/admin/org", "wait": ".org-tree",
+    "marks": [{ "n": 1, "sel": ".page-head .cw-search" }, { "n": 2, "sel": ".page-head .btn:not(.btn-primary)" }, { "n": 3, "sel": ".page-head .btn-primary" },
+      { "n": 4, "sel": ".org-children .org-card" }] },
+  { "file": "qt-dia-chinh.webp", "path": "/admin/geo", "wait": ".geo-list .geo-item",
+    "marks": [{ "n": 1, "sel": ".geo-side" }, { "n": 2, "sel": ".geo-layout .card-head" }, { "n": 3, "sel": ".page-head .btn-primary" }] },
+  { "file": "qt-san-pham.webp", "path": "/admin/products", "wait": ".page .card",
+    "marks": [{ "n": 1, "sel": ".page .card" }, { "n": 2, "sel": ".page .filter-bar" }, { "n": 3, "sel": ".page-head .btn-primary" }] },
+  { "file": "qt-tinh-trang-kh.webp", "path": "/admin/customer-statuses", "wait": ".status-catalog tbody tr",
+    "marks": [{ "n": 1, "sel": ".page form" }, { "n": 2, "sel": ".status-catalog tbody tr:first-child .drag-handle" }, { "n": 3, "sel": ".status-catalog tbody tr:first-child td:last-child" }] },
+  { "file": "qt-nhat-ky-bao-mat.webp", "path": "/admin/audit", "wait": ".audit-table tbody tr",
+    "marks": [{ "n": 1, "sel": ".page .filter-bar" }, { "n": 2, "sel": ".audit-table thead" }] }
+]

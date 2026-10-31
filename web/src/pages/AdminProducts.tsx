@@ -6,6 +6,7 @@ import type { Product, ProductType } from '../types';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
 import { Link } from 'react-router-dom';
 import { CreateProjectModal } from './Projects';
+import { HelpButton } from '../help/HelpMenu';
 
 type Draft = { id?: number; type_id: string; name: string; description: string };
 
@@ -38,7 +39,7 @@ export default function AdminProducts() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Danh mục sản phẩm</h1>
+        <h1>Danh mục sản phẩm <HelpButton /></h1>
         <div className="spacer" />
         {canCreate && <button className="btn" onClick={() => setEditingType({})}>+ Thêm loại sản phẩm</button>}
         {canCreate && (!projectFilter || canCreateProject) && <button className="btn btn-primary" onClick={() => projectFilter

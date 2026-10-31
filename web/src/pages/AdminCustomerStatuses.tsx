@@ -5,6 +5,7 @@ import { hasPerm, useCustomerStatuses, useMe } from '../hooks';
 import type { CustomerStatus } from '../types';
 import { Spinner, toast, toastError } from '../components/ui';
 import { moveItem } from '../reorder';
+import { HelpButton } from '../help/HelpMenu';
 
 const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ['customer-statuses'] }), queryClient.invalidateQueries({ queryKey: ['customers'] })]);
 
@@ -59,7 +60,7 @@ export default function AdminCustomerStatuses() {
 
   return (
     <div className="page narrow-page">
-      <div className="page-head"><h1>Tình trạng khách hàng</h1></div>
+      <div className="page-head"><h1>Tình trạng khách hàng <HelpButton /></h1></div>
       <p className="muted small">Tình trạng chọn cho khách hàng. {canEdit ? 'Kéo biểu tượng ⋮⋮ ở đầu dòng để sắp xếp thứ tự hiển thị. ' : ''}Tình trạng ngừng sử dụng không chọn được nữa; khách hàng đang ở tình trạng đó giữ nguyên.</p>
       {canCreate && (
         <form className="row gap-sm mb-sm" onSubmit={add}>

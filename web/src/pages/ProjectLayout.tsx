@@ -6,6 +6,7 @@ import type { Project } from '../types';
 import { colorOf, RELEASES_ENABLED } from '../util';
 import { Spinner } from '../components/ui';
 import { Building2, Info, Mail, Phone, Plus, UserRound, ListTree, ChartGantt, List, ListTodo, Rocket, SquareKanban, type LucideIcon } from 'lucide-react';
+import { HelpButton } from '../help/HelpMenu';
 
 const LAST_PROJECT = 'qlda:last-project';
 
@@ -61,7 +62,7 @@ export default function ProjectLayout() {
         <span className="proj-dot lg" style={{ background: colorOf(project.key) }}>{project.key.slice(0, 2)}</span>
         <div>
           <div className="muted small">Dự án {project.type === 'scrum' ? 'Scrum' : 'Kanban'} · {project.key}</div>
-          <h1>{project.name}</h1>
+          <h1>{project.name} <HelpButton /></h1>
           <ProjectCustomer project={project} />
         </div>
         <div className="spacer" />

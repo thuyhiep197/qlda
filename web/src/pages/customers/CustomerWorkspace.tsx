@@ -14,6 +14,7 @@ import JourneyPane from './JourneyPane';
 import CustomerSide from './CustomerSide';
 import SalesProjectSide, { SalesProjectModal } from './SalesProjectSide';
 import StepPanel from './StepPanel';
+import { HelpButton } from '../../help/HelpMenu';
 
 /**
  * Phân hệ Khách hàng (Phòng Kinh doanh, AM dùng chính) — quản lý theo khách hàng và theo dự án:
@@ -184,7 +185,7 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
   return (
     <section className="cw-main">
       <div className="cw-toolbar">
-        <h2 className="cw-title">{title}</h2>
+        <h2 className="cw-title">{title} <HelpButton /></h2>
         <div className="cw-search grow"><Search size={14} /><input placeholder="Tìm theo khách hàng, dự án, tỉnh, sản phẩm, đầu mối, nhân viên phụ trách…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       </div>
       {!list.length ? <Empty title={total ? 'Không có khách hàng phù hợp' : 'Chưa có khách hàng nào bạn được xem'}>

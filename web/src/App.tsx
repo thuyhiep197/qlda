@@ -29,6 +29,7 @@ import Docs from './pages/Docs';
 import AdminLayout from './pages/AdminLayout';
 import Profile from './pages/Profile';
 import Releases from './pages/Releases';
+import HelpPage from './help/HelpPage';
 import { RELEASES_ENABLED } from './util';
 
 /** Tài khoản không thấy phân hệ nào */
@@ -74,6 +75,9 @@ export default function App() {
           {hasSubsystem(me, 'docs') && <Route path="docs" element={<Docs />} />}
           {hasSubsystem(me, 'project') && <Route path="browse/:issueKey" element={<IssuePage />} />}
           <Route path="profile" element={<Profile />} />
+          {/* Hướng dẫn sử dụng: mọi tài khoản; bài hiện theo quyền của người xem */}
+          <Route path="help" element={<HelpPage />} />
+          <Route path="help/:id" element={<HelpPage />} />
           {hasSubsystem(me, 'admin') && <Route path="admin" element={<AdminLayout />}>
             <Route index element={null} />
             {hasPerm(me, 'user.view') && <Route path="users" element={<AdminUsers />} />}

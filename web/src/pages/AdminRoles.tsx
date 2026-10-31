@@ -8,6 +8,7 @@ import { HelpTip, Spinner, toast, toastError } from '../components/ui';
 import { PermMatrix } from '../components/PermMatrix';
 import { UserPermEditor } from '../components/UserPermEditor';
 import { fold } from '../customer-filter';
+import { HelpButton } from '../help/HelpMenu';
 
 /**
  * Phân quyền, 2 tab: Theo nhóm người dùng (bảng quyền Chức năng × Hành động gán mặc định cho người thuộc nhóm)
@@ -43,7 +44,7 @@ function UsersTab({ tabs }: { tabs: React.ReactNode }) {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Nhóm người dùng & phân quyền</h1>
+        <h1>Nhóm người dùng & phân quyền <HelpButton /></h1>
         <HelpTip text="Quyền thực tế của một người = quyền của nhóm người dùng + quyền cấp thêm riêng cho người đó. Quyền nhóm sửa ở tab Theo nhóm người dùng." />
       </div>
       {tabs}
@@ -133,7 +134,7 @@ function RolesTab({ tabs }: { tabs: React.ReactNode }) {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Nhóm người dùng & phân quyền</h1>
+        <h1>Nhóm người dùng & phân quyền <HelpButton /></h1>
         <HelpTip text="Quyền của nhóm được gán mặc định cho mọi người thuộc nhóm. Muốn cấp thêm quyền cho riêng một người, dùng tab Theo người dùng. Nhóm Quản trị hệ thống luôn có toàn quyền." />
         <div className="spacer" />
         {hasPerm(me, 'role.create') && <button className="btn" onClick={create}>+ Tạo nhóm</button>}

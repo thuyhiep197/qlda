@@ -5,6 +5,7 @@ import { hasPerm, useMe, useProvinces, useWards } from '../hooks';
 import type { GeoProvince, GeoWard } from '../types';
 import { fold } from '../customer-filter';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
+import { HelpButton } from '../help/HelpMenu';
 
 type Edit = { kind: 'province' | 'ward'; code: string; name: string; isNew: boolean };
 
@@ -31,7 +32,7 @@ export default function AdminGeo() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Danh mục địa chính</h1>
+        <h1>Danh mục địa chính <HelpButton /></h1>
         <span className="muted small">{provinces?.length ?? 0} tỉnh/thành phố · {totalWards.toLocaleString('vi')} phường/xã</span>
         <div className="spacer" />
         {canCreate && <button className="btn" onClick={() => setEdit({ kind: 'province', code: '', name: '', isNew: true })}>+ Thêm tỉnh/thành phố</button>}

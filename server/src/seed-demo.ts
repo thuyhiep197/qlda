@@ -4,9 +4,8 @@
  */
 import { get, migrate, run } from './db.ts';
 import { ensureAdmin, hashPassword } from './auth.ts';
-import { seedRoles, type AuthUser } from './permissions.ts';
+import { seedRoles, userPermissions, type AuthUser } from './permissions.ts';
 import { createIssue, updateIssue, type IssueRow } from './issues.ts';
-import { ALL_PERMISSIONS } from './permissions.ts';
 
 migrate();
 seedRoles();
@@ -37,7 +36,7 @@ const pid = run("INSERT INTO projects(key, name, description, type, lead_id) VAL
 run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', pid, admin.id, role('BA Lead'));
 for (const [u, , r] of people) run('INSERT INTO project_members(project_id, user_id, role_id) VALUES (?,?,?)', pid, ids[u], role(r));
 
-const perms = new Set(ALL_PERMISSIONS);
+const perms = userPermissions(admin);
 const st = (name: string) => get('SELECT id FROM statuses WHERE project_id = ? AND name = ?', pid, name)!.id;
 const mk = (d: any) => createIssue(admin, pid, perms, d);
 const upd = (i: any, d: any) => updateIssue(admin, get<IssueRow>('SELECT * FROM issues WHERE id = ?', i.id)!, perms, d);

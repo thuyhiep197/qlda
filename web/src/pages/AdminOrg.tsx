@@ -7,6 +7,7 @@ import type { Department, StaffMember, StaffPosition } from '../types';
 import { fold } from '../customer-filter';
 import { STAFF_POSITION_LABELS } from '../util';
 import { Modal, Spinner, toast, toastError } from '../components/ui';
+import { HelpButton } from '../help/HelpMenu';
 
 const posLabel = (p: string) => STAFF_POSITION_LABELS.find((x) => x.key === p);
 /** Tên đầy đủ của phòng ban theo cấp, VD "Phòng Dự án › Dev" (bỏ Ban Giám đốc ở gốc) */
@@ -90,7 +91,7 @@ export default function AdminOrg() {
   return (
     <div className="page org-page">
       <div className="page-head">
-        <h1>Phòng ban & Nhân sự</h1>
+        <h1>Phòng ban & Nhân sự <HelpButton /></h1>
         <div className="spacer" />
         {seeStaff && <div className="cw-search" style={{ width: 240 }}><Search size={14} /><input placeholder="Tìm nhân sự, vị trí…" value={q} onChange={(e) => setQ(e.target.value)} /></div>}
         {canDep.create && <button className="btn" onClick={() => setEditDep({ parent_id: deps.find((d) => !d.parent_id)?.id ?? null })}>+ Thêm phòng ban</button>}

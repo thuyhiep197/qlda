@@ -22,7 +22,9 @@ export interface Me {
   subsystems?: string[];
   created_at?: string;
   last_login_at?: string | null;
-  preferences?: { theme?: 'light' | 'dark' | 'system'; notify?: Partial<Record<'mention' | 'assigned' | 'comment' | 'status', boolean>> };
+  preferences?: { theme?: 'light' | 'dark' | 'system'; notify?: Partial<Record<'mention' | 'assigned' | 'comment' | 'status', boolean>>;
+    /** Hướng dẫn sử dụng: đã xem tour lần đầu; mục "Có gì mới" mới nhất đã đọc */
+    tour_done?: boolean; help_seen?: string };
 }
 
 export interface UserBasic {

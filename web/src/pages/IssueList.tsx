@@ -15,6 +15,7 @@ import { ChevronDown, Download, Star, X } from 'lucide-react';
 import { issueListAssignee } from '../issue-filter-defaults';
 import { InlineAssignee } from '../components/InlineAssignee';
 import { SearchSelect } from '../components/SearchSelect';
+import { HelpButton } from '../help/HelpMenu';
 
 const FILTER_KEYS = ['project', 'type', 'status', 'statusCategory', 'assignee', 'priority', 'sprint', 'version', 'component', 'ba', 'dev', 'parent', 'label', 'health', 'q', 'sort'] as const;
 
@@ -110,7 +111,7 @@ export default function IssueList() {
 
   return (
     <div className={routeKey ? 'page-pad' : 'page'}>
-      {!routeKey && <h1>Tìm kiếm issue</h1>}
+      {!routeKey && <h1>Tìm kiếm issue <HelpButton /></h1>}
       <div className="filter-bar wrap">
         <SavedFilters projectKey={projectKey || undefined} routeScoped={!!routeKey} current={filter}
           apply={(query) => {

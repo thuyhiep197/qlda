@@ -132,6 +132,9 @@ r.put('/preferences', requireAuth, (req, res) => {
     cur.notify = { ...(cur.notify || {}) };
     for (const t of NOTIFY_TYPES) if (typeof b.notify?.[t] === 'boolean') cur.notify[t] = b.notify[t];
   }
+  // Hướng dẫn sử dụng: đã xem tour lần đầu; mục "Có gì mới" mới nhất đã đọc
+  if (typeof b.tour_done === 'boolean') cur.tour_done = b.tour_done;
+  if (b.help_seen !== undefined) cur.help_seen = String(b.help_seen ?? '').slice(0, 60);
   run('UPDATE users SET preferences = ? WHERE id = ?', JSON.stringify(cur), req.user.id);
   res.json({ ok: true, preferences: cur });
 });

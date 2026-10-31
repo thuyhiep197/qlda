@@ -7,6 +7,7 @@ import type { Issue, IssueType } from '../types';
 import { colorOf, FIELD_LABELS, timeAgo } from '../util';
 import { Avatar, Empty, Spinner, TypeIcon } from '../components/ui';
 import { IssueLine } from '../components/IssueRow';
+import { HelpButton } from '../help/HelpMenu';
 
 interface DashboardData {
   stats: { assigned_open: number; in_progress: number; overdue: number; done_week: number; reported_open: number };
@@ -29,7 +30,7 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      <h1>{greet}, {me?.full_name}</h1>
+      <h1>{greet}, {me?.full_name} <HelpButton /></h1>
       {/* Khối Khách hàng: thấy phân hệ Khách hàng (một ô Xem bất kỳ); từng thẻ bên trong theo ô quyền của nó */}
       {hasSubsystem(me, 'customer') && <CustomerDashboard />}
       {/* Công việc dự án: chỉ khi thấy phân hệ Dự án */}

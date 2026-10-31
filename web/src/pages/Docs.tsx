@@ -7,6 +7,7 @@ import { hasPerm, useMe } from '../hooks';
 import { fold } from '../customer-filter';
 import { fmtDateTime, fmtSize } from '../util';
 import { Empty, Spinner, toast, toastError } from '../components/ui';
+import { HelpButton } from '../help/HelpMenu';
 
 interface DocFolder { id: number; parent_id: number | null; name: string; created_by: number | null; created_by_name: string | null; created_at: string; file_count: number }
 interface DocFile { id: number; folder_id: number | null; filename: string; size: number; uploader_id: number | null; uploader_name: string | null; created_at: string; folder_name: string | null }
@@ -127,6 +128,7 @@ export default function Docs() {
             <a onClick={() => open(null)}>Tài liệu nội bộ</a>
             {path.map((f) => <span key={f.id}> › <a onClick={() => open(f.id)}>{f.name}</a></span>)}
           </div>
+          <HelpButton />
           <div className="spacer" />
           <div className="cw-search" style={{ width: 260 }}><Search size={14} /><input placeholder="Tìm tài liệu, thư mục trong toàn bộ…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
           {canCreate && <>

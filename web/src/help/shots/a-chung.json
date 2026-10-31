@@ -1,0 +1,12 @@
+[
+  { "file": "bat-dau-gioi-thieu.webp", "path": "/home", "as": "admin", "wait": ".main h1",
+    "marks": [{ "n": 1, "sel": "nav.nav-main" }, { "n": 2, "sel": "[data-tour=search]" }, { "n": 3, "sel": "[data-tour=help]" }, { "n": 4, "sel": "[data-tour=bell]" }, { "n": 5, "sel": "[data-tour=user]" }] },
+  { "file": "dashboard.webp", "path": "/home", "as": "dev.minh", "wait": ".stat-cards", "size": [1440, 1250],
+    "marks": [{ "n": 1, "sel": ".stat-cards" }, { "n": 2, "sel": ".dash-grid > .card:nth-child(1)" }, { "n": 3, "sel": ".dash-grid > .card:nth-child(2)" }, { "n": 4, "sel": ".project-cards" }] },
+  { "file": "thong-bao.webp", "path": "/home", "as": "dev.minh", "wait": ".main h1", "clicks": [".bell-btn"], "waitAfter": ".bell-panel", "clip": ".bell-panel",
+    "marks": [{ "n": 1, "sel": ".bell-head label.check" }, { "n": 2, "sel": ".bell-head a.small" }, { "n": 3, "sel": ".bell-tabs" }] },
+  { "file": "ho-so-ca-nhan.webp", "path": "/profile", "as": "dev.minh", "wait": ".settings-nav",
+    "marks": [{ "n": 1, "sel": ".settings-nav" }, { "n": 2, "sel": ".avatar-editor" }, { "n": 3, "sel": ".settings-body .form-grid" }] },
+  { "file": "tai-lieu-noi-bo.webp", "path": "/docs", "as": "admin", "wait": ".cw-left",
+    "marks": [{ "n": 1, "sel": ".cw-left" }, { "n": 2, "sel": ".doc-crumb" }, { "n": 3, "sel": ".cw-search" }, { "n": 4, "sel": ".cw-toolbar .btn-primary" }, { "n": 5, "sel": ".cw-scroll" }] }
+]

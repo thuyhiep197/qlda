@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, qs } from '../api';
 import { fmtDateTime } from '../util';
 import { HelpTip, Spinner } from '../components/ui';
+import { HelpButton } from '../help/HelpMenu';
 
 interface AuditRow { id: number; at: string; user_id: number | null; username: string | null; action: string; target: string | null; detail: string | null; ip: string | null; user_agent: string | null }
 
@@ -32,6 +33,24 @@ const ACTIONS: Record<string, { label: string; danger?: boolean }> = {
   staff_created: { label: 'Thêm vào danh mục nhân sự' },
   staff_updated: { label: 'Sửa danh mục nhân sự' },
   staff_deleted: { label: 'Xóa khỏi danh mục nhân sự' },
+  customer_created: { label: 'Tạo khách hàng' },
+  customer_updated: { label: 'Sửa khách hàng / dự án của khách hàng' },
+  customer_status_created: { label: 'Thêm tình trạng khách hàng' },
+  customer_status_updated: { label: 'Sửa tình trạng khách hàng' },
+  department_created: { label: 'Thêm phòng ban' },
+  department_deleted: { label: 'Xóa phòng ban' },
+  geo_created: { label: 'Thêm địa chính' },
+  geo_updated: { label: 'Sửa địa chính' },
+  geo_deleted: { label: 'Xóa địa chính' },
+  product_type_created: { label: 'Thêm loại sản phẩm' },
+  product_type_deleted: { label: 'Xóa loại sản phẩm' },
+  product_created: { label: 'Thêm sản phẩm' },
+  product_deleted: { label: 'Xóa sản phẩm' },
+  doc_uploaded: { label: 'Tải lên tài liệu nội bộ' },
+  doc_deleted: { label: 'Xóa tài liệu nội bộ' },
+  doc_folder_deleted: { label: 'Xóa thư mục tài liệu' },
+  help_saved: { label: 'Sửa / thêm bài hướng dẫn' },
+  help_deleted: { label: 'Khôi phục / xóa bài hướng dẫn' },
 };
 
 /** Rút gọn chuỗi trình duyệt: "Chrome · Windows" */
@@ -65,7 +84,7 @@ export default function AdminAudit() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Nhật ký bảo mật</h1>
+        <h1>Nhật ký bảo mật <HelpButton /></h1>
         <HelpTip text="Ghi lại mọi lần đăng nhập (thành công, thất bại), đổi/đặt lại mật khẩu và thao tác quản trị: tạo/sửa tài khoản, cấp quyền quản trị, đổi nhóm, phân quyền, dự án, thành viên. Lưu 365 ngày." />
       </div>
       {failed24h > 0 && <div className="form-error mb-sm">Có <b>{failed24h}</b> lần đăng nhập thất bại trong 24 giờ qua. Kiểm tra cột IP và tài khoản bị thử.</div>}

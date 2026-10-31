@@ -27,6 +27,7 @@ import geoRoutes from './routes/geo.ts';
 import departmentRoutes from './routes/departments.ts';
 import searchRoutes from './routes/search.ts';
 import docRoutes from './routes/docs.ts';
+import helpRoutes from './routes/help.ts';
 import { seedGeo } from './geo.ts';
 import { syncAllProjectProducts } from './project-product.ts';
 import { pruneNotifications } from './notify.ts';
@@ -99,6 +100,7 @@ app.use('/api/geo', geoRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/docs', docRoutes);
+app.use('/api/help', helpRoutes);
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'API không tồn tại')));
 
 // Giao diện web đã build (chế độ production)

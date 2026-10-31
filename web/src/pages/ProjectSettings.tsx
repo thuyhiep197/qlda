@@ -51,7 +51,7 @@ function General({ onDone, canArchive }: { onDone: () => void; canArchive: boole
     } catch (err) { toastError(err); }
   };
   const archive = async () => {
-    if (!confirm(`Lưu trữ dự án ${project.name}? Dự án sẽ bị ẩn khỏi danh sách; có thể khôi phục trong mục Tất cả dự án.`)) return;
+    if (!confirm(`Lưu trữ dự án ${project.name}? Dự án sẽ bị ẩn khỏi danh sách; có thể khôi phục bằng ô "Xem dự án đã lưu trữ" ở Danh sách dự án.`)) return;
     try { await api.post(`/projects/${project.key}/archive`, { archived: true }); await refreshAll(); navigate('/projects'); } catch (err) { toastError(err); }
   };
 

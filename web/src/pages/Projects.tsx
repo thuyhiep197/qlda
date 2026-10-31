@@ -8,6 +8,7 @@ import type { ProjectSummary } from '../types';
 import { colorOf, lozengeOf, PROJECT_PRIORITIES, PROJECT_STATUSES, STAFF_POSITIONS } from '../util';
 import { ProjectInfoFields, projectInfoOf, splitNames } from '../components/ProjectInfoFields';
 import { Empty, Modal, Spinner, toast, toastError } from '../components/ui';
+import { HelpButton } from '../help/HelpMenu';
 
 export default function Projects() {
   const { data: me } = useMe();
@@ -48,7 +49,7 @@ export default function Projects() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>{archived ? 'Dự án đã lưu trữ' : group === 'mine' ? 'Dự án của tôi' : 'Tất cả dự án'}</h1>
+        <h1>{archived ? 'Dự án đã lưu trữ' : group === 'mine' ? 'Dự án của tôi' : 'Tất cả dự án'} <HelpButton /></h1>
         <div className="spacer" />
         {hasPerm(me, 'project.delete') && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem dự án đã lưu trữ</label>}
       </div>
@@ -100,7 +101,7 @@ export default function Projects() {
 function ProjectStatus({ p }: { p: ProjectSummary }) {
   const pinned = !!p.project_status;
   const v = p.project_status || p.status_auto;
-  const tip = pinned ? 'Trạng thái ghim tay (đổi trong Cài đặt dự án → Thông tin chung; chọn "Tự động" để hệ thống tự cập nhật)' : `Tự động: ${p.status_reason}`;
+  const tip = pinned ? 'Trạng thái ghim tay (đổi ở tab Thông tin → Sửa; chọn "Tự động" để hệ thống tự cập nhật)' : `Tự động: ${p.status_reason}`;
   if (!v) return <span className="muted small" data-tip={tip}>⚙ Chưa xác định</span>;
   return <span className="nowrap" data-tip={tip}><span className={lozengeOf(PROJECT_STATUSES, v)}>{v}</span> <span className="muted small">{pinned ? '📌' : '⚙'}</span></span>;
 }

@@ -41,7 +41,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
     try { await api.post(`/customers/${customer.id}/journey/${s.id}/children`, { title }); await refreshCustomer(customer.id); } catch (e) { toastError(e); }
   };
   const remove = async () => {
-    if (!confirm(`Bỏ "${s.title}" (cùng các bước con nếu có) khỏi hành trình của khách hàng này?`)) return;
+    if (!confirm(`Bỏ "${s.title}" (cùng các bước con nếu có) khỏi hành trình của dự án này?`)) return;
     try { const r = await api.del<{ removed: number }>(`/customers/${customer.id}/journey/${s.id}`); toast(`Đã bỏ ${r.removed} bước`); onClose(); await refreshCustomer(customer.id); } catch (e) { toastError(e); }
   };
   const people = (field: 'assignee' | 'supporters') => {
@@ -66,7 +66,7 @@ export default function StepPanel({ customer, stepId, onClose }: { customer: Cus
           <div className="muted small ellipsis">{s.path.map((p) => `${p.code ? `${p.code}. ` : ''}${p.title}`).join(' › ')}</div>
           <h3>{s.code ? `${s.code} ` : ''}{s.title}</h3>
         </div>
-        <button className="icon-btn" aria-label="Đóng, về thông tin khách hàng" data-tip="Về thông tin khách hàng" onClick={onClose}><X size={16} /></button>
+        <button className="icon-btn" aria-label="Đóng, về thông tin dự án" data-tip="Về thông tin dự án" onClick={onClose}><X size={16} /></button>
       </div>
       {overdueDays(s.due_date, s.status, today()) > 0 && (
         <div className="j-late-banner"><AlertTriangle size={15} /> Quá hạn {overdueDays(s.due_date, s.status, today())} ngày (hạn {fmtDate(s.due_date)}) — bước chưa hoàn thành</div>
