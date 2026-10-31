@@ -805,6 +805,7 @@ const migrations: (string | (() => void))[] = [
    CREATE INDEX idx_api_keys_user ON api_keys(user_id);`,
   // v33: Hướng dẫn sử dụng — bài Quản trị hệ thống sửa ngay trên tool (ghi đè bài có sẵn cùng mã) hoặc thêm mới (is_custom = 1).
   // Bài có sẵn nằm trong mã nguồn (web/src/help/content); xóa dòng ở đây = khôi phục bản gốc.
+  // Tour giới thiệu chỉ tự hiện ở lần đăng nhập đầu tiên: tài khoản đã từng đăng nhập coi như đã xem (người dùng yêu cầu 2026-10-31).
   `CREATE TABLE help_articles (
      id TEXT PRIMARY KEY,
      title TEXT NOT NULL,
@@ -814,7 +815,9 @@ const migrations: (string | (() => void))[] = [
      is_custom INTEGER NOT NULL DEFAULT 0,
      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
      updated_at TEXT NOT NULL DEFAULT ${TS}
-   );`,
+   );
+   UPDATE users SET preferences = json_set(CASE WHEN json_valid(preferences) THEN preferences ELSE '{}' END, '$.tour_done', json('true'))
+     WHERE last_login_at IS NOT NULL;`,
 ];
 
 function migrateV26() {

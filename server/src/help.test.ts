@@ -64,3 +64,17 @@ test('only system admins edit, add and restore articles; everyone reads them', a
   assert.deepEqual((await api(plain, 'GET', '/help')).body, []);
   assert.ok(get("SELECT 1 FROM audit_log WHERE action = 'help_saved' AND target = 'gioi-thieu'"));
 });
+
+test('migration v33 skips the intro tour for accounts that have already logged in', () => {
+  const old = run("INSERT INTO users(username, full_name, password_hash, last_login_at, preferences) VALUES ('cu', 'Cũ', 'x', '2026-10-01', '{\"theme\":\"dark\"}')").id;
+  const broken = run("INSERT INTO users(username, full_name, password_hash, last_login_at, preferences) VALUES ('hong', 'Hỏng', 'x', '2026-10-01', 'không phải json')").id;
+  const fresh = run("INSERT INTO users(username, full_name, password_hash) VALUES ('moi', 'Mới', 'x')").id;
+  // Chạy lại bước v33 (gỡ bảng của bước này)
+  run('DROP TABLE help_articles');
+  run('PRAGMA user_version = 32');
+  migrate();
+  const prefs = (id: number) => JSON.parse(get<{ preferences: string }>('SELECT preferences FROM users WHERE id = ?', id)!.preferences);
+  assert.deepEqual(prefs(old), { theme: 'dark', tour_done: true });
+  assert.deepEqual(prefs(broken), { tour_done: true });
+  assert.deepEqual(prefs(fresh), {});
+});
