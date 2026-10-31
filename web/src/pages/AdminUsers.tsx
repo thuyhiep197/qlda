@@ -4,7 +4,7 @@ import { KeyRound, Lock, LockOpen, Pencil, ShieldCheck } from 'lucide-react';
 import { api, refreshAll } from '../api';
 import { canManageAccountPermissions, hasPerm, useDepartments, useMe, useRoles } from '../hooks';
 import { suggestPlacement } from '../people';
-import { groupByRole } from '../user-groups';
+import { userRowGroups } from '../user-groups';
 import { STAFF_POSITION_LABELS } from '../util';
 import type { User } from '../types';
 import { UserPermEditor } from '../components/UserPermEditor';
@@ -47,7 +47,8 @@ export default function AdminUsers() {
     (!filter || `${u.full_name} ${u.username} ${u.email || ''}`.toLowerCase().includes(filter.toLowerCase())) &&
     (!roleFilter || (roleFilter === 'none' ? !u.default_role_id : String(u.default_role_id) === roleFilter)));
   const missingRole = users?.filter((u) => !u.default_role_id).length ?? 0;
-  const groups = !list ? [] : byRole ? groupByRole(list, roles ?? []) : [list];
+  // Không ai khớp ô tìm (VD đang gõ dở "Hoafng") → không có nhóm nào, bảng trống
+  const groups = userRowGroups(list, byRole, roles ?? []);
 
   return (
     <div className="page">
@@ -107,6 +108,7 @@ export default function AdminUsers() {
               </tr>
             ))}
             </Fragment>)}
+            {!groups.length && <tr><td colSpan={8} className="muted">Không có tài khoản nào khớp</td></tr>}
           </tbody>
         </table>
         </div>

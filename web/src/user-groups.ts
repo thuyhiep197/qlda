@@ -26,3 +26,11 @@ export function groupByRole<U extends { default_role_id?: number | null }>(
   }
   return [...groups.entries()].sort(([a], [b]) => rank(a) - rank(b)).map(([, list]) => list);
 }
+
+/** Các nhóm dòng của bảng tài khoản: xếp theo nhóm người dùng hoặc một nhóm duy nhất; không có tài khoản nào → không có nhóm */
+export function userRowGroups<U extends { default_role_id?: number | null }>(
+  users: U[] | undefined, byRole: boolean, roles: Parameters<typeof groupByRole>[1],
+): U[][] {
+  if (!users?.length) return [];
+  return byRole ? groupByRole(users, roles) : [users];
+}

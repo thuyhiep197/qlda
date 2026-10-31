@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupByRole } from './user-groups';
+import { groupByRole, userRowGroups } from './user-groups';
 
 const roles = [{ id: 5 }, { id: 2 }, { id: 9 }];
 
@@ -24,4 +24,11 @@ test('top groups: system admin, Ban Giám đốc, Techlead, BA Lead; other group
   const users = [{ id: 10, default_role_id: 1 }, { id: 11, default_role_id: 3 }, { id: 12, default_role_id: 2 }, { id: 13, default_role_id: 4 },
     { id: 14, default_role_id: 5 }, { id: 15, default_role_id: 6 }];
   assert.deepEqual(groupByRole(users, catalog).map((g) => g.map((u) => u.id)), [[13], [12], [15], [14], [10], [11]]);
+});
+
+test('the account table has no row group when nobody matches the search (typing a name half-way must not break the page)', () => {
+  assert.deepEqual(userRowGroups([], false, roles), []);
+  assert.deepEqual(userRowGroups([], true, roles), []);
+  assert.deepEqual(userRowGroups(undefined, false, roles), []);
+  assert.deepEqual(userRowGroups([{ id: 1, default_role_id: 2 }], false, roles).map((g) => g.map((u) => u.id)), [[1]]);
 });

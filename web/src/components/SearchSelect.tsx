@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type SelectHTMLAttributes } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type SelectHTMLAttributes } from 'react';
 import { Check, Search } from 'lucide-react';
-import { filterOptions, readOptions, type SelectOption } from '../search-select';
+import { filterOptions, placePopover, readOptions, type SelectOption } from '../search-select';
 
 type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value'> & {
   value: string | number;
@@ -14,36 +14,37 @@ type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value'>
  */
 export function SearchSelect({ value, onChange, children, onMouseDown, onKeyDown, ...rest }: Props) {
   const ref = useRef<HTMLSelectElement>(null);
-  const [open, setOpen] = useState<{ options: SelectOption[]; top: number; left: number; width: number } | null>(null);
+  const [options, setOptions] = useState<SelectOption[] | null>(null);
   const show = () => {
     const el = ref.current;
     if (!el || el.disabled) return;
-    const r = el.getBoundingClientRect();
-    const width = Math.max(r.width, 260);
-    setOpen({ options: readOptions(el), top: r.bottom + 2, left: Math.max(4, Math.min(r.left, window.innerWidth - width - 4)), width });
+    setOptions(readOptions(el));
   };
+  const focusSelect = () => ref.current?.focus({ preventScroll: true });
   return (
     <>
       <select ref={ref} value={value} onChange={onChange} {...rest}
-        onMouseDown={(e) => { onMouseDown?.(e); if (e.button === 0) { e.preventDefault(); ref.current?.focus(); if (open) setOpen(null); else show(); } }}
+        onMouseDown={(e) => { onMouseDown?.(e); if (e.button === 0) { e.preventDefault(); focusSelect(); if (options) setOptions(null); else show(); } }}
         onKeyDown={(e) => { onKeyDown?.(e); if (e.key === 'Enter' || e.key === ' ' || (e.altKey && e.key === 'ArrowDown')) { e.preventDefault(); show(); } }}>
         {children}
       </select>
-      {open && (
-        <SearchPopover {...open} value={String(value)}
-          onPick={(v) => { setOpen(null); ref.current?.focus(); if (v !== String(value)) onChange({ target: { value: v } }); }}
-          onClose={() => { setOpen(null); ref.current?.focus(); }} />
+      {options && (
+        <SearchPopover options={options} anchor={ref} value={String(value)}
+          onPick={(v) => { setOptions(null); focusSelect(); if (v !== String(value)) onChange({ target: { value: v } }); }}
+          onClose={() => { setOptions(null); focusSelect(); }} />
       )}
     </>
   );
 }
 
-function SearchPopover({ options, top, left, width, value, onPick, onClose }: {
-  options: SelectOption[]; top: number; left: number; width: number; value: string; onPick: (v: string) => void; onClose: () => void;
+function SearchPopover({ options, anchor, value, onPick, onClose }: {
+  options: SelectOption[]; anchor: RefObject<HTMLSelectElement | null>; value: string; onPick: (v: string) => void; onClose: () => void;
 }) {
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const box = useRef<HTMLDivElement>(null);
+  const place = () => { const el = anchor.current; return el ? placePopover(el.getBoundingClientRect(), window.innerWidth, window.innerHeight) : null; };
+  const [pos, setPos] = useState(place);
   const list = filterOptions(options, q);
   const pickable = list.filter((o) => !o.disabled);
   const close = useRef(onClose);
@@ -51,9 +52,14 @@ function SearchPopover({ options, top, left, width, value, onPick, onClose }: {
   useEffect(() => {
     box.current?.querySelector('input')?.focus({ preventScroll: true });
     const onDown = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) close.current(); };
-    // Cuộn trang / đổi cỡ cửa sổ thì đóng (bảng nổi đặt theo vị trí ô chọn)
-    const onMove = (e: Event) => { if (!box.current?.contains(e.target as Node)) close.current(); };
-    const onResize = () => close.current();
+    // Cuộn trang / khung, đổi cỡ cửa sổ: bảng nổi bám theo ô chọn; ô đã ra khỏi màn hình thì đóng.
+    // (Trước đây cuộn là đóng ngay — ô ở gần mép khung Sửa dự án tự cuộn khi bấm nên bảng vừa mở đã đóng.)
+    const onMove = (e: Event) => {
+      if (box.current?.contains(e.target as Node)) return;
+      const p = place();
+      if (p) setPos(p); else close.current();
+    };
+    const onResize = onMove;
     // Gắn sau cú bấm vừa mở bảng: nếu gắn ngay, chính cú bấm đó lan tới document và đóng bảng lại
     const t = setTimeout(() => {
       document.addEventListener('mousedown', onDown);
@@ -80,11 +86,10 @@ function SearchPopover({ options, top, left, width, value, onPick, onClose }: {
     else if (e.key === 'Enter') { e.preventDefault(); if (pickable[active]) onPick(pickable[active].value); }
     else if (e.key === 'Tab') onClose();
   };
-  const spaceBelow = window.innerHeight - top;
-  const style = spaceBelow < 220 ? { bottom: window.innerHeight - top + 36, left, width } : { top, left, width };
+  if (!pos) return null;
   let lastGroup: string | null = null;
   return (
-    <div className="picker-pop search-select-pop" ref={box} style={style}>
+    <div className="picker-pop search-select-pop" ref={box} style={pos}>
       <div className="cw-search"><Search size={13} />
         <input placeholder="Tìm…" value={q} onKeyDown={keys} onChange={(e) => { setQ(e.target.value); setActive(0); }} /></div>
       <div className="picker-list">
