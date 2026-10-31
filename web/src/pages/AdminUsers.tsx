@@ -1,10 +1,10 @@
-import { Fragment, useState, type FormEvent } from 'react';
+import { Fragment, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { KeyRound, Lock, LockOpen, Pencil, ShieldCheck } from 'lucide-react';
 import { api, refreshAll } from '../api';
 import { canManageAccountPermissions, hasPerm, useDepartments, useMe, useRoles } from '../hooks';
 import { suggestPlacement } from '../people';
-import { userRowGroups } from '../user-groups';
+import { matchAccount, suggestAccounts, userRowGroups } from '../user-groups';
 import { STAFF_POSITION_LABELS } from '../util';
 import type { User } from '../types';
 import { UserPermEditor } from '../components/UserPermEditor';
@@ -20,6 +20,42 @@ const genPassword = () => {
 
 const BY_ROLE_KEY = 'qlda:users-by-role';
 
+/** Ô tìm tài khoản: gõ đến đâu hiện gợi ý đến đó (không phân biệt dấu); bấm hoặc ↑ ↓ Enter để chọn, Esc để đóng */
+function AccountSearch({ users, value, onChange, onPick }: {
+  users: User[]; value: string; onChange: (v: string) => void; onPick: (u: User) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const hits = open ? suggestAccounts(users, value) : [];
+  const pick = (u: User) => { onPick(u); setOpen(false); };
+  const keys = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!hits.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, hits.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); pick(hits[Math.min(active, hits.length - 1)]); }
+    else if (e.key === 'Escape') setOpen(false);
+  };
+  return (
+    <div className="account-search">
+      <input className="filter-search" style={{ width: 300 }} placeholder="Tìm theo tên, tên đăng nhập, email" value={value} onKeyDown={keys}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} />
+      {hits.length > 0 && (
+        <div className="picker-pop account-search-pop" role="listbox">
+          {hits.map((u, i) => (
+            // onMouseDown + preventDefault: chọn trước khi ô tìm mất focus (blur đóng gợi ý)
+            <button type="button" key={u.id} role="option" aria-selected={i === active} className={`picker-item ${i === active ? 'active' : ''}`}
+              onMouseEnter={() => setActive(i)} onMouseDown={(e) => { e.preventDefault(); pick(u); }}>
+              <Avatar name={u.full_name} src={u.avatar_url} size={22} />
+              <span className="grow ellipsis">{u.full_name} <span className="muted small">@{u.username}</span></span>
+              {u.department_name && <span className="muted small ellipsis">{u.department_name}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminUsers() {
   const { data: me } = useMe();
   const { data: users, isLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: () => api.get('/users') });
@@ -28,6 +64,8 @@ export default function AdminUsers() {
   const [reset, setReset] = useState<User | null>(null);
   const [permUser, setPermUser] = useState<User | null>(null);
   const [filter, setFilter] = useState('');
+  // Tài khoản chọn từ gợi ý: bảng chỉ còn người đó (gõ tiếp thì bỏ chọn, lọc lại theo chữ)
+  const [picked, setPicked] = useState<number | null>(null);
   const [roleFilter, setRoleFilter] = useState('');
   // Xếp theo nhóm người dùng, mỗi nhóm cách nhau một dòng trắng — nhớ trên từng máy
   const [byRole, setByRoleState] = useState(() => { try { return localStorage.getItem(BY_ROLE_KEY) === '1'; } catch { return false; } });
@@ -44,7 +82,7 @@ export default function AdminUsers() {
   };
 
   const list = users?.filter((u) =>
-    (!filter || `${u.full_name} ${u.username} ${u.email || ''}`.toLowerCase().includes(filter.toLowerCase())) &&
+    (picked != null ? u.id === picked : matchAccount(u, filter)) &&
     (!roleFilter || (roleFilter === 'none' ? !u.default_role_id : String(u.default_role_id) === roleFilter)));
   const missingRole = users?.filter((u) => !u.default_role_id).length ?? 0;
   // Không ai khớp ô tìm (VD đang gõ dở "Hoafng") → không có nhóm nào, bảng trống
@@ -64,7 +102,8 @@ export default function AdminUsers() {
         </div>
       )}
       <div className="filter-bar">
-        <input className="filter-search" style={{ width: 300 }} placeholder="Tìm theo tên, tên đăng nhập, email" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <AccountSearch users={users ?? []} value={filter} onChange={(v) => { setFilter(v); setPicked(null); }}
+          onPick={(u) => { setFilter(u.full_name); setPicked(u.id); }} />
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
           <option value="">Mọi nhóm</option>
           {roles?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}

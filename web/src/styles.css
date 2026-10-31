@@ -1186,6 +1186,10 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 /* Ô chọn người có tìm kiếm (SearchSelect): bảng nổi cố định theo vị trí ô chọn */
 .search-select-pop { position: fixed; z-index: 1000; }
 .search-select-pop .picker-item.active { background: var(--hover); }
+.account-search { position: relative; }
+.account-search-pop { top: calc(100% + 2px); width: 460px; max-width: calc(100vw - 32px); max-height: 340px; overflow-y: auto; padding: 4px; }
+.account-search-pop .picker-item.active { background: var(--hover); }
+.account-search-pop .picker-item > .muted.small.ellipsis { max-width: 170px; }
 .search-select-pop .picker-item.on { background: var(--primary-soft); }
 .search-select-pop .picker-item:disabled { color: var(--muted); cursor: default; }
 .search-select-pop .picker-list { position: relative; }

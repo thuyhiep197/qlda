@@ -1,3 +1,25 @@
+import { fold } from './customer-filter';
+
+type Account = { full_name: string; username: string; email?: string | null };
+/** Tài khoản khớp ô tìm: họ tên / tên đăng nhập / email, không phân biệt dấu và hoa thường ("hoang" khớp "Hoàng") */
+export const matchAccount = (u: Account, q: string) => {
+  const k = fold(q.trim());
+  return !k || fold(`${u.full_name} ${u.username} ${u.email ?? ''}`).includes(k);
+};
+
+/** Gợi ý khi gõ tên: tài khoản khớp, người có họ tên / tên đăng nhập / một từ trong tên bắt đầu bằng chữ đang gõ xếp trước; tối đa `limit` */
+export function suggestAccounts<U extends Account>(users: U[], q: string, limit = 8): U[] {
+  const k = fold(q.trim());
+  if (!k) return [];
+  const rank = (u: U) => {
+    const name = fold(u.full_name);
+    if (name.startsWith(k) || fold(u.username).startsWith(k)) return 0;
+    return name.split(/\s+/).some((w) => w.startsWith(k)) ? 1 : 2;
+  };
+  return users.filter((u) => matchAccount(u, q)).map((u, i) => ({ u, i, r: rank(u) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i).slice(0, limit).map((x) => x.u);
+}
+
 /** Nhóm xếp đầu (sau nhóm Quản trị hệ thống), so theo tên bỏ khoảng trắng, không phân biệt hoa thường */
 const TOP_GROUPS = ['bangiámđốc', 'techlead', 'balead'];
 const nameKey = (name: string | undefined) => (name ?? '').normalize('NFC').toLowerCase().replace(/\s+/g, '');

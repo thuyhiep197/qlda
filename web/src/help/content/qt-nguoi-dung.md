@@ -16,7 +16,7 @@ Mở bằng menu **Quản trị → Người dùng**.
 
 ![Màn hình Người dùng](/help/img/qt-nguoi-dung.webp)
 
-1. **Thanh lọc** — tìm theo họ tên, tên đăng nhập, email; lọc theo nhóm người dùng (có mục **Chưa có nhóm**); bật **Xếp theo nhóm** để gom tài khoản theo từng nhóm (lựa chọn này được nhớ trên máy bạn).
+1. **Thanh lọc** — gõ họ tên, tên đăng nhập hoặc email (có dấu hay không dấu đều được): danh sách gợi ý hiện ngay bên dưới, bấm chọn (hoặc dùng phím ↑ ↓ rồi Enter) để bảng chỉ còn tài khoản đó; gõ tiếp để tìm lại. Lọc theo nhóm người dùng (có mục **Chưa có nhóm**); bật **Xếp theo nhóm** để gom tài khoản theo từng nhóm (lựa chọn này được nhớ trên máy bạn).
 2. **Đăng xuất tất cả mọi người** — nút khẩn cấp, chỉ tài khoản Quản trị hệ thống thấy.
 3. **+ Tạo tài khoản**.
 4. **Trạng thái** — **Hoạt động** hoặc **Đã khóa** (dòng bị khóa hiện mờ).
