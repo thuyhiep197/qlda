@@ -105,11 +105,14 @@ test('all effective user and role management permissions allow full account admi
     permissions: ['customer.view', 'issue.create', 'document.export'],
   })).status, 200);
 
-  // Quyền theo người dùng không cho phép tự đổi nhóm, tự cấp quyền riêng, hay sửa nhóm của mình để tự nâng quyền.
+  // Người đủ quyền quản lý tài khoản (Người dùng + Phân quyền) tự cấp quyền riêng cho mình được, có ghi nhật ký bảo mật;
+  // nhưng vẫn không tự đổi nhóm hay sửa nhóm của mình.
   assert.equal((await api(accountManager, 'PATCH', `/users/${accountManager}`, { default_role_id: crossModule })).status, 403);
   assert.equal((await api(accountManager, 'PUT', `/users/${accountManager}/permissions`, {
     overrides: { 'customer.view': 'allow' },
-  })).status, 403);
+  })).status, 200);
+  assert.ok(get("SELECT 1 FROM audit_log WHERE action = 'user_permissions' AND user_id = ? AND target = (SELECT username FROM users WHERE id = ?)",
+    accountManager, accountManager));
   assert.equal((await api(accountManager, 'PATCH', `/roles/${accountManagerRole}`, {
     permissions: ['customer.view'],
   })).status, 403);

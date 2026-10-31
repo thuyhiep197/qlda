@@ -93,7 +93,7 @@ Nút **Xóa nhóm** chỉ hiện khi nhóm không còn ai (0 người) và khôn
 ## Lưu ý
 
 - Nhóm **Quản trị hệ thống** luôn có toàn quyền trên mọi phân hệ, dự án, khách hàng. Quyền của nhóm này cố định: không sửa, không đổi tên, không xóa được. Cấp / gỡ quản trị = đổi nhóm của tài khoản ở màn Người dùng (chỉ Quản trị hệ thống làm được).
-- Không ai (trừ Quản trị hệ thống) tự cấp quyền riêng cho chính mình, hoặc tự nâng quyền qua nhóm mình đang thuộc.
+- Tự cấp quyền riêng cho chính mình: chỉ Quản trị hệ thống hoặc người có đủ mọi ô của **Người dùng** và **Nhóm người dùng & phân quyền** làm được; việc tự cấp được ghi vào **Nhật ký bảo mật**. Không ai (trừ Quản trị hệ thống) tự đổi nhóm của mình hoặc tự nâng quyền qua nhóm mình đang thuộc.
 - Người có đủ mọi ô của **Người dùng** và **Nhóm người dùng & phân quyền** cấp được mọi quyền; người khác chỉ cấp được quyền mà chính mình đang có.
 - Có ô **Nhóm người dùng & phân quyền – Xem** nhưng không có **Người dùng – Xem**: tab Theo người dùng vẫn chỉ liệt kê tài khoản đang hoạt động, nhưng không hiện số quyền riêng và không hiện các tài khoản Quản trị hệ thống.
 - Mọi thay đổi quyền nhóm và quyền riêng được ghi vào [Nhật ký bảo mật](/help/qt-nhat-ky-bao-mat) (ô bị thêm / bỏ).

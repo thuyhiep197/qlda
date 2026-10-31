@@ -293,8 +293,10 @@ r.put('/users/:id/permissions', need('role.edit'), (req, res) => {
   const o = req.body?.overrides;
   if (!o || typeof o !== 'object') throw badRequest('Dữ liệu phân quyền không hợp lệ');
   const entries = Object.entries(o as Record<string, unknown>).filter(([p, e]) => isPermission(p) && e === 'allow');
-  // Không ai ngoài quản trị hệ thống được tự cấp quyền riêng cho mình.
-  if (!req.user.is_admin && id === req.user.id) throw forbidden('Không thể tự cấp quyền riêng cho mình');
+  // Tự cấp quyền riêng cho mình: chỉ quản trị hệ thống hoặc người đủ quyền quản lý tài khoản (Người dùng + Phân quyền: xem/thêm/sửa/xóa);
+  // vẫn ghi nhật ký bảo mật (người làm = người được cấp). Tự đổi nhóm / sửa nhóm của mình vẫn bị chặn.
+  const selfGrant = id === req.user.id;
+  if (selfGrant && !canManageAccountPermissions(req.user)) throw forbidden('Không thể tự cấp quyền riêng cho mình');
   if (!req.user.is_admin && !canManageAccountPermissions(req.user)) {
     const mine = userPermissions(req.user);
     const before = new Set(all<{ permission: string }>("SELECT permission FROM user_permissions WHERE user_id = ? AND effect = 'allow'", id).map((x) => x.permission));
