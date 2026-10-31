@@ -11,6 +11,7 @@ import { UserPermEditor } from '../components/UserPermEditor';
 import { fmtDateTime } from '../util';
 import { Avatar, Modal, Spinner, toast, toastError } from '../components/ui';
 import { HelpButton } from '../help/HelpMenu';
+import { ACCENT_WARNING, hasAccent } from '../password';
 
 const genPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -274,11 +275,12 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
             </div></div>}
         </div>}
         {!user && (
-          <label className="field"><span>Mật khẩu tạm (≥ 10 ký tự, có chữ và số)</span>
+          <label className="field"><span>Mật khẩu tạm (≥ 10 ký tự, có chữ và số, không dấu)</span>
             <div className="row gap-xs">
               <input className="grow" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} required />
               <button type="button" className="btn" onClick={() => setPassword(genPassword())}>Tạo ngẫu nhiên</button>
-            </div></label>
+            </div>
+            {hasAccent(password) && <span className="form-error small">{ACCENT_WARNING}</span>}</label>
         )}
         {/* Không chọn dự án ở đây: vào dự án theo quyền Dự án – Xem tất cả và danh sách người tham gia của từng dự án */}
       </form>

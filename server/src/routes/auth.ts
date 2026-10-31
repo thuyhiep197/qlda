@@ -62,13 +62,16 @@ r.post('/login', (req, res) => {
     if (!repeat) fail(ipKey);
     audit(req, 'login_failed', { userId: user?.id ?? null, username,
       detail: !user ? 'Tên đăng nhập không tồn tại' : repeat ? 'Sai mật khẩu (lặp lại mật khẩu sai vừa thử, không tính thêm)' : 'Sai mật khẩu' });
-    if (LOCKOUT && user?.is_active && !repeat) {
-      const { n } = get<{ n: number }>('UPDATE users SET failed_logins = failed_logins + 1 WHERE id = ? RETURNING failed_logins AS n', user.id)!;
+    if (LOCKOUT && user?.is_active) {
+      const { n } = repeat ? get<{ n: number }>('SELECT failed_logins AS n FROM users WHERE id = ?', user.id)!
+        : get<{ n: number }>('UPDATE users SET failed_logins = failed_logins + 1 WHERE id = ? RETURNING failed_logins AS n', user.id)!;
       if (n >= MAX_FAILED_LOGINS) {
         run('UPDATE users SET is_active = 0, token_version = token_version + 1 WHERE id = ?', user.id);
         audit(req, 'account_locked', { userId: user.id, username, target: username, detail: `Sai mật khẩu ${MAX_FAILED_LOGINS} lần liên tiếp` });
         throw new HttpError(403, `Tài khoản đã bị khóa do nhập sai mật khẩu ${MAX_FAILED_LOGINS} lần, vui lòng liên hệ quản trị viên để mở khóa`);
       }
+      // Báo số lần thử còn lại để người dùng dừng lại hỏi quản trị trước khi bị khóa
+      throw new HttpError(401, `Sai tên đăng nhập hoặc mật khẩu. Còn ${MAX_FAILED_LOGINS - n} lần thử trước khi tài khoản bị khóa`);
     }
     throw new HttpError(401, 'Sai tên đăng nhập hoặc mật khẩu');
   }

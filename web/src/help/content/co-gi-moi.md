@@ -7,6 +7,13 @@ keywords: cập nhật, phiên bản mới, thay đổi, tính năng mới
 ---
 Khi mục này có cập nhật bạn chưa đọc, nút **Hướng dẫn sử dụng** trên thanh trên cùng có chấm đỏ. Nếu chưa thấy thay đổi, nhấn **Ctrl + F5** để tải bản mới.
 
+## 31/10/2026 — Đăng nhập và mật khẩu
+- Nhập sai mật khẩu: màn hình đăng nhập báo **còn mấy lần thử** trước khi tài khoản bị khóa (khóa sau 5 lần sai).
+- Bấm **Đăng nhập** nhiều lần hoặc giữ phím Enter không còn bị tính thành nhiều lần sai.
+- Mật khẩu mới **không được có chữ có dấu**. Hãy tắt bộ gõ tiếng Việt (Unikey, EVKey…) khi gõ mật khẩu; ô mật khẩu báo ngay nếu phát hiện chữ có dấu. Mật khẩu cũ vẫn dùng bình thường.
+- Quản trị **đặt lại mật khẩu** thì số lần nhập sai được đếm lại từ đầu.
+- Quản trị → **Người dùng**: gõ tên vào ô tìm là hiện gợi ý để chọn, gõ có dấu hay không dấu đều được.
+
 ## 31/10/2026 — Hướng dẫn sử dụng
 - Nút **Hướng dẫn sử dụng** trên thanh trên cùng và nút ⓘ cạnh tên mỗi màn hình: mở hướng dẫn của đúng màn hình đang dùng ngay bên phải, không phải rời màn hình.
 - **Trung tâm hướng dẫn**: mục lục theo phân hệ → module → màn hình, ô tìm kiếm không cần gõ dấu. Chỉ hiện hướng dẫn của những chức năng bạn được dùng; thao tác bạn chưa có quyền được hiện mờ kèm tên quyền cần xin.

@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { api, errMsg, queryClient } from '../api';
 import { PasswordInput } from '../components/fields';
+import { ACCENT_LOGIN_HINT, hasAccent } from '../password';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -44,6 +45,7 @@ export default function Login() {
         <label className="field">
           <span>Mật khẩu</span>
           <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+          {hasAccent(password) && <span className="muted small">{ACCENT_LOGIN_HINT}</span>}
         </label>
         {error && <div className="form-error">{error}</div>}
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>

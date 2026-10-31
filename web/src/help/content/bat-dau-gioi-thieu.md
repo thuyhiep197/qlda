@@ -14,7 +14,7 @@ QLDA là công cụ nội bộ để quản lý khách hàng và hành trình b�
 
 1. Mở địa chỉ QLDA trên trình duyệt.
 2. Nhập **Tên đăng nhập** và **Mật khẩu** do quản trị hệ thống cấp, bấm **Đăng nhập**. Bấm biểu tượng con mắt trong ô mật khẩu để xem lại mật khẩu vừa gõ.
-3. Lần đăng nhập đầu tiên (hoặc sau khi quản trị đặt lại mật khẩu), hệ thống yêu cầu **Đổi mật khẩu** trước khi dùng: nhập mật khẩu hiện tại, mật khẩu mới (ít nhất 10 ký tự, có cả chữ và số, không chứa tên đăng nhập) và nhập lại mật khẩu mới.
+3. Lần đăng nhập đầu tiên (hoặc sau khi quản trị đặt lại mật khẩu), hệ thống yêu cầu **Đổi mật khẩu** trước khi dùng: nhập mật khẩu hiện tại, mật khẩu mới (ít nhất 10 ký tự, có cả chữ và số, **không dấu** — tắt bộ gõ tiếng Việt khi gõ mật khẩu, không chứa tên đăng nhập) và nhập lại mật khẩu mới.
 
 Nhập sai mật khẩu 5 lần liên tiếp, tài khoản sẽ bị khóa; khi đó cần nhờ quản trị hệ thống mở khóa. Quên mật khẩu: liên hệ quản trị hệ thống để được cấp lại.
 

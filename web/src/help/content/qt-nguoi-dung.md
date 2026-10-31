@@ -36,7 +36,7 @@ Nếu có tài khoản chưa được chọn nhóm, đầu trang hiện thông b
 3. Nhập **Họ tên**, **Email** (không bắt buộc).
 4. Chọn **Nhóm người dùng**. Khi chọn nhóm, ô Phòng ban và Vị trí được gợi ý sẵn — kiểm tra lại cho đúng.
 5. Chọn **Phòng ban** rồi tích **Vị trí** (một hoặc nhiều). Phòng ban và vị trí là **bắt buộc**, trừ khi chọn nhóm Quản trị hệ thống. Danh sách vị trí tùy theo phòng ban (xem [Phòng ban & Nhân sự](/help/qt-phong-ban-nhan-su)).
-6. **Mật khẩu tạm**: hệ thống tạo sẵn một mật khẩu ngẫu nhiên; bấm **Tạo ngẫu nhiên** để đổi, hoặc tự gõ (ít nhất 10 ký tự, có cả chữ và số, không chứa tên đăng nhập, không quá dễ đoán).
+6. **Mật khẩu tạm**: hệ thống tạo sẵn một mật khẩu ngẫu nhiên; bấm **Tạo ngẫu nhiên** để đổi, hoặc tự gõ (ít nhất 10 ký tự, có cả chữ và số, không dấu, không chứa tên đăng nhập, không quá dễ đoán).
 7. Bấm **Tạo tài khoản**. Hộp thoại hiện địa chỉ đăng nhập, tên đăng nhập và mật khẩu tạm — bấm **Sao chép** rồi gửi cho người dùng. Ở lần đăng nhập đầu tiên, người dùng **bắt buộc đổi mật khẩu**.
 :::
 

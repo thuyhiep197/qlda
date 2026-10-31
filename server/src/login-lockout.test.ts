@@ -84,3 +84,22 @@ test('an admin password reset starts the wrong-password count from zero', async 
   assert.equal((await login('khoa4', 'gonham123')).status, 401);
   assert.equal(isActive(id), 1);
 });
+
+test('a wrong password tells how many tries are left before the account is locked', async () => {
+  user('khoa5');
+  assert.match((await login('khoa5', 'sai1')).body.error, /Còn 4 lần thử/);
+  assert.match((await login('khoa5', 'sai1')).body.error, /Còn 4 lần thử/); // gửi lại đúng mật khẩu sai đó: không trừ thêm
+  assert.match((await login('khoa5', 'sai2')).body.error, /Còn 3 lần thử/);
+  // Tên đăng nhập không tồn tại: không báo số lần
+  assert.equal((await login('khongcoai', 'sai1')).body.error, 'Sai tên đăng nhập hoặc mật khẩu');
+});
+
+test('new passwords may not contain Vietnamese accented letters', async () => {
+  const { validatePassword } = await import('./auth.ts');
+  assert.throws(() => validatePassword('Matkhau2026â', 'abc'), /có dấu/);
+  assert.throws(() => validatePassword('Đổimậtkhẩu2026', 'abc'), /có dấu/);
+  assert.equal(validatePassword('Matkhau2026aa', 'abc'), 'Matkhau2026aa');
+  // Người đã có mật khẩu có dấu từ trước vẫn đăng nhập được
+  run('INSERT INTO users(username, full_name, password_hash) VALUES (?, ?, ?)', 'cudau', 'cudau', hashPassword('Mậtkhẩu2026'));
+  assert.equal((await login('cudau', 'Mậtkhẩu2026')).status, 200);
+});

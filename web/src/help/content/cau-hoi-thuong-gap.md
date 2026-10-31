@@ -11,10 +11,10 @@ keywords: faq, hỏi đáp, quên mật khẩu, bị khóa, không thấy, thôn
 Liên hệ quản trị hệ thống để được đặt lại. Quản trị sẽ gửi bạn một mật khẩu tạm; khi đăng nhập bằng mật khẩu tạm, bạn phải đổi sang mật khẩu mới ngay.
 
 **Tài khoản báo "đã bị khóa"?**
-Nhập sai mật khẩu 5 lần liên tiếp thì tài khoản bị khóa để chống dò mật khẩu. Liên hệ quản trị hệ thống để mở khóa (và đặt lại mật khẩu nếu cần). Ngoài ra, nếu một máy nhập sai quá nhiều lần, hệ thống tạm chặn đăng nhập từ máy đó trong 15 phút.
+Nhập sai mật khẩu 5 lần liên tiếp (5 mật khẩu sai khác nhau; gõ lại đúng mật khẩu sai vừa thử không bị tính thêm) thì tài khoản bị khóa để chống dò mật khẩu. Mỗi lần nhập sai, màn hình đăng nhập báo **còn mấy lần thử** — thấy còn ít thì dừng lại hỏi quản trị. Liên hệ quản trị hệ thống để mở khóa (và đặt lại mật khẩu nếu cần; đặt lại mật khẩu cũng đếm lại số lần sai từ đầu). Ngoài ra, nếu một máy nhập sai quá nhiều lần, hệ thống tạm chặn đăng nhập từ máy đó trong 15 phút.
 
 **Mật khẩu mới phải thế nào?**
-Ít nhất 10 ký tự, có cả chữ và số, không chứa tên đăng nhập, khác mật khẩu hiện tại.
+Ít nhất 10 ký tự, có cả chữ và số, **không dấu** (chỉ chữ không dấu, số, ký tự bàn phím thường), không chứa tên đăng nhập, khác mật khẩu hiện tại. Hãy **tắt bộ gõ tiếng Việt** (Unikey, EVKey…) khi gõ mật khẩu: nếu bộ gõ đang bật, "aa" có thể thành "â" và lần sau gõ lại sẽ không khớp. Ô mật khẩu báo ngay khi phát hiện chữ có dấu.
 
 **Tôi lỡ đăng nhập trên máy lạ?**
 Vào **Cài đặt tài khoản** → **Bảo mật** → **Đăng xuất khỏi mọi thiết bị khác**, rồi đổi mật khẩu. Đổi mật khẩu cũng tự đăng xuất các thiết bị khác. Xem [Cài đặt tài khoản](/help/ho-so-ca-nhan).

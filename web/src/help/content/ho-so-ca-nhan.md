@@ -42,7 +42,7 @@ Bật / tắt từng loại:
 Tắt một loại thì chuông không báo loại đó nữa; các thông báo đã có vẫn giữ nguyên. Hai mục **Tôi được giao một issue** và **Có người @nhắc đến tôi** áp dụng cả cho công việc, bước hành trình, lịch gọi và trao đổi của khách hàng. Nhắc nhở bước hành trình / lịch gọi đến hạn luôn được gửi. Xem [Thông báo](/help/thong-bao).
 
 ### Đổi mật khẩu (tab Bảo mật)
-1. Nhập **Mật khẩu hiện tại**, **Mật khẩu mới** (ít nhất 10 ký tự, có chữ và số, không chứa tên đăng nhập) và **Nhập lại mật khẩu mới**.
+1. Nhập **Mật khẩu hiện tại**, **Mật khẩu mới** (ít nhất 10 ký tự, có chữ và số, không dấu, không chứa tên đăng nhập — tắt bộ gõ tiếng Việt khi gõ) và **Nhập lại mật khẩu mới**.
 2. Bấm **Đổi mật khẩu**. Tài khoản sẽ được đăng xuất trên các thiết bị khác.
 
 ### Đăng xuất khỏi mọi thiết bị khác (tab Bảo mật)

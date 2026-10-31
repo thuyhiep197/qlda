@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { api, errMsg, logout, queryClient } from '../api';
 import { PasswordInput } from '../components/fields';
 import { toast } from '../components/ui';
+import { ACCENT_WARNING, hasAccent } from '../password';
 
 export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
   const [cur, setCur] = useState('');
@@ -13,6 +14,7 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    if (hasAccent(next)) return setError(ACCENT_WARNING);
     if (next !== confirm) return setError('Mật khẩu nhập lại không khớp');
     setBusy(true);
     try {
@@ -32,8 +34,9 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
     <form onSubmit={submit} className="stack">
       <label className="field"><span>Mật khẩu hiện tại</span>
         <PasswordInput value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" required /></label>
-      <label className="field"><span>Mật khẩu mới (≥ 10 ký tự, có chữ và số, không chứa tên đăng nhập)</span>
-        <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={10} required /></label>
+      <label className="field"><span>Mật khẩu mới (≥ 10 ký tự, có chữ và số, không dấu, không chứa tên đăng nhập)</span>
+        <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={10} required />
+        {hasAccent(next) && <span className="form-error small">{ACCENT_WARNING}</span>}</label>
       <label className="field"><span>Nhập lại mật khẩu mới</span>
         <PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required /></label>
       {error && <div className="form-error">{error}</div>}

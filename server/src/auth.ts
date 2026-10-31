@@ -35,10 +35,14 @@ export function verifyPassword(password: string, stored: string) {
 const COMMON = ['admin@123', 'admin@1234', 'admin@12345', 'admin123', 'password', 'password1', 'matkhau', '12345678', '123456789', '1234567890', 'qwerty123', 'abc@1234', 'abc12345'];
 
 /** Mật khẩu: ≥ 10 ký tự, có chữ và số, không chứa tên đăng nhập, không phải mật khẩu phổ biến. */
+export const PASSWORD_ACCENT_MSG = 'Mật khẩu không được có chữ có dấu (tắt bộ gõ tiếng Việt khi nhập mật khẩu)';
+
 export function validatePassword(password: unknown, username?: string): string {
   if (typeof password !== 'string' || password.length < 10) throw new HttpError(400, 'Mật khẩu phải có ít nhất 10 ký tự');
   if (password.length > 200) throw new HttpError(400, 'Mật khẩu quá dài');
-  if (!/[A-Za-zÀ-ỹ]/.test(password) || !/\d/.test(password)) throw new HttpError(400, 'Mật khẩu phải có cả chữ và số');
+  // Chỉ chữ không dấu, số, ký tự bàn phím thường: bộ gõ tiếng Việt bật lúc đặt mật khẩu ("aa" → "â") làm lần sau gõ lại không khớp
+  if (/[^\x20-\x7E]/.test(password)) throw new HttpError(400, PASSWORD_ACCENT_MSG);
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) throw new HttpError(400, 'Mật khẩu phải có cả chữ và số');
   const low = password.toLowerCase();
   if (COMMON.includes(low) || /^(.)\1+$/.test(password)) throw new HttpError(400, 'Mật khẩu quá dễ đoán, hãy chọn mật khẩu khác');
   if (username && username.length >= 3 && low.includes(username.toLowerCase())) throw new HttpError(400, 'Mật khẩu không được chứa tên đăng nhập');
