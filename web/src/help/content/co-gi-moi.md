@@ -5,14 +5,14 @@ order: 10
 summary: Các thay đổi mới của QLDA, mới nhất ở trên cùng.
 keywords: cập nhật, phiên bản mới, thay đổi, tính năng mới
 ---
-Khi mục này có cập nhật bạn chưa đọc, nút **?** trên thanh trên cùng có chấm đỏ. Nếu chưa thấy thay đổi, nhấn **Ctrl + F5** để tải bản mới.
+Khi mục này có cập nhật bạn chưa đọc, mục **Hướng dẫn sử dụng** cuối thanh bên có chấm đỏ. Nếu chưa thấy thay đổi, nhấn **Ctrl + F5** để tải bản mới.
 
 ## 31/10/2026 — Hướng dẫn sử dụng
-- Nút **?** trên thanh trên cùng: mở hướng dẫn của đúng màn hình đang dùng ngay bên phải, không phải rời màn hình.
+- Mục **Hướng dẫn sử dụng** cuối thanh bên và nút ⓘ cạnh tên mỗi màn hình: mở hướng dẫn của đúng màn hình đang dùng ngay bên phải, không phải rời màn hình.
 - **Trung tâm hướng dẫn**: mục lục theo phân hệ → module → màn hình, ô tìm kiếm không cần gõ dấu. Chỉ hiện hướng dẫn của những chức năng bạn được dùng; thao tác bạn chưa có quyền được hiện mờ kèm tên quyền cần xin.
 - **Bắt đầu nhanh theo vai trò**: Kinh doanh/AM, BA/PM, Dev/Tester, Ban Giám đốc, Quản trị.
-- **Quyền của tôi**: xem bảng quyền hiện tại của tài khoản (mở từ nút **?** hoặc menu tài khoản).
-- **Hướng dẫn nhanh** tự hiện ở lần đăng nhập đầu tiên; xem lại bất cứ lúc nào ở nút **?** → **Xem lại hướng dẫn nhanh**.
+- **Quyền của tôi**: xem bảng quyền hiện tại của tài khoản (mở từ mục Hướng dẫn sử dụng hoặc menu tài khoản).
+- **Hướng dẫn nhanh** tự hiện ở lần đăng nhập đầu tiên; xem lại bất cứ lúc nào ở mục Hướng dẫn sử dụng → **Xem lại hướng dẫn nhanh**.
 
 ## 29/10/2026 — Ô chọn người có tìm kiếm, tạo tài khoản cần phòng ban, API key
 - **API key cá nhân** (Cài đặt tài khoản → Bảo mật): cho trợ lý AI (Claude) hoặc script làm việc trên QLDA thay bạn, với đúng quyền của bạn. Xem [Cài đặt tài khoản](/help/ho-so-ca-nhan).

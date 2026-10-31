@@ -7,7 +7,7 @@ keywords: bắt đầu, người mới, vai trò, hướng dẫn nhanh
 ---
 ## Bạn nên đọc gì trước?
 
-Nếu đây là lần đầu dùng QLDA, hãy đọc [Làm quen với QLDA](/help/bat-dau-gioi-thieu) trước: cách đăng nhập, bố cục màn hình, nút tìm kiếm, chuông thông báo và nút **?** hướng dẫn.
+Nếu đây là lần đầu dùng QLDA, hãy đọc [Làm quen với QLDA](/help/bat-dau-gioi-thieu) trước: cách đăng nhập, bố cục màn hình, nút tìm kiếm, chuông thông báo và mục Hướng dẫn sử dụng.
 
 Sau đó chọn trang theo công việc hằng ngày của bạn:
 
@@ -24,6 +24,6 @@ Mục lục bên trái chỉ hiện những trang phù hợp với quyền của
 ## Mẹo tra cứu
 
 - Gõ từ khóa vào ô **Tìm hướng dẫn** ở đầu mục lục, không cần gõ dấu (VD: `xuat excel`, `doi mat khau`).
-- Đang ở màn hình nào, bấm nút **?** trên thanh trên cùng → **Hướng dẫn màn hình này** để mở hướng dẫn của đúng màn hình đó ngay bên phải, không phải rời màn hình đang làm.
+- Đang ở màn hình nào, bấm nút ⓘ cạnh tên màn hình (hoặc mục **Hướng dẫn sử dụng** cuối thanh bên → **Hướng dẫn màn hình này**) để mở hướng dẫn của đúng màn hình đó ngay bên phải, không phải rời màn hình đang làm.
 - Phần thao tác có ghi **Quyền cần có**. Phần hiện mờ kèm "Bạn chưa có quyền" là thao tác tài khoản của bạn chưa được cấp.
 - Xem [Câu hỏi thường gặp](/help/cau-hoi-thuong-gap) khi gặp vướng mắc, và [Có gì mới](/help/co-gi-moi) để biết các thay đổi gần đây.

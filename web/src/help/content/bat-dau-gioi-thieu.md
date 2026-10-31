@@ -24,7 +24,7 @@ Nhập sai mật khẩu 5 lần liên tiếp, tài khoản sẽ bị khóa; khi 
 
 1. **Thanh bên** — các phân hệ: Dashboard, Khách hàng, Dự án, Tài liệu, Quản trị. Bạn chỉ thấy phân hệ mình được cấp quyền xem. Bấm nút ở đầu thanh bên để thu gọn (chỉ còn biểu tượng) hoặc mở rộng; kéo mép phải thanh bên để co giãn độ rộng. Lựa chọn được nhớ trên máy bạn đang dùng.
 2. **Tìm kiếm nhanh** — tìm khách hàng, dự án, issue, bước hành trình, tài liệu. Xem [Tìm kiếm nhanh](/help/tim-kiem).
-3. **Nút ? Hướng dẫn** — hướng dẫn của màn hình đang mở, Trung tâm hướng dẫn, Bắt đầu nhanh, Có gì mới, Quyền của tôi và xem lại hướng dẫn nhanh. Chấm đỏ trên nút nghĩa là mục **Có gì mới** có cập nhật bạn chưa đọc.
+3. **Hướng dẫn sử dụng** (cuối thanh bên) — hướng dẫn của màn hình đang mở, Trung tâm hướng dẫn, Bắt đầu nhanh, Có gì mới, Quyền của tôi và xem lại hướng dẫn nhanh. Chấm đỏ trên biểu tượng nghĩa là mục **Có gì mới** có cập nhật bạn chưa đọc.
 4. **Chuông thông báo** — báo khi có người nhắc tên, giao việc, bình luận… Xem [Thông báo](/help/thong-bao).
 5. **Menu tài khoản** — bấm vào tên của bạn để mở: **Cài đặt tài khoản**, **Quyền của tôi**, chuyển giao diện sáng/tối, **Đăng xuất**.
 
@@ -32,7 +32,7 @@ Khi đang ở phân hệ Khách hàng hoặc Dự án, thanh trên cùng có th�
 
 ## Hướng dẫn nhanh (tour)
 
-Lần đầu đăng nhập, QLDA tự mở một hướng dẫn nhanh vài bước, lần lượt chỉ vào các phần chính của màn hình. Bấm **Tiếp** / **Trước** để xem, **Bỏ qua** để đóng. Muốn xem lại: bấm nút **?** → **Xem lại hướng dẫn nhanh**.
+Lần đầu đăng nhập, QLDA tự mở một hướng dẫn nhanh vài bước, lần lượt chỉ vào các phần chính của màn hình. Bấm **Tiếp** / **Trước** để xem, **Bỏ qua** để đóng. Muốn xem lại: bấm mục **Hướng dẫn sử dụng** cuối thanh bên → **Xem lại hướng dẫn nhanh**.
 
 ## Dùng trên điện thoại
 

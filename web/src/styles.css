@@ -1190,8 +1190,14 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .search-select-pop .picker-list { position: relative; }
 
 /* ---------- Hướng dẫn sử dụng ---------- */
-.help-btn { position: relative; }
-.help-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
+/* Mục Hướng dẫn sử dụng cuối thanh bên */
+.side-help { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--side-hover); }
+.side-help-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 10px; white-space: nowrap; overflow: hidden; border: none; border-radius: 4px; background: transparent; color: var(--side-fg); font: inherit; font-weight: 500; cursor: pointer; text-align: left; }
+.side-help-btn:hover, .side-help-btn.open { background: var(--side-hover); color: #fff; }
+.side-help-icon { position: relative; display: inline-flex; color: var(--side-muted); }
+.side-help-btn:hover .side-help-icon, .side-help-btn.open .side-help-icon { color: #fff; }
+.help-dot { position: absolute; top: -3px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--side-bg); }
+@media (min-width: 801px) { .side-collapsed .side-help-btn { justify-content: center; padding-left: 0; padding-right: 0; } }
 .help-menu { min-width: 260px; }
 .help-menu button { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .help-menu button .muted { flex-basis: 100%; padding-left: 26px; margin-top: -2px; }
@@ -1254,4 +1260,4 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
   .help-toc { position: static; height: auto; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--border); }
   .help-main { padding: 16px; }
 }
-h1 .help-inline, h2 .help-inline { vertical-align: middle; margin-left: 2px; }
+h1 .help-inline, h2 .help-inline { display: inline-flex; vertical-align: -5px; margin-left: 2px; }

@@ -15,7 +15,7 @@ export const TOUR_STEPS: Step[] = [
   { target: '[data-tour="nav-admin"]', sub: 'admin', title: 'Quản trị', text: 'Người dùng, phân quyền và các danh mục dùng chung.' },
   { target: '[data-tour="search"]', title: 'Tìm kiếm nhanh', text: 'Gõ mã issue (VD DEMO-12), tên công việc, dự án hoặc khách hàng để mở ngay.' },
   { target: '[data-tour="bell"]', title: 'Thông báo', text: 'Khi có người nhắc tên bạn, giao việc, bình luận hoặc đổi trạng thái việc của bạn, chuông sẽ báo ở đây.' },
-  { target: '[data-tour="help"]', title: 'Hướng dẫn sử dụng', text: 'Nút này mở hướng dẫn của đúng màn hình đang dùng, Trung tâm hướng dẫn, mục Có gì mới và Quyền của tôi.' },
+  { target: '[data-tour="help"]', title: 'Hướng dẫn sử dụng', text: 'Mục này ở cuối thanh bên, mở hướng dẫn của đúng màn hình đang dùng, Trung tâm hướng dẫn, mục Có gì mới và Quyền của tôi.' },
   { target: '[data-tour="user"]', title: 'Tài khoản của bạn', text: 'Cài đặt tài khoản: thông tin cá nhân, ảnh đại diện, giao diện sáng/tối, loại thông báo muốn nhận, đổi mật khẩu.' },
   { title: 'Sẵn sàng!', text: 'Mở "Bắt đầu nhanh theo vai trò" để xem các việc thường làm hằng ngày của vai trò bạn.' },
 ];

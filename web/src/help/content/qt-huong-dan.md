@@ -14,7 +14,7 @@ Chỉ tài khoản thuộc nhóm **Quản trị hệ thống**. Các nút **Sử
 ## Thao tác
 
 ### Sửa một bài có sẵn
-1. Mở bài trong **Trung tâm hướng dẫn** (nút **?** → **Trung tâm hướng dẫn**).
+1. Mở bài trong **Trung tâm hướng dẫn** (mục **Hướng dẫn sử dụng** cuối thanh bên → **Trung tâm hướng dẫn**).
 2. Bấm **Sửa bài** cạnh tiêu đề.
 3. Sửa **Tiêu đề** và nội dung (bài có sẵn giữ nguyên Mục và Module trong mục lục); bấm **Xem trước** để xem thử, **Soạn** để quay lại sửa.
 4. Bấm **Lưu**. Cuối bài hiện dòng "Cập nhật trên tool bởi … lúc …".

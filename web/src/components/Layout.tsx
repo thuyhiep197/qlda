@@ -88,6 +88,8 @@ export default function Layout() {
           {hasSubsystem(me, 'docs') && <NavLink to="/docs" data-tour="nav-docs" data-tip={collapsed ? 'Tài liệu' : undefined}><LibraryBig size={18} /> <span className="nav-label">Tài liệu</span></NavLink>}
           {hasSubsystem(me, 'admin') && <NavLink to="/admin" data-tour="nav-admin" data-tip={collapsed ? 'Quản trị' : undefined}><Wrench size={18} /> <span className="nav-label">Quản trị</span></NavLink>}
         </nav>
+        {/* Cuối thanh bên: Hướng dẫn sử dụng (mọi tài khoản đều thấy) */}
+        <HelpMenu collapsed={collapsed} onDone={() => setNavOpen(false)} />
         {/* Kéo mép phải để co giãn; kéo hẹp quá thì thu gọn chỉ còn biểu tượng */}
         <div className="side-resizer" role="separator" aria-orientation="vertical" aria-label="Kéo để co giãn thanh bên" onPointerDown={startResize} />
       </aside>
@@ -98,7 +100,6 @@ export default function Layout() {
           <div data-tour="search" className="tour-search"><GlobalSearch /></div>
           {createBtn && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> {createBtn}</button>}
           <div className="spacer" />
-          <HelpMenu />
           <div data-tour="bell"><NotificationBell /></div>
           <div className="user-menu" data-tour="user">
             <button className="user-btn" onClick={() => setMenu(!menu)}>
