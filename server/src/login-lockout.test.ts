@@ -41,9 +41,9 @@ const isActive = (id: number) => get<{ is_active: number }>('SELECT is_active FR
 
 test('wrong password 5 times in a row locks the account until an admin unlocks it', async () => {
   const id = user('khoa1');
-  for (let i = 1; i < MAX_FAILED_LOGINS; i++) assert.equal((await login('khoa1', 'sai')).status, 401);
+  for (let i = 1; i < MAX_FAILED_LOGINS; i++) assert.equal((await login('khoa1', `sai${i}`)).status, 401);
   assert.equal(isActive(id), 1);
-  const locked = await login('khoa1', 'sai');
+  const locked = await login('khoa1', 'sai-cuoi');
   assert.equal(locked.status, 403);
   assert.match(locked.body.error, /khóa/);
   assert.equal(isActive(id), 0);
@@ -58,8 +58,29 @@ test('wrong password 5 times in a row locks the account until an admin unlocks i
 
 test('a successful login resets the count of wrong passwords', async () => {
   const id = user('khoa2');
-  for (let i = 1; i < MAX_FAILED_LOGINS; i++) await login('khoa2', 'sai');
+  for (let i = 1; i < MAX_FAILED_LOGINS; i++) await login('khoa2', `sai${i}`);
   assert.equal((await login('khoa2', 'Dung2026x')).status, 200);
-  for (let i = 1; i < MAX_FAILED_LOGINS; i++) assert.equal((await login('khoa2', 'sai')).status, 401);
+  for (let i = 1; i < MAX_FAILED_LOGINS; i++) assert.equal((await login('khoa2', `lai${i}`)).status, 401);
+  assert.equal(isActive(id), 1);
+});
+
+test('sending the same wrong password again (Enter held down, double click) counts as one mistake, not several', async () => {
+  const id = user('khoa3');
+  for (let i = 0; i < 10; i++) assert.equal((await login('khoa3', 'qlda@868686')).status, 401);
+  assert.equal(isActive(id), 1);
+  assert.equal(get<{ n: number }>('SELECT failed_logins n FROM users WHERE id = ?', id)!.n, 1);
+  // Mật khẩu sai khác nhau vẫn bị đếm đủ và khóa
+  for (let i = 2; i < MAX_FAILED_LOGINS; i++) assert.equal((await login('khoa3', `khac${i}`)).status, 401);
+  assert.equal((await login('khoa3', 'khac-cuoi')).status, 403);
+  assert.equal(isActive(id), 0);
+});
+
+test('an admin password reset starts the wrong-password count from zero', async () => {
+  const id = user('khoa4');
+  for (let i = 1; i < MAX_FAILED_LOGINS; i++) await login('khoa4', `sai${i}`);
+  assert.equal((await api('POST', `/users/${id}/reset-password`, {}, admin)).status, 200);
+  assert.equal(get<{ n: number }>('SELECT failed_logins n FROM users WHERE id = ?', id)!.n, 0);
+  // Gõ nhầm mật khẩu tạm một lần không bị khóa
+  assert.equal((await login('khoa4', 'gonham123')).status, 401);
   assert.equal(isActive(id), 1);
 });

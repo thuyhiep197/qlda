@@ -14,7 +14,7 @@ const r = Router();
 const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_AVATAR_BYTES, files: 1 } });
 
 // Chống dò mật khẩu (BẬT mặc định; chỉ tắt khi đặt LOGIN_LOCKOUT=off trong .env):
-// sai mật khẩu 5 lần liên tiếp → khóa hẳn tài khoản, quản trị viên mở khóa; mỗi địa chỉ IP tối đa 30 lần sai trong 15 phút
+// sai mật khẩu 5 lần liên tiếp (5 mật khẩu sai khác nhau) → khóa hẳn tài khoản, quản trị viên mở khóa; mỗi địa chỉ IP tối đa 30 lần sai trong 15 phút
 const LOCKOUT = process.env.LOGIN_LOCKOUT !== 'off';
 const WINDOW = 15 * 60_000;
 export const MAX_FAILED_LOGINS = 5;
@@ -30,8 +30,21 @@ const fail = (key: string) => {
   const cur = f && f.until > Date.now() ? f : { count: 0, until: 0 };
   failures.set(key, { count: cur.count + 1, until: Date.now() + WINDOW });
 };
+// Mật khẩu sai gần nhất của từng tài khoản (chỉ giữ dấu băm trong bộ nhớ, kèm muối ngẫu nhiên mỗi lần chạy): gửi lại đúng mật khẩu sai đó
+// (bấm Enter giữ lâu / bấm Đăng nhập nhiều lần — nhật ký có lần sai cách nhau 13ms) không tính thêm một lần sai
+const SALT = crypto.randomBytes(16);
+const lastWrong = new Map<number, { digest: string; until: number }>();
+const digestOf = (password: string) => crypto.createHmac('sha256', SALT).update(password).digest('hex');
+const repeatedWrong = (userId: number, password: string) => {
+  const w = lastWrong.get(userId);
+  const digest = digestOf(password);
+  const same = !!w && w.until > Date.now() && w.digest === digest;
+  lastWrong.set(userId, { digest, until: Date.now() + WINDOW });
+  return same;
+};
 setInterval(() => {
   for (const [k, f] of failures) if (f.until <= Date.now()) failures.delete(k);
+  for (const [k, w] of lastWrong) if (w.until <= Date.now()) lastWrong.delete(k);
 }, WINDOW).unref();
 
 r.post('/login', (req, res) => {
@@ -45,9 +58,11 @@ r.post('/login', (req, res) => {
   const user = get('SELECT * FROM users WHERE username = ?', username);
   const okPw = verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !okPw) {
-    fail(ipKey);
-    audit(req, 'login_failed', { userId: user?.id ?? null, username, detail: user ? 'Sai mật khẩu' : 'Tên đăng nhập không tồn tại' });
-    if (LOCKOUT && user?.is_active) {
+    const repeat = !!user && repeatedWrong(user.id, password);
+    if (!repeat) fail(ipKey);
+    audit(req, 'login_failed', { userId: user?.id ?? null, username,
+      detail: !user ? 'Tên đăng nhập không tồn tại' : repeat ? 'Sai mật khẩu (lặp lại mật khẩu sai vừa thử, không tính thêm)' : 'Sai mật khẩu' });
+    if (LOCKOUT && user?.is_active && !repeat) {
       const { n } = get<{ n: number }>('UPDATE users SET failed_logins = failed_logins + 1 WHERE id = ? RETURNING failed_logins AS n', user.id)!;
       if (n >= MAX_FAILED_LOGINS) {
         run('UPDATE users SET is_active = 0, token_version = token_version + 1 WHERE id = ?', user.id);
@@ -62,6 +77,7 @@ r.post('/login', (req, res) => {
     throw new HttpError(403, 'Tài khoản đã bị khóa, vui lòng liên hệ quản trị viên');
   }
   run('UPDATE users SET last_login_at = ?, failed_logins = 0 WHERE id = ?', now(), user.id);
+  lastWrong.delete(user.id);
   issueToken(res, user.id);
   audit(req, 'login', { userId: user.id, username: user.username, detail: user.is_admin ? 'Quản trị hệ thống' : null });
   res.json({ ok: true });

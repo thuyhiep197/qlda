@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { api, errMsg, queryClient } from '../api';
 import { PasswordInput } from '../components/fields';
 
@@ -8,8 +8,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Đang gửi thì bỏ qua lần gửi tiếp (giữ Enter / bấm nhiều lần từng gửi nhiều yêu cầu cách nhau vài ms → mỗi lần bị tính một lần sai)
+  const sending = useRef(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError('');
     try {
@@ -18,6 +22,7 @@ export default function Login() {
     } catch (err) {
       setError(errMsg(err));
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   };

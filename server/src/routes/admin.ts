@@ -168,7 +168,8 @@ r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
   const target = get<{ username: string; is_admin: number }>('SELECT username, is_admin FROM users WHERE id = ?', id);
   if (!target) throw notFound();
   guardAdminAccount(req.user, target);
-  run('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(RESET_PASSWORD), id);
+  // Cấp mật khẩu mới thì đếm lại số lần sai từ đầu (trước đây giữ số cũ: đã sai 4 lần thì gõ nhầm mật khẩu tạm 1 lần là bị khóa)
+  run('UPDATE users SET password_hash = ?, must_change_password = 1, failed_logins = 0, token_version = token_version + 1 WHERE id = ?', hashPassword(RESET_PASSWORD), id);
   revokeAllApiKeys(id);
   audit(req, 'password_reset', { target: target.username });
   res.json({ ok: true, password: RESET_PASSWORD });
