@@ -14,7 +14,8 @@ Khi mục này có cập nhật bạn chưa đọc, nút **?** trên thanh trên
 - **Quyền của tôi**: xem bảng quyền hiện tại của tài khoản (mở từ nút **?** hoặc menu tài khoản).
 - **Hướng dẫn nhanh** tự hiện ở lần đăng nhập đầu tiên; xem lại bất cứ lúc nào ở nút **?** → **Xem lại hướng dẫn nhanh**.
 
-## 29/10/2026 — Ô chọn người có tìm kiếm, tạo tài khoản cần phòng ban
+## 29/10/2026 — Ô chọn người có tìm kiếm, tạo tài khoản cần phòng ban, API key
+- **API key cá nhân** (Cài đặt tài khoản → Bảo mật): cho trợ lý AI (Claude) hoặc script làm việc trên QLDA thay bạn, với đúng quyền của bạn. Xem [Cài đặt tài khoản](/help/ho-so-ca-nhan).
 - Mọi ô chọn người (Sale, AM, BA, Dev, Tester, người thực hiện, bộ lọc, người theo dõi…) có ô tìm kiếm.
 - Tạo tài khoản phải chọn **phòng ban** và **vị trí** (trừ nhóm Quản trị hệ thống).
 - Kế hoạch chi tiết: lọc **Hoàn thành** / theo trạng thái không còn hiện các dòng cha chưa xong.

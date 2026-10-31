@@ -48,5 +48,14 @@ Tắt một loại thì chuông không báo loại đó nữa; các thông báo 
 ### Đăng xuất khỏi mọi thiết bị khác (tab Bảo mật)
 Nếu từng đăng nhập trên máy lạ hoặc nghi lộ mật khẩu: bấm **Đăng xuất khỏi mọi thiết bị khác** (phiên trên máy đang dùng vẫn giữ), sau đó đổi mật khẩu. Tab này cũng cho biết lần đăng nhập gần nhất.
 
+### API key (tab Bảo mật)
+Dùng khi bạn cho trợ lý AI (Claude qua MCP) hoặc một script làm việc trên QLDA thay bạn. Key mang **đúng quyền của tài khoản bạn**, không cần mật khẩu — giữ kín như mật khẩu, không chia sẻ cho người khác.
+
+1. Nhập tên key (VD "Claude trên máy làm việc"), chọn **Thời hạn** (30 ngày, 90 ngày, 1 năm hoặc Không hết hạn), bấm **Tạo API key**.
+2. Trong danh sách: **Xem** / **Ẩn** để xem lại key, **Sao chép** để chép key, **Thu hồi** khi không dùng nữa hoặc nghi bị lộ. Cột **Dùng gần nhất** cho biết key được dùng lần cuối lúc nào.
+3. Đổi mật khẩu, được quản trị đặt lại mật khẩu hoặc bị **Đăng xuất tất cả mọi người** thì mọi key của bạn bị thu hồi — tạo key mới.
+
+Cách cài trợ lý AI dùng key: liên hệ quản trị hệ thống để nhận hướng dẫn cài đặt.
+
 ## Xem thêm
 - [Quyền của tôi](/help/quyen-cua-toi) — tài khoản của bạn được làm gì.
