@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject, type SelectHTMLAttributes } from 'react';
 import { Check, Search } from 'lucide-react';
-import { filterOptions, placePopover, readOptions, type SelectOption } from '../search-select';
+import { filterOptions, placePopover, readOptions, searchFirstOptions, type SelectOption } from '../search-select';
 
 type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value'> & {
   value: string | number;
   onChange: (e: { target: { value: string } }) => void;
+  /** Chỉ hiện danh sách khi đã gõ từ khóa (danh sách dài, máy màn hình nhỏ) */
+  searchFirst?: boolean;
 };
 
 /**
@@ -12,7 +14,7 @@ type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value'>
  * có ô Tìm theo tên thay cho danh sách thả xuống của trình duyệt. Bảng nổi nằm ngay cạnh ô (position: fixed) để các khung
  * đóng khi bấm ra ngoài (VD Giao cho…) vẫn coi là bấm bên trong.
  */
-export function SearchSelect({ value, onChange, children, onMouseDown, onKeyDown, ...rest }: Props) {
+export function SearchSelect({ value, onChange, searchFirst, children, onMouseDown, onKeyDown, ...rest }: Props) {
   const ref = useRef<HTMLSelectElement>(null);
   const [options, setOptions] = useState<SelectOption[] | null>(null);
   const show = () => {
@@ -29,7 +31,7 @@ export function SearchSelect({ value, onChange, children, onMouseDown, onKeyDown
         {children}
       </select>
       {options && (
-        <SearchPopover options={options} anchor={ref} value={String(value)}
+        <SearchPopover options={options} anchor={ref} value={String(value)} searchFirst={searchFirst}
           onPick={(v) => { setOptions(null); focusSelect(); if (v !== String(value)) onChange({ target: { value: v } }); }}
           onClose={() => { setOptions(null); focusSelect(); }} />
       )}
@@ -37,15 +39,15 @@ export function SearchSelect({ value, onChange, children, onMouseDown, onKeyDown
   );
 }
 
-function SearchPopover({ options, anchor, value, onPick, onClose }: {
-  options: SelectOption[]; anchor: RefObject<HTMLSelectElement | null>; value: string; onPick: (v: string) => void; onClose: () => void;
+function SearchPopover({ options, anchor, value, searchFirst, onPick, onClose }: {
+  options: SelectOption[]; searchFirst?: boolean; anchor: RefObject<HTMLSelectElement | null>; value: string; onPick: (v: string) => void; onClose: () => void;
 }) {
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const place = () => { const el = anchor.current; return el ? placePopover(el.getBoundingClientRect(), window.innerWidth, window.innerHeight) : null; };
   const [pos, setPos] = useState(place);
-  const list = filterOptions(options, q);
+  const list = searchFirst ? searchFirstOptions(options, q) : filterOptions(options, q);
   const pickable = list.filter((o) => !o.disabled);
   const close = useRef(onClose);
   close.current = onClose;
@@ -91,7 +93,7 @@ function SearchPopover({ options, anchor, value, onPick, onClose }: {
   return (
     <div className="picker-pop search-select-pop" ref={box} style={pos}>
       <div className="cw-search"><Search size={13} />
-        <input placeholder="Tìm…" value={q} onKeyDown={keys} onChange={(e) => { setQ(e.target.value); setActive(0); }} /></div>
+        <input placeholder={searchFirst ? 'Gõ tên để tìm…' : 'Tìm…'} value={q} onKeyDown={keys} onChange={(e) => { setQ(e.target.value); setActive(0); }} /></div>
       <div className="picker-list">
         {list.map((o, i) => {
           const head = o.group !== lastGroup && o.group ? <div className="picker-group">{o.group}</div> : null;
@@ -109,7 +111,7 @@ function SearchPopover({ options, anchor, value, onPick, onClose }: {
             </div>
           );
         })}
-        {!list.length && <div className="muted small pad">Không tìm thấy</div>}
+        {!list.length && <div className="muted small pad">{searchFirst && !q.trim() ? 'Gõ tên để hiện danh sách' : 'Không tìm thấy'}</div>}
       </div>
     </div>
   );

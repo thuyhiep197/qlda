@@ -13,7 +13,7 @@ export function PeoplePicker({ role, value, onChange }: { role: PeopleRole; valu
         <span key={id} className="chip">{label(id)}
           <button type="button" aria-label={`Bỏ ${label(id)}`} onClick={() => onChange(value.filter((x) => x !== id))}><X size={12} /></button></span>
       ))}
-      <SearchSelect value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label={`Thêm ${ROLE_LABELS[role]}`}>
+      <SearchSelect searchFirst value="" onChange={(e) => e.target.value && onChange([...value, Number(e.target.value)])} aria-label={`Thêm ${ROLE_LABELS[role]}`}>
         <option value="">+ Thêm…</option>
         {candidates(users ?? [], role, value).map((u) => <option key={u.id} value={u.id}>{personLabel(u)}</option>)}
       </SearchSelect>
