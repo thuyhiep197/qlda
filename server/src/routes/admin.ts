@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { all, get, now, run, tx } from '../db.ts';
 import { revokeAllApiKeys } from '../api-keys.ts';
 import type { NextFunction, Request, Response } from 'express';
-import { hashPassword, validatePassword } from '../auth.ts';
+import { hashPassword } from '../auth.ts';
 import { audit, listAudit } from '../audit.ts';
 import {
   accountRoleId, ACTIONS, canManageAccountPermissions, isAdminRole, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound, SUBSYSTEMS,
@@ -84,13 +84,15 @@ function checkUsername(v: unknown) {
   return s;
 }
 
+/** Mật khẩu tạm khi tạo tài khoản hoặc admin đặt lại: cố định; người dùng bắt buộc đổi khi đăng nhập. */
+export const DEFAULT_PASSWORD = 'qlda@868686';
+
 r.post('/users', need('user.create'), (req, res) => {
   const b = req.body || {};
   const username = checkUsername(b.username);
   const full_name = String(b.full_name || '').trim();
   if (!full_name) throw badRequest('Họ tên không được để trống');
   if (get('SELECT 1 FROM users WHERE username = ?', username)) throw badRequest('Tên đăng nhập đã tồn tại');
-  const password = validatePassword(b.password, username);
   const roleId = checkRole(b.default_role_id);
   if (!roleId) throw badRequest('Vui lòng chọn nhóm người dùng cho tài khoản');
   // Thuộc nhóm Quản trị hệ thống = quản trị hệ thống
@@ -103,10 +105,10 @@ r.post('/users', need('user.create'), (req, res) => {
   const place = cleanPlacement(isAdmin && !b.department_id ? {} : b, !isAdmin);
   const { id } = run(
     'INSERT INTO users(username, full_name, email, password_hash, is_admin, default_role_id, must_change_password, department_id, positions) VALUES (?,?,?,?,?,?,1,?,?)',
-    username, full_name, b.email || null, hashPassword(password), isAdmin ? 1 : 0, roleId, place.department_id, place.positions,
+    username, full_name, b.email || null, hashPassword(DEFAULT_PASSWORD), isAdmin ? 1 : 0, roleId, place.department_id, place.positions,
   );
   audit(req, 'user_created', { target: username, detail: { full_name, role: get('SELECT name FROM roles WHERE id = ?', roleId)?.name, is_admin: isAdmin } });
-  res.status(201).json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
+  res.status(201).json({ ...userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)), password: DEFAULT_PASSWORD });
 });
 
 r.patch('/users/:id', need('user.edit'), (req, res) => {
@@ -160,19 +162,16 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   res.json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
 });
 
-/** Mật khẩu tạm khi admin đặt lại: cố định; người dùng bắt buộc đổi khi đăng nhập. */
-export const RESET_PASSWORD = 'qlda@868686';
-
 r.post('/users/:id/reset-password', need('user.edit'), (req, res) => {
   const id = Number(req.params.id);
   const target = get<{ username: string; is_admin: number }>('SELECT username, is_admin FROM users WHERE id = ?', id);
   if (!target) throw notFound();
   guardAdminAccount(req.user, target);
   // Cấp mật khẩu mới thì đếm lại số lần sai từ đầu (trước đây giữ số cũ: đã sai 4 lần thì gõ nhầm mật khẩu tạm 1 lần là bị khóa)
-  run('UPDATE users SET password_hash = ?, must_change_password = 1, failed_logins = 0, token_version = token_version + 1 WHERE id = ?', hashPassword(RESET_PASSWORD), id);
+  run('UPDATE users SET password_hash = ?, must_change_password = 1, failed_logins = 0, token_version = token_version + 1 WHERE id = ?', hashPassword(DEFAULT_PASSWORD), id);
   revokeAllApiKeys(id);
   audit(req, 'password_reset', { target: target.username });
-  res.json({ ok: true, password: RESET_PASSWORD });
+  res.json({ ok: true, password: DEFAULT_PASSWORD });
 });
 
 // ---------------------------------------------------------------------------

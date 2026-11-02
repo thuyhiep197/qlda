@@ -11,13 +11,6 @@ import { UserPermEditor } from '../components/UserPermEditor';
 import { fmtDateTime } from '../util';
 import { Avatar, Modal, Spinner, toast, toastError } from '../components/ui';
 import { HelpButton } from '../help/HelpMenu';
-import { ACCENT_WARNING, hasAccent } from '../password';
-
-const genPassword = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  const arr = crypto.getRandomValues(new Uint32Array(10));
-  return Array.from(arr, (n) => chars[n % chars.length]).join('') + '@1';
-};
 
 const BY_ROLE_KEY = 'qlda:users-by-role';
 
@@ -199,7 +192,6 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
     return !d ? '' : parent && parent.parent_id ? `${depName(parent.id)} › ${d.name}` : d.name;
   };
 
-  const [password, setPassword] = useState(() => (user ? '' : genPassword()));
   const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
   const role = roles?.find((r) => String(r.id) === roleId);
   // Tài khoản Quản trị hệ thống không nằm trong sơ đồ Phòng ban & Nhân sự nên không bắt buộc
@@ -215,7 +207,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
         toast('Đã lưu');
         onClose();
       } else {
-        await api.post('/users', { ...body, username, password });
+        const { password } = await api.post<{ password: string }>('/users', { ...body, username });
         setCreated({ username, password });
       }
       await refreshAll();
@@ -275,12 +267,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
             </div></div>}
         </div>}
         {!user && (
-          <label className="field"><span>Mật khẩu tạm (≥ 10 ký tự, có chữ và số, không dấu)</span>
-            <div className="row gap-xs">
-              <input className="grow" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} required />
-              <button type="button" className="btn" onClick={() => setPassword(genPassword())}>Tạo ngẫu nhiên</button>
-            </div>
-            {hasAccent(password) && <span className="form-error small">{ACCENT_WARNING}</span>}</label>
+          <div className="muted small">Mật khẩu khởi tạo là mật khẩu tạm mặc định <b>qlda@868686</b>. Người dùng sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.</div>
         )}
         {/* Không chọn dự án ở đây: vào dự án theo quyền Dự án – Xem tất cả và danh sách người tham gia của từng dự án */}
       </form>

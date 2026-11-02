@@ -146,6 +146,16 @@ test('only an admin edits, locks or resets the password of an admin account', as
   assert.equal((await api(admin, 'POST', `/users/${second}/reset-password`, { password: 'Matkhau2026x' })).status, 200);
 });
 
+test('a new account always starts with the default temporary password qlda@868686 and must change it', async () => {
+  const group = get<{ id: number }>('SELECT default_role_id AS id FROM users WHERE id = ?', nobody)!.id;
+  const r = await api(admin, 'POST', '/users', { username: 'newbie', full_name: 'Newbie', password: 'Matkhau2026x', default_role_id: group, ...place() });
+  assert.equal(r.status, 201);
+  assert.equal(r.body.password, 'qlda@868686');
+  const u = get<{ password_hash: string; must_change_password: number }>('SELECT password_hash, must_change_password FROM users WHERE username = ?', 'newbie')!;
+  assert.ok(verifyPassword('qlda@868686', u.password_hash));
+  assert.equal(u.must_change_password, 1);
+});
+
 test('reset password always sets the default temporary password qlda@868686 and forces a change', async () => {
   const r = await api(mgr, 'POST', `/users/${nobody}/reset-password`);
   assert.equal(r.status, 200);
