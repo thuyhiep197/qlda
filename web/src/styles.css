@@ -1183,8 +1183,9 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 .cw-left > .cw-group > .cw-sub.cw-proj { padding-left: 86px; }
 .cw-table tr.cw-row-prov td { background: var(--sunken); font-weight: 600; padding-top: 6px; padding-bottom: 6px; }
 .cw-table tr.cw-row-prov .lucide { color: var(--muted); vertical-align: -2px; }
-/* Ô chọn người có tìm kiếm (SearchSelect): bảng nổi cố định theo vị trí ô chọn */
-.search-select-pop { position: fixed; z-index: 1000; display: flex; flex-direction: column; }
+/* Ô chọn người có tìm kiếm (SearchSelect): bảng nổi cố định theo vị trí ô chọn; top / bottom đặt theo phía mở (placePopover) —
+   bỏ top: 100% của .picker-pop, nếu không bảng mở lên trên (ô ở nửa dưới màn hình) bị đẩy ra khỏi màn hình, không bấm chọn được */
+.search-select-pop { position: fixed; z-index: 1000; display: flex; flex-direction: column; top: auto; }
 .search-select-pop .picker-list { flex: 1 1 auto; min-height: 0; }
 .search-select-pop .cw-search { flex-shrink: 0; }
 .search-select-pop .picker-item.active { background: var(--hover); }
