@@ -38,11 +38,11 @@ function NoSubsystem() {
 }
 
 export default function App() {
-  const { data: me, isLoading } = useMe();
+  const { data: me, isLoading, failureCount } = useMe();
   // Giao diện sáng/tối theo cài đặt của tài khoản đang đăng nhập
   const theme = me?.preferences?.theme;
   useEffect(() => { if (me) applyTheme(theme); }, [me, theme]);
-  if (isLoading) return <Spinner />;
+  if (isLoading) return failureCount ? <Empty title="Hệ thống đang khởi động lại, sẽ tự kết nối lại sau giây lát…" /> : <Spinner />;
   if (!me) return <><Login /><Toaster /></>;
   if (me.must_change_password) return <><ChangePassword forced /><Toaster /></>;
 

@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
+import { httpErrorMessage, SERVER_UNAVAILABLE } from './session';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -23,11 +24,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     init.body = JSON.stringify(body);
     (init.headers as Record<string, string>)['Content-Type'] = 'application/json';
   }
-  const res = await fetch(`/api${path}`, init);
+  // Không tới được server (mất mạng, server đang khởi động lại): coi như 503 để được thử lại và báo dễ hiểu
+  const res = await fetch(`/api${path}`, init).catch(() => { throw new ApiError(503, SERVER_UNAVAILABLE); });
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) queryClient.setQueryData(['me'], null);
-    throw new ApiError(res.status, data?.error || `Lỗi ${res.status}`);
+    throw new ApiError(res.status, httpErrorMessage(res.status, data?.error));
   }
   return data as T;
 }

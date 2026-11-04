@@ -2,13 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
+import { meOrNull } from './session';
 import { RELEASES_ENABLED } from './util';
 import type { Component, Customer, CustomerStatus, Department, GeoProvince, GeoWard, Me, Product, ProductType, Project, ProjectSummary, Role, Sprint, StaffMember, UserBasic, Version } from './types';
 
 export const useMe = () => useQuery<Me | null>({
   queryKey: ['me'],
-  queryFn: () => api.get<Me>('/auth/me').catch(() => null),
+  queryFn: () => meOrNull(() => api.get<Me>('/auth/me')),
   staleTime: 60_000,
+  // Server tạm không trả lời (VD đang cập nhật phiên bản): giữ nguyên phiên, thử lại đến khi được
+  retry: true,
+  retryDelay: (n) => Math.min(1000 * 2 ** n, 5000),
 });
 
 /** Tài khoản có quyền (theo nhóm người dùng + quyền riêng) — dùng ngoài phạm vi dự án (menu, quản trị). */
