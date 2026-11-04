@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { assigneeChoices } from '../issue-filter-defaults';
 import { api, refreshAll } from '../api';
 import { can, useProject } from '../hooks';
 import type { Issue, Project } from '../types';
@@ -30,7 +31,7 @@ export function InlineAssignee({ issue, project: supplied }: { issue: Issue; pro
       <Avatar name={issue.assignee_name} src={issue.assignee_avatar_url} size={22} />
       <SearchSelect value={issue.assignee_id ?? ''} disabled={busy} aria-label={`Người thực hiện ${issue.key}`} onChange={(e) => change(e.target.value)}>
         {access.allowUnassign && <option value="">Chưa giao</option>}
-        {project!.members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+        {assigneeChoices(project!.members, issue).map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
       </SearchSelect>
     </div>
   );

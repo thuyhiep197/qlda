@@ -10,7 +10,7 @@ import { useProjectCtx } from './ProjectLayout';
 import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
-import { planAssigneeMembers } from '../issue-filter-defaults';
+import { planAssignees } from '../issue-filter-defaults';
 import { filterPlanTree, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from '../plan-filter';
 import { BulkBar } from '../components/BulkBar';
 import { canBulk } from '../bulk-actions';
@@ -164,7 +164,8 @@ export default function Plan() {
   const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở hết (hiện mọi công việc)
   const [health, setHealth] = useState<Health | ''>('');
   const [q, setQ] = useState('');
-  const [assignee, setAssignee] = useState<string | null>(null);
+  // '' = Người thực hiện: không lọc, hiện mọi việc kể cả việc chưa giao
+  const [assignee, setAssignee] = useState('');
   const [owner, setOwner] = useState('');
   const [epic, setEpic] = useState('');
   const [type, setType] = useState('');
@@ -233,20 +234,19 @@ export default function Plan() {
 
   // Lọc: giữ việc khớp và toàn bộ nhánh cha của nó; khi đang lọc thì mở sẵn các nhánh
   // Giai đoạn chỉ giới hạn phạm vi (không tính là đang lọc chi tiết); Loại áp cho đầu việc (việc con đi theo đầu việc)
-  const effectiveAssignee = assignee ?? (me ? String(me.id) : '');
-  const rowFilter = !!(health || q || effectiveAssignee || owner || status);
+  const rowFilter = !!(health || q || assignee || owner || status);
   const filtering = rowFilter || !!type;
-  const clearFilters = () => { setHealth(''); setQ(''); setAssignee(null); setOwner(''); setEpic(''); setType(''); setStatus(''); };
+  const clearFilters = () => { setHealth(''); setQ(''); setAssignee(''); setOwner(''); setEpic(''); setType(''); setStatus(''); };
   const isCreated = (r: Row) => createdIds.has(r.issue.id);
   const match = orCreated<Row>(createdIds, (r) => (!health || r.health === health)
-    && (!effectiveAssignee || (effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee))
+    && (!assignee || (assignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === assignee))
     && (!owner || r.owner === owner)
     && (!status || r.issue.status_name === status)
     && (!q || `${r.issue.key} ${r.issue.summary}`.toLowerCase().includes(q.toLowerCase())));
   // Lọc Đánh giá/Trạng thái (VD bấm ô Hoàn thành) không giữ việc cha không khớp, tránh hiện việc chưa xong
   const visibleTree = (rows: Row[]) => filterPlanTree(rows, { type, rowFilter, strict: !!(health || status), match, keep: isCreated });
-  const assigneeScope = effectiveAssignee
-    ? filterTreeKeepingMatchingRoots(tree, orCreated<Row>(createdIds, (r) => effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee))
+  const assigneeScope = assignee
+    ? filterTreeKeepingMatchingRoots(tree, orCreated<Row>(createdIds, (r) => assignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === assignee))
     : tree;
   const scope = epic ? assigneeScope.filter((e) => String(e.issue.id) === epic) : assigneeScope;
   // Đang lọc theo trạng thái/đánh giá Hoàn thành thì vẫn hiện việc đã xong
@@ -281,8 +281,7 @@ export default function Plan() {
   const counts = (lvl: number) => all.filter((r) => r.level === lvl && r.issue.id > 0).length;
   const hCount = (h: Health) => all.filter((r) => r.level > 0 && r.health === h).length;
   const uniq = (v: (string | null | undefined)[]) => [...new Set(v.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'vi'));
-  const assignees = planAssigneeMembers(project.members,
-    new Set(all.filter((r) => r.level > 0 && r.issue.assignee_id != null).map((r) => r.issue.assignee_id!)), me?.id);
+  const assignees = planAssignees(all.flatMap((r) => (r.level > 0 && r.issue.assignee_id != null ? [{ id: r.issue.assignee_id, full_name: r.issue.assignee_name ?? '' }] : [])), me);
   const owners = uniq(all.map((r) => r.owner));
   const statuses = project.statuses.map((x) => x.name).filter((n) => all.some((r) => r.issue.status_name === n));
   const types = (['story', 'task', 'bug'] as const).filter((t) => all.some((r) => r.level === 1 && r.issue.type === t));
@@ -361,7 +360,7 @@ export default function Plan() {
       <div className="filter-bar">
         <input className="filter-search" placeholder="Tìm công việc…" value={q} onChange={(e) => setQ(e.target.value)} />
         <MoreFilters count={[assignee, owner, epic, type, status, health].filter(Boolean).length}>
-          <SearchSelect value={effectiveAssignee} onChange={(e) => setAssignee(e.target.value)} className={effectiveAssignee ? 'filter-on' : ''}>
+          <SearchSelect value={assignee} onChange={(e) => setAssignee(e.target.value)} className={assignee ? 'filter-on' : ''}>
             <option value="">Người thực hiện</option>
             <option value="-">— Chưa giao —</option>
             {assignees.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}

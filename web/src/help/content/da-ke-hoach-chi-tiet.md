@@ -35,7 +35,7 @@ Theo dõi toàn bộ kế hoạch dự án dạng cây ba cấp: **Epic (giai đ
 
 ## Lưu ý về bộ lọc
 
-- Mặc định ô **Người thực hiện** lọc sẵn **chính bạn** — chọn lại để xem việc của người khác hoặc cả dự án (bấm **Xóa lọc**).
+- Mặc định ô **Người thực hiện** không lọc: bảng hiện việc của mọi người, kể cả việc **chưa giao**. Chọn một người (hoặc **— Chưa giao —**) để chỉ xem việc của người đó.
 - Mặc định **ẩn việc đã Hoàn thành**; tiến độ và đánh giá vẫn tính đủ cả việc đã xong. Tick **Hiện việc đã hoàn thành** để xem (lựa chọn được nhớ trên máy). Khi lọc trạng thái hoặc đánh giá Hoàn thành thì việc đã xong tự hiện.
 - Việc chưa thuộc Epic nào được gom vào dòng **Chưa thuộc giai đoạn nào**.
 
@@ -44,7 +44,7 @@ Theo dõi toàn bộ kế hoạch dự án dạng cây ba cấp: **Epic (giai đ
 :::perm issue.create
 ### Thêm việc nhanh ngay trên bảng
 1. Rê chuột vào dòng Epic (hoặc đầu việc), bấm nút **+**.
-2. Chọn loại (Story / Task / Bug — với đầu việc là **Việc con** loại Story / Task / Bug), gõ tiêu đề rồi **Enter**. Gõ tiếp để tạo thêm; **Esc** để đóng. Việc vừa tạo hiện ngay trên bảng, kể cả khi không khớp bộ lọc. Nếu tải lại trang, bộ lọc lại áp dụng bình thường: việc **chưa giao** sẽ không hiện khi đang lọc theo **chính bạn** — chọn người thực hiện để giữ việc trong danh sách của mình.
+2. Chọn loại (Story / Task / Bug — với đầu việc là **Việc con** loại Story / Task / Bug), gõ tiêu đề rồi **Enter**. Gõ tiếp để tạo thêm; **Esc** để đóng. Việc vừa tạo hiện ngay trên bảng, kể cả khi không khớp bộ lọc. Khi tải lại trang, bộ lọc được áp dụng lại bình thường.
 3. Cần điền người thực hiện, ngày, sprint…: bấm **Thêm chi tiết…** để mở form đầy đủ với việc cha chọn sẵn.
 
 :::
@@ -75,7 +75,7 @@ Bấm vào ô **Người thực hiện** của dòng và chọn người (danh s
 
 :::perm plan.export
 ### Xuất Excel kế hoạch
-Bấm **Xuất Excel**. Tệp `Ke-hoach-chi-tiet-<mã dự án>-<ngày>.xlsx` gồm các việc đang hiện theo bộ lọc hiện tại (mặc định chỉ việc của bạn — bấm **Xóa lọc** trước nếu cần cả dự án), luôn kèm cả việc đã hoàn thành; cây đã thụt cấp, có thể gập nhóm trong Excel, tiến độ, đánh giá có tô màu.
+Bấm **Xuất Excel**. Tệp `Ke-hoach-chi-tiet-<mã dự án>-<ngày>.xlsx` gồm các việc đang hiện theo bộ lọc hiện tại (bấm **Xóa lọc** trước nếu cần cả dự án), luôn kèm cả việc đã hoàn thành; cây đã thụt cấp, có thể gập nhóm trong Excel, tiến độ, đánh giá có tô màu.
 :::
 
 ### Xem dạng Kanban
@@ -84,7 +84,7 @@ Bấm **Dạng Kanban** để xem các việc theo cột trạng thái, chia là
 ## Câu hỏi thường gặp
 
 **Mở Kế hoạch chi tiết thấy rất ít việc?**
-Bảng đang lọc theo **Người thực hiện = bạn** và ẩn việc đã hoàn thành. Bấm **Xóa lọc** và/hoặc tick **Hiện việc đã hoàn thành**.
+Bảng đang có bộ lọc, hoặc các việc đều đã hoàn thành (mặc định bị ẩn). Bấm **Xóa lọc** và/hoặc tick **Hiện việc đã hoàn thành**.
 
 **Dự án trống, muốn đưa kế hoạch từ Excel vào?**
 Dùng **Nhập từ Excel** ở tab Backlog hoặc Danh sách issue — xem [Import kế hoạch từ Excel/CSV](/help/da-import).

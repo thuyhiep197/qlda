@@ -8,8 +8,22 @@ export function defaultAssignees(userId?: number): number[] | null {
   return userId == null ? null : [userId];
 }
 
-export function planAssigneeMembers<T extends { id: number }>(members: T[], assignedIds: Set<number>, currentUserId?: number): T[] {
-  return members.filter((member) => member.id === currentUserId || assignedIds.has(member.id));
+interface Person { id: number; full_name: string }
+
+/**
+ * Lựa chọn của ô lọc Người thực hiện: người đang có việc và chính mình.
+ * Gồm cả người không (còn) là thành viên dự án, VD người xem được mọi dự án vẫn lọc được việc của mình.
+ */
+export function planAssignees(assigned: Person[], me?: Person | null): Person[] {
+  const byId = new Map<number, Person>();
+  for (const p of [...(me ? [me] : []), ...assigned]) if (!byId.has(p.id)) byId.set(p.id, { id: p.id, full_name: p.full_name });
+  return [...byId.values()].sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
+}
+
+/** Lựa chọn của ô Người thực hiện trên từng việc: luôn có người đang được giao, kể cả khi họ không (còn) là thành viên dự án — không thì ô hiện nhầm "Chưa giao" */
+export function assigneeChoices<T extends Person>(members: T[], issue: { assignee_id: number | null; assignee_name?: string | null }): (T | Person)[] {
+  if (issue.assignee_id == null || members.some((m) => m.id === issue.assignee_id)) return members;
+  return [...members, { id: issue.assignee_id, full_name: issue.assignee_name ?? '' }];
 }
 
 /** Keeps the filter result but always includes issues created in this session, in the original order. */
