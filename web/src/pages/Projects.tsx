@@ -75,7 +75,7 @@ export default function Projects() {
         <div className="table-wrap">
         <table className="table table-projects">
           <thead>
-            <tr><th>Tên dự án</th><th>Khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>BA/PM</th><th>Dev</th><th>Tester</th><th>AM</th><th>Kinh doanh</th><th>Loại</th>{canArchive && <th />}</tr>
+            <tr><th>Tên dự án</th><th>Khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>BA/PM</th><th>Dev</th><th>Tester</th><th>AM</th><th>Sale</th><th>Loại</th>{canArchive && <th />}</tr>
           </thead>
           <tbody>
             {list.map((p) => (

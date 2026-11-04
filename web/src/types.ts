@@ -174,7 +174,7 @@ export interface ProjectSummary {
   customer: string | null;
   priority: string | null;
   project_status: string | null;
-  /** Họ tên người theo vai trò (BA/PM, Dev, Tester, AM, Kinh doanh), cách nhau dấu phẩy */
+  /** Họ tên người theo vai trò (BA/PM, Dev, Tester, AM, Sale), cách nhau dấu phẩy */
   ba_names: string | null;
   dev_names: string | null;
   tester_names: string | null;

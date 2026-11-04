@@ -25,7 +25,7 @@ Vào **Cài đặt tài khoản** → **Bảo mật** → **Đăng xuất khỏi
 Mỗi người thấy chức năng theo quyền được cấp. Mở [Quyền của tôi](/help/quyen-cua-toi) để xem bạn đang có những ô quyền nào, rồi báo quản trị hệ thống tên quyền còn thiếu. Sau khi được cấp, tải lại trang.
 
 **Tôi không vào được một dự án / khách hàng?**
-Với quyền **Xem**, bạn chỉ thấy dự án, khách hàng mình tham gia (được ghi trong ô BA/PM, Dev, Tester, AM, Kinh doanh của dự án; Sale/AM của khách hàng; người thực hiện, phối hợp bước…). Nhờ người phụ trách thêm bạn vào, hoặc nhờ quản trị cấp quyền **Xem tất cả**.
+Với quyền **Xem**, bạn chỉ thấy dự án, khách hàng mình tham gia (được ghi trong ô BA/PM, Dev, Tester, AM, Sale của dự án; Sale/AM của khách hàng; người thực hiện, phối hợp bước…). Nhờ người phụ trách thêm bạn vào, hoặc nhờ quản trị cấp quyền **Xem tất cả**.
 
 **Màn hình báo "Tài khoản chưa được cấp quyền phân hệ nào"?**
 Tài khoản chưa có ô Xem nào. Liên hệ quản trị hệ thống để được phân quyền.

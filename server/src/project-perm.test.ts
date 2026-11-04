@@ -121,7 +121,7 @@ test('project payload: info-tab fields need Dự án – Xem; customer shows onl
   assert.equal((await api(crmFull, 'GET', '/projects/PZ')).body.customer_info.sales_project.code, 'SZ-01');
 });
 
-test('Kinh doanh of a project: only Sale-position accounts, shown on the project and list, makes them a member', async () => {
+test('Sale of a project: only Sale-position accounts, shown on the project and list, makes them a member', async () => {
   const sysadmin = run("INSERT INTO users(username, full_name, password_hash, is_admin) VALUES ('kdadmin', 'kdadmin', 'x', 1)").id;
   const salesRole = role('Sale dự án', ['plan.view', 'project.view']);
   const sale = user('saleperson', salesRole), notSale = user('notsale', salesRole);
@@ -149,13 +149,13 @@ test('Kinh doanh of a project: only Sale-position accounts, shown on the project
   assert.equal((await api(sysadmin, 'PATCH', '/projects/PKD', { kd_ids: [sale] })).status, 200);
   assert.deepEqual(memberIds(), [sale]);
 
-  // Không có Dự án – Xem thì không thấy người ở ô Kinh doanh
+  // Không có Dự án – Xem thì không thấy người ở ô Sale
   run("INSERT INTO project_members(project_id, user_id, role_id) SELECT id, ?, (SELECT default_role_id FROM users WHERE id = ?) FROM projects WHERE key = 'PKD'", board, board);
   const hidden = (await api(board, 'GET', '/projects/PKD')).body;
   assert.deepEqual(hidden.kd_ids, []);
   assert.equal(hidden.kd_names, null);
 
-  // Bỏ khỏi ô Kinh doanh → không còn là thành viên
+  // Bỏ khỏi ô Sale → không còn là thành viên
   assert.equal((await api(sysadmin, 'PATCH', '/projects/PKD', { kd_ids: [] })).status, 200);
   assert.deepEqual(memberIds(), []);
 });

@@ -141,7 +141,7 @@ export function issueHealth(i: Pick<Issue, 'status_category' | 'start_date' | 'd
 export const STAFF_POSITIONS: { key: 'ba_pm' | 'tester' | 'am' | 'dev' | 'kd'; label: string; field: 'ba' | 'tester' | 'am' | 'dev' | 'kd' }[] = [
   { key: 'ba_pm', label: 'BA/PM', field: 'ba' }, { key: 'dev', label: 'Dev', field: 'dev' },
   { key: 'tester', label: 'Tester', field: 'tester' }, { key: 'am', label: 'AM', field: 'am' },
-  { key: 'kd', label: 'Kinh doanh', field: 'kd' },
+  { key: 'kd', label: 'Sale', field: 'kd' },
 ];
 /** Mọi vị trí trong Danh mục nhân sự */
 export const STAFF_POSITION_LABELS: { key: 'bgd' | 'kd' | 'am' | 'ba_pm' | 'dev' | 'tester' | 'hc'; label: string; code: string }[] = [

@@ -18,12 +18,12 @@ Tab **Thông tin** của một dự án gồm thông tin chung, khách hàng c�
 1. **Đầu trang dự án** — tên, mã, mô hình Scrum/Kanban, khách hàng; nút **Tạo issue** (khi có quyền tạo issue).
 2. **Các tab của dự án** — chỉ hiện tab bạn có quyền xem: Thông tin, Kế hoạch tổng quan, Kế hoạch chi tiết, Sprint đang chạy (hoặc Bảng Kanban), Danh sách issue, Backlog.
 3. **Thông tin chung** — tên, mã, mô hình, trạng thái dự án (📌 ghim tay hoặc ⚙ tự động), ưu tiên, sprint đang chạy, mô tả.
-4. **Nhân sự** — người ở các vai trò BA/PM, Dev, Tester, AM, Kinh doanh.
+4. **Nhân sự** — người ở các vai trò BA/PM, Dev, Tester, AM, Sale.
 5. **Khách hàng** và **Thành viên** — đầu mối liên hệ, Sale, AM, dự án của khách hàng đã gắn; danh sách thành viên kèm nhóm người dùng.
 
 ## Thành viên dự án
 
-Thành viên = những người được chọn ở 5 ô **BA/PM, Dev, Tester, AM, Kinh doanh**. Không có nút thêm thành viên riêng: muốn thêm ai vào dự án thì chọn họ vào một trong các ô này. Ô chọn người lọc theo **vị trí** của tài khoản (VD ô Dev chỉ hiện người có vị trí Dev, ô Kinh doanh chỉ hiện người có vị trí Sale).
+Thành viên = những người được chọn ở 5 ô **BA/PM, Dev, Tester, AM, Sale**. Không có nút thêm thành viên riêng: muốn thêm ai vào dự án thì chọn họ vào một trong các ô này. Ô chọn người lọc theo **vị trí** của tài khoản (VD ô Dev chỉ hiện người có vị trí Dev).
 
 ## Trạng thái dự án (giai đoạn)
 

@@ -75,7 +75,7 @@ export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onC
       <div className="field"><span>Nhân sự <small className="muted">(chọn tài khoản theo vị trí — là thành viên dự án)</small></span>
         <div className="info-people">
           {PROJECT_ROLES.map((r) => (
-            <div key={r}><small className="muted">{r === 'kd' ? 'Kinh doanh' : ROLE_LABELS[r]}</small>
+            <div key={r}><small className="muted">{ROLE_LABELS[r]}</small>
               <PeoplePicker role={r} value={value[`${r}_ids`]} onChange={(v) => onChange({ ...value, [`${r}_ids`]: v })} /></div>
           ))}
         </div>

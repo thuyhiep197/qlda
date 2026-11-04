@@ -17,13 +17,13 @@ keywords: dự án của tôi, tất cả dự án, tạo dự án, lưu trữ, 
 
 1. **Cột trái** — hai nhóm **Dự án của tôi** (dự án bạn là thành viên) và **Tất cả dự án** (mọi dự án bạn được vào). Ô **Tìm dự án, khách hàng…** lọc nhanh theo tên, mã dự án hoặc tên khách hàng; bấm tên dự án để mở thẳng.
 2. **Thanh lọc** — lọc theo tên, mã, khách hàng, nhân sự; lọc **Trạng thái** và **Ưu tiên**. Góc phải hiện số dự án đang khớp.
-3. **Bảng dự án** — các cột **Tên dự án, Khách hàng, Ưu tiên, Trạng thái, BA/PM, Dev, Tester, AM, Kinh doanh, Loại** (Scrum hoặc Kanban).
+3. **Bảng dự án** — các cột **Tên dự án, Khách hàng, Ưu tiên, Trạng thái, BA/PM, Dev, Tester, AM, Sale, Loại** (Scrum hoặc Kanban).
 4. **Tạo dự án** — nút trên thanh trên cùng, chỉ hiện khi bạn có quyền tạo dự án.
 
 ## Bạn thấy những dự án nào
 
 - Có ô **Dự án – Xem tất cả**: thấy và vào được **mọi** dự án.
-- Không có ô đó: chỉ thấy dự án bạn là **thành viên** (có tên ở ô BA/PM, Dev, Tester, AM hoặc Kinh doanh của dự án) và (khi có quyền **Thông tin khách hàng – Xem**) dự án sản xuất gắn với khách hàng / dự án của khách hàng trong phạm vi bạn được xem.
+- Không có ô đó: chỉ thấy dự án bạn là **thành viên** (có tên ở ô BA/PM, Dev, Tester, AM hoặc Sale của dự án) và (khi có quyền **Thông tin khách hàng – Xem**) dự án sản xuất gắn với khách hàng / dự án của khách hàng trong phạm vi bạn được xem.
 - Không có ô **Xem** nào của phân hệ Dự án thì không thấy menu **Dự án**.
 
 Danh sách sắp dự án đang chạy lên trước, dự án **Chưa bắt đầu** xuống sau; trong mỗi nhóm xếp theo ưu tiên rồi theo tên.
@@ -42,7 +42,7 @@ Trạng thái dự án là một trong 9 giai đoạn: Chưa bắt đầu, Trìn
 1. Bấm **Tạo dự án** trên thanh trên cùng.
 2. Nhập **Tên dự án** — tool tự gợi ý **Mã dự án** từ chữ cái đầu; sửa lại nếu cần. Mã dài 2–10 ký tự, bắt đầu bằng chữ cái, dùng làm tiền tố mã issue (VD QLVB-12) và **không đổi được** sau khi tạo.
 3. Chọn **Mô hình quản lý**: **Scrum** (làm theo sprint, có Backlog) hoặc **Kanban** (luồng việc liên tục).
-4. Điền thêm (không bắt buộc): **Khách hàng**, **Dự án của khách hàng**, **Ưu tiên**, **Trạng thái dự án**, **Nhân sự** (BA/PM, Dev, Tester, AM, Kinh doanh) và **Mô tả**.
+4. Điền thêm (không bắt buộc): **Khách hàng**, **Dự án của khách hàng**, **Ưu tiên**, **Trạng thái dự án**, **Nhân sự** (BA/PM, Dev, Tester, AM, Sale) và **Mô tả**.
 5. Bấm **Tạo dự án**. Tool mở dự án mới; dự án cũng tự có trong Danh mục sản phẩm (loại Dự án).
 
 Dự án mới có sẵn 5 trạng thái: Cần làm, Đang làm, Đang review, Kiểm thử, Hoàn thành.
@@ -56,13 +56,13 @@ Dự án mới có sẵn 5 trạng thái: Cần làm, Đang làm, Đang review, 
 
 ## Lưu ý
 
-- Thành viên dự án không thêm tay: ai được chọn ở ô **BA/PM, Dev, Tester, AM, Kinh doanh** của dự án thì là thành viên.
+- Thành viên dự án không thêm tay: ai được chọn ở ô **BA/PM, Dev, Tester, AM, Sale** của dự án thì là thành viên.
 - Tên khách hàng là liên kết sang màn Khách hàng chỉ khi bạn có quyền **Thông tin khách hàng – Xem**.
 
 ## Câu hỏi thường gặp
 
 **Tôi không thấy dự án mình đang làm?**
-Bạn chưa được chọn vào ô BA/PM, Dev, Tester, AM hoặc Kinh doanh của dự án. Nhờ người quản lý dự án thêm tên bạn ở tab **Thông tin** của dự án.
+Bạn chưa được chọn vào ô BA/PM, Dev, Tester, AM hoặc Sale của dự án. Nhờ người quản lý dự án thêm tên bạn ở tab **Thông tin** của dự án.
 
 **Không thấy nút Tạo dự án?**
 Tài khoản chưa có quyền **Dự án – Thêm**. Xem [Quyền của tôi](/help/quyen-cua-toi).

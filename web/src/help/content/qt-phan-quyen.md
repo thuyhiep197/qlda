@@ -105,7 +105,7 @@ Nút **Xóa nhóm** chỉ hiện khi nhóm không còn ai (0 người) và khôn
 Họ chưa có ô Xem nào trong phân hệ đó. Mở tab Theo người dùng, chọn người đó và kiểm tra các ô Xem của phân hệ.
 
 **Người dùng thấy dự án nhưng không thấy dự án khác của công ty?**
-Không có **Dự án – Xem tất cả** thì chỉ vào được dự án mình là thành viên (và dự án liên kết với khách hàng mình phụ trách). Chọn người đó vào ô BA/PM, Dev, Tester, AM hoặc Kinh doanh của dự án (tab Thông tin dự án), hoặc cấp **Dự án – Xem tất cả** nếu họ cần thấy mọi dự án.
+Không có **Dự án – Xem tất cả** thì chỉ vào được dự án mình là thành viên (và dự án liên kết với khách hàng mình phụ trách). Chọn người đó vào ô BA/PM, Dev, Tester, AM hoặc Sale của dự án (tab Thông tin dự án), hoặc cấp **Dự án – Xem tất cả** nếu họ cần thấy mọi dự án.
 
 **Sửa quyền nhóm có ảnh hưởng quyền riêng đã cấp không?**
 Không. Quyền riêng giữ nguyên và vẫn được cộng thêm vào quyền nhóm mới.
