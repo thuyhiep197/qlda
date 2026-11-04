@@ -27,7 +27,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) queryClient.setQueryData(['me'], null);
-    throw new ApiError(res.status, data?.error || `Lỗi ${res.status}`);
+    const busy = res.status === 502 || res.status === 503 || res.status === 504;
+    throw new ApiError(res.status, data?.error || (busy ? 'Máy chủ đang cập nhật, vui lòng thử lại sau ít giây' : `Lỗi ${res.status}`));
   }
   return data as T;
 }

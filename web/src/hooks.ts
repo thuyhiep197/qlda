@@ -1,14 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from './api';
+import { api, ApiError } from './api';
 import { RELEASES_ENABLED } from './util';
 import type { Component, Customer, CustomerStatus, Department, GeoProvince, GeoWard, Me, Product, ProductType, Project, ProjectSummary, Role, Sprint, StaffMember, UserBasic, Version } from './types';
 
+/** Chỉ 401 mới là "chưa đăng nhập". Lỗi khác (502/503 khi máy chủ đang khởi động lại, mất mạng) thì giữ nguyên phiên
+ *  và thử lại, không đẩy người dùng về trang đăng nhập. */
 export const useMe = () => useQuery<Me | null>({
   queryKey: ['me'],
-  queryFn: () => api.get<Me>('/auth/me').catch(() => null),
+  queryFn: () => api.get<Me>('/auth/me').catch((e) => {
+    if (e instanceof ApiError && e.status === 401) return null;
+    throw e;
+  }),
   staleTime: 60_000,
+  retry: (count, err) => !(err instanceof ApiError && err.status < 500) && count < 3,
+  retryDelay: (n) => Math.min(1000 * 2 ** n, 5000),
 });
 
 /** Tài khoản có quyền (theo nhóm người dùng + quyền riêng) — dùng ngoài phạm vi dự án (menu, quản trị). */

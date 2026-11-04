@@ -36,12 +36,26 @@ function NoSubsystem() {
   return <div className="page"><Empty title="Tài khoản chưa được cấp quyền phân hệ nào. Liên hệ quản trị hệ thống." /></div>;
 }
 
+/** Mở trang đúng lúc máy chủ đang khởi động lại: tự thử lại mỗi 3 giây, kết nối được là vào thẳng, không bắt đăng nhập */
+function Reconnecting({ retry }: { retry: () => unknown }) {
+  useEffect(() => { const t = setInterval(() => retry(), 3000); return () => clearInterval(t); }, [retry]);
+  return (
+    <div className="page">
+      <Empty title="Máy chủ đang cập nhật, tự kết nối lại sau ít giây…">
+        <button type="button" className="btn" onClick={() => retry()}>Thử lại ngay</button>
+      </Empty>
+    </div>
+  );
+}
+
 export default function App() {
-  const { data: me, isLoading } = useMe();
+  const { data: me, isLoading, isError, refetch } = useMe();
   // Giao diện sáng/tối theo cài đặt của tài khoản đang đăng nhập
   const theme = me?.preferences?.theme;
   useEffect(() => { if (me) applyTheme(theme); }, [me, theme]);
   if (isLoading) return <Spinner />;
+  // Máy chủ tạm không trả lời (đang cập nhật / mất mạng): không coi là đăng xuất
+  if (me === undefined && isError) return <Reconnecting retry={refetch} />;
   if (!me) return <><Login /><Toaster /></>;
   if (me.must_change_password) return <><ChangePassword forced /><Toaster /></>;
 

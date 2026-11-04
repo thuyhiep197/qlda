@@ -13,5 +13,9 @@
 		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}
-	reverse_proxy qlda:3001
+	# Lúc cập nhật, container qlda khởi động lại vài giây: giữ request chờ tối đa 30s thay vì trả 502
+	reverse_proxy qlda:3001 {
+		lb_try_duration 30s
+		lb_try_interval 500ms
+	}
 }
