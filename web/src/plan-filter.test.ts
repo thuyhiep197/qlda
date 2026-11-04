@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterPlanTree, filterTreeStrict, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from './plan-filter';
+import { countDone, dropDoneRows, filterPlanTree, filterTreeStrict, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from './plan-filter';
 
 interface Row { id: number; assigneeId: number | null; children: Row[] }
 
@@ -109,4 +109,29 @@ test('select all ticks everything visible, a second click clears', () => {
   assert.deepEqual([...all], [2, 3, 4]);
   assert.deepEqual([...toggleAllVisible(shownLines, all)], []);
   assert.deepEqual([...toggleAllVisible([line(1, 0)], new Set())], []);
+});
+
+// Ẩn việc đã hoàn thành
+interface DoneWork { level: number; issue: { id: number; status_category: string }; children: DoneWork[] }
+const dw = (id: number, level: number, status_category: string, children: DoneWork[] = []): DoneWork => ({ level, issue: { id, status_category }, children });
+const doneIds = (rows: DoneWork[]): unknown[] => rows.map((r) => (r.children.length ? [r.issue.id, doneIds(r.children)] : r.issue.id));
+
+test('while filtering, an epic left with nothing visible inside is removed, not shown as an empty row', () => {
+  const tree = [dw(131, 0, 'inprogress', [dw(560, 2, 'done')]), dw(258, 0, 'todo', [dw(609, 1, 'todo')])];
+  assert.deepEqual(doneIds(dropDoneRows(tree, () => false)), [[258, [609]]]);
+});
+
+test('an epic that matches the filter itself, or any epic when not filtering, stays even when empty', () => {
+  const tree = [dw(1, 0, 'inprogress', [dw(2, 1, 'done')])];
+  assert.deepEqual(doneIds(dropDoneRows(tree, () => true)), [1]);
+});
+
+test('a done parent stays while it has unfinished work inside; a finished epic with nothing left goes', () => {
+  const tree = [dw(1, 0, 'done', [dw(2, 1, 'done', [dw(3, 2, 'todo')])]), dw(4, 0, 'done', [dw(5, 1, 'done')])];
+  assert.deepEqual(doneIds(dropDoneRows(tree, () => true)), [[1, [[2, [3]]]]]);
+});
+
+test('the hidden count only counts finished work, not group rows that were removed', () => {
+  const before = [dw(1, 0, 'inprogress'), dw(2, 1, 'done'), dw(3, 2, 'done'), dw(-1, 0, 'done')];
+  assert.equal(countDone(before), 2);
 });

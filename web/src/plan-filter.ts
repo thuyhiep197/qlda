@@ -31,6 +31,25 @@ export function toggleAllVisible<T extends { level: number; issue: { id: number 
   return all ? new Set<number>() : new Set(rows.map((r) => r.issue.id));
 }
 
+interface DoneRow<T> { level: number; issue: { id: number; status_category: string }; children: T[] }
+
+/**
+ * Ẩn việc đã Hoàn thành (việc cha còn việc con chưa xong thì giữ).
+ * Epic không còn việc nào bên trong: keepEmptyRoot quyết định có giữ không — đang lọc mà Epic chỉ là dòng nhóm thì bỏ,
+ * không để lại một dòng Epic trống với "0 việc khớp".
+ */
+export function dropDoneRows<T extends DoneRow<T>>(rows: T[], keepEmptyRoot: (row: T) => boolean): T[] {
+  return rows.flatMap((r) => {
+    const kids = dropDoneRows(r.children, keepEmptyRoot);
+    if (kids.length) return [{ ...r, children: kids }];
+    if (r.issue.status_category === 'done' && r.issue.id > 0) return [];
+    return r.level === 0 && !keepEmptyRoot(r) ? [] : [{ ...r, children: kids }];
+  });
+}
+
+/** Số việc đã Hoàn thành đang bị ẩn (dòng nhóm bị bỏ theo không tính) */
+export const countDone = <T extends { issue: { id: number; status_category: string } }>(rows: T[]) => rows.filter((r) => r.issue.status_category === 'done' && r.issue.id > 0).length;
+
 interface PlanRow<T> { level: number; issue: { type: string; subtype?: string | null }; children: T[] }
 
 /**

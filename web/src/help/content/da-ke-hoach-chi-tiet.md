@@ -70,7 +70,7 @@ Bấm **Tạo Epic**, nhập tiêu đề, ngày bắt đầu và hạn hoàn th�
 
 :::perm assign.edit
 ### Giao việc ngay trên bảng
-Bấm vào ô **Người thực hiện** của dòng và chọn người (danh sách có ô tìm kiếm).
+Bấm vào ô **Người thực hiện** của dòng và chọn người (danh sách có ô tìm kiếm). Dòng Epic cũng có ô này.
 :::
 
 :::perm plan.export

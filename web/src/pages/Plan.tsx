@@ -11,7 +11,7 @@ import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
 import { planAssignees } from '../issue-filter-defaults';
-import { filterPlanTree, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from '../plan-filter';
+import { countDone, dropDoneRows, filterPlanTree, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from '../plan-filter';
 import { BulkBar } from '../components/BulkBar';
 import { canBulk } from '../bulk-actions';
 import { SearchSelect } from '../components/SearchSelect';
@@ -251,13 +251,10 @@ export default function Plan() {
   const scope = epic ? assigneeScope.filter((e) => String(e.issue.id) === epic) : assigneeScope;
   // Đang lọc theo trạng thái/đánh giá Hoàn thành thì vẫn hiện việc đã xong
   const wantDone = showDone || status !== '' && project.statuses.some((x) => x.name === status && x.category === 'done') || health === 'done' || health === 'done_late';
-  const dropDone = (rows: Row[]): Row[] => rows.flatMap((r) => {
-    const kids = dropDone(r.children);
-    return r.issue.status_category === 'done' && r.issue.id > 0 && !kids.length ? [] : [{ ...r, children: kids }];
-  });
   const shownAll = filtering ? visibleTree(scope) : scope;
-  const shown = wantDone ? shownAll : dropDone(shownAll);
-  const hiddenDone = flatten(shownAll).length - flatten(shown).length;
+  // Đang lọc: Epic chỉ còn là dòng nhóm, không có việc nào hiện bên trong thì bỏ luôn
+  const shown = wantDone ? shownAll : dropDoneRows(shownAll, (r) => !filtering || (rowFilter && match(r)));
+  const hiddenDone = countDone(flatten(shownAll)) - countDone(flatten(shown));
   const lines: Row[] = [];
   const walk = (rows: Row[]) => rows.forEach((r) => { lines.push(r); if (filtering || isOpen(r)) walk(r.children); });
   walk(shown);
@@ -281,7 +278,7 @@ export default function Plan() {
   const counts = (lvl: number) => all.filter((r) => r.level === lvl && r.issue.id > 0).length;
   const hCount = (h: Health) => all.filter((r) => r.level > 0 && r.health === h).length;
   const uniq = (v: (string | null | undefined)[]) => [...new Set(v.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'vi'));
-  const assignees = planAssignees(all.flatMap((r) => (r.level > 0 && r.issue.assignee_id != null ? [{ id: r.issue.assignee_id, full_name: r.issue.assignee_name ?? '' }] : [])), me);
+  const assignees = planAssignees(all.flatMap((r) => (r.issue.id > 0 && r.issue.assignee_id != null ? [{ id: r.issue.assignee_id, full_name: r.issue.assignee_name ?? '' }] : [])), me);
   const owners = uniq(all.map((r) => r.owner));
   const statuses = project.statuses.map((x) => x.name).filter((n) => all.some((r) => r.issue.status_name === n));
   const types = (['story', 'task', 'bug'] as const).filter((t) => all.some((r) => r.level === 1 && r.issue.type === t));
@@ -476,7 +473,7 @@ export default function Plan() {
           </div>
         </td>
         <td className={`nowrap small ${late ? 'overdue' : ''}`}>{r.start || r.end ? <>{fmtShort(r.start)} – {fmtShort(r.end)}</> : <span className="muted">—</span>}</td>
-        <td>{r.level > 0 && i.id > 0 ? <InlineAssignee issue={i} project={project} /> : <span className="muted small">—</span>}</td>
+        <td>{i.id > 0 ? <InlineAssignee issue={i} project={project} /> : <span className="muted small">—</span>}</td>
         <td>{r.owner ? <div className="row gap-xs"><Avatar name={r.owner} src={project.members.find((m) => m.full_name === r.owner)?.avatar_url} size={20} /><span className="small ellipsis">{r.owner}</span></div> : <span className="muted small">—</span>}</td>
         <td>{!i.status_name ? null
           : i.type !== 'epic' && i.id > 0 && can(project.permissions, 'issue.transition') ? <InlineStatus issue={i} />
