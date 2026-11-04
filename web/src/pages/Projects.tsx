@@ -39,7 +39,7 @@ export default function Projects() {
   const group = useProjectGroup(projects);
   const list = projects
     ?.filter((p) => archived || group === 'all' || p.my_role)
-    .filter((p) => !q || [p.name, p.key, p.customer, p.ba_names, p.dev_names, p.tester_names, p.am_names].join(' ').toLowerCase().includes(q))
+    .filter((p) => !q || [p.name, p.key, p.customer, p.ba_names, p.dev_names, p.tester_names, p.am_names, p.kd_names].join(' ').toLowerCase().includes(q))
     .filter((p) => !statusF || statusOf(p) === (statusF === '-' ? '' : statusF))
     .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
     .sort((a, b) => notRunning(a) - notRunning(b) || rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
@@ -75,7 +75,7 @@ export default function Projects() {
         <div className="table-wrap">
         <table className="table table-projects">
           <thead>
-            <tr><th>Tên dự án</th><th>Khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>BA/PM</th><th>Dev</th><th>Tester</th><th>AM</th><th>Loại</th>{canArchive && <th />}</tr>
+            <tr><th>Tên dự án</th><th>Khách hàng</th><th>Ưu tiên</th><th>Trạng thái</th><th>BA/PM</th><th>Dev</th><th>Tester</th><th>AM</th><th>Kinh doanh</th><th>Loại</th>{canArchive && <th />}</tr>
           </thead>
           <tbody>
             {list.map((p) => (

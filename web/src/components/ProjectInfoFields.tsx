@@ -7,7 +7,7 @@ import { PeoplePicker } from './PeoplePicker';
 import { ROLE_LABELS } from '../people';
 
 /** Vai trò người của dự án sản xuất (id tài khoản) — chính là thành viên dự án */
-const PROJECT_ROLES = ['ba', 'dev', 'tester', 'am'] as const;
+const PROJECT_ROLES = ['ba', 'dev', 'tester', 'am', 'kd'] as const;
 
 // Thông tin quản lý dự án — dùng chung cho form Tạo dự án và Cài đặt dự án
 export type ProjectInfo = {
@@ -16,16 +16,16 @@ export type ProjectInfo = {
   /** Dự án của khách hàng (phía Kinh doanh) được gắn với dự án này ('' = chưa gắn) */
   sales_project_id: string;
   /** Người theo vai trò (id tài khoản) */
-  ba_ids: number[]; dev_ids: number[]; tester_ids: number[]; am_ids: number[];
+  ba_ids: number[]; dev_ids: number[]; tester_ids: number[]; am_ids: number[]; kd_ids: number[];
 };
 
 export function projectInfoOf(p?: { customer?: string | null; priority?: string | null; project_status?: string | null;
-  ba_ids?: number[]; dev_ids?: number[]; tester_ids?: number[]; am_ids?: number[];
+  ba_ids?: number[]; dev_ids?: number[]; tester_ids?: number[]; am_ids?: number[]; kd_ids?: number[];
   customer_id?: number | null; customer_info?: { sales_project: { id: number } | null } | null;
 }): ProjectInfo {
   return {
     customer_id: p?.customer_id ? String(p.customer_id) : '', customer: p?.customer ?? '', priority: p?.priority ?? '', project_status: p?.project_status ?? '',
-    ba_ids: p?.ba_ids ?? [], dev_ids: p?.dev_ids ?? [], tester_ids: p?.tester_ids ?? [], am_ids: p?.am_ids ?? [],
+    ba_ids: p?.ba_ids ?? [], dev_ids: p?.dev_ids ?? [], tester_ids: p?.tester_ids ?? [], am_ids: p?.am_ids ?? [], kd_ids: p?.kd_ids ?? [],
     sales_project_id: p?.customer_info?.sales_project ? String(p.customer_info.sales_project.id) : '',
   };
 }
@@ -75,7 +75,7 @@ export function ProjectInfoFields({ value, onChange }: { value: ProjectInfo; onC
       <div className="field"><span>Nhân sự <small className="muted">(chọn tài khoản theo vị trí — là thành viên dự án)</small></span>
         <div className="info-people">
           {PROJECT_ROLES.map((r) => (
-            <div key={r}><small className="muted">{ROLE_LABELS[r]}</small>
+            <div key={r}><small className="muted">{r === 'kd' ? 'Kinh doanh' : ROLE_LABELS[r]}</small>
               <PeoplePicker role={r} value={value[`${r}_ids`]} onChange={(v) => onChange({ ...value, [`${r}_ids`]: v })} /></div>
           ))}
         </div>

@@ -3,7 +3,7 @@ import { badRequest } from './permissions.ts';
 
 /**
  * Người phụ trách theo tài khoản (id người dùng): Sale, AM của khách hàng; Sale, AM, BA/PM, Dev, Tester của dự án của khách hàng;
- * BA/PM, Dev, Tester, AM của dự án sản xuất. Mỗi vai trò chỉ chọn được tài khoản có vị trí tương ứng (phòng ban & vị trí của tài khoản).
+ * BA/PM, Dev, Tester, AM, Kinh doanh (vị trí Sale) của dự án sản xuất. Mỗi vai trò chỉ chọn được tài khoản có vị trí tương ứng (phòng ban & vị trí của tài khoản).
  */
 export const PEOPLE_ROLES = ['kd', 'am', 'ba', 'dev', 'tester'] as const;
 export type PeopleRole = (typeof PEOPLE_ROLES)[number];
@@ -52,7 +52,7 @@ export function savePeople(table: 'customer_owners' | 'sales_project_owners' | '
 export const namesSql = (table: string, key: string, col: string, role: PeopleRole) =>
   `(SELECT GROUP_CONCAT(u.full_name, ', ') FROM ${table} o JOIN users u ON u.id = o.user_id WHERE o.${key} = ${col} AND o.role = '${role}')`;
 
-/** Thành viên dự án sản xuất = người ở các vai trò BA/PM, Dev, Tester, AM (vai trò trong dự án theo nhóm của tài khoản) */
+/** Thành viên dự án sản xuất = người ở các vai trò BA/PM, Dev, Tester, AM, Kinh doanh (vai trò trong dự án theo nhóm của tài khoản) */
 export function syncProjectMembers(projectId: number) {
   tx(() => {
     run('DELETE FROM project_members WHERE project_id = ?', projectId);

@@ -26,8 +26,8 @@ export function loadProject(req: Request, perm?: Permission) {
 
 // Thông tin quản lý dự án: khách hàng, ưu tiên, trạng thái dự án (ghim), nhân sự (họ tên theo Danh mục nhân sự, cách nhau dấu phẩy)
 export const INFO_FIELDS = ['customer', 'priority', 'project_status'] as const;
-/** Người của dự án theo vai trò (id tài khoản): BA/PM, Dev, Tester, AM — chính là thành viên dự án */
-const PROJECT_ROLES: PeopleRole[] = ['ba', 'dev', 'tester', 'am'];
+/** Người của dự án theo vai trò (id tài khoản): BA/PM, Dev, Tester, AM, Kinh doanh — chính là thành viên dự án */
+const PROJECT_ROLES: PeopleRole[] = ['ba', 'dev', 'tester', 'am', 'kd'];
 const projectPeopleIds = (projectId: number) => {
   const rows = all<{ user_id: number; role: PeopleRole }>('SELECT user_id, role FROM project_people WHERE project_id = ?', projectId);
   return Object.fromEntries(PROJECT_ROLES.map((r) => [r, rows.filter((x) => x.role === r).map((x) => x.user_id)])) as Record<PeopleRole, number[]>;

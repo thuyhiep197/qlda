@@ -138,11 +138,12 @@ export function issueHealth(i: Pick<Issue, 'status_category' | 'start_date' | 'd
 }
 
 /** Vị trí trong Danh mục nhân sự; field = trường nhân sự tương ứng của dự án */
-export const STAFF_POSITIONS: { key: 'ba_pm' | 'tester' | 'am' | 'dev'; label: string; field: 'ba' | 'tester' | 'am' | 'dev' }[] = [
+export const STAFF_POSITIONS: { key: 'ba_pm' | 'tester' | 'am' | 'dev' | 'kd'; label: string; field: 'ba' | 'tester' | 'am' | 'dev' | 'kd' }[] = [
   { key: 'ba_pm', label: 'BA/PM', field: 'ba' }, { key: 'dev', label: 'Dev', field: 'dev' },
   { key: 'tester', label: 'Tester', field: 'tester' }, { key: 'am', label: 'AM', field: 'am' },
+  { key: 'kd', label: 'Kinh doanh', field: 'kd' },
 ];
-/** Mọi vị trí trong Danh mục nhân sự (Kinh doanh không có trường tương ứng ở dự án, dùng cho Nhân viên phụ trách khách hàng) */
+/** Mọi vị trí trong Danh mục nhân sự */
 export const STAFF_POSITION_LABELS: { key: 'bgd' | 'kd' | 'am' | 'ba_pm' | 'dev' | 'tester' | 'hc'; label: string; code: string }[] = [
   { key: 'bgd', label: 'Ban Giám đốc', code: 'BGĐ' }, { key: 'kd', label: 'Sale', code: 'KD' }, { key: 'am', label: 'AM', code: 'AM' },
   { key: 'ba_pm', label: 'BA/PM', code: 'BA' }, { key: 'dev', label: 'Dev', code: 'DEV' }, { key: 'tester', label: 'Tester', code: 'Tester' },

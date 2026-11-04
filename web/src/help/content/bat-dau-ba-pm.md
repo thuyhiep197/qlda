@@ -13,7 +13,7 @@ Vào **Dự án**, chọn dự án trong danh sách. Dự án mở thẳng vào 
 
 :::perm project.create
 ### 2. Tạo dự án mới
-Ở phân hệ Dự án, bấm **Tạo dự án** trên thanh trên cùng, nhập **Tên dự án**, **Mã dự án** (VD `DEMO`), chọn **Mô hình quản lý** (Scrum hoặc Kanban); có thể điền luôn khách hàng và nhân sự BA/PM, Dev, Tester, AM ngay trong hộp thoại, hoặc sửa sau ở tab **Thông tin**. Xem [Thông tin dự án](/help/da-thong-tin).
+Ở phân hệ Dự án, bấm **Tạo dự án** trên thanh trên cùng, nhập **Tên dự án**, **Mã dự án** (VD `DEMO`), chọn **Mô hình quản lý** (Scrum hoặc Kanban); có thể điền luôn khách hàng và nhân sự BA/PM, Dev, Tester, AM, Kinh doanh ngay trong hộp thoại, hoặc sửa sau ở tab **Thông tin**. Xem [Thông tin dự án](/help/da-thong-tin).
 :::
 
 :::perm issue.import

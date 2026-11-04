@@ -174,11 +174,12 @@ export interface ProjectSummary {
   customer: string | null;
   priority: string | null;
   project_status: string | null;
-  /** Họ tên người theo vai trò (BA/PM, Dev, Tester, AM), cách nhau dấu phẩy */
+  /** Họ tên người theo vai trò (BA/PM, Dev, Tester, AM, Kinh doanh), cách nhau dấu phẩy */
   ba_names: string | null;
   dev_names: string | null;
   tester_names: string | null;
   am_names: string | null;
+  kd_names: string | null;
 }
 
 export interface Project {
@@ -197,8 +198,8 @@ export interface Project {
   priority: string | null;
   project_status: string | null;
   /** Người theo vai trò: id tài khoản và họ tên — chính là thành viên dự án */
-  ba_ids: number[]; dev_ids: number[]; tester_ids: number[]; am_ids: number[];
-  ba_names: string | null; dev_names: string | null; tester_names: string | null; am_names: string | null;
+  ba_ids: number[]; dev_ids: number[]; tester_ids: number[]; am_ids: number[]; kd_ids: number[];
+  ba_names: string | null; dev_names: string | null; tester_names: string | null; am_names: string | null; kd_names: string | null;
   workflow_strict: number;
   statuses: Status[];
   members: Member[];

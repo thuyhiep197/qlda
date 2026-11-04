@@ -14,7 +14,7 @@ Quản lý sơ đồ tổ chức và cho biết mỗi người thuộc phòng ba
 
 **Nhân sự chính là tài khoản người dùng** (tạo ở [Người dùng](/help/qt-nguoi-dung)). Vị trí quyết định người đó được chọn ở vai trò nào:
 - **Sale**, **AM** của khách hàng;
-- **BA/PM**, **Dev**, **Tester**, **AM** của dự án.
+- **BA/PM**, **Dev**, **Tester**, **AM**, **Kinh doanh** (người có vị trí Sale) của dự án.
 
 Mã vị trí (KD, AM, BA, DEV, Tester, HC, BGĐ) hiện cạnh tên người trong hành trình khách hàng.
 

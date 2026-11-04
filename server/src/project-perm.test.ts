@@ -121,6 +121,45 @@ test('project payload: info-tab fields need Dự án – Xem; customer shows onl
   assert.equal((await api(crmFull, 'GET', '/projects/PZ')).body.customer_info.sales_project.code, 'SZ-01');
 });
 
+test('Kinh doanh of a project: only Sale-position accounts, shown on the project and list, makes them a member', async () => {
+  const sysadmin = run("INSERT INTO users(username, full_name, password_hash, is_admin) VALUES ('kdadmin', 'kdadmin', 'x', 1)").id;
+  const salesRole = role('Sale dự án', ['plan.view', 'project.view']);
+  const sale = user('saleperson', salesRole), notSale = user('notsale', salesRole);
+  run("UPDATE users SET positions = 'kd' WHERE id = ?", sale);
+  run("UPDATE users SET positions = 'dev' WHERE id = ?", notSale);
+  run("INSERT INTO projects(key, name, type) VALUES ('PKD', 'Dự án KD', 'scrum')");
+  const memberIds = () => (all<{ user_id: number }>("SELECT pm.user_id FROM project_members pm JOIN projects p ON p.id = pm.project_id WHERE p.key = 'PKD'")).map((x) => x.user_id);
+
+  const wrong = await api(sysadmin, 'PATCH', '/projects/PKD', { kd_ids: [notSale] });
+  assert.equal(wrong.status, 400);
+  assert.match(wrong.body.error, /vị trí Sale/);
+  assert.deepEqual(memberIds(), []);
+
+  assert.equal((await api(sysadmin, 'PATCH', '/projects/PKD', { kd_ids: [sale] })).status, 200);
+  assert.deepEqual(memberIds(), [sale]);
+  const detail = (await api(sale, 'GET', '/projects/PKD')).body;
+  assert.deepEqual(detail.kd_ids, [sale]);
+  assert.equal(detail.kd_names, 'saleperson');
+  assert.equal((await api(sale, 'GET', '/projects')).body.find((x: any) => x.key === 'PKD').kd_names, 'saleperson');
+
+  // Không gửi kd_ids thì giữ nguyên; người đã chọn từ trước vẫn giữ dù nay đổi vị trí
+  assert.equal((await api(sysadmin, 'PATCH', '/projects/PKD', { priority: 'Cao' })).status, 200);
+  assert.deepEqual(memberIds(), [sale]);
+  run("UPDATE users SET positions = 'dev' WHERE id = ?", sale);
+  assert.equal((await api(sysadmin, 'PATCH', '/projects/PKD', { kd_ids: [sale] })).status, 200);
+  assert.deepEqual(memberIds(), [sale]);
+
+  // Không có Dự án – Xem thì không thấy người ở ô Kinh doanh
+  run("INSERT INTO project_members(project_id, user_id, role_id) SELECT id, ?, (SELECT default_role_id FROM users WHERE id = ?) FROM projects WHERE key = 'PKD'", board, board);
+  const hidden = (await api(board, 'GET', '/projects/PKD')).body;
+  assert.deepEqual(hidden.kd_ids, []);
+  assert.equal(hidden.kd_names, null);
+
+  // Bỏ khỏi ô Kinh doanh → không còn là thành viên
+  assert.equal((await api(sysadmin, 'PATCH', '/projects/PKD', { kd_ids: [] })).status, 200);
+  assert.deepEqual(memberIds(), []);
+});
+
 test('archiving needs Dự án – Lưu trữ on a project I can open; archived list is not admin-only', async () => {
   assert.equal((await api(outsider, 'POST', '/projects/PZ/archive', { archived: true })).status, 403);
   assert.equal((await api(worker, 'POST', '/projects/PZ/archive', { archived: true })).status, 403);
