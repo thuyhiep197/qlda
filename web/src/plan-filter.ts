@@ -13,17 +13,21 @@ export function filterTreeKeepingMatchingRoots<T extends { children: T[] }>(rows
   });
 }
 
+/** Việc vừa tạo trong phiên này luôn được giữ lại, dù không khớp bộ lọc — để người tạo thấy ngay kết quả */
+export const orCreated = <T extends { issue: { id: number } }>(created: Set<number>, match: (row: T) => boolean) =>
+  (row: T) => created.has(row.issue.id) || match(row);
+
 interface PlanRow<T> { level: number; issue: { type: string; subtype?: string | null }; children: T[] }
 
 /**
  * Lọc cây kế hoạch: giữ việc khớp kèm nhánh cha làm ngữ cảnh; Loại áp cho đầu việc (việc con đi theo đầu việc).
  * strict (lọc Đánh giá/Trạng thái): việc cha không khớp thì bỏ, chỉ đưa các việc con khớp lên — Epic vẫn là dòng nhóm.
  */
-export function filterPlanTree<T extends PlanRow<T>>(rows: T[], opt: { type: string; rowFilter: boolean; strict: boolean; match: (row: T) => boolean }): T[] {
+export function filterPlanTree<T extends PlanRow<T>>(rows: T[], opt: { type: string; rowFilter: boolean; strict: boolean; match: (row: T) => boolean; keep?: (row: T) => boolean }): T[] {
   return rows.flatMap((r) => {
-    if (opt.type && r.level === 1 && r.issue.type !== opt.type) {
+    if (opt.type && r.level === 1 && r.issue.type !== opt.type && !opt.keep?.(r)) {
       // Đầu việc khác loại nhưng có việc con đúng loại → chỉ hiện các việc con đó
-      const subs = filterPlanTree(r.children.filter((c) => c.issue.subtype === opt.type), opt);
+      const subs = filterPlanTree(r.children.filter((c) => c.issue.subtype === opt.type || opt.keep?.(c)), opt);
       return subs.length ? [{ ...r, children: subs }] : [];
     }
     const kids = filterPlanTree(r.children, opt);

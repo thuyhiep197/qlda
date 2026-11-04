@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterPlanTree, filterTreeStrict, filterTreeKeepingMatchingRoots } from './plan-filter';
+import { filterPlanTree, filterTreeStrict, filterTreeKeepingMatchingRoots, orCreated } from './plan-filter';
 
 interface Row { id: number; assigneeId: number | null; children: Row[] }
 
@@ -54,4 +54,35 @@ test('a done parent with done subtasks stays as a parent under strict filtering'
   const tree = [pr(1, 0, false, [pr(2, 1, true, [pr(3, 2, true), pr(4, 2, false)])])];
   const out = filterPlanTree(tree, { type: '', rowFilter: true, strict: true, match: (r) => r.done });
   assert.deepEqual(ids(out), [[1, [[2, [3]]]]]);
+});
+
+// Thêm nhanh trên Kế hoạch chi tiết: việc mới chưa giao cho ai, trong khi bảng mặc định lọc theo chính mình
+interface Work { level: 0 | 1 | 2; assignee: number | null; issue: { id: number; type: string; subtype?: string | null }; children: Work[] }
+const work = (id: number, level: 0 | 1 | 2, assignee: number | null, children: Work[] = [], type = 'task', subtype?: string): Work =>
+  ({ level, assignee, issue: { id, type, subtype }, children });
+const planIds = (rows: Work[]): unknown[] => rows.map((r) => (r.children.length ? [r.issue.id, planIds(r.children)] : r.issue.id));
+const ME = 2;
+const mine = (r: Work) => r.assignee === ME;
+// Cùng thứ tự như màn hình: lọc theo người thực hiện rồi lọc dòng
+const plan = (tree: Work[], created: Set<number>, type = '') => {
+  const match = orCreated<Work>(created, mine);
+  return filterPlanTree(filterTreeKeepingMatchingRoots(tree, match), { type, rowFilter: true, strict: false, match, keep: (r) => created.has(r.issue.id) });
+};
+
+test('a new unassigned issue stays hidden by the assignee filter until it is marked as just created', () => {
+  const tree = [work(1, 0, 6, [work(2, 1, ME), work(3, 1, null)])];
+  assert.deepEqual(planIds(plan(tree, new Set())), [[1, [2]]]);
+  assert.deepEqual(planIds(plan(tree, new Set([3]))), [[1, [2, 3]]]);
+});
+
+test('a just-created issue shows in an epic with no other match, and as a subtask under its parent', () => {
+  assert.deepEqual(planIds(plan([work(1, 0, 6, [work(3, 1, null)])], new Set([3]))), [[1, [3]]]);
+  const tree = [work(1, 0, 6, [work(2, 1, ME, [work(4, 2, null, [], 'subtask', 'task')])])];
+  assert.deepEqual(planIds(plan(tree, new Set([4]))), [[1, [[2, [4]]]]]);
+});
+
+test('a just-created issue also survives the type filter; other issues of that type still filter normally', () => {
+  const tree = [work(1, 0, 6, [work(2, 1, ME, [], 'story'), work(3, 1, null, [], 'bug'), work(5, 1, ME, [], 'bug')])];
+  assert.deepEqual(planIds(plan(tree, new Set([3]), 'story')), [[1, [2, 3]]]);
+  assert.deepEqual(planIds(plan(tree, new Set(), 'story')), [[1, [2]]]);
 });

@@ -11,7 +11,7 @@ import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
 import { planAssigneeMembers } from '../issue-filter-defaults';
-import { filterPlanTree, filterTreeKeepingMatchingRoots } from '../plan-filter';
+import { filterPlanTree, filterTreeKeepingMatchingRoots, orCreated } from '../plan-filter';
 import { SearchSelect } from '../components/SearchSelect';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
@@ -179,6 +179,9 @@ export default function Plan() {
   const [draftType, setDraftType] = useState<SubType>('story');
   const [busy, setBusy] = useState(false);
   const [fullForm, setFullForm] = useState<{ type: Issue['type']; parent_id?: number } | null>(null);
+  // Việc vừa tạo trên màn này: luôn hiện dù không khớp bộ lọc (VD đang lọc theo mình, việc mới chưa giao cho ai)
+  const [createdIds, setCreatedIds] = useState<Set<number>>(new Set());
+  const markCreated = (id: number) => setCreatedIds((s) => new Set(s).add(id));
 
   if (isLoading || !issues) return <Spinner />;
   if (!tree.length) return <div className="page-pad"><Empty title="Dự án chưa có kế hoạch"><p className="muted">Tạo Epic (giai đoạn) và các đầu việc, hoặc nhập kế hoạch từ Excel ở Backlog.</p><CreateEpicButton project={project} small={false} /></Empty></div>;
@@ -207,6 +210,7 @@ export default function Plan() {
         ...(adding.level === 0 ? { type: draftType, parent_id: p.id > 0 ? p.id : null } : { type: 'subtask', subtype: draftType, parent_id: p.id }),
       });
       toast(`Đã tạo ${created.key}`);
+      markCreated(created.id);
       setDraft('');
       await refreshAll();
     } catch (err) { toastError(err); } finally { setBusy(false); }
@@ -226,15 +230,16 @@ export default function Plan() {
   const rowFilter = !!(health || q || effectiveAssignee || owner || status);
   const filtering = rowFilter || !!type;
   const clearFilters = () => { setHealth(''); setQ(''); setAssignee(null); setOwner(''); setEpic(''); setType(''); setStatus(''); };
-  const match = (r: Row) => (!health || r.health === health)
+  const isCreated = (r: Row) => createdIds.has(r.issue.id);
+  const match = orCreated<Row>(createdIds, (r) => (!health || r.health === health)
     && (!effectiveAssignee || (effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee))
     && (!owner || r.owner === owner)
     && (!status || r.issue.status_name === status)
-    && (!q || `${r.issue.key} ${r.issue.summary}`.toLowerCase().includes(q.toLowerCase()));
+    && (!q || `${r.issue.key} ${r.issue.summary}`.toLowerCase().includes(q.toLowerCase())));
   // Lọc Đánh giá/Trạng thái (VD bấm ô Hoàn thành) không giữ việc cha không khớp, tránh hiện việc chưa xong
-  const visibleTree = (rows: Row[]) => filterPlanTree(rows, { type, rowFilter, strict: !!(health || status), match });
+  const visibleTree = (rows: Row[]) => filterPlanTree(rows, { type, rowFilter, strict: !!(health || status), match, keep: isCreated });
   const assigneeScope = effectiveAssignee
-    ? filterTreeKeepingMatchingRoots(tree, (r) => effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee)
+    ? filterTreeKeepingMatchingRoots(tree, orCreated<Row>(createdIds, (r) => effectiveAssignee === '-' ? !r.issue.assignee_id && r.level > 0 : String(r.issue.assignee_id) === effectiveAssignee))
     : tree;
   const scope = epic ? assigneeScope.filter((e) => String(e.issue.id) === epic) : assigneeScope;
   // Đang lọc theo trạng thái/đánh giá Hoàn thành thì vẫn hiện việc đã xong
@@ -415,7 +420,7 @@ export default function Plan() {
         </table>
       </div>
       )}
-      {fullForm && <CreateIssueModal projectKey={project.key} defaults={fullForm} onClose={() => setFullForm(null)} onCreated={(x) => open(x.key)} />}
+      {fullForm && <CreateIssueModal projectKey={project.key} defaults={fullForm} onClose={() => setFullForm(null)} onCreated={(x) => { markCreated(x.id); open(x.key); }} />}
       <p className="muted small">Cách đánh giá: {HEALTH_HELP}. Tiến độ việc lẻ: Cần làm 0%, Đang thực hiện 50%, Hoàn thành 100%; việc cha tính trung bình các việc bên trong (mỗi issue như nhau).</p>
     </div>
   );

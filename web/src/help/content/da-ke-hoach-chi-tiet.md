@@ -44,7 +44,7 @@ Theo dõi toàn bộ kế hoạch dự án dạng cây ba cấp: **Epic (giai đ
 :::perm issue.create
 ### Thêm việc nhanh ngay trên bảng
 1. Rê chuột vào dòng Epic (hoặc đầu việc), bấm nút **+**.
-2. Chọn loại (Story / Task / Bug — với đầu việc là **Việc con** loại Story / Task / Bug), gõ tiêu đề rồi **Enter**. Gõ tiếp để tạo thêm; **Esc** để đóng.
+2. Chọn loại (Story / Task / Bug — với đầu việc là **Việc con** loại Story / Task / Bug), gõ tiêu đề rồi **Enter**. Gõ tiếp để tạo thêm; **Esc** để đóng. Việc vừa tạo hiện ngay trên bảng, kể cả khi không khớp bộ lọc. Nếu tải lại trang, bộ lọc lại áp dụng bình thường: việc **chưa giao** sẽ không hiện khi đang lọc theo **chính bạn** — chọn người thực hiện để giữ việc trong danh sách của mình.
 3. Cần điền người thực hiện, ngày, sprint…: bấm **Thêm chi tiết…** để mở form đầy đủ với việc cha chọn sẵn.
 
 ### Tạo Epic
