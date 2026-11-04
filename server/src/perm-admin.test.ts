@@ -165,9 +165,26 @@ test('reset password always sets the default temporary password qlda@868686 and 
   assert.equal(u.must_change_password, 1);
 });
 
-test('creating an account requires a department + position (part of Tài khoản – Thêm); changing it later needs Nhân sự – Sửa; project_ids is ignored', async () => {
-  const dep = get<{ id: number }>('SELECT id FROM departments ORDER BY id LIMIT 1')!.id;
-  assert.equal((await api(mgr, 'PATCH', `/users/${nobody}`, { department_id: dep, positions: ['kd'] })).status, 403);
+test('Tài khoản – Sửa alone can change department + position, still validated; without it the change is refused', async () => {
+  const target = user('moved', viewer);
+  // Không có quyền Tài khoản – Sửa thì không đổi được
+  assert.equal((await api(user('notuseredit', viewer), 'PATCH', `/users/${target}`, place())).status, 403);
+  // mgr có user.edit, không có staff.edit
+  const moved = await api(mgr, 'PATCH', `/users/${target}`, place());
+  assert.equal(moved.status, 200, moved.body.error);
+  assert.equal(moved.body.department_id, place().department_id);
+  assert.deepEqual(moved.body.positions, ['dev']);
+  // Vị trí không thuộc phòng ban vẫn bị từ chối; dữ liệu giữ nguyên
+  assert.equal((await api(mgr, 'PATCH', `/users/${target}`, { ...place(), positions: ['kd'] })).status, 400);
+  assert.deepEqual((await api(mgr, 'GET', '/users')).body.find((x: any) => x.id === target).positions, ['dev']);
+  // Bỏ trống phòng ban = chưa xếp phòng
+  const cleared = await api(mgr, 'PATCH', `/users/${target}`, { department_id: null, positions: [] });
+  assert.equal(cleared.status, 200, cleared.body.error);
+  assert.equal(cleared.body.department_id, null);
+  assert.deepEqual(cleared.body.positions, []);
+});
+
+test('creating an account requires a department + position (part of Tài khoản – Thêm); project_ids is ignored', async () => {
   const body = { full_name: 'Dep 1', password: 'Matkhau2026x', default_role_id: role('Nhóm trống', []) };
   const noDep = await api(mgr, 'POST', '/users', { ...body, username: 'dep0' });
   assert.equal(noDep.status, 400);

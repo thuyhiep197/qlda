@@ -122,9 +122,8 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   const isAdmin = isAdminRole(roleId);
   if (isAdmin !== !!u.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được cấp hoặc gỡ quyền quản trị');
   if (roleId && roleId !== u.default_role_id) checkAssignableRole(req.user, roleId, id);
-  // Phòng ban + vị trí: cần quyền Nhân sự – Sửa
+  // Phòng ban + vị trí: là một phần của Tài khoản – Sửa, như khi tạo tài khoản
   const placing = b.department_id !== undefined || b.positions !== undefined;
-  if (placing) requireUserPerm(req.user, 'staff.edit');
   if (b.is_active === false && u.is_active) requireUserPerm(req.user, 'user.delete');
   if (id === req.user.id && (b.is_active === false || (u.is_admin && !isAdmin))) {
     throw badRequest('Không thể tự khóa hoặc tự rời nhóm Quản trị hệ thống');
@@ -158,6 +157,8 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   if (after.default_role_id !== u.default_role_id) changes.nhom = `${get('SELECT name FROM roles WHERE id = ?', u.default_role_id)?.name ?? '—'} → ${get('SELECT name FROM roles WHERE id = ?', after.default_role_id)?.name ?? '—'}`;
   if (after.full_name !== u.full_name) changes.ho_ten = `${u.full_name} → ${after.full_name}`;
   if (after.email !== u.email) changes.email = `${u.email ?? '—'} → ${after.email ?? '—'}`;
+  if (after.department_id !== u.department_id) changes.phong_ban = `${get('SELECT name FROM departments WHERE id = ?', u.department_id)?.name ?? '—'} → ${get('SELECT name FROM departments WHERE id = ?', after.department_id)?.name ?? '—'}`;
+  if (after.positions !== u.positions) changes.vi_tri = `${u.positions || '—'} → ${after.positions || '—'}`;
   audit(req, 'user_updated', { target: u.username, detail: changes });
   res.json(userJson(get(`SELECT ${USER_COLS} FROM users WHERE id = ?`, id)));
 });

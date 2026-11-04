@@ -161,13 +161,11 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
   const roles = allRoles?.filter((r) => !!me?.is_admin || (!r.is_admin && canManageAccountPermissions(me)) || r.id === user?.default_role_id
     || (!r.is_admin && r.permissions.every((p) => hasPerm(me, p))));
   const ownRole = !me?.is_admin && user?.id === me?.id;
-  // Phòng ban + vị trí: bắt buộc khi tạo tài khoản (nằm trong Tài khoản – Thêm); sửa lại sau cần Nhân sự – Sửa
-  const canPlace = !user || hasPerm(me, 'staff.edit');
   const [username, setUsername] = useState(user?.username || '');
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [roleId, setRoleId] = useState(user?.default_role_id ? String(user.default_role_id) : '');
-  // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự): chọn nhóm thì gợi ý sẵn khi chưa xếp phòng; sửa lại được
+  // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự): nằm trong quyền Tài khoản – Thêm / Sửa; chọn nhóm thì gợi ý sẵn khi chưa xếp phòng
   const { data: deps } = useDepartments();
   const [depId, setDepId] = useState(user?.department_id ? String(user.department_id) : '');
   const [positions, setPositions] = useState<string[]>(user?.positions ?? []);
@@ -199,9 +197,9 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (canPlace && depId && !positions.length) { toastError(new Error('Chọn ít nhất một vị trí')); return; }
+    if (depId && !positions.length) { toastError(new Error('Chọn ít nhất một vị trí')); return; }
     try {
-      const body = { full_name: fullName, email, default_role_id: Number(roleId), ...(canPlace ? { department_id: depId || null, positions: depId ? positions : [] } : {}) };
+      const body = { full_name: fullName, email, default_role_id: Number(roleId), department_id: depId || null, positions: depId ? positions : [] };
       if (user) {
         await api.patch(`/users/${user.id}`, body);
         toast('Đã lưu');
@@ -252,7 +250,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
               : 'Quyền của nhóm được gán mặc định, áp dụng trên mọi dự án người dùng tham gia. Cấp thêm quyền riêng bằng nút Phân quyền.'}
           </div>
         )}
-        {canPlace && <div className="form-grid">
+        <div className="form-grid">
           <label className="field"><span>Phòng ban{needPlace ? ' *' : ''} <small className="muted">(sơ đồ Phòng ban & Nhân sự)</small></span>
             <select value={depId} onChange={(e) => pickDep(e.target.value)} required={needPlace}>
               <option value="" disabled={needPlace}>{needPlace ? '— Chọn phòng ban —' : '— Chưa xếp phòng ban —'}</option>
@@ -265,7 +263,7 @@ function UserModal({ user, onClose }: { user: User | null; onClose: () => void }
                   onChange={() => { setPlaceTouched(true); setPositions(positions.includes(p.key) ? positions.filter((x) => x !== p.key) : [...positions, p.key]); }} /> {p.label}</label>
               ))}
             </div></div>}
-        </div>}
+        </div>
         {!user && (
           <div className="muted small">Mật khẩu khởi tạo là mật khẩu tạm mặc định <b>qlda@868686</b>. Người dùng sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.</div>
         )}

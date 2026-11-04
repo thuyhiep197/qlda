@@ -44,16 +44,12 @@ Nếu có tài khoản chưa được chọn nhóm, đầu trang hiện thông b
 ### Sửa thông tin tài khoản
 
 1. Bấm biểu tượng **Sửa** (cây bút) trên dòng của người dùng.
-2. Sửa **Họ tên**, **Email**, **Nhóm người dùng**.
+2. Sửa **Họ tên**, **Email**, **Nhóm người dùng**, **Phòng ban**, **Vị trí**.
 3. Bấm **Lưu**.
 
 Đổi nhóm người dùng là đổi toàn bộ quyền theo nhóm của người đó; vai trò của họ trong các dự án cũng theo nhóm mới.
-:::
 
-:::perm user.edit, staff.edit
-### Đổi phòng ban, vị trí khi sửa tài khoản
-
-Ô **Phòng ban** và **Vị trí** trong hộp thoại Sửa chỉ hiện khi bạn có thêm quyền **Nhân sự – Sửa**. Có thể làm việc này ở màn [Phòng ban & Nhân sự](/help/qt-phong-ban-nhan-su).
+Khi đã chọn phòng ban thì phải tích ít nhất một vị trí. Chọn **Chưa xếp phòng ban** nếu muốn đưa người đó ra khỏi phòng ban hiện tại.
 :::
 
 :::perm user.edit

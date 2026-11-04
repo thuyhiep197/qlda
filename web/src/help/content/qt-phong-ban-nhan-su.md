@@ -90,6 +90,6 @@ Bấm biểu tượng thùng rác cạnh tên người → xác nhận. Tài kho
 
 ## Lưu ý
 
-- Khi **tạo tài khoản** mới ở màn Người dùng, phòng ban và vị trí là bắt buộc (trừ tài khoản Quản trị hệ thống) và chỉ cần quyền **Người dùng – Thêm**. Sửa phòng ban / vị trí về sau cần **Nhân sự – Sửa**.
+- Khi **tạo tài khoản** mới ở màn Người dùng, phòng ban và vị trí là bắt buộc (trừ tài khoản Quản trị hệ thống) và chỉ cần quyền **Người dùng – Thêm**. Về sau có thể đổi phòng ban / vị trí ở hộp thoại Sửa của màn Người dùng (cần **Người dùng – Sửa**) hoặc ở màn này (cần **Nhân sự – Sửa**).
 - Người không có vị trí phù hợp sẽ không xuất hiện trong ô chọn tương ứng, VD người không có vị trí Dev thì không chọn được vào ô Dev của dự án.
 - Tài khoản Quản trị hệ thống không bắt buộc thuộc phòng ban và không hiện ở các ô chọn người.
