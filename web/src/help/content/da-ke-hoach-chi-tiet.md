@@ -47,6 +47,18 @@ Theo dõi toàn bộ kế hoạch dự án dạng cây ba cấp: **Epic (giai đ
 2. Chọn loại (Story / Task / Bug — với đầu việc là **Việc con** loại Story / Task / Bug), gõ tiêu đề rồi **Enter**. Gõ tiếp để tạo thêm; **Esc** để đóng. Việc vừa tạo hiện ngay trên bảng, kể cả khi không khớp bộ lọc. Nếu tải lại trang, bộ lọc lại áp dụng bình thường: việc **chưa giao** sẽ không hiện khi đang lọc theo **chính bạn** — chọn người thực hiện để giữ việc trong danh sách của mình.
 3. Cần điền người thực hiện, ngày, sprint…: bấm **Thêm chi tiết…** để mở form đầy đủ với việc cha chọn sẵn.
 
+:::
+
+:::perm assign.edit | transition.edit | backlog.edit | issue.edit | issue.delete
+### Sửa nhiều việc cùng lúc
+1. Tick ô đầu các dòng cần sửa; ô ở tiêu đề bảng chọn tất cả việc đang hiện. Dòng Epic không có ô tick.
+2. Thanh thao tác hiện phía trên bảng, cùng các thao tác và quyền như ở [Danh sách issue](/help/da-danh-sach-issue): **Giao cho…**, **Chuyển vào sprint…**, **Đổi trạng thái…**, **Đổi loại…**, **Độ ưu tiên…**, **Xóa**…
+3. Bấm **Bỏ chọn** để thôi chọn.
+
+Thao tác chỉ áp dụng cho việc đang hiện: việc đã tick nhưng bị bộ lọc ẩn đi hoặc nằm trong nhánh đang thu gọn không bị thay đổi. Chỉ có ở Dạng bảng.
+:::
+
+:::perm issue.create
 ### Tạo Epic
 Bấm **Tạo Epic**, nhập tiêu đề, ngày bắt đầu và hạn hoàn thành. Xem thêm [Tạo issue và việc con](/help/da-tao-issue).
 :::

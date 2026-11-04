@@ -11,7 +11,9 @@ import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
 import { planAssigneeMembers } from '../issue-filter-defaults';
-import { filterPlanTree, filterTreeKeepingMatchingRoots, orCreated } from '../plan-filter';
+import { filterPlanTree, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from '../plan-filter';
+import { BulkBar } from '../components/BulkBar';
+import { canBulk } from '../bulk-actions';
 import { SearchSelect } from '../components/SearchSelect';
 
 /** Đánh giá tiến độ của một việc tại ngày hôm nay. */
@@ -43,6 +45,8 @@ interface Row {
 }
 
 const DAY = 86400_000;
+/** Chỗ dành cho ô tick đầu dòng, thẳng cột ở mọi cấp */
+const PLAN_CHECK_WIDTH = 24;
 const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
 const days = (a: string, b: string) => Math.round((t(b) - t(a)) / DAY);
 
@@ -182,6 +186,9 @@ export default function Plan() {
   // Việc vừa tạo trên màn này: luôn hiện dù không khớp bộ lọc (VD đang lọc theo mình, việc mới chưa giao cho ai)
   const [createdIds, setCreatedIds] = useState<Set<number>>(new Set());
   const markCreated = (id: number) => setCreatedIds((s) => new Set(s).add(id));
+  // Tick nhiều việc để thao tác hàng loạt (chỉ khi có ít nhất một quyền thao tác hàng loạt)
+  const canSelect = canBulk(project.permissions, project.type !== 'kanban');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   if (isLoading || !issues) return <Spinner />;
   if (!tree.length) return <div className="page-pad"><Empty title="Dự án chưa có kế hoạch"><p className="muted">Tạo Epic (giai đoạn) và các đầu việc, hoặc nhập kế hoạch từ Excel ở Backlog.</p><CreateEpicButton project={project} small={false} /></Empty></div>;
@@ -254,6 +261,10 @@ export default function Plan() {
   const lines: Row[] = [];
   const walk = (rows: Row[]) => rows.forEach((r) => { lines.push(r); if (filtering || isOpen(r)) walk(r.children); });
   walk(shown);
+  const selectable = selectableRows(lines);
+  const selectedIssues = selectedVisibleIssues(lines, selected);
+  const allChecked = selectable.length > 0 && selectedIssues.length === selectable.length;
+  const toggleSelect = (id: number) => { const n = new Set(selected); if (!n.delete(id)) n.add(id); setSelected(n); };
   // Dòng nhập nhanh: ngay sau nhánh của việc cha (sau việc con cuối cùng)
   let draftAt = -1;
   if (adding) {
@@ -312,7 +323,7 @@ export default function Plan() {
   const draftRow = adding && (
     <tr key="draft" className="plan-row plan-draft">
       <td colSpan={8}>
-        <form className="plan-name" style={{ paddingLeft: (adding.level + 1) * 22 }} onSubmit={submitDraft}
+        <form className="plan-name" style={{ paddingLeft: (adding.level + 1) * 22 + (canSelect ? PLAN_CHECK_WIDTH : 0) }} onSubmit={submitDraft}
           onKeyDown={(e) => { if (e.key === 'Escape') setAdding(null); }}>
           <span className="plan-spacer" />
           <TypeIcon type={adding.level === 0 ? draftType : 'subtask'} subtype={adding.level === 0 ? null : draftType} size={15} />
@@ -400,11 +411,15 @@ export default function Plan() {
           items: flatten(e.children).filter((r) => r.issue.id > 0).map((r) => r.issue),
         }))} />
       ) : (
+      <>
+      {canSelect && selectedIssues.length > 0 && <BulkBar issues={selectedIssues} onClear={() => setSelected(new Set())} />}
       <div className="plan-table-wrap">
         <table className="plan-table">
           <thead>
             <tr>
-              <th className="col-name">Công việc</th>
+              <th className="col-name">{canSelect && <input type="checkbox" className="plan-check-all" checked={allChecked} disabled={!selectable.length}
+                aria-label="Chọn tất cả việc đang hiện" data-tip={allChecked ? 'Bỏ chọn tất cả' : 'Chọn tất cả việc đang hiện trên bảng (không gồm Epic)'}
+                onChange={() => setSelected(toggleAllVisible(lines, selected))} />}Công việc</th>
               <th data-tip={HEALTH_HELP}>Đánh giá</th>
               <th>Tiến độ</th>
               <th>Thời gian</th>
@@ -419,6 +434,7 @@ export default function Plan() {
           </tbody>
         </table>
       </div>
+      </>
       )}
       {fullForm && <CreateIssueModal projectKey={project.key} defaults={fullForm} onClose={() => setFullForm(null)} onCreated={(x) => { markCreated(x.id); open(x.key); }} />}
       <p className="muted small">Cách đánh giá: {HEALTH_HELP}. Tiến độ việc lẻ: Cần làm 0%, Đang thực hiện 50%, Hoàn thành 100%; việc cha tính trung bình các việc bên trong (mỗi issue như nhau).</p>
@@ -429,9 +445,10 @@ export default function Plan() {
     const i = r.issue;
     const late = r.health === 'late';
     return (
-      <tr key={`${r.level}-${i.id}`} className={`plan-row lvl-${r.level}`}>
+      <tr key={`${r.level}-${i.id}`} className={`plan-row lvl-${r.level} ${selected.has(i.id) ? 'plan-row-selected' : ''}`}>
         <td className="col-name">
-          <div className="plan-name" style={{ paddingLeft: r.level * 22 }}>
+          <div className="plan-name" style={{ paddingLeft: r.level * 22 + (canSelect ? PLAN_CHECK_WIDTH : 0) }}>
+            {canSelect && r.level > 0 && i.id > 0 && <input type="checkbox" className="plan-check" checked={selected.has(i.id)} aria-label={`Chọn ${i.key}`} onChange={() => toggleSelect(i.id)} />}
             {r.children.length && !filtering
               ? <button className="icon-btn" onClick={() => toggle(r)} aria-label="Mở/đóng">{isOpen(r) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
               : <span className="plan-spacer" />}

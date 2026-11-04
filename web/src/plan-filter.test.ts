@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterPlanTree, filterTreeStrict, filterTreeKeepingMatchingRoots, orCreated } from './plan-filter';
+import { filterPlanTree, filterTreeStrict, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from './plan-filter';
 
 interface Row { id: number; assigneeId: number | null; children: Row[] }
 
@@ -85,4 +85,28 @@ test('a just-created issue also survives the type filter; other issues of that t
   const tree = [work(1, 0, 6, [work(2, 1, ME, [], 'story'), work(3, 1, null, [], 'bug'), work(5, 1, ME, [], 'bug')])];
   assert.deepEqual(planIds(plan(tree, new Set([3]), 'story')), [[1, [2, 3]]]);
   assert.deepEqual(planIds(plan(tree, new Set(), 'story')), [[1, [2]]]);
+});
+
+// Tick chọn nhiều ở Kế hoạch chi tiết
+const line = (id: number, level: number) => ({ level, issue: { id } });
+const shownLines = [line(1, 0), line(2, 1), line(3, 2), line(-1, 0), line(4, 1)];
+
+test('only work items can be ticked: not epics, not the "no phase" group row', () => {
+  assert.deepEqual(selectableRows(shownLines).map((r) => r.issue.id), [2, 3, 4]);
+});
+
+test('a bulk action only touches ticked issues that are still on screen', () => {
+  assert.deepEqual(selectedVisibleIssues(shownLines, new Set([3, 4, 99])).map((i) => i.id), [3, 4]);
+  // Bị lọc đi / thu gọn nhánh: việc 3 không còn trong danh sách đang hiện thì không bị thao tác
+  const afterFilter = shownLines.filter((r) => r.issue.id !== 3);
+  assert.deepEqual(selectedVisibleIssues(afterFilter, new Set([3, 4])).map((i) => i.id), [4]);
+  // Epic có id trong tập chọn cũng không lọt vào
+  assert.deepEqual(selectedVisibleIssues(shownLines, new Set([1])), []);
+});
+
+test('select all ticks everything visible, a second click clears', () => {
+  const all = toggleAllVisible(shownLines, new Set([2]));
+  assert.deepEqual([...all], [2, 3, 4]);
+  assert.deepEqual([...toggleAllVisible(shownLines, all)], []);
+  assert.deepEqual([...toggleAllVisible([line(1, 0)], new Set())], []);
 });

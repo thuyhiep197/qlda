@@ -17,6 +17,20 @@ export function filterTreeKeepingMatchingRoots<T extends { children: T[] }>(rows
 export const orCreated = <T extends { issue: { id: number } }>(created: Set<number>, match: (row: T) => boolean) =>
   (row: T) => created.has(row.issue.id) || match(row);
 
+/** Dòng được tick để thao tác hàng loạt: đầu việc, việc con đang hiện trên bảng; không gồm Epic và dòng "Chưa thuộc giai đoạn nào" */
+export const selectableRows = <T extends { level: number; issue: { id: number } }>(lines: T[]) => lines.filter((r) => r.level > 0 && r.issue.id > 0);
+
+/** Issue đang chọn VÀ đang hiện: việc bị lọc đi hoặc nằm trong nhánh thu gọn không bị thao tác hàng loạt chạm tới */
+export const selectedVisibleIssues = <I extends { id: number }>(lines: { level: number; issue: I }[], selected: Set<number>) =>
+  selectableRows(lines).filter((r) => selected.has(r.issue.id)).map((r) => r.issue);
+
+/** Ô chọn tất cả: đã chọn đủ các dòng đang hiện thì bỏ chọn hết, ngược lại chọn hết các dòng đang hiện */
+export function toggleAllVisible<T extends { level: number; issue: { id: number } }>(lines: T[], selected: Set<number>) {
+  const rows = selectableRows(lines);
+  const all = rows.length > 0 && rows.every((r) => selected.has(r.issue.id));
+  return all ? new Set<number>() : new Set(rows.map((r) => r.issue.id));
+}
+
 interface PlanRow<T> { level: number; issue: { type: string; subtype?: string | null }; children: T[] }
 
 /**

@@ -760,6 +760,10 @@ div.bad .lucide, div.warn .lucide { margin-top: 3px; }
 .plan-name a { color: var(--text); cursor: pointer; min-width: 0; }
 .plan-name a.plan-name-done, .plan-row.lvl-2 .plan-name a.plan-name-done { text-decoration: line-through; color: var(--muted); }
 .plan-spacer { width: 28px; flex-shrink: 0; }
+.plan-name:has(> .plan-check) { position: relative; }
+.plan-check { position: absolute; left: 0; top: 50%; transform: translateY(-50%); margin: 0; }
+.plan-check-all { margin: 0 10px 0 0; vertical-align: middle; }
+.plan-row-selected td, .plan-row-selected td.col-name { background: var(--primary-soft) !important; }
 .plan-pct { display: flex; align-items: center; gap: 6px; min-width: 90px; }
 .plan-pct .plan-bar { flex: 1; margin: 0; height: 8px; }
 .plan-note { max-width: 200px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
