@@ -11,7 +11,7 @@ keywords: lộ trình, roadmap, timeline, epic, giai đoạn, theo tháng, gantt
 
 ## Màn hình này dùng để làm gì
 
-Xem nhanh toàn bộ dự án trên trục thời gian: mỗi Epic (giai đoạn) là một thanh ngang theo tháng, phần tô đậm là tỷ lệ issue đã hoàn thành. Mở rộng Epic để thấy các Story/Task/Bug bên trong.
+Xem nhanh toàn bộ dự án trên trục thời gian: mỗi Epic (giai đoạn) là một thanh ngang theo tháng, phần tô đậm là tỷ lệ issue đã hoàn thành. Khi mở màn hình chỉ hiện các Epic; mở rộng Epic để thấy các Story/Task/Bug bên trong.
 
 ![Kế hoạch tổng quan](/help/img/da-ke-hoach-tong-quan.webp)
 

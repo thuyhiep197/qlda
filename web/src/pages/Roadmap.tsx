@@ -8,6 +8,7 @@ import { Avatar, Empty, Spinner, StatusBadge, TypeIcon } from '../components/ui'
 import { useProjectCtx } from './ProjectLayout';
 import { CreateEpicButton } from '../components/CreateIssueModal';
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { allEpicsOpen, initialExpanded, roadmapRows, toggleEpic } from '../roadmap-rows';
 
 interface Child {
   id: number; key: string; type: IssueType; summary: string; start_date: string | null; due_date: string | null;
@@ -39,7 +40,7 @@ export default function Roadmap() {
   const { open: openModal } = useIssueModal();
   // Mở chi tiết issue cần Issue – Xem
   const open = (key: string) => { if (can(project.permissions, 'issue.view')) openModal(key); };
-  const [expanded, setExpanded] = useState<Set<number> | null>(null); // null = mặc định mở hết các epic
+  const [expanded, setExpanded] = useState(initialExpanded);
   const { data: epics, isLoading } = useQuery<Epic[]>({
     queryKey: ['roadmap', project.key],
     queryFn: () => api.get(`/reports/projects/${project.key}/roadmap`),
@@ -68,16 +69,10 @@ export default function Roadmap() {
     months.push({ label: `T${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`, left: pct(d.getTime()), width: pct(next) - pct(d.getTime()) });
   }
   const width = Math.max(800, months.length * 160);
-  const isOpen = (id: number) => (expanded ? expanded.has(id) : true);
-  const toggle = (id: number) => { const n = new Set(expanded ?? epics.map((e) => e.id)); n.has(id) ? n.delete(id) : n.add(id); setExpanded(n); };
-  const allOpen = epics.every((e) => !e.children.length || isOpen(e.id));
-
-  // Mỗi hàng: epic, tiếp theo là các issue con khi được mở rộng
-  const rows: ({ kind: 'epic'; e: Epic } | { kind: 'child'; c: Child; color: string })[] = [];
-  for (const e of epics) {
-    rows.push({ kind: 'epic', e });
-    if (isOpen(e.id)) for (const c of e.children) rows.push({ kind: 'child', c, color: colorOf(e.key) });
-  }
+  const isOpen = (id: number) => expanded.has(id);
+  const toggle = (id: number) => setExpanded(toggleEpic(expanded, id));
+  const allOpen = allEpicsOpen(epics, expanded);
+  const rows = roadmapRows<Child, Epic>(epics, expanded);
 
   const bar = (r: [string, string], color: string, done: number, tip: string, onClick: () => void, child = false) => (
     <div className={`bar ${child ? 'bar-child' : ''}`} onClick={onClick} data-tip={tip}
@@ -153,7 +148,7 @@ export default function Roadmap() {
               const r = range(c);
               return (
                 <div key={`c${c.id}`} className="roadmap-cell timeline-row roadmap-child">
-                  {r ? bar(r, row.color, c.status_category === 'done' ? 100 : c.status_category === 'inprogress' ? 50 : 0,
+                  {r ? bar(r, colorOf(row.epic.key), c.status_category === 'done' ? 100 : c.status_category === 'inprogress' ? 50 : 0,
                     `${c.key} ${c.summary}\n${fmtDate(r[0])} – ${fmtDate(r[1])}${!c.start_date && c.sprint_name ? `\n(theo ${c.sprint_name})` : ''}\n${c.status_name}`, () => open(c.key), true)
                     : <span className="muted small pad-x">Chưa có ngày</span>}
                 </div>
