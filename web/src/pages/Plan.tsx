@@ -11,7 +11,7 @@ import { PlanKanban } from '../components/PlanKanban';
 import CreateIssueModal, { CreateEpicButton } from '../components/CreateIssueModal';
 import { InlineAssignee } from '../components/InlineAssignee';
 import { planAssignees } from '../issue-filter-defaults';
-import { countDone, dropDoneRows, filterPlanTree, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from '../plan-filter';
+import { countDone, dropDoneRows, filterPlanTree, filterTreeKeepingMatchingRoots, orCreated, planMatchedIds, selectableRows, selectedVisibleIssues, toggleAllVisible } from '../plan-filter';
 import { BulkBar } from '../components/BulkBar';
 import { canBulk } from '../bulk-actions';
 import { SearchSelect } from '../components/SearchSelect';
@@ -258,8 +258,11 @@ export default function Plan() {
   const lines: Row[] = [];
   const walk = (rows: Row[]) => rows.forEach((r) => { lines.push(r); if (filtering || isOpen(r)) walk(r.children); });
   walk(shown);
-  const selectable = selectableRows(lines);
-  const selectedIssues = selectedVisibleIssues(lines, selected);
+  // Đầu việc chỉ hiện làm ngữ cảnh cho việc con khớp lọc: không đếm, không tick, không bị thao tác hàng loạt chạm tới
+  const matched = planMatchedIds(tree, { type, rowFilter, match, keep: isCreated });
+  const pickLines = lines.filter((r) => matched.has(r.issue.id));
+  const selectable = selectableRows(pickLines);
+  const selectedIssues = selectedVisibleIssues(pickLines, selected);
   const allChecked = selectable.length > 0 && selectedIssues.length === selectable.length;
   const toggleSelect = (id: number) => { const n = new Set(selected); if (!n.delete(id)) n.add(id); setSelected(n); };
   // Dòng nhập nhanh: ngay sau nhánh của việc cha (sau việc con cuối cùng)
@@ -384,7 +387,7 @@ export default function Plan() {
           </select>
         </MoreFilters>
         {(filtering || epic) && <button className="btn btn-subtle btn-sm" onClick={clearFilters}>Xóa lọc</button>}
-        {(filtering || epic) && <span className="muted small">{flatten(shown).filter((r) => r.level > 0).length} việc khớp</span>}
+        {(filtering || epic) && <span className="muted small">{flatten(shown).filter((r) => matched.has(r.issue.id)).length} việc khớp</span>}
         {view === 'table' && <label className="check small" data-tip="Mặc định ẩn việc đã Hoàn thành; tiến độ và đánh giá vẫn tính cả việc đã xong">
           <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} /> Hiện việc đã hoàn thành{!wantDone && hiddenDone > 0 && <span className="muted"> ({hiddenDone})</span>}
         </label>}
@@ -415,7 +418,7 @@ export default function Plan() {
             <tr>
               <th className="col-name">{canSelect && <input type="checkbox" className="plan-check-all" checked={allChecked} disabled={!selectable.length}
                 aria-label="Chọn tất cả việc đang hiện" data-tip={allChecked ? 'Bỏ chọn tất cả' : 'Chọn tất cả việc đang hiện trên bảng (không gồm Epic)'}
-                onChange={() => setSelected(toggleAllVisible(lines, selected))} />}Công việc</th>
+                onChange={() => setSelected(toggleAllVisible(pickLines, selected))} />}Công việc</th>
               <th data-tip={HEALTH_HELP}>Đánh giá</th>
               <th>Tiến độ</th>
               <th>Thời gian</th>
@@ -441,10 +444,10 @@ export default function Plan() {
     const i = r.issue;
     const late = r.health === 'late';
     return (
-      <tr key={`${r.level}-${i.id}`} className={`plan-row lvl-${r.level} ${selected.has(i.id) ? 'plan-row-selected' : ''}`}>
+      <tr key={`${r.level}-${i.id}`} className={`plan-row lvl-${r.level} ${matched.has(i.id) && selected.has(i.id) ? 'plan-row-selected' : ''}`}>
         <td className="col-name">
           <div className="plan-name" style={{ paddingLeft: r.level * 22 + (canSelect ? PLAN_CHECK_WIDTH : 0) }}>
-            {canSelect && r.level > 0 && i.id > 0 && <input type="checkbox" className="plan-check" checked={selected.has(i.id)} aria-label={`Chọn ${i.key}`} onChange={() => toggleSelect(i.id)} />}
+            {canSelect && matched.has(i.id) && i.id > 0 && <input type="checkbox" className="plan-check" checked={selected.has(i.id)} aria-label={`Chọn ${i.key}`} onChange={() => toggleSelect(i.id)} />}
             {r.children.length && !filtering
               ? <button className="icon-btn" onClick={() => toggle(r)} aria-label="Mở/đóng">{isOpen(r) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
               : <span className="plan-spacer" />}

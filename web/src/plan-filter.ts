@@ -51,13 +51,31 @@ export function dropDoneRows<T extends DoneRow<T>>(rows: T[], keepEmptyRoot: (ro
 export const countDone = <T extends { issue: { id: number; status_category: string } }>(rows: T[]) => rows.filter((r) => r.issue.status_category === 'done' && r.issue.id > 0).length;
 
 interface PlanRow<T> { level: number; issue: { type: string; subtype?: string | null }; children: T[] }
+interface PlanFilterOptions<T> { type: string; rowFilter: boolean; strict: boolean; match: (row: T) => boolean; keep?: (row: T) => boolean }
+
+/**
+ * Việc thật sự khớp bộ lọc (không gồm Epic). Đầu việc chỉ hiện để biết việc con thuộc đâu thì không có trong đây:
+ * không tính vào "việc khớp", không có ô tick. Truyền cây đầy đủ để việc con còn biết loại của đầu việc chứa nó.
+ */
+export function planMatchedIds<T extends PlanRow<T> & { issue: { id: number } }>(rows: T[], opt: Pick<PlanFilterOptions<T>, 'type' | 'rowFilter' | 'match' | 'keep'>): Set<number> {
+  const ids = new Set<number>();
+  const visit = (r: T, headTypeOk: boolean) => {
+    const typeOk = !opt.type || (r.level === 1 ? r.issue.type === opt.type : headTypeOk || r.issue.subtype === opt.type);
+    if (r.level > 0 && (opt.keep?.(r) || (typeOk && (!opt.rowFilter || opt.match(r))))) ids.add(r.issue.id);
+    r.children.forEach((c) => visit(c, r.level === 1 && typeOk));
+  };
+  rows.forEach((r) => visit(r, false));
+  return ids;
+}
 
 /**
  * Lọc cây kế hoạch: giữ việc khớp kèm nhánh cha làm ngữ cảnh; Loại áp cho đầu việc (việc con đi theo đầu việc).
  * strict (lọc Đánh giá/Trạng thái): việc cha không khớp thì bỏ, chỉ đưa các việc con khớp lên — Epic vẫn là dòng nhóm.
  */
-export function filterPlanTree<T extends PlanRow<T>>(rows: T[], opt: { type: string; rowFilter: boolean; strict: boolean; match: (row: T) => boolean; keep?: (row: T) => boolean }): T[] {
-  return rows.flatMap((r) => {
+export function filterPlanTree<T extends PlanRow<T>>(rows: T[], opt: PlanFilterOptions<T>): T[] {
+  return rows.flatMap((r0) => {
+    // Việc con được đưa thẳng lên dưới Epic (đầu việc của nó đã bị lọc theo người thực hiện) vẫn phải đúng loại
+    const r = opt.type && r0.level === 0 ? { ...r0, children: r0.children.filter((c) => c.level === 1 || c.issue.subtype === opt.type || opt.keep?.(c)) } : r0;
     if (opt.type && r.level === 1 && r.issue.type !== opt.type && !opt.keep?.(r)) {
       // Đầu việc khác loại nhưng có việc con đúng loại → chỉ hiện các việc con đó
       const subs = filterPlanTree(r.children.filter((c) => c.issue.subtype === opt.type || opt.keep?.(c)), opt);

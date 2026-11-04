@@ -51,7 +51,7 @@ Theo dõi toàn bộ kế hoạch dự án dạng cây ba cấp: **Epic (giai đ
 
 :::perm assign.edit | transition.edit | backlog.edit | issue.edit | issue.delete
 ### Sửa nhiều việc cùng lúc
-1. Tick ô đầu các dòng cần sửa; ô ở tiêu đề bảng chọn tất cả việc đang hiện. Dòng Epic không có ô tick.
+1. Tick ô đầu các dòng cần sửa; ô ở tiêu đề bảng chọn tất cả việc khớp bộ lọc đang hiện. Dòng Epic không có ô tick; khi đang lọc, đầu việc không khớp mà chỉ hiện kèm để biết việc con thuộc đâu cũng không có ô tick và không tính vào số **việc khớp**.
 2. Thanh thao tác hiện phía trên bảng, cùng các thao tác và quyền như ở [Danh sách issue](/help/da-danh-sach-issue): **Giao cho…**, **Chuyển vào sprint…**, **Đổi trạng thái…**, **Đổi loại…**, **Độ ưu tiên…**, **Xóa**…
 3. Bấm **Bỏ chọn** để thôi chọn.
 

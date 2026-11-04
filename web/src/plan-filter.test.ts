@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { countDone, dropDoneRows, filterPlanTree, filterTreeStrict, filterTreeKeepingMatchingRoots, orCreated, selectableRows, selectedVisibleIssues, toggleAllVisible } from './plan-filter';
+import { countDone, dropDoneRows, filterPlanTree, filterTreeStrict, filterTreeKeepingMatchingRoots, orCreated, planMatchedIds, selectableRows, selectedVisibleIssues, toggleAllVisible } from './plan-filter';
 
 interface Row { id: number; assigneeId: number | null; children: Row[] }
 
@@ -134,4 +134,59 @@ test('a done parent stays while it has unfinished work inside; a finished epic w
 test('the hidden count only counts finished work, not group rows that were removed', () => {
   const before = [dw(1, 0, 'inprogress'), dw(2, 1, 'done'), dw(3, 2, 'done'), dw(-1, 0, 'done')];
   assert.equal(countDone(before), 2);
+});
+
+// Việc thật sự khớp bộ lọc: đầu việc chỉ hiện làm ngữ cảnh thì không đếm, không tick
+interface PlanWork { level: number; issue: { id: number; type: string; subtype: string | null; who: number; todo: boolean }; children: PlanWork[] }
+const pw = (id: number, level: number, type: string, subtype: string | null, who: number, todo: boolean, children: PlanWork[] = []): PlanWork => ({ level, issue: { id, type, subtype, who, todo }, children });
+const planTree = () => [pw(131, 0, 'epic', null, 5, false, [
+  pw(159, 1, 'story', null, 5, false, [pw(586, 2, 'subtask', 'task', 5, true)]), // Story đã xong, có việc con dạng task
+  pw(191, 1, 'story', null, 5, false, [pw(505, 2, 'subtask', 'bug', 5, true), pw(584, 2, 'subtask', 'task', 5, true)]),
+  pw(609, 1, 'task', null, 5, true),
+  pw(700, 1, 'task', null, 5, false, [pw(701, 2, 'subtask', 'bug', 5, true)]), // Việc con đi theo đầu việc đúng loại
+  pw(241, 1, 'story', null, 5, true),
+])];
+const ofDong = (r: PlanWork) => r.issue.who === 5 && r.issue.todo;
+
+test('filtering by type and status: parent stories shown for context are not matches, only real tasks count', () => {
+  const ids = planMatchedIds(planTree(), { type: 'task', rowFilter: true, match: ofDong });
+  assert.deepEqual([...ids].sort(), [584, 586, 609, 701]);
+});
+
+test('the parent story stays on screen but outside the matched set, so tick-all never reaches it', () => {
+  const opt = { type: 'task', rowFilter: true, strict: true, match: ofDong };
+  const shown = filterPlanTree(planTree(), opt);
+  const story = shown[0].children.find((r) => r.issue.id === 159);
+  assert.ok(story, 'dòng cha vẫn hiện làm ngữ cảnh');
+  assert.ok(!planMatchedIds(planTree(), opt).has(159));
+});
+
+test('a story that has no task subtasks and is not a task is neither shown nor matched', () => {
+  const opt = { type: 'task', rowFilter: true, strict: true, match: ofDong };
+  const flat = (rows: PlanWork[]): number[] => rows.flatMap((r) => [r.issue.id, ...flat(r.children)]);
+  assert.ok(!flat(filterPlanTree(planTree(), opt)).includes(241));
+  assert.ok(!flat(filterPlanTree(planTree(), opt)).includes(505));
+  assert.ok(!planMatchedIds(planTree(), opt).has(241));
+});
+
+test('a parent assigned to the filtered person but of another status is context; a matching parent is itself a match', () => {
+  const tree = [pw(1, 0, 'epic', null, 5, false, [pw(2, 1, 'story', null, 5, false, [pw(3, 2, 'subtask', 'task', 5, true)]), pw(4, 1, 'story', null, 5, true, [pw(6, 2, 'subtask', 'task', 5, true)])])];
+  assert.deepEqual([...planMatchedIds(tree, { type: '', rowFilter: true, match: ofDong })].sort(), [3, 4, 6]);
+});
+
+test('with no filter every real row is selectable, epics never are', () => {
+  const ids = planMatchedIds(planTree(), { type: '', rowFilter: false, match: () => false });
+  assert.ok(ids.has(159) && ids.has(586) && ids.has(241));
+  assert.ok(!ids.has(131));
+});
+
+test('a row just created stays tickable even though it does not match the filter', () => {
+  const ids = planMatchedIds(planTree(), { type: 'task', rowFilter: true, match: ofDong, keep: (r) => r.issue.id === 241 });
+  assert.ok(ids.has(241));
+});
+
+test('a subtask lifted directly under its epic must still have the filtered type', () => {
+  const tree = [pw(1, 0, 'epic', null, 5, false, [pw(2, 2, 'subtask', 'bug', 5, true), pw(3, 2, 'subtask', 'task', 5, true)])];
+  const out = filterPlanTree(tree, { type: 'task', rowFilter: true, strict: false, match: ofDong });
+  assert.deepEqual(out[0].children.map((r) => r.issue.id), [3]);
 });
