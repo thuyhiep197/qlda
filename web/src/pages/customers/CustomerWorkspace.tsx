@@ -6,7 +6,7 @@ import { api } from '../../api';
 import { ManageContext, useCan } from './manage';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
 import type { CustomerRef } from './manage';
-import { byProvince, callAlertText, CUSTOMER_STATUS_CLASS, customerTree, filterCustomers, salesStatusClass, worstCallAlert } from '../../customer-filter';
+import { byProvince, callAlertText, CUSTOMER_STATUS_CLASS, customerTree, filterCustomers, NO_PERSON, salesStatusClass, worstCallAlert } from '../../customer-filter';
 import { colorOf, fmtDate } from '../../util';
 import { useCustomers } from '../Customers';
 import { Empty, Spinner } from '../../components/ui';
@@ -33,7 +33,9 @@ export default function CustomerWorkspace() {
   const hasMine = (customers || []).some((c) => c.is_mine);
   const group: 'mine' | 'all' = params.get('g') === 'all' || (params.get('g') !== 'mine' && !hasMine) ? 'all' : 'mine';
   const [q, setQ] = useState('');
-  const list = filterCustomers(customers || [], { q, status: '', province: '', mine: group === 'mine' });
+  // Mở từ thống kê trên Dashboard: lọc sẵn theo tình trạng, Sale, AM (hiện nhãn đang lọc, bấm để bỏ)
+  const preset = { status: params.get('status') ?? '', kd: params.get('kd'), am: params.get('am') };
+  const list = filterCustomers(customers || [], { q, province: '', mine: group === 'mine', ...preset });
 
   const canInfo = useCan()('customer.view');
   if (isLoading) return <Spinner />;
@@ -173,6 +175,8 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const g = params.get('g') ? `?g=${params.get('g') === 'all' ? 'all' : 'mine'}` : '';
+  const person = (v: string | null) => (v === NO_PERSON ? 'Chưa phân công' : v);
+  const presetLabel = [params.get('status') && `Tình trạng ${params.get('status')}`, params.get('kd') && `Sale: ${person(params.get('kd'))}`, params.get('am') && `AM: ${person(params.get('am'))}`].filter(Boolean).join(' · ');
   const projectCount = list.reduce((n, c) => n + (c.sales_projects?.length ?? 0), 0);
   // Cột theo quyền Xem: Hành trình, Sản xuất (Kế hoạch), Làm việc gần nhất (Trao đổi)
   const can = useCan();
@@ -188,6 +192,7 @@ function CustomerTable({ list, total, title, q, setQ }: { list: Customer[]; tota
         <h2 className="cw-title">{title} <HelpButton /></h2>
         <div className="cw-search grow"><Search size={14} /><input placeholder="Tìm theo khách hàng, dự án, tỉnh, sản phẩm, đầu mối, nhân viên phụ trách…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       </div>
+      {presetLabel && <div className="preset-filter small">Đang lọc: <b>{presetLabel}</b> <Link to={`/customers${g}`}>Bỏ lọc</Link></div>}
       {!list.length ? <Empty title={total ? 'Không có khách hàng phù hợp' : 'Chưa có khách hàng nào bạn được xem'}>
         {!total && <p className="muted small">Bạn chỉ thấy khách hàng mình phụ trách hoặc có việc được giao.</p>}</Empty> : (
         <div className="cw-scroll table-wrap">

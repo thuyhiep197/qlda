@@ -15,9 +15,15 @@ export const CUSTOMER_SOURCES = ['BGĐ giao', 'Khách hàng liên hệ', 'Đối
 /** Bỏ dấu tiếng Việt, chữ thường — để tìm "so tai chinh" ra "Sở Tài chính" */
 export const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
-export interface CustomerFilter { q: string; status: string; province: string; mine?: boolean }
+/** Giá trị lọc "chưa có": chưa phân công người, chưa xác định trạng thái */
+export const NO_PERSON = '-';
+/** Danh sách họ tên (cách nhau dấu phẩy) khớp bộ lọc người: không lọc → đúng; NO_PERSON → chưa có ai; còn lại → có đúng người đó */
+export const matchPerson = (names: string | null | undefined, want: string | null | undefined) =>
+  !want || (want === NO_PERSON ? !names : (names ?? '').split(',').map((x) => x.trim()).includes(want));
 
-/** Lọc khách hàng theo từ khóa (tên, tỉnh, phường/xã, sản phẩm, nguồn, Kinh doanh, AM, đầu mối, dự án), tình trạng, mã tỉnh ('-' = chưa có), của tôi */
+export interface CustomerFilter { q: string; status: string; province: string; mine?: boolean; kd?: string | null; am?: string | null }
+
+/** Lọc khách hàng theo từ khóa (tên, tỉnh, phường/xã, sản phẩm, nguồn, Kinh doanh, AM, đầu mối, dự án), tình trạng, mã tỉnh ('-' = chưa có), của tôi, Sale, AM */
 export function filterCustomers<T extends Customer>(list: T[], f: CustomerFilter): T[] {
   const q = fold(f.q.trim());
   return list.filter((c) =>
@@ -25,7 +31,8 @@ export function filterCustomers<T extends Customer>(list: T[], f: CustomerFilter
       ...(c.sales_projects ?? []).flatMap((p) => [p.code, p.name, p.kd_names, p.am_names])].filter(Boolean).join(' ')).includes(q)) &&
     (!f.status || c.status === f.status) &&
     (!f.province || (c.province_code || '-') === f.province) &&
-    (!f.mine || !!c.is_mine));
+    (!f.mine || !!c.is_mine) &&
+    matchPerson(c.kd_names, f.kd) && matchPerson(c.am_names, f.am));
 }
 
 /** Cây Khách hàng → Dự án ở cột trái, lọc theo từ khóa:

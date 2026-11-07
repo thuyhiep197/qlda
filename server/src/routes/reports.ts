@@ -4,6 +4,8 @@ import { accessibleProjectIds, badRequest, notFound, requireUserPerm, userPermis
 import { listIssues } from '../issues.ts';
 import { loadProject } from './projects.ts';
 import { avatarUrl } from '../avatar.ts';
+import { countByPerson } from '../people.ts';
+import { autoProjectStatuses } from '../phases.ts';
 
 const r = Router();
 
@@ -49,6 +51,32 @@ r.get('/dashboard', (req, res) => {
   const toTest = listIssues(user, { ba: 'me', statusCategory: 'inprogress', sort: 'priority', limit: '100' })
     .filter((i: any) => /kiểm thử|kiem thu|test|qa/i.test(i.status_name));
   res.json({ stats, mine, activity: activity.map((a: any) => { const { user_avatar, ...item } = a; return { ...item, user_avatar_url: avatarUrl(user_avatar) }; }), toTest });
+});
+
+/**
+ * Thống kê dự án (phân hệ Dự án) cho Dashboard: tổng số, theo trạng thái, theo BA/PM, theo Dev.
+ * Cần Dashboard – Xem và Dự án – Xem; chỉ gồm dự án chưa lưu trữ trong phạm vi được vào (khớp danh sách dự án).
+ * Trạng thái = ghim tay, hoặc tự tính theo giai đoạn Epic; status null = chưa xác định.
+ */
+r.get('/project-overview', (req, res) => {
+  requireUserPerm(req.user, 'dashboard.view');
+  requireUserPerm(req.user, 'project.view');
+  const ids = accessibleProjectIds(req.user);
+  const where = `p.is_archived = 0 AND ${ids === 'all' ? '1=1' : ids.length ? `p.id IN (${ids.join(',')})` : '0=1'}`;
+  const auto = autoProjectStatuses();
+  const counts = new Map<string | null, number>();
+  const rows = all<{ id: number; project_status: string | null }>(`SELECT p.id, p.project_status FROM projects p WHERE ${where}`);
+  for (const p of rows) {
+    const a = auto.get(p.id);
+    const status = p.project_status || (a ? a.status : 'Chưa bắt đầu');
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+  res.json({
+    total: rows.length,
+    by_status: [...counts].map(([status, n]) => ({ status, n })),
+    by_ba: countByPerson('project_people', 'project_id', 'projects p', 'p', 'ba', where, []),
+    by_dev: countByPerson('project_people', 'project_id', 'projects p', 'p', 'dev', where, []),
+  });
 });
 
 // ---------------------------------------------------------------------------

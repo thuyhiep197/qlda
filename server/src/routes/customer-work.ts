@@ -5,6 +5,7 @@ import { badRequest, forbidden, notFound, requireUserPerm, userPermissions } fro
 import { callAlert, callPingDue, cleanCall, cleanCallConfirm, cleanTask } from '../customer.ts';
 import { branchIds, cleanJourneyRows, journeyProgress, MAX_DEPTH, loadTemplate, PING_DAYS, pingDue, STEP_STATUSES, STEP_STATUS_LABELS, type StepStatus, type TemplateRow } from '../journey.ts';
 import { notifyCustomer } from '../notify.ts';
+import { countByPerson } from '../people.ts';
 import { syncJourneys } from '../journey-sync.ts';
 import { customerMembers, loadCustomerRef, mentionableIds, loadSalesProjectOf, projectOf, requireCustomerInfo, requireCustomerSubsystem, requireManage, requireMembers,
   visibleCustomersSql, visibleSalesProjectsSql } from '../customer-access.ts';
@@ -43,7 +44,7 @@ const activeUser = (id: number | null) => {
 
 /**
  * Số liệu cho Dashboard chung (cần Dashboard – Xem và một ô Xem của phân hệ Khách hàng), mỗi phần theo ô quyền của nó:
- *  · khách hàng theo tình trạng: Thông tin khách hàng – Xem (khách hàng trong phạm vi);
+ *  · khách hàng theo tình trạng, theo Sale, theo AM: Thông tin khách hàng – Xem (khách hàng trong phạm vi, chưa lưu trữ — khớp danh sách khách hàng);
  *  · việc kinh doanh của tôi / quá hạn: Công việc – Xem (việc của dự án trong phạm vi; việc chung thêm Thông tin khách hàng – Xem);
  *  · bước hành trình của tôi / quá hạn: Hành trình – Xem (dự án trong phạm vi) — chỉ tên bước, tên dự án, tên khách hàng.
  */
@@ -55,7 +56,9 @@ r.get('/summary', (req, res) => {
   const info = perms.has('customer.view');
   const vis = visibleCustomersSql(req.user);
   const spVis = visibleSalesProjectsSql(req.user);
-  const byStatus = !info ? [] : all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM customers c WHERE ${vis.sql} GROUP BY status`, ...vis.params);
+  const liveVis = `c.is_archived = 0 AND ${vis.sql}`;
+  const byStatus = !info ? [] : all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM customers c WHERE ${liveVis} GROUP BY status`, ...vis.params);
+  const byOwner = (role: 'kd' | 'am') => !info ? { people: [], none: 0 } : countByPerson('customer_owners', 'customer_id', 'customers c', 'c', role, liveVis, vis.params);
   const canTask = perms.has('ctask.view'), canStep = perms.has('journey.view');
   // Việc trong phạm vi (bí danh t2): của dự án trong phạm vi; việc chung → khách hàng được xem thông tin
   const taskScope = {
@@ -76,7 +79,7 @@ r.get('/summary', (req, res) => {
       WHERE j2.status <> 'done' AND j2.depth > 0 AND j2.due_date < ? AND ${spVis.sql}`, today, ...spVis.params)!.n,
   };
   const total = byStatus.reduce((n, x) => n + x.n, 0);
-  res.json({ total, by_status: byStatus, my_tasks: myTasks, my_steps: mySteps, overdue, today });
+  res.json({ total, by_status: byStatus, by_kd: byOwner('kd'), by_am: byOwner('am'), my_tasks: myTasks, my_steps: mySteps, overdue, today });
 });
 
 // ---------------------------------------------------------------------------

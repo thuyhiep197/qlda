@@ -8,7 +8,7 @@ interface Step { target?: string; title: string; text: string; sub?: SubsystemKe
 /** Các bước giới thiệu nhanh; bước gắn với phân hệ chỉ hiện khi tài khoản thấy phân hệ đó */
 export const TOUR_STEPS: Step[] = [
   { title: 'Chào mừng bạn đến với QLDA', text: 'Hướng dẫn nhanh này giới thiệu các phần chính của công cụ trong vài bước. Bạn có thể bỏ qua và xem lại bất cứ lúc nào từ nút "?" trên thanh trên cùng.' },
-  { target: '[data-tour="nav-dashboard"]', sub: 'dashboard', title: 'Dashboard', text: 'Trang tổng quan: việc của tôi, việc chờ kiểm thử, khách hàng và hành trình bạn phụ trách, hoạt động gần đây.' },
+  { target: '[data-tour="nav-dashboard"]', sub: 'dashboard', title: 'Dashboard', text: 'Trang thống kê: khách hàng theo tình trạng, Sale, AM và dự án theo trạng thái, BA, Dev trong phạm vi bạn được xem.' },
   { target: '[data-tour="nav-customer"]', sub: 'customer', title: 'Khách hàng', text: 'Quản lý khách hàng, dự án của khách hàng và hành trình bán hàng (Giải pháp → Hợp đồng → Triển khai → Nghiệm thu – Thanh toán).' },
   { target: '[data-tour="nav-project"]', sub: 'project', title: 'Dự án', text: 'Dự án sản xuất: kế hoạch, sprint, backlog, danh sách issue và tiến độ.' },
   { target: '[data-tour="nav-docs"]', sub: 'docs', title: 'Tài liệu nội bộ', text: 'Kho tài liệu dùng chung theo thư mục nhiều cấp.' },

@@ -42,9 +42,6 @@ Mở issue, chọn **Người thực hiện**; người được giao nhận th�
 - **Kế hoạch tổng quan**: các giai đoạn trên trục thời gian. Xem [Kế hoạch tổng quan](/help/da-ke-hoach-tong-quan).
 :::
 
-:::perm issue.view
-- Dashboard: khối **Chờ tôi kiểm thử** hiện các việc ở bước kiểm thử của mô-đun bạn là BA phụ trách.
-:::
 
 :::perm plan.export
 ### 8. Xuất báo cáo Excel

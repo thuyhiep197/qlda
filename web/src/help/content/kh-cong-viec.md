@@ -19,8 +19,6 @@ Khối **Công việc** ở cột phải dùng để ghi các việc cần làm 
 
 Mỗi việc hiện tên việc, người thực hiện, hạn; việc quá hạn tô đỏ kèm **Quá hạn N ngày**. Mặc định chỉ hiện việc chưa xong; bấm **Xem cả N việc đã xong** để hiện thêm.
 
-Việc được giao cho bạn cũng hiện trong khối **Việc kinh doanh của tôi** trên Dashboard.
-
 ## Thao tác
 
 :::perm ctask.create

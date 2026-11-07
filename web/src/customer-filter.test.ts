@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { callAlert, callAlertText, customerKpis, worstCallAlert, customerTree, salesStatusClass, descriptionOf, filterCustomers, filterSteps, overdueDays, wardCodeOf } from './customer-filter';
+import { callAlert, callAlertText, customerKpis, matchPerson, NO_PERSON, worstCallAlert, customerTree, salesStatusClass, descriptionOf, filterCustomers, filterSteps, overdueDays, wardCodeOf } from './customer-filter';
 import type { Customer } from './types';
 
 const c = (o: Partial<Customer>): Customer => ({
@@ -30,6 +30,20 @@ test('filters by status and province, with "-" for not set', () => {
   assert.deepEqual(ids({ province: '75' }), [1]);
   assert.deepEqual(ids({ province: '-' }), [2, 3]);
   assert.deepEqual(ids({ mine: true }), [2]);
+});
+
+test('person filter from the Dashboard: exact name among several, or nobody assigned', () => {
+  assert.equal(matchPerson('Nguyễn Văn An, Trần Thị Bình', 'Trần Thị Bình'), true);
+  assert.equal(matchPerson('Nguyễn Văn An, Trần Thị Bình', 'Trần Thị'), false, 'part of a name does not match');
+  assert.equal(matchPerson(null, 'Trần Thị Bình'), false);
+  assert.equal(matchPerson(null, NO_PERSON), true);
+  assert.equal(matchPerson('Nguyễn Văn An', NO_PERSON), false);
+  assert.equal(matchPerson('Nguyễn Văn An', null), true, 'no filter keeps everything');
+  const people = [{ id: 1, name: 'A', kd_names: 'An', am_names: null }, { id: 2, name: 'B', kd_names: 'An, Bình', am_names: 'Chi' }, { id: 3, name: 'C', kd_names: null, am_names: 'Chi' }] as Customer[];
+  const ids = (f: { kd?: string; am?: string }) => filterCustomers(people, { q: '', status: '', province: '', ...f }).map((x) => x.id);
+  assert.deepEqual(ids({ kd: 'An' }), [1, 2]);
+  assert.deepEqual(ids({ kd: NO_PERSON }), [3]);
+  assert.deepEqual(ids({ am: 'Chi', kd: 'Bình' }), [2]);
 });
 
 test('picking a product fills its catalog description, or leaves it blank', () => {

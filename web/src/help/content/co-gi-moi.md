@@ -7,6 +7,11 @@ keywords: cập nhật, phiên bản mới, thay đổi, tính năng mới
 ---
 Khi mục này có cập nhật bạn chưa đọc, nút **Hướng dẫn sử dụng** trên thanh trên cùng có chấm đỏ. Nếu chưa thấy thay đổi, nhấn **Ctrl + F5** để tải bản mới.
 
+## 07/11/2026 — Dashboard mới: chỉ còn thống kê
+- **Khách hàng**: tổng số, theo tình trạng, theo Sale, theo AM. **Dự án**: tổng số, theo trạng thái, theo BA, theo Dev. Số liệu tính trong phạm vi bạn được xem.
+- Bấm một ô hoặc một dòng để mở danh sách đã lọc sẵn. Xem [Dashboard](/help/dashboard).
+- Các khối **Việc của tôi**, **Chờ tôi kiểm thử**, **Hoạt động gần đây**, **Dự án của tôi**, **Việc kinh doanh của tôi**, **Bước hành trình tôi phụ trách** không còn trên Dashboard.
+
 ## 31/10/2026 — Đăng nhập và mật khẩu
 - Nhập sai mật khẩu: màn hình đăng nhập báo **còn mấy lần thử** trước khi tài khoản bị khóa (khóa sau 5 lần sai).
 - Bấm **Đăng nhập** nhiều lần hoặc giữ phím Enter không còn bị tính thành nhiều lần sai.

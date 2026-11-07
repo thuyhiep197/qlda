@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { matchPerson, NO_PERSON } from '../customer-filter';
 import { api, refreshAll } from '../api';
 import { useMe, hasPerm } from '../hooks';
 import { useProjectGroup } from './ProjectShell';
@@ -18,7 +19,14 @@ export default function Projects() {
     queryFn: () => api.get(`/projects${archived ? '?archived=1' : ''}`),
   });
   const [filter, setFilter] = useState('');
-  const [statusF, setStatusF] = useState('');
+  // Trạng thái, BA, Dev nằm trên địa chỉ để mở từ thống kê trên Dashboard
+  const [params, setParams] = useSearchParams();
+  const statusF = params.get('status') ?? '';
+  const setStatusF = (v: string) => setParams((cur) => { const next = new URLSearchParams(cur); if (v) next.set('status', v); else next.delete('status'); return next; }, { replace: true });
+  const baF = params.get('ba'), devF = params.get('dev');
+  const person = (v: string) => (v === NO_PERSON ? 'Chưa phân công' : v);
+  const presetLabel = [baF && `BA: ${person(baF)}`, devF && `Dev: ${person(devF)}`].filter(Boolean).join(' · ');
+  const clearPeople = () => setParams((cur) => { const next = new URLSearchParams(cur); next.delete('ba'); next.delete('dev'); return next; }, { replace: true });
   const [priorityF, setPriorityF] = useState('');
 
   const toggleArchive = async (p: ProjectSummary) => {
@@ -42,6 +50,7 @@ export default function Projects() {
     .filter((p) => !q || [p.name, p.key, p.customer, p.ba_names, p.dev_names, p.tester_names, p.am_names, p.kd_names].join(' ').toLowerCase().includes(q))
     .filter((p) => !statusF || statusOf(p) === (statusF === '-' ? '' : statusF))
     .filter((p) => !priorityF || (p.priority || '') === (priorityF === '-' ? '' : priorityF))
+    .filter((p) => matchPerson(p.ba_names, baF) && matchPerson(p.dev_names, devF))
     .sort((a, b) => notRunning(a) - notRunning(b) || rank(a.priority) - rank(b.priority) || a.name.localeCompare(b.name, 'vi'));
   const canArchive = hasPerm(me, 'project.delete');
   const canSeeCustomer = hasPerm(me, 'customer.view');
@@ -67,6 +76,7 @@ export default function Projects() {
         </select>
         {list && projects && <span className="muted small">{list.length}/{projects.length} dự án</span>}
       </div>
+      {presetLabel && <div className="preset-filter small">Đang lọc: <b>{presetLabel}</b> <a onClick={clearPeople}>Bỏ lọc</a></div>}
       {isLoading ? <Spinner /> : !list?.length ? (
         <Empty title={archived ? 'Không có dự án lưu trữ' : 'Chưa có dự án nào'}>
           {!me?.is_admin && <p className="muted">Liên hệ quản trị viên để được thêm vào dự án.</p>}

@@ -66,6 +66,6 @@ Trong khối **Tài liệu kết quả**, bấm **Tải lên**, chọn một ho�
 ## Lưu ý
 
 - Phần **III. Triển khai** và **IV. Nghiệm thu – Thanh toán**: bước trùng tên với một đầu việc của dự án sản xuất đã gắn sẽ tự nhận trạng thái và hạn của đầu việc đó mỗi khi bên Dự án thay đổi; sửa tay vẫn được giữ cho tới lần đầu việc đổi tiếp.
-- Có thể mở thẳng một bước từ chuông thông báo hoặc từ khối **Bước hành trình tôi phụ trách** trên Dashboard.
+- Có thể mở thẳng một bước từ chuông thông báo.
 - Người chỉ có quyền xem thấy các ô ở dạng chữ, không sửa được.
 - Sửa, thêm, bỏ bước chỉ làm được trên dự án bạn liên quan (hoặc mọi dự án nếu có quyền Xem tất cả khách hàng).

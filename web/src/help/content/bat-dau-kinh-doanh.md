@@ -8,8 +8,8 @@ keywords: sale, am, kinh doanh, khách hàng, hành trình, lịch gọi
 ---
 ## Việc hằng ngày
 
-### 1. Xem việc của mình trên Dashboard
-Mở **Dashboard**: khối **Việc kinh doanh của tôi** và **Bước hành trình tôi phụ trách** liệt kê những gì đang chờ bạn; dòng chữ đỏ **Đang trễ hạn** cho biết số việc, số bước đã quá hạn. Bấm vào một dòng để mở đúng khách hàng / bước. Xem [Dashboard](/help/dashboard).
+### 1. Xem số liệu trên Dashboard
+Mở **Dashboard** để xem số khách hàng theo tình trạng, theo Sale và theo AM. Bấm một ô hoặc một dòng để mở danh sách đã lọc sẵn. Việc và bước được giao cho bạn được báo qua chuông thông báo, và xem trong từng khách hàng / dự án. Xem [Dashboard](/help/dashboard).
 
 ### 2. Tìm khách hàng
 Vào **Khách hàng**. Cột trái có **Khách hàng của tôi** (khách hàng bạn phụ trách, thực hiện hoặc phối hợp) và **Tất cả khách hàng** (mọi khách hàng bạn được xem; có quyền Xem tất cả thì là toàn bộ khách hàng của công ty). Xem [Không gian Khách hàng](/help/kh-tong-quan).

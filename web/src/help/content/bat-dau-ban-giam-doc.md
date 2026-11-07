@@ -10,7 +10,7 @@ keywords: ban giám đốc, lãnh đạo, tổng quan, tiến độ, báo cáo
 
 :::perm dashboard.view
 ### 1. Xem tổng quan trên Dashboard
-Mở **Dashboard** để thấy: số khách hàng theo từng tình trạng, số việc kinh doanh / bước hành trình đang trễ hạn, các dự án bạn được xem. Xem [Dashboard](/help/dashboard).
+Mở **Dashboard** để thấy: số khách hàng theo tình trạng, Sale, AM và số dự án theo trạng thái, BA, Dev. Xem [Dashboard](/help/dashboard).
 :::
 
 :::perm customer.view, customer.view_all

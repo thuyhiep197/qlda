@@ -3,63 +3,50 @@ title: Dashboard
 section: dashboard
 module: Dashboard
 order: 1
-summary: Trang tổng quan: khách hàng, việc kinh doanh, bước hành trình, việc dự án của bạn và hoạt động gần đây.
+summary: Trang thống kê: khách hàng theo tình trạng, Sale, AM; dự án theo trạng thái, BA, Dev.
 routes: /home
 need: sub:dashboard
-keywords: tổng quan, trang chủ, việc của tôi, quá hạn, chờ kiểm thử
+keywords: tổng quan, trang chủ, thống kê, số liệu, người phụ trách, chưa phân công
 ---
 ## Màn hình này dùng để làm gì
 
-Dashboard là trang đầu tiên sau khi đăng nhập (nếu bạn có quyền **Dashboard – Xem**). Mỗi khối chỉ hiện khi bạn có quyền xem phần tương ứng, nên Dashboard của mỗi người có thể khác nhau.
+Dashboard là trang đầu tiên sau khi đăng nhập (nếu bạn có quyền **Dashboard – Xem**). Trang chỉ gồm số liệu thống kê, lấy trong phạm vi khách hàng và dự án bạn được xem, không tính mục đã lưu trữ. Vì vậy số liệu của mỗi người có thể khác nhau.
 
 ![Dashboard](/help/img/dashboard.webp)
 
-1. **Việc được giao chưa xong / Đang thực hiện / Quá hạn** — số issue dự án đang giao cho bạn.
-2. **Việc của tôi** — các issue đang giao cho bạn chưa xong; bấm để mở chi tiết.
-3. **Hoạt động gần đây** — ai vừa tạo, chuyển trạng thái, giao việc, đổi sprint issue trong các dự án bạn vào được.
-4. **Dự án của tôi** — các dự án bạn vào được, số issue đang mở và số thành viên.
+1. **Khách hàng** — tổng số, số theo tình trạng, số theo Sale và theo AM.
+2. **Dự án** — tổng số, số theo trạng thái, số theo BA và theo Dev.
 
 ## Các khối và quyền cần có
 
 :::perm customer.view
 ### Khách hàng
-Số khách hàng theo từng tình trạng (Mới, Đang tư vấn…); bấm bất kỳ ô nào hoặc **Quản lý khách hàng** để mở phân hệ Khách hàng (danh sách chưa lọc theo tình trạng).
+- **Tổng số** và các ô **tình trạng** (Mới, Đang tư vấn…).
+- **Theo Sale**, **Theo AM**: mỗi người một thanh ngang, người phụ trách nhiều nhất ở trên.
+
+Bấm một ô hoặc một dòng để mở danh sách khách hàng đã lọc sẵn; bấm **Bỏ lọc** để xem lại toàn bộ.
 :::
 
-:::perm ctask.view | journey.view
-### Đang trễ hạn
-Dòng chữ đỏ **Đang trễ hạn** cho biết số việc kinh doanh và bước hành trình đã quá hạn trong phạm vi khách hàng bạn được xem (không chỉ việc của bạn).
+:::perm project.view
+### Dự án
+- **Tổng số** và các ô **trạng thái** (Chưa bắt đầu, Xây dựng, Kiểm thử…). Ô **Chưa xác định** chỉ hiện khi có dự án đang chạy mà chưa Epic nào gắn được giai đoạn.
+- **Theo BA**, **Theo Dev**: mỗi người một thanh ngang, người phụ trách nhiều nhất ở trên.
+
+Bấm một ô hoặc một dòng để mở danh sách dự án đã lọc sẵn. Số liệu chỉ tính dự án trong phân hệ Dự án, không tính dự án của khách hàng ở phân hệ Khách hàng.
 :::
 
-:::perm ctask.view
-### Việc kinh doanh của tôi
-Các công việc của khách hàng đang giao cho bạn chưa xong, kèm hạn (chữ đỏ khi quá hạn). Bấm để mở đúng khách hàng / dự án của khách hàng. Xem [Công việc](/help/kh-cong-viec).
-:::
+## Cách đọc số liệu
 
-:::perm journey.view
-### Bước hành trình tôi phụ trách
-Các bước hành trình bán hàng bạn là người thực hiện, chưa hoàn thành. Bấm để mở đúng bước. Xem [Cập nhật bước hành trình](/help/kh-buoc).
-:::
-
-:::perm issue.view
-### Công việc dự án
-- Ba ô số: **Việc được giao chưa xong**, **Đang thực hiện**, **Quá hạn** (ô đỏ khi có việc quá hạn).
-- **Chờ tôi kiểm thử** — chỉ hiện khi có việc: các issue thuộc mô-đun bạn là BA phụ trách (hoặc bạn là BA của issue) đang ở trạng thái kiểm thử.
-- **Việc của tôi** và **Hoạt động gần đây**.
-:::
-
-:::perm search.view
-### Xem tất cả
-Ở khối **Việc của tôi** và **Chờ tôi kiểm thử** có liên kết **Xem tất cả**, mở **Danh sách issue** đã lọc sẵn. Xem [Danh sách issue](/help/da-danh-sach-issue).
-:::
-
-### Dự án của tôi
-Hiện khi bạn thấy phân hệ Dự án: các dự án bạn là thành viên hoặc được xem. Bấm một thẻ để mở dự án.
+- Khách hàng hoặc dự án có nhiều người phụ trách được **tính cho từng người**, nên cộng các dòng có thể lớn hơn tổng số.
+- **Chưa phân công** là số khách hàng hoặc dự án chưa có ai ở vai trò đó.
 
 ## Câu hỏi thường gặp
 
 **Dashboard của tôi trống / thiếu khối so với đồng nghiệp?**
 Mỗi khối theo quyền của từng người. Xem [Quyền của tôi](/help/quyen-cua-toi).
 
-**Một việc đã xong vẫn nằm trong Việc của tôi?**
-Việc chỉ rời danh sách khi được chuyển sang trạng thái thuộc nhóm hoàn thành. Mở việc và cập nhật trạng thái.
+**Vì sao tổng số của tôi ít hơn của đồng nghiệp?**
+Số liệu chỉ tính khách hàng và dự án bạn được xem. Người có quyền **Xem tất cả** thấy toàn bộ.
+
+**Xem việc được giao cho tôi ở đâu?**
+Issue dự án xem ở [Danh sách issue](/help/da-danh-sach-issue), lọc người thực hiện là bạn. Việc kinh doanh xem ở [Công việc](/help/kh-cong-viec), bước hành trình xem ở [Hành trình](/help/kh-hanh-trinh) với ô **Việc của tôi**.

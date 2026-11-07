@@ -52,6 +52,20 @@ export function savePeople(table: 'customer_owners' | 'sales_project_owners' | '
 export const namesSql = (table: string, key: string, col: string, role: PeopleRole) =>
   `(SELECT GROUP_CONCAT(u.full_name, ', ') FROM ${table} o JOIN users u ON u.id = o.user_id WHERE o.${key} = ${col} AND o.role = '${role}')`;
 
+/**
+ * Thống kê theo người phụ trách của một vai trò: mỗi người được tính một lần cho mỗi khách hàng/dự án mình phụ trách
+ * (khách hàng/dự án có nhiều người thì tính cho từng người), none = số chưa có ai ở vai trò đó.
+ * from: bảng kèm bí danh; where: điều kiện phạm vi theo bí danh đó.
+ */
+export function countByPerson(table: 'customer_owners' | 'project_people', key: string, from: string, alias: string, role: PeopleRole, where: string, params: any[]) {
+  const people = all<{ id: number; name: string; n: number }>(
+    `SELECT u.id, u.full_name AS name, COUNT(*) AS n FROM ${from} JOIN ${table} o ON o.${key} = ${alias}.id AND o.role = ? JOIN users u ON u.id = o.user_id
+     WHERE ${where} GROUP BY u.id ORDER BY n DESC, u.full_name`, role, ...params);
+  const none = get<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM ${from} WHERE ${where} AND NOT EXISTS (SELECT 1 FROM ${table} o WHERE o.${key} = ${alias}.id AND o.role = ?)`, ...params, role)!.n;
+  return { people, none };
+}
+
 /** Thành viên dự án sản xuất = người ở các vai trò BA/PM, Dev, Tester, AM, Sale (vai trò trong dự án theo nhóm của tài khoản) */
 export function syncProjectMembers(projectId: number) {
   tx(() => {

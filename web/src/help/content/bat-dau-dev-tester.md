@@ -9,7 +9,7 @@ keywords: dev, tester, việc của tôi, trạng thái, ghi thời gian, bình 
 ## Việc hằng ngày
 
 ### 1. Xem việc của tôi
-Mở **Dashboard**: khối **Việc của tôi** liệt kê các issue đang giao cho bạn chưa xong; ba ô số cho biết việc được giao chưa xong, đang thực hiện, quá hạn. Bấm vào một issue để mở chi tiết. Xem [Dashboard](/help/dashboard).
+Mở **Danh sách issue** và lọc người thực hiện là bạn để xem các issue đang giao cho bạn chưa xong. Bấm vào một issue để mở chi tiết. Xem [Danh sách issue](/help/da-danh-sach-issue).
 
 :::perm sprint.view
 ### 2. Làm việc trên bảng sprint

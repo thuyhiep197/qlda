@@ -911,13 +911,32 @@ a.kpi:hover { background: var(--table-hover); }
 @media (max-width: 900px) { .journey-phases { grid-template-columns: repeat(2, minmax(0, 1fr)); } .task-add { grid-template-columns: minmax(0, 1fr); } }
 .catalog-tabs { padding: 16px 32px 0; max-width: 1400px; }
 .nav a.nav-sub { padding-left: 34px; font-size: 13px; }
-.status-funnel { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.status-funnel { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.funnel-total { border-color: var(--primary); }
+.funnel-total span { font-size: 12px; font-weight: 600; }
+.person-bars-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 16px; }
+.person-bars h4 { margin: 0 0 8px; font-size: 13px; }
+.person-bar { display: grid; grid-template-columns: minmax(0, 170px) minmax(40px, 1fr) 32px; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 4px; color: var(--text); font-size: 13px; }
+.person-bar:hover { background: var(--hover); text-decoration: none; }
+.person-bar b { text-align: right; font-variant-numeric: tabular-nums; }
+.person-bar-track { display: block; height: 10px; border-radius: 3px; background: var(--hover); overflow: hidden; }
+.person-bar-track i { display: block; height: 100%; min-width: 2px; border-radius: 3px; background: var(--primary); }
+.person-bar-none { color: var(--text-muted, inherit); }
+.person-bar-none .person-bar-track i { background: var(--border); }
+.preset-filter { margin: 0 0 10px; padding: 6px 10px; border-radius: 4px; background: var(--hover); }
+.preset-filter a { margin-left: 8px; cursor: pointer; }
 .funnel-step { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
 .funnel-step:hover { background: var(--hover); text-decoration: none; }
 .funnel-step b { font-size: 22px; font-variant-numeric: tabular-nums; }
-.dash-line { display: flex; align-items: center; gap: 8px; color: var(--text); padding: 4px 0; border-bottom: 1px solid var(--border); min-width: 0; }
-.dash-line:hover { text-decoration: none; background: var(--hover); }
-@media (max-width: 900px) { .status-funnel { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.funnel-step > span { max-width: 100%; white-space: normal; overflow-wrap: break-word; }
+@media (max-width: 900px) {
+  /* Số cột theo bề rộng thực còn lại (thanh bên đang mở thì còn rất hẹp), không ép cố định 2 cột */
+  .status-funnel { grid-template-columns: repeat(auto-fill, minmax(min(100%, 120px), 1fr)); }
+  .person-bars-grid { grid-template-columns: minmax(0, 1fr); }
+  /* Màn hẹp: tên và số ở một hàng, thanh ở hàng dưới để tên không bị ép mất chữ */
+  .person-bar { grid-template-columns: minmax(0, 1fr) 32px; row-gap: 2px; }
+  .person-bar-track { grid-column: 1 / -1; grid-row: 2; }
+}
 
 /* ---------- Thanh bên tối (theo bố cục bộ sản phẩm CSVC & Thiết bị) ---------- */
 :root { --side-bg: #1f2a4d; --side-fg: #d5dbea; --side-muted: #8f9bb8; --side-hover: #2b3863; --side-active: #34437a; }
