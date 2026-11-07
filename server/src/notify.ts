@@ -132,7 +132,8 @@ function wants(userId: number, type: NotificationType) {
   try { return !(pref && JSON.parse(pref)?.notify?.[type] === false); } catch { return true; /* cài đặt hỏng → vẫn thông báo */ }
 }
 
-export function notify(userIds: Iterable<number>, actorId: number, issueId: number, type: NotificationType, text?: string | null) {
+/** actorId = null là hệ thống (VD task tự sinh theo kỳ) */
+export function notify(userIds: Iterable<number>, actorId: number | null, issueId: number, type: NotificationType, text?: string | null) {
   const ts = now();
   for (const id of new Set(userIds)) {
     if (id === actorId || !wants(id, type)) continue;

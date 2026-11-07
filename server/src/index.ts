@@ -34,6 +34,7 @@ import { pruneNotifications } from './notify.ts';
 import { pruneAudit } from './audit.ts';
 import { syncAllEpics } from './issues.ts';
 import { autoStartAllSprints } from './sprint-autostart.ts';
+import { generateRecurringReports } from './recurring-report.ts';
 import { scheduleBackups } from './backup.ts';
 
 migrate();
@@ -46,6 +47,9 @@ syncAllEpics();
 // Epic đã xong hết việc tự chuyển Hoàn thành khi qua ngày kết thúc
 setInterval(syncAllEpics, 3600_000).unref();
 autoStartAllSprints();
+// Task làm báo cáo họp giao ban tự sinh theo kỳ tuần
+generateRecurringReports();
+setInterval(generateRecurringReports, 3600_000).unref();
 // Nhắc hạn (Ping) các bước trong hành trình khách hàng
 pingJourney();
 setInterval(pingJourney, 3600_000).unref();
