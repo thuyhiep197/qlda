@@ -7,6 +7,10 @@ keywords: cập nhật, phiên bản mới, thay đổi, tính năng mới
 ---
 Khi mục này có cập nhật bạn chưa đọc, nút **Hướng dẫn sử dụng** trên thanh trên cùng có chấm đỏ. Nếu chưa thấy thay đổi, nhấn **Ctrl + F5** để tải bản mới.
 
+## 07/11/2026 — Mở dự án vào tab Thông tin, thanh bên trên điện thoại
+- Bấm vào một dự án giờ mở tab **Thông tin** thay vì **Kế hoạch chi tiết**. Không có quyền xem tab này thì mở tab đầu tiên bạn được xem.
+- Trên điện thoại, thanh bên ẩn đi để nội dung đủ rộng; bấm nút menu ở góc trên bên trái để mở.
+
 ## 07/11/2026 — Dashboard mới: chỉ còn thống kê
 - **Khách hàng**: tổng số, theo tình trạng, theo Sale, theo AM. **Dự án**: tổng số, theo trạng thái, theo BA, theo Dev. Số liệu tính trong phạm vi bạn được xem.
 - Bấm một ô hoặc một dòng để mở danh sách đã lọc sẵn. Xem [Dashboard](/help/dashboard).

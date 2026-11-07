@@ -11,7 +11,7 @@ keywords: dự án của tôi, tất cả dự án, tạo dự án, lưu trữ, 
 
 ## Màn hình này dùng để làm gì
 
-Đây là cửa vào phân hệ **Dự án**: liệt kê các dự án sản xuất bạn được vào, kèm khách hàng, ưu tiên, trạng thái và nhân sự phụ trách. Bấm tên một dự án để mở dự án đó.
+Đây là cửa vào phân hệ **Dự án**: liệt kê các dự án sản xuất bạn được vào, kèm khách hàng, ưu tiên, trạng thái và nhân sự phụ trách. Bấm tên một dự án để mở dự án đó, vào thẳng tab [Thông tin](/help/da-thong-tin). Không có quyền xem tab này thì mở tab đầu tiên bạn được xem.
 
 ![Màn hình Danh sách dự án](/help/img/da-danh-sach.webp)
 

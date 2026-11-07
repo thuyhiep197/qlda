@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { can, hasPerm, useIssueModal, useMe, useProject, useProjects } from '../hooks';
 import CreateIssueModal from '../components/CreateIssueModal';
+import { firstTab, TAB_PERM } from '../project-tabs';
 import type { Project } from '../types';
 import { colorOf, RELEASES_ENABLED } from '../util';
 import { Spinner } from '../components/ui';
@@ -10,16 +11,6 @@ import { HelpButton } from '../help/HelpMenu';
 
 const LAST_PROJECT = 'qlda:last-project';
 
-/** Quyền Xem cần có để thấy từng tab. Thông tin: Dự án – Xem. */
-export const TAB_PERM: Record<string, string> = {
-  info: 'project.view', plan: 'plan.view', board: 'sprint.view', backlog: 'backlog.view', issues: 'search.view',
-  roadmap: 'plan.view', releases: 'backlog.view',
-};
-/** Mở dự án → Kế hoạch chi tiết; không có quyền xem thì tab đầu tiên được phép (không tab nào → null). */
-const TAB_ORDER = ['plan', 'info', 'roadmap', 'board', 'issues', 'backlog'];
-export function firstTab(project: Project): string | null {
-  return TAB_ORDER.find((t) => (t !== 'backlog' || project.type === 'scrum') && can(project.permissions, TAB_PERM[t])) ?? null;
-}
 const NoTab = () => <div className="page-pad"><p className="muted">Bạn không có quyền xem màn hình nào của dự án này.</p></div>;
 
 export const useProjectCtx = () => useOutletContext<Project>();

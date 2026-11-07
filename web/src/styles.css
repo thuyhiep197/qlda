@@ -970,6 +970,7 @@ body.side-resizing { cursor: col-resize; user-select: none; }
   .side-collapsed .sidebar .brand, .side-collapsed .sidebar .nav a { justify-content: center; padding-left: 0; padding-right: 0; }
 }
 @media (max-width: 800px) {
+  .sidebar { display: none; }
   .side-toggle, .side-resizer { display: none; }
   .app.nav-open .sidebar { display: flex; }
 }

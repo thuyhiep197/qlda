@@ -11,7 +11,7 @@ keywords: thành viên, nhân sự, BA, PM, Dev, Tester, AM, khách hàng, trạ
 
 ## Màn hình này dùng để làm gì
 
-Tab **Thông tin** của một dự án gồm thông tin chung, khách hàng của dự án, nhân sự và thành viên. Người có quyền sửa dự án còn thấy thêm phần **Trạng thái & quy trình** để cài đặt các cột trạng thái và luồng chuyển.
+Tab **Thông tin** là tab mở đầu tiên khi bấm vào một dự án, gồm thông tin chung, khách hàng của dự án, nhân sự và thành viên. Người có quyền sửa dự án còn thấy thêm phần **Trạng thái & quy trình** để cài đặt các cột trạng thái và luồng chuyển.
 
 ![Tab Thông tin của dự án](/help/img/da-thong-tin.webp)
 

@@ -9,7 +9,7 @@ keywords: ba, pm, techlead, kế hoạch, sprint, giao việc, import
 ## Việc hằng ngày
 
 ### 1. Mở dự án
-Vào **Dự án**, chọn dự án trong danh sách. Dự án mở thẳng vào tab **Kế hoạch chi tiết** (nếu bạn có quyền xem). Xem [Danh sách dự án](/help/da-danh-sach).
+Vào **Dự án**, chọn dự án trong danh sách. Dự án mở thẳng vào tab **Thông tin** (nếu bạn có quyền xem). Xem [Danh sách dự án](/help/da-danh-sach).
 
 :::perm project.create
 ### 2. Tạo dự án mới
