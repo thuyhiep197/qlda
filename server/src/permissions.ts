@@ -355,5 +355,8 @@ export function seedRoles() {
 
 /** Nhóm Quản trị hệ thống (thuộc nhóm này = quản trị hệ thống, toàn quyền) */
 export const adminRoleId = () => get<{ id: number }>('SELECT id FROM roles WHERE is_admin = 1 ORDER BY id LIMIT 1')?.id ?? null;
+/** Tài khoản duy nhất được là Quản trị hệ thống (quyền cao nhất) — người dùng chốt 2026-11-09. Người khác chỉ được cấp quyền quản trị
+ *  qua phân quyền (Người dùng, Phân quyền…), luôn thấp hơn tài khoản này. */
+export const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
 /** Nhóm roleId có phải nhóm Quản trị hệ thống không */
 export const isAdminRole = (roleId: number | null | undefined) => !!roleId && !!get('SELECT 1 FROM roles WHERE id = ? AND is_admin = 1', roleId);

@@ -6,7 +6,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { hashPassword } from '../auth.ts';
 import { audit, listAudit } from '../audit.ts';
 import {
-  accountRoleId, ACTIONS, canManageAccountPermissions, isAdminRole, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound, SUBSYSTEMS,
+  accountRoleId, ACTIONS, ADMIN_USERNAME, canManageAccountPermissions, isAdminRole, badRequest, cleanPermissionList, FEATURE_GROUPS, forbidden, isPermission, notFound, SUBSYSTEMS,
   requireUserPerm, userPermissions,
 } from '../permissions.ts';
 import { avatarUrl } from '../avatar.ts';
@@ -36,6 +36,8 @@ function checkRole(v: unknown): number | null {
  * Tài khoản được phân đủ quyền quản lý người dùng và nhóm được gán mọi nhóm thường;
  * quyền nhóm và quyền cấp riêng đều được tính. Nhóm Quản trị hệ thống vẫn dành riêng cho quản trị hệ thống.
  */
+const ADMIN_ONLY_MSG = 'Nhóm Quản trị hệ thống chỉ dành cho tài khoản admin. Người khác cấp quyền quản trị bằng Phân quyền theo người dùng';
+
 function checkAssignableRole(user: Express.Request['user'], roleId: number, targetId?: number) {
   if (user.is_admin) return;
   if (targetId === user.id) throw forbidden('Không thể tự đổi nhóm người dùng của mình');
@@ -98,6 +100,7 @@ r.post('/users', need('user.create'), (req, res) => {
   // Thuộc nhóm Quản trị hệ thống = quản trị hệ thống
   const isAdmin = isAdminRole(roleId);
   if (isAdmin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được tạo tài khoản quản trị');
+  if (isAdmin && username !== ADMIN_USERNAME) throw badRequest(ADMIN_ONLY_MSG);
   checkAssignableRole(req.user, roleId);
   // Phòng ban + vị trí (sơ đồ Phòng ban & Nhân sự): bắt buộc khi tạo, là một phần của Tài khoản – Thêm;
   // tài khoản Quản trị hệ thống không nằm trong sơ đồ nên được bỏ trống
@@ -121,6 +124,7 @@ r.patch('/users/:id', need('user.edit'), (req, res) => {
   const roleId = b.default_role_id !== undefined ? checkRole(b.default_role_id) : u.default_role_id;
   const isAdmin = isAdminRole(roleId);
   if (isAdmin !== !!u.is_admin && !req.user.is_admin) throw forbidden('Chỉ quản trị hệ thống được cấp hoặc gỡ quyền quản trị');
+  if (isAdmin && u.username !== ADMIN_USERNAME) throw badRequest(ADMIN_ONLY_MSG);
   if (roleId && roleId !== u.default_role_id) checkAssignableRole(req.user, roleId, id);
   // Phòng ban + vị trí: là một phần của Tài khoản – Sửa, như khi tạo tài khoản
   const placing = b.department_id !== undefined || b.positions !== undefined;

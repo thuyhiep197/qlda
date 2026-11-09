@@ -818,6 +818,18 @@ const migrations: (string | (() => void))[] = [
    );
    UPDATE users SET preferences = json_set(CASE WHEN json_valid(preferences) THEN preferences ELSE '{}' END, '$.tour_done', json('true'))
      WHERE last_login_at IS NOT NULL;`,
+  // v34: chỉ tài khoản admin là Quản trị hệ thống (người dùng chốt 2026-11-09). Tài khoản khác có cờ quản trị (vd vietnx: bị gán
+  // thẳng vào CSDL, không qua tool, không có nhật ký) → gỡ cờ, đăng xuất mọi phiên, ghi nhật ký bảo mật.
+  // Mở khóa tài khoản admin (bị khóa do sai mật khẩu 5 lần) để còn quản trị viên — người dùng yêu cầu 2026-11-09.
+  `INSERT INTO audit_log(at, user_id, username, action, target, detail, ip, user_agent)
+     SELECT ${TS}, NULL, 'cập nhật hệ thống', 'user_updated', username, 'Gỡ quyền Quản trị hệ thống (chỉ tài khoản admin được giữ), đăng xuất mọi phiên', NULL, 'migration v34'
+     FROM users WHERE is_admin = 1 AND (username <> 'admin' OR COALESCE((SELECT r.is_admin FROM roles r WHERE r.id = users.default_role_id), 0) = 0);
+   UPDATE users SET is_admin = 0, token_version = token_version + 1
+     WHERE is_admin = 1 AND (username <> 'admin' OR COALESCE((SELECT r.is_admin FROM roles r WHERE r.id = users.default_role_id), 0) = 0);
+   INSERT INTO audit_log(at, user_id, username, action, target, detail, ip, user_agent)
+     SELECT ${TS}, NULL, 'cập nhật hệ thống', 'user_updated', username, 'Mở khóa tài khoản quản trị', NULL, 'migration v34'
+     FROM users WHERE username = 'admin' AND is_admin = 1 AND is_active = 0;
+   UPDATE users SET is_active = 1, failed_logins = 0 WHERE username = 'admin' AND is_admin = 1;`,
 ];
 
 function migrateV26() {

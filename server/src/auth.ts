@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import type { NextFunction, Request, Response } from 'express';
 import { get, getSetting, run, setSetting } from './db.ts';
-import { HttpError, type AuthUser } from './permissions.ts';
+import { ADMIN_USERNAME, HttpError, type AuthUser } from './permissions.ts';
 import { isApiKey, userIdFromApiKey } from './api-keys.ts';
 
 export const COOKIE = 'qlda_token';
@@ -94,7 +94,10 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
     }
   }
   const user = get<AuthUser & { is_active: number; token_version: number }>(
-    'SELECT id, username, full_name, email, is_admin, is_active, must_change_password, token_version FROM users WHERE id = ?', uid,
+    // Quyền cao nhất chỉ khi đủ cả ba: cờ quản trị, thuộc nhóm Quản trị hệ thống, đúng tài khoản admin — cờ bị gán thẳng vào CSDL cho người khác không có tác dụng
+    `SELECT u.id, u.username, u.full_name, u.email, u.is_active, u.must_change_password, u.token_version,
+       CASE WHEN u.is_admin = 1 AND u.username = ? AND EXISTS (SELECT 1 FROM roles r WHERE r.id = u.default_role_id AND r.is_admin = 1) THEN 1 ELSE 0 END AS is_admin
+     FROM users u WHERE u.id = ?`, ADMIN_USERNAME, uid,
   );
   if (!user || !user.is_active) throw new HttpError(401, 'Tài khoản không tồn tại hoặc đã bị khóa');
   if (tv !== null && user.token_version !== tv) throw new HttpError(401, 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại');

@@ -194,9 +194,10 @@ test('creating an account requires a department + position (part of Tài khoản
   assert.equal(created.status, 201);
   assert.equal(created.body.department_id, place().department_id);
   assert.deepEqual(created.body.positions, ['dev']);
-  // Tài khoản Quản trị hệ thống không nằm trong sơ đồ nên không bắt buộc phòng ban
+  // Chỉ tài khoản admin được thuộc nhóm Quản trị hệ thống — tạo tài khoản khác vào nhóm này bị từ chối, kể cả do quản trị tạo
   const adm = await api(admin, 'POST', '/users', { ...body, username: 'sysadmin9', default_role_id: adminGroup });
-  assert.equal(adm.status, 201, adm.body.error);
+  assert.equal(adm.status, 400);
+  assert.equal(get('SELECT 1 FROM users WHERE username = ?', 'sysadmin9'), undefined);
   assert.equal((await api(admin, 'PATCH', `/users/${nobody}`, { project_ids: [proj] })).status, 200);
   assert.ok(!get('SELECT 1 FROM project_members WHERE user_id = ?', nobody));
 });

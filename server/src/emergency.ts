@@ -2,7 +2,7 @@
  * Cứu hộ khẩn cấp (chạy trực tiếp trên server, không qua web) — dùng khi tài khoản quản trị bị chiếm/khóa.
  *
  *   node --import tsx server/src/emergency.ts restore <tên_đăng_nhập>
- *       Mở khóa, cấp quyền Quản trị hệ thống, đặt mật khẩu tạm ngẫu nhiên (bắt buộc đổi khi đăng nhập),
+ *       Mở khóa, đặt mật khẩu tạm ngẫu nhiên (riêng tài khoản admin: đưa lại vào nhóm Quản trị hệ thống) (bắt buộc đổi khi đăng nhập),
  *       thu hồi mọi phiên cũ của tài khoản đó. In mật khẩu tạm ra màn hình.
  *   node --import tsx server/src/emergency.ts lock <tên_đăng_nhập>
  *       Khóa tài khoản và thu hồi mọi phiên (VD khóa tài khoản "admin" bị lộ).
@@ -16,6 +16,7 @@
 import crypto from 'node:crypto';
 import { all, get, migrate, now, run } from './db.ts';
 import { hashPassword } from './auth.ts';
+import { ADMIN_USERNAME } from './permissions.ts';
 
 migrate();
 const [cmd, username] = process.argv.slice(2);
@@ -31,10 +32,13 @@ const findUser = () => {
 if (cmd === 'restore') {
   const u = findUser();
   const pw = `${crypto.randomBytes(6).toString('base64url')}${crypto.randomInt(10, 99)}Aa`;
-  // Đưa vào nhóm Quản trị hệ thống (thuộc nhóm = quản trị)
-  run(`UPDATE users SET is_active = 1, failed_logins = 0, is_admin = 1, default_role_id = COALESCE((SELECT id FROM roles WHERE is_admin = 1 ORDER BY id LIMIT 1), default_role_id),
-    password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?`, hashPassword(pw), u.id);
-  log('emergency_restore', u.username, 'Mở khóa, cấp quyền quản trị, đặt mật khẩu tạm');
+  run('UPDATE users SET is_active = 1, failed_logins = 0, password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?', hashPassword(pw), u.id);
+  // Chỉ tài khoản admin được đưa (lại) vào nhóm Quản trị hệ thống; tài khoản khác chỉ mở khóa và đặt mật khẩu tạm
+  const isAdminAccount = u.username === ADMIN_USERNAME;
+  if (isAdminAccount) {
+    run(`UPDATE users SET is_admin = 1, default_role_id = COALESCE((SELECT id FROM roles WHERE is_admin = 1 ORDER BY id LIMIT 1), default_role_id) WHERE id = ?`, u.id);
+  }
+  log('emergency_restore', u.username, isAdminAccount ? 'Mở khóa, cấp quyền quản trị, đặt mật khẩu tạm' : 'Mở khóa, đặt mật khẩu tạm');
   console.log(`Đã khôi phục tài khoản ${u.username}. Mật khẩu tạm: ${pw}\nĐăng nhập rồi đổi mật khẩu ngay.`);
 } else if (cmd === 'lock') {
   const u = findUser();
