@@ -91,6 +91,9 @@ test('report groups customers by product with their interaction state', async ()
   const r = (await api(admin, '/customers/report/by-product')).body;
   assert.equal(r.today, today);
   assert.equal(r.total, 3);
+  // Danh mục để chọn lọc gồm cả sản phẩm chưa có khách hàng
+  assert.ok(r.products.some((p: any) => p.name === 'Phần mềm quản lý chợ' && p.type_name));
+  assert.ok(r.products.length > r.groups.filter((g: any) => g.product_id).length);
   assert.deepEqual(r.groups.map((g: any) => [g.name, g.customers.map((c: any) => c.name)]), [
     ['Trợ lý VBĐH (imate)', ['Sở B', 'Xã A']],
     ['Trợ lý công chức AI', ['Xã A']],

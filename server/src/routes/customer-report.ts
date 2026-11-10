@@ -54,8 +54,9 @@ r.get('/report/by-product', (req, res) => {
 
   type Group = { key: string; product_id: number | null; name: string; type_name: string | null; rows: Map<number, any[]> };
   const groups = new Map<string, Group>();
-  const catalog = all<{ id: number; name: string; type_name: string }>(
-    'SELECT p.id, p.name, t.name AS type_name FROM products p JOIN product_types t ON t.id = p.type_id ORDER BY t.position, t.id, p.name');
+  const catalog = all<{ id: number; name: string; type_name: string; project_archived: number | null }>(
+    `SELECT p.id, p.name, t.name AS type_name, pr.is_archived AS project_archived FROM products p JOIN product_types t ON t.id = p.type_id
+     LEFT JOIN projects pr ON pr.id = p.project_id ORDER BY t.position, t.id, p.name`);
   for (const p of catalog) groups.set(`p${p.id}`, { key: `p${p.id}`, product_id: p.id, name: p.name, type_name: p.type_name, rows: new Map() });
   groups.set('none', { key: 'none', product_id: null, name: 'Dự án chưa chọn sản phẩm', type_name: null, rows: new Map() });
   groups.set('noproject', { key: 'noproject', product_id: null, name: 'Khách hàng chưa có dự án', type_name: null, rows: new Map() });
@@ -102,7 +103,10 @@ r.get('/report/by-product', (req, res) => {
   const statuses = !can.info ? [] : all<{ name: string }>('SELECT name FROM customer_statuses ORDER BY position, id').map((s) => s.name);
   // Tổng số khách hàng không trùng (một khách hàng dùng nhiều sản phẩm nằm ở nhiều nhóm)
   const total = new Set(out.flatMap((g) => g.customers.map((c) => c.id))).size;
-  res.json({ today, can, statuses, total, groups: out });
+  // Danh mục sản phẩm để chọn lọc (kể cả sản phẩm chưa có khách hàng); sản phẩm của dự án đã lưu trữ chỉ còn khi đang có khách hàng
+  const products = catalog.filter((p) => !p.project_archived || groups.get(`p${p.id}`)!.rows.size)
+    .map((p) => ({ id: p.id, name: p.name, type_name: p.type_name }));
+  res.json({ today, can, statuses, total, products, groups: out });
 });
 
 export default r;

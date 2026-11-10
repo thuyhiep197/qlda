@@ -1,11 +1,11 @@
 import { Fragment, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Download, PhoneCall, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, PhoneCall, Search, X } from 'lucide-react';
 import { api } from '../../api';
 import type { ProductReport as Report, ProductReportCustomer, ProductReportGroup } from '../../types';
 import { CUSTOMER_STATUS_CLASS, salesStatusClass } from '../../customer-filter';
-import { daysSince, filterReport, RECENT_DAYS, statusColumns, summarize } from '../../product-report';
+import { daysSince, filterReport, pickGroups, productOptions, RECENT_DAYS, statusColumns, summarize } from '../../product-report';
 import { fmtDate } from '../../util';
 import { hasPerm, useMe } from '../../hooks';
 import { Empty, Spinner, toastError } from '../../components/ui';
@@ -26,13 +26,16 @@ export default function ProductReport() {
   const { data: me } = useMe();
   const [q, setQ] = useState('');
   const [days, setDays] = useState(30);
-  // Lọc theo một sản phẩm ('' = tất cả): chỉ còn dòng sản phẩm đó, mở sẵn danh sách khách hàng
-  const [product, setProduct] = useState('');
+  // Các sản phẩm đã chọn để thống kê (chưa chọn = mọi sản phẩm đang có khách hàng); chọn trong toàn bộ danh mục sản phẩm
+  const [chosen, setChosen] = useState<string[]>([]);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   if (isLoading) return <section className="cw-main"><Spinner /></section>;
   if (!r) return <section className="cw-main"><Empty title={error instanceof Error ? error.message : 'Không tải được báo cáo'} /></section>;
-  const picked = r.groups.some((g) => g.key === product) ? product : '';
-  const groups = filterReport(picked ? r.groups.filter((g) => g.key === picked) : r.groups, q);
+  const options = productOptions(r);
+  const picked = chosen.filter((k) => options.some((o) => o.key === k));
+  // Đang chọn sản phẩm: giữ cả sản phẩm chưa có khách hàng (0 khách hàng) khi không gõ tìm
+  const groups = q.trim() ? filterReport(pickGroups(r, picked), q) : pickGroups(r, picked);
+  const types = [...new Set(options.map((o) => o.type_name))];
   const statuses = statusColumns(r);
   const searching = !!q.trim();
   const canCustomer = hasPerm(me, 'customer.view');
@@ -92,15 +95,28 @@ export default function ProductReport() {
       <div className="cw-toolbar">
         <h2 className="cw-title">Báo cáo khách hàng theo sản phẩm <HelpButton /></h2>
         <div className="cw-search grow"><Search size={14} /><input placeholder="Tìm sản phẩm, khách hàng, dự án, tỉnh, Sale, AM…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <SearchSelect className="pr-filter" value={picked} onChange={(e) => setProduct(e.target.value)} aria-label="Lọc theo sản phẩm" data-tip="Lọc theo sản phẩm">
-          <option value="">Tất cả sản phẩm</option>
-          {r.groups.map((g) => <option key={g.key} value={g.key}>{g.name} ({g.customers.length})</option>)}
-        </SearchSelect>
         {r.can.talk && <label className="row gap-xs small nowrap">Trao đổi gần đây trong
           <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Ngưỡng trao đổi gần đây">
             {RECENT_DAYS.map((d) => <option key={d} value={d}>{d} ngày</option>)}
           </select></label>}
         <button className="btn btn-sm" onClick={exportExcel} disabled={!groups.length}><Download size={14} /> Xuất Excel</button>
+      </div>
+      {/* Chọn sản phẩm cần thống kê trong danh mục sản phẩm (chọn được nhiều) */}
+      <div className="pr-pick staff-picker">
+        <span className="small"><b>Sản phẩm:</b></span>
+        {!picked.length && <span className="muted small">Tất cả sản phẩm đang có khách hàng</span>}
+        {picked.map((k) => { const o = options.find((x) => x.key === k)!; return (
+          <span key={k} className="chip">{o.name} ({o.customers})
+            <button type="button" aria-label={`Bỏ ${o.name}`} onClick={() => setChosen(picked.filter((x) => x !== k))}><X size={12} /></button></span>
+        ); })}
+        <SearchSelect value="" onChange={(e) => e.target.value && setChosen([...picked, e.target.value])} aria-label="Chọn sản phẩm để thống kê">
+          <option value="">+ Chọn sản phẩm…</option>
+          {types.map((t) => {
+            const items = options.filter((o) => o.type_name === t && !picked.includes(o.key)).map((o) => <option key={o.key} value={o.key}>{o.name} ({o.customers})</option>);
+            return t ? <optgroup key={t} label={t}>{items}</optgroup> : items;
+          })}
+        </SearchSelect>
+        {picked.length > 0 && <button type="button" className="btn btn-subtle btn-sm" onClick={() => setChosen([])}>Bỏ chọn tất cả</button>}
       </div>
       {!groups.length ? <Empty title={r.groups.length ? 'Không có sản phẩm, khách hàng phù hợp' : 'Chưa có dữ liệu trong phạm vi bạn được xem'}>
         {!r.groups.length && <p className="muted small">Báo cáo tính theo sản phẩm đã chọn ở từng dự án của khách hàng.</p>}</Empty> : (
@@ -117,7 +133,7 @@ export default function ProductReport() {
             </tr></thead>
             <tbody>{groups.map((g) => {
               const s = summarize(g.customers, r.today, days);
-              const shown = searching || (open[g.key] ?? !!picked);
+              const shown = searching || (open[g.key] ?? picked.length > 0);
               return (
                 <Fragment key={g.key}>
                   <tr className={`click-row pr-row ${g.product_id ? '' : 'pr-row-rest'}`} onClick={() => setOpen({ ...open, [g.key]: !shown })} aria-expanded={shown}>
@@ -144,6 +160,7 @@ export default function ProductReport() {
 
 /** Các khách hàng của một sản phẩm kèm hiện trạng tương tác */
 function CustomerRows({ g, r, days, canCustomer }: { g: ProductReportGroup; r: Report; days: number; canCustomer: boolean }) {
+  if (!g.customers.length) return <div className="pr-none muted small">Chưa có khách hàng nào có dự án chọn sản phẩm này.</div>;
   return (
     <table className="table pr-sub">
       <thead><tr><th>Khách hàng</th>{r.can.info && <th>Tình trạng</th>}<th>Dự án của khách hàng</th><th>Sale / AM</th>

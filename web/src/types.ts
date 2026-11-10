@@ -463,6 +463,9 @@ export interface ProductReport {
   statuses: string[];
   /** Số khách hàng không trùng */
   total: number;
+  /** Danh mục sản phẩm để chọn lọc (kể cả sản phẩm chưa có khách hàng) */
+  products: { id: number; name: string; type_name: string }[];
+  /** Chỉ các sản phẩm / nhóm đang có khách hàng */
   groups: ProductReportGroup[];
 }
 /** Lịch gọi điện của dự án của khách hàng: planned = chờ gọi, done = đã gọi, failed = chưa gọi được */

@@ -9,7 +9,7 @@ Khi mục này có cập nhật bạn chưa đọc, nút **Hướng dẫn sử d
 
 ## 10/11/2026 — Báo cáo khách hàng theo sản phẩm
 - Phân hệ Khách hàng có nút xanh lá **Báo cáo theo sản phẩm** trên thanh trên cùng (cạnh nút **Tạo khách hàng**): mỗi sản phẩm có bao nhiêu khách hàng, theo từng tình trạng, và hiện trạng tương tác — trao đổi gần nhất, lịch gọi, hành trình, việc đang mở. Bấm một sản phẩm để xem từng khách hàng; có **Xuất Excel**. Xem [Báo cáo khách hàng theo sản phẩm](/help/kh-bao-cao-san-pham).
-- Màn báo cáo có ô **lọc theo sản phẩm**: chọn một sản phẩm để chỉ xem khách hàng của sản phẩm đó; Xuất Excel theo đúng nội dung đang lọc.
+- Màn báo cáo có dòng **Sản phẩm**: bấm **+ Chọn sản phẩm…** để chọn một hoặc nhiều sản phẩm trong toàn bộ danh mục, báo cáo thống kê theo các sản phẩm đã chọn; Xuất Excel theo đúng nội dung đang xem.
 - Một **dự án của khách hàng chọn được nhiều sản phẩm** (VD combo 3 trợ lý GovOne). Dự án chưa chọn sản phẩm nằm ở dòng "Dự án chưa chọn sản phẩm" của báo cáo — hãy mở dự án để chọn.
 - Quản trị → Danh mục sản phẩm: cột số khách hàng đếm theo sản phẩm đã chọn ở các dự án của khách hàng.
 

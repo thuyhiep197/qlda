@@ -1306,5 +1306,7 @@ h1 .help-inline, h2 .help-inline { display: inline-flex; vertical-align: -5px; m
 .pr-sub td { vertical-align: top; }
 .pr-proj + .pr-proj { margin-top: 3px; }
 .pr-talk { max-width: 420px; }
-.pr-filter { width: auto; max-width: 260px; }
+.pr-pick { gap: 6px; }
+.pr-pick select { font-size: 13px; padding: 4px 8px; }
+.pr-none { padding: 10px 12px; background: var(--surface); border-left: 2px solid var(--primary); }
 .pr-content { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }

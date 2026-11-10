@@ -38,7 +38,7 @@ Hai dòng cuối: **Dự án chưa chọn sản phẩm** (cần mở dự án đ
 
 ### Lọc theo sản phẩm, tìm và xuất Excel
 
-1. Chọn một sản phẩm ở ô **Tất cả sản phẩm** để chỉ xem sản phẩm đó (danh sách khách hàng mở sẵn); chọn lại **Tất cả sản phẩm** để bỏ lọc.
+1. Ở dòng **Sản phẩm**, bấm **+ Chọn sản phẩm…**: danh sách liệt kê **toàn bộ sản phẩm trong danh mục** theo loại, kèm số khách hàng (gõ để tìm). Chọn một hoặc nhiều sản phẩm — báo cáo chỉ thống kê các sản phẩm đã chọn, danh sách khách hàng mở sẵn; sản phẩm chưa có khách hàng hiện 0. Bấm dấu × để bỏ một sản phẩm, **Bỏ chọn tất cả** để xem lại mọi sản phẩm.
 2. Gõ vào ô tìm (không cần gõ dấu) để lọc theo sản phẩm, khách hàng, dự án, tỉnh, Sale, AM.
 3. Bấm **Xuất Excel** để tải tệp gồm sheet **Tổng hợp** và sheet **Chi tiết** (mỗi dòng một khách hàng × một sản phẩm) theo đúng nội dung đang lọc.
 

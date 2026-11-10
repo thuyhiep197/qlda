@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { daysSince, filterReport, statusColumns, summarize } from './product-report';
+import { daysSince, filterReport, pickGroups, productOptions, statusColumns, summarize } from './product-report';
 import type { ProductReportCustomer, ProductReportGroup } from './types';
 
 const c = (o: Partial<ProductReportCustomer>): ProductReportCustomer => ({ id: 1, name: 'KH', code: null, province_name: null, status: 'Mới', kd_names: null, am_names: null, projects: [], ...o });
@@ -36,4 +36,14 @@ test('search keeps a whole product on a product match, otherwise the matching cu
 
 test('status columns follow the catalogue order, unknown statuses last', () => {
   assert.deepEqual(statusColumns({ statuses: ['Mới', 'Đang tư vấn', 'Đã thanh toán'], groups }), ['Mới', 'Đang tư vấn', 'Khác']);
+});
+
+test('the product picker lists the whole catalogue; picked products without customers still get a row', () => {
+  const rest: ProductReportGroup = { key: 'none', product_id: null, name: 'Dự án chưa chọn sản phẩm', type_name: null, customers: [c({ id: 7 })] };
+  const r = { products: [{ id: 1, name: 'Trợ lý công chức AI', type_name: 'Sản phẩm có sẵn' }, { id: 5, name: 'Phần mềm quản lý chợ', type_name: 'Sản phẩm có sẵn' },
+    { id: 2, name: 'EduPay', type_name: 'Dự án' }], groups: [...groups, rest] };
+  assert.deepEqual(productOptions(r).map((o) => [o.key, o.customers]), [['p1', 2], ['p5', 0], ['p2', 1], ['none', 1]]);
+  assert.equal(pickGroups(r, []).length, 3);
+  assert.deepEqual(pickGroups(r, ['p5', 'p1', 'p99']).map((g) => [g.key, g.name, g.customers.length]), [['p5', 'Phần mềm quản lý chợ', 0], ['p1', 'Trợ lý công chức AI', 2]]);
+  assert.deepEqual(pickGroups(r, ['none']).map((g) => g.key), ['none']);
 });

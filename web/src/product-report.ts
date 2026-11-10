@@ -52,3 +52,22 @@ export function statusColumns(r: Pick<ProductReport, 'statuses' | 'groups'>): st
   const present = new Set(r.groups.flatMap((g) => g.customers.map((c) => c.status).filter((s): s is string => !!s)));
   return [...r.statuses.filter((s) => present.has(s)), ...[...present].filter((s) => !r.statuses.includes(s)).sort()];
 }
+
+export interface ProductOption { key: string; name: string; type_name: string | null; customers: number }
+/** Danh sách để chọn lọc: mọi sản phẩm trong danh mục (kể cả chưa có khách hàng), rồi các nhóm "chưa chọn sản phẩm", "chưa có dự án" */
+export function productOptions(r: Pick<ProductReport, 'products' | 'groups'>): ProductOption[] {
+  const count = new Map(r.groups.map((g) => [g.key, g.customers.length]));
+  return [
+    ...r.products.map((p) => ({ key: `p${p.id}`, name: p.name, type_name: p.type_name, customers: count.get(`p${p.id}`) ?? 0 })),
+    ...r.groups.filter((g) => !g.product_id).map((g) => ({ key: g.key, name: g.name, type_name: null, customers: g.customers.length })),
+  ];
+}
+
+/** Báo cáo theo các sản phẩm đã chọn (theo thứ tự chọn); sản phẩm chưa có khách hàng vẫn có dòng với 0 khách hàng. Chưa chọn gì → mọi nhóm đang có khách hàng */
+export function pickGroups(r: Pick<ProductReport, 'products' | 'groups'>, keys: string[]): ProductReportGroup[] {
+  const options = new Map(productOptions(r).map((o) => [o.key, o]));
+  const chosen = keys.filter((k) => options.has(k));
+  if (!chosen.length) return r.groups;
+  const byKey = new Map(r.groups.map((g) => [g.key, g]));
+  return chosen.map((k) => byKey.get(k) ?? { key: k, product_id: Number(k.slice(1)), name: options.get(k)!.name, type_name: options.get(k)!.type_name, customers: [] });
+}
