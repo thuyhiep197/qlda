@@ -12,7 +12,7 @@ import NotificationBell from './NotificationBell';
 import HelpMenu from '../help/HelpMenu';
 import HelpDrawer from '../help/HelpDrawer';
 import Tour from '../help/Tour';
-import { Building2, FolderKanban, LayoutDashboard, LibraryBig, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldCheck, Sun, Wrench } from 'lucide-react';
+import { BarChart3, Building2, FolderKanban, LayoutDashboard, LibraryBig, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, Settings, ShieldCheck, Sun, Wrench } from 'lucide-react';
 import { clampWidth, COLLAPSE_BELOW, readCollapsed, readWidth, saveCollapsed, saveWidth } from '../sidebar-pref';
 
 export default function Layout() {
@@ -97,6 +97,9 @@ export default function Layout() {
           <button className="icon-btn menu-btn" aria-label="Mở menu" onClick={() => setNavOpen(true)}><Menu size={20} /></button>
           <div data-tour="search" className="tour-search"><GlobalSearch /></div>
           {createBtn && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} strokeWidth={2.5} /> {createBtn}</button>}
+          {/* Báo cáo khách hàng theo sản phẩm: cạnh nút Tạo khách hàng, cần Dự án của khách hàng – Xem (sản phẩm là thông tin của dự án) */}
+          {subsystem === 'customer' && hasPerm(me, 'sales_project.view') && <NavLink to="/customers/report" className="btn btn-report" data-tip="Mỗi sản phẩm có bao nhiêu khách hàng, hiện trạng tương tác">
+            <BarChart3 size={16} strokeWidth={2.5} /> <span className="hide-sm">Báo cáo theo sản phẩm</span></NavLink>}
           <div className="spacer" />
           <HelpMenu />
           <div data-tour="bell"><NotificationBell /></div>

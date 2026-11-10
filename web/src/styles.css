@@ -137,6 +137,10 @@ select { cursor: pointer; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+/* Nút Báo cáo theo sản phẩm trên thanh trên cùng: xanh lá để phân biệt với nút Tạo (xanh dương) */
+a.btn-report, a.btn-report:hover { background: var(--success); color: var(--on-primary); text-decoration: none; font-weight: 600; }
+a.btn-report:hover { filter: brightness(1.1); }
+a.btn-report.active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--success); }
 .btn-danger { background: var(--danger); color: var(--on-primary); }
 .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
 .btn-subtle { background: transparent; }
@@ -1293,7 +1297,6 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
 h1 .help-inline, h2 .help-inline { display: inline-flex; vertical-align: -5px; margin-left: 2px; }
 
 /* ---------- Khách hàng: báo cáo theo sản phẩm ---------- */
-.cw-left > .cw-report { padding: 6px 10px; margin-top: 2px; }
 .pr-table .pr-row td { vertical-align: middle; }
 .pr-table .pr-row-rest td { color: var(--muted); }
 .pr-table .pr-detail > td { padding: 0 0 8px 28px; background: var(--sunken); }

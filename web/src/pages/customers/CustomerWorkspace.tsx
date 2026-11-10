@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Archive, BarChart3, ChevronDown, ChevronRight, FolderOpen, LayoutList, MapPin, PhoneCall, Plus, Search, Star } from 'lucide-react';
+import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, MapPin, PhoneCall, Plus, Search, Star } from 'lucide-react';
 import { api } from '../../api';
 import { ManageContext, useCan } from './manage';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
@@ -24,7 +24,7 @@ import { HelpButton } from '../../help/HelpMenu';
  *  - Khách hàng (/customers/:id): giữa là danh sách dự án của khách hàng; phải là thông tin khách hàng, công việc, tài liệu.
  *  - Dự án (/customers/:id/p/:pid): giữa là hành trình bán hàng (quy trình I–IV) của dự án;
  *    phải là thông tin dự án, hoặc Trao đổi + Tài liệu của bước đang chọn (?step=).
- *  - Báo cáo (/customers/report): khách hàng theo sản phẩm kèm hiện trạng tương tác (cần Dự án của khách hàng – Xem).
+ *  - Báo cáo (/customers/report, mở bằng nút Báo cáo theo sản phẩm trên thanh trên cùng): khách hàng theo sản phẩm kèm hiện trạng tương tác (cần Dự án của khách hàng – Xem).
  */
 export default function CustomerWorkspace({ report = false }: { report?: boolean }) {
   const { id, pid } = useParams();
@@ -77,8 +77,6 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
     <aside className="cw-left">
       <div className="cw-search"><Search size={14} /><input placeholder="Tìm khách hàng, dự án…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <label className="check small cw-arch"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem đã lưu trữ</label>
-      {/* Báo cáo khách hàng theo sản phẩm: sản phẩm là thông tin của dự án → cần Dự án của khách hàng – Xem */}
-      {can('sales_project.view') && <Link to="/customers/report" className={`cw-item cw-report ${report ? 'active' : ''}`}><BarChart3 size={16} /><span className="grow ellipsis">Báo cáo theo sản phẩm</span></Link>}
       {groups.map(([key, label, items, icon]) => {
         const open = !closed[key] || searching;
         const tree = customerTree(items, q);

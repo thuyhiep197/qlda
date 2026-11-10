@@ -11,7 +11,7 @@ keywords: báo cáo, thống kê, sản phẩm, số khách hàng, hiện trạn
 
 ## Màn hình này dùng để làm gì
 
-Trả lời hai câu hỏi: **mỗi sản phẩm đang có bao nhiêu khách hàng** và **khách hàng đó đang được tương tác thế nào**. Mở bằng mục **Báo cáo theo sản phẩm** ở đầu cột trái của phân hệ Khách hàng.
+Trả lời hai câu hỏi: **mỗi sản phẩm đang có bao nhiêu khách hàng** và **khách hàng đó đang được tương tác thế nào**. Mở bằng nút xanh lá **Báo cáo theo sản phẩm** trên thanh trên cùng (cạnh nút **Tạo khách hàng**) khi đang ở phân hệ Khách hàng.
 
 Sản phẩm của khách hàng lấy từ ô **Sản phẩm** của từng [dự án của khách hàng](/help/kh-du-an). Một dự án chọn được nhiều sản phẩm (VD combo 3 trợ lý), nên một khách hàng có thể được đếm ở nhiều sản phẩm.
 
