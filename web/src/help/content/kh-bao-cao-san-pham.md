@@ -36,10 +36,11 @@ Hai dòng cuối: **Dự án chưa chọn sản phẩm** (cần mở dự án đ
 2. Mỗi khách hàng hiện tình trạng, các dự án thuộc sản phẩm (kèm tình trạng theo hành trình), Sale / AM, **trao đổi gần nhất** (ngày, cách đây bao lâu, người ghi, nội dung) và lịch gọi kế tiếp.
 3. Bấm tên khách hàng hoặc tên dự án để mở màn hình tương ứng.
 
-### Tìm và xuất Excel
+### Lọc theo sản phẩm, tìm và xuất Excel
 
-1. Gõ vào ô tìm (không cần gõ dấu) để lọc theo sản phẩm, khách hàng, dự án, tỉnh, Sale, AM.
-2. Bấm **Xuất Excel** để tải tệp gồm sheet **Tổng hợp** và sheet **Chi tiết** (mỗi dòng một khách hàng × một sản phẩm) theo đúng nội dung đang lọc.
+1. Chọn một sản phẩm ở ô **Tất cả sản phẩm** để chỉ xem sản phẩm đó (danh sách khách hàng mở sẵn); chọn lại **Tất cả sản phẩm** để bỏ lọc.
+2. Gõ vào ô tìm (không cần gõ dấu) để lọc theo sản phẩm, khách hàng, dự án, tỉnh, Sale, AM.
+3. Bấm **Xuất Excel** để tải tệp gồm sheet **Tổng hợp** và sheet **Chi tiết** (mỗi dòng một khách hàng × một sản phẩm) theo đúng nội dung đang lọc.
 
 ## Lưu ý
 

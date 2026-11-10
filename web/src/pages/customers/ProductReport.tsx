@@ -9,6 +9,7 @@ import { daysSince, filterReport, RECENT_DAYS, statusColumns, summarize } from '
 import { fmtDate } from '../../util';
 import { hasPerm, useMe } from '../../hooks';
 import { Empty, Spinner, toastError } from '../../components/ui';
+import { SearchSelect } from '../../components/SearchSelect';
 import { HelpButton } from '../../help/HelpMenu';
 
 const Num = ({ n, tone }: { n: number; tone?: 'bad' }) => (n ? <span className={tone === 'bad' ? 'overdue' : undefined}>{n}</span> : <span className="muted">–</span>);
@@ -25,10 +26,13 @@ export default function ProductReport() {
   const { data: me } = useMe();
   const [q, setQ] = useState('');
   const [days, setDays] = useState(30);
+  // Lọc theo một sản phẩm ('' = tất cả): chỉ còn dòng sản phẩm đó, mở sẵn danh sách khách hàng
+  const [product, setProduct] = useState('');
   const [open, setOpen] = useState<Record<string, boolean>>({});
   if (isLoading) return <section className="cw-main"><Spinner /></section>;
   if (!r) return <section className="cw-main"><Empty title={error instanceof Error ? error.message : 'Không tải được báo cáo'} /></section>;
-  const groups = filterReport(r.groups, q);
+  const picked = r.groups.some((g) => g.key === product) ? product : '';
+  const groups = filterReport(picked ? r.groups.filter((g) => g.key === picked) : r.groups, q);
   const statuses = statusColumns(r);
   const searching = !!q.trim();
   const canCustomer = hasPerm(me, 'customer.view');
@@ -88,6 +92,10 @@ export default function ProductReport() {
       <div className="cw-toolbar">
         <h2 className="cw-title">Báo cáo khách hàng theo sản phẩm <HelpButton /></h2>
         <div className="cw-search grow"><Search size={14} /><input placeholder="Tìm sản phẩm, khách hàng, dự án, tỉnh, Sale, AM…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <SearchSelect className="pr-filter" value={picked} onChange={(e) => setProduct(e.target.value)} aria-label="Lọc theo sản phẩm" data-tip="Lọc theo sản phẩm">
+          <option value="">Tất cả sản phẩm</option>
+          {r.groups.map((g) => <option key={g.key} value={g.key}>{g.name} ({g.customers.length})</option>)}
+        </SearchSelect>
         {r.can.talk && <label className="row gap-xs small nowrap">Trao đổi gần đây trong
           <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Ngưỡng trao đổi gần đây">
             {RECENT_DAYS.map((d) => <option key={d} value={d}>{d} ngày</option>)}
@@ -109,7 +117,7 @@ export default function ProductReport() {
             </tr></thead>
             <tbody>{groups.map((g) => {
               const s = summarize(g.customers, r.today, days);
-              const shown = searching || !!open[g.key];
+              const shown = searching || (open[g.key] ?? !!picked);
               return (
                 <Fragment key={g.key}>
                   <tr className={`click-row pr-row ${g.product_id ? '' : 'pr-row-rest'}`} onClick={() => setOpen({ ...open, [g.key]: !shown })} aria-expanded={shown}>
