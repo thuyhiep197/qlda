@@ -138,8 +138,8 @@ select { cursor: pointer; }
 .btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
 /* Nút Báo cáo theo sản phẩm trên thanh trên cùng: xanh lá để phân biệt với nút Tạo (xanh dương) */
-a.btn-report, a.btn-report:hover { background: var(--success); color: var(--on-primary); text-decoration: none; font-weight: 600; }
-a.btn-report:hover { filter: brightness(1.1); }
+a.btn-report, a.btn-report:hover:not(:disabled) { background: var(--success); color: var(--on-primary); text-decoration: none; font-weight: 600; }
+a.btn-report:hover:not(:disabled) { filter: brightness(1.1); }
 a.btn-report.active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--success); }
 .btn-danger { background: var(--danger); color: var(--on-primary); }
 .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
