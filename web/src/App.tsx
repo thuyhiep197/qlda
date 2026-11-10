@@ -93,6 +93,7 @@ export default function App() {
           </Route>}
           {/* Phân hệ Khách hàng: có ô Xem nào của phân hệ (VD chỉ Hành trình – Xem vẫn vào được không gian khách hàng) */}
           {hasSubsystem(me, 'customer') && <Route path="customers" element={<CustomerWorkspace />} />}
+          {hasSubsystem(me, 'customer') && <Route path="customers/report" element={<CustomerWorkspace report />} />}
           {hasSubsystem(me, 'customer') && <Route path="customers/:id" element={<CustomerWorkspace />} />}
           {hasSubsystem(me, 'customer') && <Route path="customers/:id/p/:pid" element={<CustomerWorkspace />} />}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -41,7 +41,7 @@ Tình trạng dự án **không chọn tay** mà tự tính theo hành trình (c
 1. Mở màn khách hàng, bấm **Thêm dự án**.
 2. Nhập **Tên dự án** (bắt buộc). **Mã dự án** tự sinh theo mã khách hàng + số thứ tự.
 3. **Sale**, **AM** điền sẵn theo khách hàng; chọn thêm **BA/PM**, **Dev**, **Tester** nếu đã biết (ô chọn người lọc theo vị trí của tài khoản).
-4. Chọn **Loại sản phẩm** và **Sản phẩm** trong danh mục; **Mô tả sản phẩm** tự lấy từ danh mục, sửa được. Sau khi chọn **Loại sản phẩm**, nút **+ Thêm mới** hiện nếu bạn có quyền: với loại sản phẩm thường cần **Sản phẩm – Thêm**; với loại là "dự án", nút mở hộp thoại **Tạo dự án** và cần **Dự án – Thêm**.
+4. Chọn **Sản phẩm** trong danh mục — **chọn được nhiều sản phẩm** cho một dự án (VD combo 3 trợ lý): bấm **+ Thêm sản phẩm…**, gõ để tìm; bấm dấu × để bỏ. Ô **Loại sản phẩm** lọc danh sách để chọn. **Mô tả sản phẩm** tự lấy từ danh mục khi chọn sản phẩm đầu tiên, sửa được. Sản phẩm chọn ở đây là căn cứ của [Báo cáo khách hàng theo sản phẩm](/help/kh-bao-cao-san-pham). Sau khi chọn **Loại sản phẩm**, nút **+ Thêm mới** hiện nếu bạn có quyền: với loại sản phẩm thường cần **Sản phẩm – Thêm**; với loại là "dự án", nút mở hộp thoại **Tạo dự án** và cần **Dự án – Thêm**.
 5. Bấm **Thêm dự án**. Màn hình chuyển sang dự án vừa tạo để bạn [áp dụng quy trình mẫu](/help/kh-mau-hanh-trinh).
 :::
 

@@ -7,6 +7,11 @@ keywords: cập nhật, phiên bản mới, thay đổi, tính năng mới
 ---
 Khi mục này có cập nhật bạn chưa đọc, nút **Hướng dẫn sử dụng** trên thanh trên cùng có chấm đỏ. Nếu chưa thấy thay đổi, nhấn **Ctrl + F5** để tải bản mới.
 
+## 10/11/2026 — Báo cáo khách hàng theo sản phẩm
+- Phân hệ Khách hàng có mục **Báo cáo theo sản phẩm** (đầu cột trái): mỗi sản phẩm có bao nhiêu khách hàng, theo từng tình trạng, và hiện trạng tương tác — trao đổi gần nhất, lịch gọi, hành trình, việc đang mở. Bấm một sản phẩm để xem từng khách hàng; có **Xuất Excel**. Xem [Báo cáo khách hàng theo sản phẩm](/help/kh-bao-cao-san-pham).
+- Một **dự án của khách hàng chọn được nhiều sản phẩm** (VD combo 3 trợ lý GovOne). Dự án chưa chọn sản phẩm nằm ở dòng "Dự án chưa chọn sản phẩm" của báo cáo — hãy mở dự án để chọn.
+- Quản trị → Danh mục sản phẩm: cột số khách hàng đếm theo sản phẩm đã chọn ở các dự án của khách hàng.
+
 ## 07/11/2026 — Mở dự án vào tab Thông tin, thanh bên trên điện thoại
 - Bấm vào một dự án giờ mở tab **Thông tin** thay vì **Kế hoạch chi tiết**. Không có quyền xem tab này thì mở tab đầu tiên bạn được xem.
 - Trên điện thoại, thanh bên ẩn đi để nội dung đủ rộng; bấm nút menu ở góc trên bên trái để mở.

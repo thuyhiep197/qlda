@@ -33,11 +33,24 @@ export function assignCustomerCodes() {
 
 /** Vai trò người của dự án của khách hàng (id tài khoản): Sale, AM, BA/PM, Dev, Tester */
 const ROLES: PeopleRole[] = ['kd', 'am', 'ba', 'dev', 'tester'];
-const SP_SELECT = `SELECT sp.*, c.name AS customer_name, pt.name AS product_type_name, pd.name AS product_name, pr.key AS project_key, pr.name AS project_name,
+/** Tên các sản phẩm của dự án (một dự án chọn được nhiều sản phẩm), cách nhau dấu phẩy, theo thứ tự đã chọn */
+const PRODUCT_NAMES = `(SELECT group_concat(name, ', ') FROM (SELECT pd.name FROM sales_project_products spp JOIN products pd ON pd.id = spp.product_id
+    WHERE spp.sales_project_id = sp.id ORDER BY spp.position, pd.name))`;
+const SP_SELECT = `SELECT sp.*, c.name AS customer_name, pt.name AS product_type_name, ${PRODUCT_NAMES} AS product_name, pr.key AS project_key, pr.name AS project_name,
     ${ROLES.map((r) => `${namesSql('sales_project_owners', 'sales_project_id', 'sp.id', r)} AS ${r}_names`).join(',\n    ')},
     (SELECT COUNT(*) FROM customer_tasks t WHERE t.sales_project_id = sp.id AND t.status <> 'done') AS open_tasks
   FROM sales_projects sp JOIN customers c ON c.id = sp.customer_id LEFT JOIN product_types pt ON pt.id = sp.product_type_id
-  LEFT JOIN products pd ON pd.id = sp.product_id LEFT JOIN projects pr ON pr.id = sp.project_id`;
+  LEFT JOIN projects pr ON pr.id = sp.project_id`;
+
+/** Sản phẩm của các dự án: id dự án → [id sản phẩm] theo thứ tự đã chọn */
+export function productIdsBySalesProject() {
+  const map = new Map<number, number[]>();
+  for (const x of all<{ sales_project_id: number; product_id: number }>('SELECT sales_project_id, product_id FROM sales_project_products ORDER BY sales_project_id, position, product_id')) {
+    if (!map.has(x.sales_project_id)) map.set(x.sales_project_id, []);
+    map.get(x.sales_project_id)!.push(x.product_id);
+  }
+  return map;
+}
 
 /**
  * Danh sách dự án (của các khách hàng trong ids, hoặc tất cả) kèm tình trạng và tiến độ hành trình.
@@ -59,10 +72,11 @@ export function salesProjectsOf(customerIds: number[] | 'all', opts: { user?: Au
   }
   // Lịch gọi đã đến ngày mà chưa xác nhận → cảnh báo cho mọi người xem được dự án (có quyền Trao đổi – Xem)
   const calls = callAlerts(today);
+  const products = productIdsBySalesProject();
   const out = rows.map((p: any) => {
     const list = steps.get(p.id) ?? [];
     const j = journeyProgress(list, today);
-    return { ...p, status: journeyStatus(list), journey_pct: j.total ? j.pct : null,
+    return { ...p, product_ids: products.get(p.id) ?? [], status: journeyStatus(list), journey_pct: j.total ? j.pct : null,
       journey_overdue: j.sections.reduce((n, s) => n + s.overdue, 0), call_alert: calls.get(p.id) ?? null };
   });
   return opts.user ? out.map(forViewer(opts.user)) : out;
@@ -102,17 +116,25 @@ function loadSalesProject(req: Request, perm?: Permission) {
   return { c, sp };
 }
 
-/** Kiểm tra sản phẩm với danh mục (sản phẩm phải có thật và thuộc loại đã chọn), Kinh doanh là nhân sự Sale, AM là nhân sự AM */
+/**
+ * Kiểm tra sản phẩm với danh mục: mọi sản phẩm phải có thật. Đã chọn sản phẩm thì loại sản phẩm theo các sản phẩm đó
+ * (cùng một loại → loại đó; khác loại → để trống); chưa chọn sản phẩm thì giữ loại người dùng chọn.
+ */
 function validate(body: any) {
   const v = check(() => cleanSalesProject(body));
   if (v.product_type_id && !get('SELECT 1 FROM product_types WHERE id = ?', v.product_type_id)) throw badRequest('Loại sản phẩm không hợp lệ');
-  if (v.product_id) {
-    const p = get<{ type_id: number }>('SELECT type_id FROM products WHERE id = ?', v.product_id);
-    if (!p) throw badRequest('Sản phẩm không hợp lệ');
-    if (v.product_type_id && p.type_id !== v.product_type_id) throw badRequest('Sản phẩm không thuộc loại sản phẩm đã chọn');
-    v.product_type_id = p.type_id;
+  if (v.product_ids.length) {
+    const types = v.product_ids.map((id) => get<{ type_id: number }>('SELECT type_id FROM products WHERE id = ?', id)?.type_id);
+    if (types.some((t) => !t)) throw badRequest('Sản phẩm không hợp lệ');
+    v.product_type_id = new Set(types).size === 1 ? types[0]! : null;
   }
   return v;
+}
+
+/** Ghi lại các sản phẩm của dự án theo thứ tự đã chọn */
+function saveProducts(spId: number, ids: number[]) {
+  run('DELETE FROM sales_project_products WHERE sales_project_id = ?', spId);
+  ids.forEach((id, i) => run('INSERT INTO sales_project_products(sales_project_id, product_id, position) VALUES (?,?,?)', spId, id, i));
 }
 
 /** Id tài khoản theo vai trò của dự án: { kd: [...], am: [...], ... } */
@@ -149,6 +171,7 @@ r.post('/:id/projects', (req, res) => {
     const { id } = run(`INSERT INTO sales_projects(customer_id, code, name, product_type_id, product_id, product_description, note, created_by)
       VALUES (?,?,?,?,?,?,?,?)`, c.id, code, v.name, v.product_type_id, v.product_id, v.product_description, v.note, req.user.id);
     savePeopleOf(id, v);
+    saveProducts(id, v.product_ids);
     return id;
   });
   audit(req, 'customer_updated', { target: c.name, detail: `Thêm dự án ${v.name}` });
@@ -202,11 +225,14 @@ r.get('/:id/projects/:pid', (req, res) => {
 r.patch('/:id/projects/:pid', (req, res) => {
   const { c, sp } = loadSalesProject(req, 'sales_project.edit');
   const before = ownerIds(sp.id);
-  const v = validate({ ...sp, ...Object.fromEntries(ROLES.map((r) => [`${r}_ids`, before[r]])), ...req.body });
+  // Sản phẩm: không gửi thì giữ nguyên; chỉ gửi product_id (kiểu cũ) thì thay bằng một sản phẩm đó
+  const products = req.body?.product_ids === undefined && req.body?.product_id !== undefined ? undefined : productIdsBySalesProject().get(sp.id) ?? [];
+  const v = validate({ ...sp, product_ids: products, ...Object.fromEntries(ROLES.map((r) => [`${r}_ids`, before[r]])), ...req.body });
   tx(() => {
     run(`UPDATE sales_projects SET name = ?, product_type_id = ?, product_id = ?, product_description = ?, note = ?, updated_at = ? WHERE id = ?`,
       v.name, v.product_type_id, v.product_id, v.product_description, v.note, now(), sp.id);
     savePeopleOf(sp.id, v, before);
+    saveProducts(sp.id, v.product_ids);
   });
   audit(req, 'customer_updated', { target: c.name, detail: `Sửa dự án ${sp.code} ${v.name}` });
   res.json({ ok: true });

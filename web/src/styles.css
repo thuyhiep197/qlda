@@ -1291,3 +1291,16 @@ a.cw-proj-link:hover { background: var(--hover); text-decoration: none; }
   .help-main { padding: 16px; }
 }
 h1 .help-inline, h2 .help-inline { display: inline-flex; vertical-align: -5px; margin-left: 2px; }
+
+/* ---------- Khách hàng: báo cáo theo sản phẩm ---------- */
+.cw-left > .cw-report { padding: 6px 10px; margin-top: 2px; }
+.pr-table .pr-row td { vertical-align: middle; }
+.pr-table .pr-row-rest td { color: var(--muted); }
+.pr-table .pr-detail > td { padding: 0 0 8px 28px; background: var(--sunken); }
+.pr-detail:hover > td { background: var(--sunken); }
+.pr-sub { background: var(--surface); border-left: 2px solid var(--primary); }
+.pr-sub thead th { position: static; font-size: 11px; }
+.pr-sub td { vertical-align: top; }
+.pr-proj + .pr-proj { margin-top: 3px; }
+.pr-talk { max-width: 420px; }
+.pr-content { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }

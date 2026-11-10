@@ -49,15 +49,17 @@ export function cleanCustomer(b: any) {
   };
 }
 
-/** Dự án của khách hàng (do Kinh doanh tạo): tên, Sale, AM, BA/PM, Dev, Tester (id tài khoản), sản phẩm, ghi chú. Tình trạng tự động theo hành trình. */
+/** Dự án của khách hàng (do Kinh doanh tạo): tên, Sale, AM, BA/PM, Dev, Tester (id tài khoản), sản phẩm, ghi chú. Tình trạng tự động theo hành trình.
+ *  Sản phẩm: product_ids (nhiều sản phẩm); chỉ gửi product_id (kiểu cũ) thì coi như danh sách một sản phẩm. */
 export function cleanSalesProject(b: any) {
   const name = text(b.name, 200);
   if (!name) throw badRequest('Tên dự án không được để trống');
   const product_type_id = optId(b.product_type_id), product_id = optId(b.product_id);
   if (Number.isNaN(product_type_id)) throw badRequest('Loại sản phẩm không hợp lệ');
   if (Number.isNaN(product_id)) throw badRequest('Sản phẩm không hợp lệ');
+  const product_ids = b.product_ids === undefined ? (product_id ? [product_id] : []) : idList(b.product_ids);
   return {
-    name, product_type_id, product_id,
+    name, product_type_id, product_id: product_ids[0] ?? null, product_ids,
     product_description: longText(b.product_description, 4000),
     note: longText(b.note, 4000),
     kd_ids: idList(b.kd_ids),

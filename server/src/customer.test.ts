@@ -87,6 +87,15 @@ test('a customer project needs a name and keeps product, people (account ids) an
   assert.equal(p.note, 'ghi chú');
 });
 
+test('a customer project takes several products; a lone product_id still works', () => {
+  assert.deepEqual(cleanSalesProject({ name: 'A', product_id: 5 }).product_ids, [5]);
+  assert.deepEqual(cleanSalesProject({ name: 'A' }).product_ids, []);
+  const p = cleanSalesProject({ name: 'Combo', product_id: 9, product_ids: [3, '3', 4, 'x', 0] });
+  assert.deepEqual(p.product_ids, [3, 4]);
+  assert.equal(p.product_id, 3);
+  assert.equal(cleanSalesProject({ name: 'A', product_id: 5, product_ids: [] }).product_id, null);
+});
+
 test('customer code comes from the initials of the name, numbered when taken', () => {
   assert.equal(customerCode('Sở Giáo dục và Đào tạo', []), 'SGDVDT');
   assert.equal(customerCode('Sở GD & ĐT HCM', []), 'SGDH');

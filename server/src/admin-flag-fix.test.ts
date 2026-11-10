@@ -18,9 +18,9 @@ const rogue = run("INSERT INTO users(username, full_name, password_hash, default
 const other = run("INSERT INTO users(username, full_name, password_hash, default_role_id, is_admin) VALUES ('sysadmin2', 'Khác', 'x', ?, 1)", adminGroup).id;
 const normal = run("INSERT INTO users(username, full_name, password_hash, default_role_id, is_admin) VALUES ('dev1', 'Dev', 'x', ?, 0)", devGroup).id;
 
-// Chạy lại riêng bản nâng cấp cuối (v34) trên dữ liệu như đang chạy thật
-const latest = Number(get<{ user_version: number }>('PRAGMA user_version')!.user_version);
-run(`PRAGMA user_version = ${latest - 1}`);
+// Chạy lại riêng bản nâng cấp v34 trên dữ liệu như đang chạy thật (gỡ bảng của v35 để v35 chạy lại được)
+run('DROP TABLE sales_project_products');
+run('PRAGMA user_version = 33');
 migrate();
 
 test('tài khoản có cờ quản trị mà không phải tài khoản admin bị gỡ cờ và đăng xuất', () => {

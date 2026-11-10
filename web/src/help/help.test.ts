@@ -115,11 +115,13 @@ test('images and links to other articles exist', () => {
 });
 
 test('every screen of the tool has a help article', () => {
-  const screens = ['/home', '/customers', '/customers/1', '/customers/1/p/2', '/projects', '/issues', '/p/DEMO/info', '/p/DEMO/roadmap', '/p/DEMO/plan',
+  const screens = ['/home', '/customers', '/customers/report', '/customers/1', '/customers/1/p/2', '/projects', '/issues', '/p/DEMO/info', '/p/DEMO/roadmap', '/p/DEMO/plan',
     '/p/DEMO/board', '/p/DEMO/issues', '/p/DEMO/backlog', '/browse/DEMO-1', '/docs', '/profile', '/admin/users', '/admin/roles', '/admin/org',
     '/admin/geo', '/admin/products', '/admin/customer-statuses', '/admin/audit'];
   for (const s of screens) assert.ok(articleForRoute(articles, s), `màn hình ${s} chưa có bài hướng dẫn`);
   assert.equal(articleForRoute(articles, '/p/DEMO/plan', '?issue=DEMO-1')?.id, 'da-issue');
+  assert.equal(articleForRoute(articles, '/customers/report')?.id, 'kh-bao-cao-san-pham');
+  assert.equal(articleForRoute(articles, '/customers/12')?.id, 'kh-thong-tin');
   for (const id of ['bat-dau', 'co-gi-moi', 'quyen-cua-toi', 'cau-hoi-thuong-gap']) assert.ok(byId.has(id), `thiếu bài ${id}`);
   assert.ok(latestNewsKey(byId.get('co-gi-moi')!.body), 'co-gi-moi cần ít nhất một mục "## …"');
 });

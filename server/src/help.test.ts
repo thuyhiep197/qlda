@@ -70,7 +70,7 @@ test('migration v33 skips the intro tour for accounts that have already logged i
   const broken = run("INSERT INTO users(username, full_name, password_hash, last_login_at, preferences) VALUES ('hong', 'Hỏng', 'x', '2026-10-01', 'không phải json')").id;
   const fresh = run("INSERT INTO users(username, full_name, password_hash) VALUES ('moi', 'Mới', 'x')").id;
   // Chạy lại bước v33 (gỡ bảng của bước này)
-  run('DROP TABLE help_articles');
+  run('DROP TABLE help_articles'); run('DROP TABLE sales_project_products');
   run('PRAGMA user_version = 32');
   migrate();
   const prefs = (id: number) => JSON.parse(get<{ preferences: string }>('SELECT preferences FROM users WHERE id = ?', id)!.preferences);

@@ -830,6 +830,16 @@ const migrations: (string | (() => void))[] = [
      SELECT ${TS}, NULL, 'cập nhật hệ thống', 'user_updated', username, 'Mở khóa tài khoản quản trị', NULL, 'migration v34'
      FROM users WHERE username = 'admin' AND is_admin = 1 AND is_active = 0;
    UPDATE users SET is_active = 1, failed_logins = 0 WHERE username = 'admin' AND is_admin = 1;`,
+  // v35: một dự án của khách hàng chọn được nhiều sản phẩm (VD combo 3 trợ lý GovOne) — để thống kê khách hàng theo sản phẩm.
+  // Sản phẩm đã chọn từ trước chuyển sang bảng mới; cột sales_projects.product_id giữ lại = sản phẩm đầu tiên.
+  `CREATE TABLE sales_project_products (
+     sales_project_id INTEGER NOT NULL REFERENCES sales_projects(id) ON DELETE CASCADE,
+     product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+     position INTEGER NOT NULL DEFAULT 0,
+     PRIMARY KEY (sales_project_id, product_id)
+   );
+   CREATE INDEX idx_sales_project_products_product ON sales_project_products(product_id);
+   INSERT INTO sales_project_products(sales_project_id, product_id) SELECT id, product_id FROM sales_projects WHERE product_id IS NOT NULL;`,
 ];
 
 function migrateV26() {

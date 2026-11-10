@@ -58,7 +58,8 @@ r.delete('/types/:id', (req, res) => {
 
 r.get('/', (_req, res) => {
   res.json(all(`SELECT p.id, p.type_id, p.name, p.description, t.name AS type_name, t.is_project, p.project_id, pr.key AS project_key, pr.is_archived AS project_archived,
-      (SELECT COUNT(*) FROM customers c WHERE c.product_id = p.id) AS customer_count
+      (SELECT COUNT(DISTINCT sp.customer_id) FROM sales_project_products spp JOIN sales_projects sp ON sp.id = spp.sales_project_id
+        JOIN customers c ON c.id = sp.customer_id WHERE spp.product_id = p.id AND sp.is_archived = 0 AND c.is_archived = 0) AS customer_count
     FROM products p JOIN product_types t ON t.id = p.type_id LEFT JOIN projects pr ON pr.id = p.project_id ORDER BY t.position, p.name`));
 });
 

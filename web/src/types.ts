@@ -413,7 +413,10 @@ export interface SalesProject {
   created_at: string;
   updated_at: string;
   product_type_name: string | null;
+  /** Tên các sản phẩm của dự án (chọn được nhiều), cách nhau dấu phẩy */
   product_name: string | null;
+  /** Id các sản phẩm đã chọn, theo thứ tự chọn (chỉ có khi được xem thông tin dự án) */
+  product_ids?: number[];
   project_key: string | null;
   project_name: string | null;
   /** Họ tên người theo vai trò (Sale, AM, BA/PM, Dev, Tester), cách nhau dấu phẩy */
@@ -434,6 +437,34 @@ export interface SalesProject {
   call_alert: CallAlert | null;
 }
 export interface CallAlert { date: string; late: number; count: number }
+
+/** Báo cáo khách hàng theo sản phẩm: mỗi nhóm là một sản phẩm (hoặc "chưa chọn sản phẩm", "chưa có dự án") kèm các khách hàng và hiện trạng tương tác */
+export interface ProductReportProject { id: number; code: string; name: string; status: string | null; journey_pct?: number | null; journey_overdue?: number }
+export interface ProductReportCustomer {
+  id: number; name: string; code: string | null; province_name: string | null;
+  /** Tình trạng khách hàng — null khi không có Thông tin khách hàng – Xem */
+  status: string | null;
+  kd_names: string | null; am_names: string | null;
+  /** Các dự án của khách hàng thuộc sản phẩm này */
+  projects: ProductReportProject[];
+  /** Trao đổi, lịch gọi: chỉ có khi được xem Trao đổi */
+  activity_count?: number;
+  last_activity?: { date: string; content: string; user_name: string | null } | null;
+  next_call_date?: string | null;
+  calls_due?: number;
+  /** Chỉ có khi được xem Công việc */
+  open_tasks?: number;
+}
+export interface ProductReportGroup { key: string; product_id: number | null; name: string; type_name: string | null; customers: ProductReportCustomer[] }
+export interface ProductReport {
+  today: string;
+  can: { info: boolean; talk: boolean; journey: boolean; task: boolean };
+  /** Danh mục Tình trạng khách hàng theo thứ tự (trống khi không có Thông tin khách hàng – Xem) */
+  statuses: string[];
+  /** Số khách hàng không trùng */
+  total: number;
+  groups: ProductReportGroup[];
+}
 /** Lịch gọi điện của dự án của khách hàng: planned = chờ gọi, done = đã gọi, failed = chưa gọi được */
 export interface CustomerCall {
   id: number; customer_id: number; sales_project_id: number; call_date: string; assignee_id: number | null; assignee_name: string | null;

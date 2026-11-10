@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Archive, ChevronDown, ChevronRight, FolderOpen, LayoutList, MapPin, PhoneCall, Plus, Search, Star } from 'lucide-react';
+import { AlertTriangle, Archive, BarChart3, ChevronDown, ChevronRight, FolderOpen, LayoutList, MapPin, PhoneCall, Plus, Search, Star } from 'lucide-react';
 import { api } from '../../api';
 import { ManageContext, useCan } from './manage';
 import type { Customer, CustomerDetail, SalesProject, SalesProjectDetail, StepDetail } from '../../types';
@@ -14,6 +14,7 @@ import JourneyPane from './JourneyPane';
 import CustomerSide from './CustomerSide';
 import SalesProjectSide, { SalesProjectModal } from './SalesProjectSide';
 import StepPanel from './StepPanel';
+import ProductReport from './ProductReport';
 import { HelpButton } from '../../help/HelpMenu';
 
 /**
@@ -23,8 +24,9 @@ import { HelpButton } from '../../help/HelpMenu';
  *  - Khách hàng (/customers/:id): giữa là danh sách dự án của khách hàng; phải là thông tin khách hàng, công việc, tài liệu.
  *  - Dự án (/customers/:id/p/:pid): giữa là hành trình bán hàng (quy trình I–IV) của dự án;
  *    phải là thông tin dự án, hoặc Trao đổi + Tài liệu của bước đang chọn (?step=).
+ *  - Báo cáo (/customers/report): khách hàng theo sản phẩm kèm hiện trạng tương tác (cần Dự án của khách hàng – Xem).
  */
-export default function CustomerWorkspace() {
+export default function CustomerWorkspace({ report = false }: { report?: boolean }) {
   const { id, pid } = useParams();
   const [archived, setArchived] = useShowArchived();
   const { data: customers, isLoading } = useCustomers(archived);
@@ -37,15 +39,17 @@ export default function CustomerWorkspace() {
   const preset = { status: params.get('status') ?? '', kd: params.get('kd'), am: params.get('am') };
   const list = filterCustomers(customers || [], { q, province: '', mine: group === 'mine', ...preset });
 
-  const canInfo = useCan()('customer.view');
+  const can = useCan();
+  const canInfo = can('customer.view'), canReport = can('sales_project.view');
   if (isLoading) return <Spinner />;
+  if (report && !canReport) return <Navigate to="/customers" replace />;
   // Không có Thông tin khách hàng – Xem: không mở màn khách hàng (chỉ mở dự án mình tham gia)
   if (id && !pid && !canInfo) return <Navigate to="/customers" replace />;
   return (
     <div className="cw">
       <CustomerTree customers={customers || []} group={group} current={id ? Number(id) : null} currentProject={pid ? Number(pid) : null}
-        archived={archived} setArchived={setArchived} />
-      {id && pid ? <ProjectView id={id} pid={pid} /> : id ? <CustomerView id={id} archived={archived} />
+        archived={archived} setArchived={setArchived} report={report} />
+      {report ? <ProductReport /> : id && pid ? <ProjectView id={id} pid={pid} /> : id ? <CustomerView id={id} archived={archived} />
         : <CustomerTable list={list} total={group === 'mine' ? (customers || []).filter((c) => c.is_mine).length : customers?.length ?? 0}
           title={group === 'mine' ? 'Khách hàng của tôi' : 'Tất cả khách hàng'} q={q} setQ={setQ} />}
     </div>
@@ -55,8 +59,8 @@ export default function CustomerWorkspace() {
 const salesTone = (s: string | null) => salesStatusClass(s).replace('lozenge lozenge-', '');
 
 /** Cột trái: 2 nhóm Khách hàng của tôi / Tất cả khách hàng; mỗi nhóm là cây 3 cấp Tỉnh/Thành phố → Khách hàng → Dự án của khách hàng */
-function CustomerTree({ customers, group, current, currentProject, archived, setArchived }: {
-  customers: Customer[]; group: 'mine' | 'all'; current: number | null; currentProject: number | null; archived: boolean; setArchived: (v: boolean) => void;
+function CustomerTree({ customers, group, current, currentProject, archived, setArchived, report }: {
+  customers: Customer[]; group: 'mine' | 'all'; current: number | null; currentProject: number | null; archived: boolean; setArchived: (v: boolean) => void; report: boolean;
 }) {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState('');
@@ -73,12 +77,14 @@ function CustomerTree({ customers, group, current, currentProject, archived, set
     <aside className="cw-left">
       <div className="cw-search"><Search size={14} /><input placeholder="Tìm khách hàng, dự án…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <label className="check small cw-arch"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Xem đã lưu trữ</label>
+      {/* Báo cáo khách hàng theo sản phẩm: sản phẩm là thông tin của dự án → cần Dự án của khách hàng – Xem */}
+      {can('sales_project.view') && <Link to="/customers/report" className={`cw-item cw-report ${report ? 'active' : ''}`}><BarChart3 size={16} /><span className="grow ellipsis">Báo cáo theo sản phẩm</span></Link>}
       {groups.map(([key, label, items, icon]) => {
         const open = !closed[key] || searching;
         const tree = customerTree(items, q);
         return (
           <div key={key} className="cw-group">
-            <div className={`cw-item ${!current && group === key ? 'active' : ''}`}>
+            <div className={`cw-item ${!current && !report && group === key ? 'active' : ''}`}>
               <button className="cw-caret" aria-label={open ? 'Thu gọn' : 'Mở rộng'} onClick={() => setClosed({ ...closed, [key]: open })}>
                 {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button>
               <Link to={`/customers?g=${key}`} className="cw-group-link">{icon}<span className="grow ellipsis">{label}</span></Link>

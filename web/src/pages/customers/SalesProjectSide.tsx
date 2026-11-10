@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, ArchiveRestore, Pencil } from 'lucide-react';
+import { Archive, ArchiveRestore, Pencil, X } from 'lucide-react';
 import { api, queryClient, refreshAll } from '../../api';
 import { hasPerm, useMe, useProducts, useProductTypes, useUsersBasic } from '../../hooks';
 import { useCan, type CustomerRef } from './manage';
@@ -8,6 +8,7 @@ import type { Product, SalesProjectDetail } from '../../types';
 import { descriptionOf, salesStatusClass } from '../../customer-filter';
 import { Modal, toast, toastError } from '../../components/ui';
 import { PeoplePicker } from '../../components/PeoplePicker';
+import { SearchSelect } from '../../components/SearchSelect';
 import { ROLE_LABELS, type PeopleRole } from '../../people';
 import { ProductModal } from '../AdminProducts';
 import { CreateProjectModal } from '../Projects';
@@ -64,14 +65,16 @@ export default function SalesProjectSide({ customer, sp }: { customer: CustomerR
 /**
  * Thêm / sửa dự án của khách hàng — như form Tạo dự án của phân hệ Dự án; người theo vai trò chọn theo tài khoản;
  * mã dự án tự sinh (mã khách hàng + số); Sale, AM điền sẵn theo khách hàng; tình trạng tự động theo hành trình.
+ * Sản phẩm: chọn được nhiều (VD combo nhiều trợ lý) — là căn cứ của Báo cáo khách hàng theo sản phẩm; ô Loại sản phẩm lọc danh sách để chọn.
  */
 export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer: CustomerRef; sp?: SalesProjectDetail; onClose: () => void; onSaved?: (id: number) => void }) {
   const { data: types } = useProductTypes();
   const { data: products } = useProducts();
   const [d, setD] = useState({
-    name: sp?.name ?? '', product_type_id: sp?.product_type_id ? String(sp.product_type_id) : '', product_id: sp?.product_id ? String(sp.product_id) : '',
+    name: sp?.name ?? '', product_type_id: sp?.product_type_id ? String(sp.product_type_id) : '',
     product_description: sp?.product_description ?? '', note: sp?.note ?? '',
   });
+  const [productIds, setProductIds] = useState<number[]>(sp?.product_ids ?? []);
   // Người theo vai trò (id tài khoản); dự án mới: Sale, AM điền sẵn theo khách hàng
   const [people, setPeople] = useState<Record<PeopleRole, number[]>>({
     kd: sp?.kd_ids ?? customer.kd_ids ?? [], am: sp?.am_ids ?? customer.am_ids ?? [], ba: sp?.ba_ids ?? [], dev: sp?.dev_ids ?? [], tester: sp?.tester_ids ?? [],
@@ -89,23 +92,22 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
   const selectNew = async (match: (p: Product) => boolean) => {
     const list = await queryClient.fetchQuery<Product[]>({ queryKey: ['products'], queryFn: () => api.get('/products'), staleTime: 0 });
     const p = list.find(match);
-    if (p) setD((cur) => ({ ...cur, product_id: String(p.id), product_type_id: String(p.type_id), product_description: descriptionOf(p) }));
+    if (p) addProduct(p);
   };
-  const typeProducts = (products || []).filter((p) => (!d.product_type_id || String(p.type_id) === d.product_type_id) && !p.project_archived);
-  const pickType = (v: string) => {
-    const keep = products?.find((p) => String(p.id) === d.product_id && String(p.type_id) === v);
-    setD({ ...d, product_type_id: v, product_id: keep ? d.product_id : '' });
+  // Danh sách để chọn thêm: theo loại đang lọc, bỏ sản phẩm đã chọn và dự án đã lưu trữ
+  const typeProducts = (products || []).filter((p) => (!d.product_type_id || String(p.type_id) === d.product_type_id) && !p.project_archived && !productIds.includes(p.id));
+  const productLabel = (id: number) => { const p = products?.find((x) => x.id === id); return p ? `${p.name}${p.project_key ? ` (${p.project_key})` : ''}` : '…'; };
+  // Chọn thêm sản phẩm → mô tả đang trống thì lấy theo danh mục (đã ghi thì giữ nguyên)
+  const addProduct = (p: Product) => {
+    setProductIds((cur) => (cur.includes(p.id) ? cur : [...cur, p.id]));
+    setD((cur) => ({ ...cur, product_description: cur.product_description.trim() ? cur.product_description : descriptionOf(p) }));
   };
-  // Chọn sản phẩm → mô tả lấy theo danh mục (chưa có thì để trống cho người dùng điền)
-  const pickProduct = (v: string) => {
-    const p = products?.find((x) => String(x.id) === v);
-    setD({ ...d, product_id: v, product_type_id: p ? String(p.type_id) : d.product_type_id, product_description: v ? descriptionOf(p) : d.product_description });
-  };
+  const pickProduct = (v: string) => { const p = products?.find((x) => String(x.id) === v); if (p) addProduct(p); };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const body = { ...d, product_type_id: d.product_type_id || null, product_id: d.product_id || null,
+      const body = { ...d, product_type_id: d.product_type_id || null, product_ids: productIds,
         kd_ids: people.kd, am_ids: people.am, ba_ids: people.ba, dev_ids: people.dev, tester_ids: people.tester };
       let id = sp?.id;
       if (id) await api.patch(`/customers/${customer.id}/projects/${id}`, body);
@@ -135,21 +137,25 @@ export function SalesProjectModal({ customer, sp, onClose, onSaved }: { customer
         <div className="form-grid">{person('dev')}{person('tester')}</div>
         <div className="form-grid">
           <label className="field"><span>Loại sản phẩm</span>
-            <select value={d.product_type_id} onChange={(e) => pickType(e.target.value)}>
+            <select value={d.product_type_id} onChange={(e) => setD({ ...d, product_type_id: e.target.value })}>
               <option value="">—</option>
               {types?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select></label>
-          <div className="field"><span>Sản phẩm</span>
-            <div className="row gap-xs">
-              <select className="grow" value={d.product_id} onChange={(e) => pickProduct(e.target.value)} aria-label="Sản phẩm">
-                <option value="">{typeProducts.length ? '—' : 'Chưa có sản phẩm trong danh mục'}</option>
+          <div className="field"><span>Sản phẩm <small className="muted">(chọn được nhiều)</small></span>
+            <div className="staff-picker">
+              {productIds.map((id) => (
+                <span key={id} className="chip">{productLabel(id)}
+                  <button type="button" aria-label={`Bỏ ${productLabel(id)}`} onClick={() => setProductIds(productIds.filter((x) => x !== id))}><X size={12} /></button></span>
+              ))}
+              <SearchSelect value="" onChange={(e) => pickProduct(e.target.value)} aria-label="Thêm sản phẩm">
+                <option value="">{typeProducts.length ? '+ Thêm sản phẩm…' : 'Không còn sản phẩm để chọn'}</option>
                 {typeProducts.map((p) => <option key={p.id} value={p.id}>{p.name}{p.project_key ? ` (${p.project_key})` : ''}</option>)}
-              </select>
+              </SearchSelect>
               {canAddProduct && <button type="button" className="btn btn-sm" data-tip={isProjectType ? 'Tạo dự án mới (tự có trong danh mục)' : 'Thêm sản phẩm vào danh mục'}
                 onClick={() => setAdding(isProjectType ? 'project' : 'product')}>+ Thêm mới</button>}
             </div></div>
         </div>
-        <label className="field"><span>Mô tả sản phẩm <small className="muted">(tự lấy từ danh mục khi chọn sản phẩm; sửa được)</small></span>
+        <label className="field"><span>Mô tả sản phẩm <small className="muted">(tự lấy từ danh mục khi chọn sản phẩm đầu tiên; sửa được)</small></span>
           <textarea rows={3} value={d.product_description} onChange={(e) => setD({ ...d, product_description: e.target.value })} /></label>
         <label className="field"><span>Ghi chú</span>
           <textarea rows={3} value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} /></label>
