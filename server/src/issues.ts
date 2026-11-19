@@ -12,7 +12,7 @@ import {
 import { avatarUrl } from './avatar.ts';
 import { checkIssueNote } from './issue-note.ts';
 import { autoStartSprint } from './sprint-autostart.ts';
-import { typeChangeError } from './issue-type.ts';
+import { parentDoneError, typeChangeError } from './issue-type.ts';
 
 export const ISSUE_TYPES = ['epic', 'story', 'task', 'bug', 'subtask'] as const;
 export const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest'] as const;
@@ -647,6 +647,12 @@ export function updateIssue(user: AuthUser, issue: IssueRow, perms: Set<Permissi
         throw badRequest(`Trạng thái "${statusName(s.id)}" không dùng cho loại ${TYPE_NAMES[effType] ?? effType}`);
       }
       checkTransition(issue.project_id, effType, issue.status_id, s.id);
+      // Việc con chưa hoàn thành thì việc cha chưa được hoàn thành
+      const openKids = all<{ key: string }>(
+        `SELECT c.key FROM issues c JOIN statuses cs ON cs.id = c.status_id
+          WHERE c.parent_id = ? AND cs.category <> 'done' ORDER BY c.number`, issue.id).map((r) => r.key);
+      const doneErr = parentDoneError(s.category, openKids);
+      if (doneErr) throw badRequest(doneErr);
       applyStatus(s);
     } else if (sets.type && !isStatusAllowed(issue.project_id, effType, issue.status_id)) {
       // Đổi loại issue mà trạng thái hiện tại không có trong workflow của loại mới → chuyển sang trạng thái cùng nhóm

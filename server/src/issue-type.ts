@@ -18,3 +18,13 @@ export function typeChangeError(from: string, to: string, childCount: number): s
   if (to === 'subtask' && childCount) return 'Issue đang có sub-task, không thể chuyển thành Sub-task';
   return null;
 }
+
+/**
+ * Việc con chưa hoàn thành thì việc cha chưa được hoàn thành.
+ * openKeys: mã các việc con chưa ở nhóm trạng thái Hoàn thành. Trả về thông báo lỗi, hoặc null nếu được phép.
+ */
+export function parentDoneError(targetCategory: string, openKeys: string[]): string | null {
+  if (targetCategory !== 'done' || !openKeys.length) return null;
+  const list = openKeys.length > 5 ? `${openKeys.slice(0, 5).join(', ')}… (${openKeys.length} việc)` : openKeys.join(', ');
+  return `Còn việc con chưa hoàn thành (${list}), chưa thể chuyển việc cha sang Hoàn thành`;
+}

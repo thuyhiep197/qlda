@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { typeChangeError } from './issue-type';
+import { parentDoneError, typeChangeError } from './issue-type';
 
 test('story, task, bug and sub-task convert between each other', () => {
   assert.equal(typeChangeError('story', 'bug', 0), null);
@@ -30,4 +30,14 @@ test('sub-task and epic do not convert directly', () => {
 
 test('unknown types are rejected', () => {
   assert.ok(typeChangeError('task', 'feature', 0));
+});
+
+test('parent cannot move to done while a child is still open', () => {
+  assert.match(parentDoneError('done', ['QLTB-716', 'QLTB-718'])!, /QLTB-716, QLTB-718/);
+  assert.match(parentDoneError('done', ['A-1', 'A-2', 'A-3', 'A-4', 'A-5', 'A-6'])!, /6 việc/);
+});
+
+test('parent may move to done when all children are done, or to any non-done status', () => {
+  assert.equal(parentDoneError('done', []), null);
+  assert.equal(parentDoneError('indeterminate', ['QLTB-716']), null);
 });
